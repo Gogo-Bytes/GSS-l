@@ -102,6 +102,13 @@
 - **重新评估**：React Adapter diagnostic code稳定后。
 - **依据**：[ADR-0017](adr/0017-use-self-as-the-explicit-class-string-escape.md)。
 
+### D014 — Generic preserved/raw CSS escape hatch
+
+- **当前行为**：没有自动或显式 `preserve`、`raw`、`ignore` 整块 fallback；无法证明安全的输入直接失败。
+- **原因**：通用 escape 会让构建成功不再代表语义安全，并容易成为绕过语言约束的默认路径。
+- **重新评估**：真实项目出现无法通过 supported contextual/residual/global 能力改写的必要案例后；未来设计必须显式 opt-in、限制 scope、进入 manifest/report 并记录原因。
+- **依据**：[ADR-0019](adr/0019-fail-closed-when-safety-cannot-be-proved.md)。
+
 ## Intentional non-goals and guarantee boundaries
 
 ### N001 — 任意消费侧 class composition winner
