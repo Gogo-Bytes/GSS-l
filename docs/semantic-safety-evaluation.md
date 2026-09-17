@@ -23,6 +23,7 @@
 - 首期拒绝 `.button.primary` 等 local-local compound class；property chaining 只表示 descendant path，业务 variant 使用 attribute/ARIA/pseudo，外部 compound 使用显式 `:global(...)` residual。见 [ADR-0014](adr/0014-reject-local-compound-class-selectors.md)。
 - `:not()`、`:is()`、`:where()` 支持 pseudo、attribute 和显式 global 参数，但拒绝 local class 参数；分别保留 negative、OR 与零 specificity 语义。见 [ADR-0015](adr/0015-constrain-local-classes-in-functional-pseudos.md)。
 - `:has()` 作为 observed contextual relation 支持；subject 和 observed local class 分别使用 top-level marker，保留 relative selector，不允许 observed local compound 或 nested `:has()`。见 [ADR-0016](adr/0016-support-has-as-an-observed-contextual-relation.md)。
+- 运行时 style path 是 `{ self, ...targets }` scope object；React JSX `className` 内自动降低 `.self`，其他 string context 显式使用 `.self`，scope object 只做受限局部 alias 传播。见 [ADR-0017](adr/0017-use-self-as-the-explicit-class-string-escape.md)。
 
 ## 1. 评估目标
 
@@ -482,15 +483,12 @@ Collision 可以稳定扩展或 fail fast，具体策略尚未决定。
 
 以下问题均未决策：
 
-1. 独立 style 是否允许在同一 DOM 节点任意拼接？
-2. 对无法证明安全的 declaration，是拒绝编译、要求改写，还是允许显式 fallback？
-3. React Adapter 首批识别哪些 JSX `className` 形式；局部 alias provenance 和 escape diagnostic 的边界是什么？
-5. 非 `className` string context 是否要求显式 `.self`，以及 React/TypeScript 如何提供准确提示？
-6. Property-effect graph 的首批覆盖范围，以及未知关系是 warning 还是 error？
-7. 如何把 importance、specificity、relation implication 和 at-rule condition order组合成完整 cascade order key？
-8. production 中央 CSS、code splitting、SSR 与 HMR 如何共同维持全局 order key？
-9. production class naming 是 hash、稳定短名还是混合方案，collision 如何处理？
-10. semantic reference CSS 是否应成为 Compiler 的正式测试输出？
+1. 对无法证明安全的 declaration，是拒绝编译、要求改写，还是允许显式 fallback？
+2. Property-effect graph 的首批覆盖范围，以及未知关系是 warning 还是 error？
+3. 如何把 importance、specificity、relation implication 和 at-rule condition order组合成完整 cascade order key？
+4. production 中央 CSS、code splitting、SSR 与 HMR 如何共同维持全局 order key？
+5. production class naming 是 hash、稳定短名还是混合方案，collision 如何处理？
+6. semantic reference CSS 是否应成为 Compiler 的正式测试输出？
 
 ## 16. 当前实施状态说明
 
