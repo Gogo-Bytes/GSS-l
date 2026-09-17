@@ -61,4 +61,6 @@
 - Runtime relation contextual atom。
 - Path-specific source/target marker。
 - Selector-path accumulation 与编译期 winner resolution。
-- Global property-effect order；registry registration order 不参与 cascade。
+- Native-style importance/layer/specificity cascade resolution。
+- Semantic source-order vector：registered condition、relation implication、property effect。
+- Cascade resolution 与 deterministic render order分离；registry registration order和 canonical hash不参与 winner。

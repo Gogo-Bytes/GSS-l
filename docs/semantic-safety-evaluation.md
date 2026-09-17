@@ -35,6 +35,7 @@
 - 首期支持 module-local `@keyframes`，作为不可拆 resource稳定改名，并重写 Module 内静态 animation reference。见 [ADR-0024](adr/0024-support-module-local-keyframes.md)。
 - 首期支持 `@font-face` 不可拆全局资源，font family不改名，完整保留 descriptor/src fallback顺序并跟踪 URL dependency。见 [ADR-0025](adr/0025-support-font-face-as-a-global-resource.md)。
 - 首期支持由项目 `layerOrder` 稳定排序的命名 `@layer`；layer进入 identity，并保留 unlayered 与 important layer reversal 的原生 cascade。见 [ADR-0026](adr/0026-support-configured-named-cascade-layers.md)。
+- CascadeResolver按 importance/layer、specificity和 condition/relation/property semantic order解析；RuleOrderPlanner只稳定排序已证明安全的 rule，hash/注册顺序不参与 winner。见 [ADR-0027](adr/0027-separate-cascade-resolution-from-render-order.md)。
 
 ## 1. 评估目标
 
@@ -494,10 +495,9 @@ Collision 可以稳定扩展或 fail fast，具体策略尚未决定。
 
 以下问题均未决策：
 
-1. 如何把 importance、specificity、relation implication 和 at-rule condition order组合成完整 cascade order key？
-2. production 中央 CSS、code splitting、SSR 与 HMR 如何共同维持全局 order key？
-3. production class naming 是 hash、稳定短名还是混合方案，collision 如何处理？
-4. semantic reference CSS 是否应成为 Compiler 的正式测试输出？
+1. production 中央 CSS、code splitting、SSR 与 HMR 如何共同维持全局 order key？
+2. production class naming 是 hash、稳定短名还是混合方案，collision 如何处理？
+3. semantic reference CSS 是否应成为 Compiler 的正式测试输出？
 
 ## 16. 当前实施状态说明
 
