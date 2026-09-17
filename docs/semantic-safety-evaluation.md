@@ -29,6 +29,8 @@
 - 无法证明安全的输入 fail closed，不自动产生 scoped/preserved fallback；只有正式建模的 contextual/residual/global、browserslist 展开和未注册 condition warning 例外可以输出。见 [ADR-0019](adr/0019-fail-closed-when-safety-cannot-be-proved.md)。
 - 首期支持 selector list，并展开为共享 source ordinal 的独立 RuleIR branch；任一 branch 不受支持则整条 rule fail closed。见 [ADR-0020](adr/0020-expand-supported-selector-lists-into-rule-branches.md)。
 - 首期正向支持常用 pseudo-element capability set；未注册语法统一 fail closed，不维护无限反向排除清单。见 [ADR-0021](adr/0021-support-a-positive-pseudo-element-capability-set.md)。
+- 标准 CSS nesting 在 semantic analysis 前展开，展开结果继续接受相同 capability validation。见 [ADR-0022](adr/0022-normalize-standard-css-nesting-before-semantic-analysis.md)。
+- 第一版正向支持集合集中维护在 [mvp-capabilities.md](mvp-capabilities.md)。
 
 ## 1. 评估目标
 
