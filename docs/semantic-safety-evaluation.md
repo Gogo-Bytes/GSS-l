@@ -17,6 +17,7 @@
 - 公共调用使用 `styles.<scope>` 和 `styles.<scope>.<target>`；Adapter 在 class-value context 中把 bare scope 降低为内部 self token，并支持受限的局部 branch reference 传播。见 [ADR-0008](adr/0008-lower-style-scope-references-in-class-value-contexts.md)。
 - 首期只实现 React/JSX Adapter；Compiler domain 保持 framework-agnostic，并通过 port 隔离 React AST、构建工具和输出设施。见 [ADR-0009](adr/0009-react-first-framework-agnostic-core.md)。
 - Style reference 完整 path 精确对应 selector class path；可控 class boundary 后的 tag 等 residual selector 保留为单 declaration contextual atom。见 [ADR-0010](adr/0010-map-style-reference-paths-to-selector-class-paths.md)。
+- 已声明 target path 累积所有可证明必然匹配的更一般 selector，并在 export 规划阶段完成 cascade winner resolution；不自动创造未声明 path。见 [ADR-0011](adr/0011-accumulate-rules-that-necessarily-match-a-target-path.md)。
 
 ## 1. 评估目标
 
@@ -480,13 +481,12 @@ Collision 可以稳定扩展或 fail fast，具体策略尚未决定。
 2. 对无法证明安全的 declaration，是拒绝编译、要求改写，还是允许显式 fallback？
 3. 首批允许哪些 class path combinator、functional pseudo、sibling relation 和 residual selector suffix？
 4. React Adapter 首批识别哪些 JSX `className` 形式；局部 alias provenance 和 escape diagnostic 的边界是什么？
-5. 多条 selector path 在同一真实元素上同时匹配时，target token 是否以及如何聚合？
-6. 非 `className` string context 是否要求显式 `.self`，以及 React/TypeScript 如何提供准确提示？
-7. Property-effect graph 的首批覆盖范围，以及未知关系是 warning 还是 error？
-8. variant precedence 应来自什么稳定语义，而不是偶然 source order？
-9. production 中央 CSS、code splitting、SSR 与 HMR 如何共同维持全局 order key？
-10. production class naming 是 hash、稳定短名还是混合方案，collision 如何处理？
-11. semantic reference CSS 是否应成为 Compiler 的正式测试输出？
+5. 非 `className` string context 是否要求显式 `.self`，以及 React/TypeScript 如何提供准确提示？
+6. Property-effect graph 的首批覆盖范围，以及未知关系是 warning 还是 error？
+7. variant precedence 应来自什么稳定语义，而不是偶然 source order？
+8. production 中央 CSS、code splitting、SSR 与 HMR 如何共同维持全局 order key？
+9. production class naming 是 hash、稳定短名还是混合方案，collision 如何处理？
+10. semantic reference CSS 是否应成为 Compiler 的正式测试输出？
 
 ## 16. 当前实施状态说明
 
