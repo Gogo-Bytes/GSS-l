@@ -18,6 +18,7 @@
 - 首期只实现 React/JSX Adapter；Compiler domain 保持 framework-agnostic，并通过 port 隔离 React AST、构建工具和输出设施。见 [ADR-0009](adr/0009-react-first-framework-agnostic-core.md)。
 - Style reference 完整 path 精确对应 selector class path；可控 class boundary 后的 tag 等 residual selector 保留为单 declaration contextual atom。见 [ADR-0010](adr/0010-map-style-reference-paths-to-selector-class-paths.md)。
 - 已声明 target path 累积所有可证明必然匹配的更一般 selector，并在 export 规划阶段完成 cascade winner resolution；不自动创造未声明 path。见 [ADR-0011](adr/0011-accumulate-rules-that-necessarily-match-a-target-path.md)。
+- 普通 ownership descendant 继续下推为纯 atom；`>`、`+`、`~`、ancestor browser state 等必须由浏览器判断的关系使用 source/target 双端 contextual marker。见 [ADR-0012](adr/0012-use-contextual-markers-only-for-runtime-relations.md)。
 
 ## 1. 评估目标
 
