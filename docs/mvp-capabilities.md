@@ -38,6 +38,7 @@
 - `@media`
 - `@supports`
 - `@container` size、named 与 style query。
+- 命名 `@layer` block、nested canonical layer name与项目级 `layerOrder`。
 - 项目级 registered condition order；未注册 condition 输出 warning 且 precedence 不保证。
 
 ## Declarations
