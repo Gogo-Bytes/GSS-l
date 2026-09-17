@@ -19,6 +19,7 @@
 - Style reference 完整 path 精确对应 selector class path；可控 class boundary 后的 tag 等 residual selector 保留为单 declaration contextual atom。见 [ADR-0010](adr/0010-map-style-reference-paths-to-selector-class-paths.md)。
 - 已声明 target path 累积所有可证明必然匹配的更一般 selector，并在 export 规划阶段完成 cascade winner resolution；不自动创造未声明 path。见 [ADR-0011](adr/0011-accumulate-rules-that-necessarily-match-a-target-path.md)。
 - 普通 ownership descendant 继续下推为纯 atom；`>`、`+`、`~`、ancestor browser state 等必须由浏览器判断的关系使用 source/target 双端 contextual marker。见 [ADR-0012](adr/0012-use-contextual-markers-only-for-runtime-relations.md)。
+- Runtime relation 存在可证明包含关系时，更窄 condition 获胜；可共存但不可比较的等优先级冲突继续报错。见 [ADR-0013](adr/0013-prefer-logically-narrower-runtime-relations.md)。
 
 ## 1. 评估目标
 
@@ -484,7 +485,7 @@ Collision 可以稳定扩展或 fail fast，具体策略尚未决定。
 4. React Adapter 首批识别哪些 JSX `className` 形式；局部 alias provenance 和 escape diagnostic 的边界是什么？
 5. 非 `className` string context 是否要求显式 `.self`，以及 React/TypeScript 如何提供准确提示？
 6. Property-effect graph 的首批覆盖范围，以及未知关系是 warning 还是 error？
-7. variant precedence 应来自什么稳定语义，而不是偶然 source order？
+7. 如何把 importance、specificity、relation implication 和 at-rule condition order组合成完整 cascade order key？
 8. production 中央 CSS、code splitting、SSR 与 HMR 如何共同维持全局 order key？
 9. production class naming 是 hash、稳定短名还是混合方案，collision 如何处理？
 10. semantic reference CSS 是否应成为 Compiler 的正式测试输出？
