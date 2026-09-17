@@ -10,4 +10,4 @@ Keep incomplete or knowingly failing work unpushed. Do not publish packages or c
 
 Keep the compiler domain framework-agnostic. Put React/JSX source analysis in a React adapter behind explicit ports so future Vue, Svelte, and other adapters can reuse the same domain model and compilation use cases.
 
-Record product semantics in `docs/adr/` and keep `docs/semantic-safety-evaluation.md` synchronized when a decision is accepted. When a decision defers, rejects, or excludes a capability, also update `docs/deferred-capabilities.md` with the current behavior, rationale, alternative, and reconsideration trigger.
+Record product semantics in `docs/adr/` and keep `docs/semantic-safety-evaluation.md` synchronized when a decision is accepted. Maintain a positive MVP capability matrix. Update `docs/deferred-capabilities.md` only for capabilities explicitly discussed and deferred or for key non-goals; do not enumerate every unimplemented CSS feature.

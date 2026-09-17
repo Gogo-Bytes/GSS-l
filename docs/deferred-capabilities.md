@@ -1,8 +1,8 @@
 # Deferred and unsupported capabilities
 
-本文件集中记录 GSS-l 首期明确不支持、延后实现或排除在保证范围外的能力。每项都保留当前行为、原因和重新评估条件，避免未来只看到限制却不知道原始设计依据。
+本文件集中记录 GSS-l 已经明确讨论、具有后续升级价值的 deferred capability，以及排除在保证范围外的关键 non-goal。它不是整个 CSS 规范的反向清单；首期能力以正向 capability matrix 为准，未注册语法统一 fail closed。
 
-维护规则：任何 ADR 新增首期限制、显式 deferred capability 或 non-goal 时，必须同步更新本文件；能力实现后删除对应限制并在替代 ADR/变更记录中说明迁移。
+维护规则：ADR 对一个已讨论能力作出 deferred 决策或新增关键 non-goal 时，同步记录当前行为、原因和重新评估条件；不要为尚未讨论的每个 CSS feature 建立排除项。能力实现后删除对应限制并在替代 ADR/变更记录中说明迁移。
 
 ## Deferred capabilities
 
