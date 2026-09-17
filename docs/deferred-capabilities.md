@@ -116,6 +116,13 @@
 - **重新评估**：中央模型稳定且真实数据表明 lazy CSS预下载成本显著后；方案必须证明 SSR、prefetch、并行 chunk和 HMR下顺序一致。
 - **依据**：[ADR-0028](adr/0028-use-one-central-css-asset-and-snapshot-hmr.md)。
 
+### D016 — Production short/hash naming
+
+- **当前行为**：第一版使用完整 canonical identity 的可逆可读编码，不做 hash或全局递增压缩。
+- **原因**：先优化调试、可解释性和语义验证；递增名会造成构建/HMR漂移，hash长度与收益需要真实 corpus数据。
+- **重新评估**：产品语义和 NameAllocator port稳定，并获得 CSS、JavaScript、SSR HTML 的 raw/gzip/Brotli 与增量 churn数据后。
+- **依据**：[ADR-0029](adr/0029-use-reversible-readable-names-for-the-first-version.md)。
+
 ## Intentional non-goals and guarantee boundaries
 
 ### N001 — 任意消费侧 class composition winner

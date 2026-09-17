@@ -66,3 +66,4 @@
 - Cascade resolution 与 deterministic render order分离；registry registration order和 canonical hash不参与 winner。
 - Production 全局 census/finalize并输出一个中央 CSS asset；SSR引用同一 build manifest asset。
 - Dev replace-by-id transaction、last-known-good rollback、ref-count回收与完整 ordered snapshot HMR。
+- 独立 NameAllocator生成由完整 canonical identity 可逆编码的可读名称。

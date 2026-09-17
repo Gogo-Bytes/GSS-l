@@ -37,6 +37,7 @@
 - 首期支持由项目 `layerOrder` 稳定排序的命名 `@layer`；layer进入 identity，并保留 unlayered 与 important layer reversal 的原生 cascade。见 [ADR-0026](adr/0026-support-configured-named-cascade-layers.md)。
 - CascadeResolver按 importance/layer、specificity和 condition/relation/property semantic order解析；RuleOrderPlanner只稳定排序已证明安全的 rule，hash/注册顺序不参与 winner。见 [ADR-0027](adr/0027-separate-cascade-resolution-from-render-order.md)。
 - 第一版 production生成一个覆盖 main/lazy reachable Module 的中央 CSS asset；SSR引用同一 asset，dev/HMR以 transaction replace-by-id 重建完整有序 snapshot。见 [ADR-0028](adr/0028-use-one-central-css-asset-and-snapshot-hmr.md)。
+- 第一版使用完整 canonical identity 的可逆可读名称，并以独立 NameAllocator隔离命名策略；短名/hash待真实项目稳定后评估。见 [ADR-0029](adr/0029-use-reversible-readable-names-for-the-first-version.md)。
 
 ## 1. 评估目标
 
@@ -496,8 +497,7 @@ Collision 可以稳定扩展或 fail fast，具体策略尚未决定。
 
 以下问题均未决策：
 
-1. production class naming 是 hash、稳定短名还是混合方案，collision 如何处理？
-2. semantic reference CSS 是否应成为 Compiler 的正式测试输出？
+1. semantic reference CSS 是否应成为 Compiler 的正式测试输出？
 
 ## 16. 当前实施状态说明
 
