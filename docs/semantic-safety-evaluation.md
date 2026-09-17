@@ -33,6 +33,7 @@
 - 第一版正向支持集合集中维护在 [mvp-capabilities.md](mvp-capabilities.md)。
 - 首期支持 size、named、style `@container` query，并将 container condition 纳入 media/supports 的项目级 condition order。见 [ADR-0023](adr/0023-support-container-queries-in-condition-order.md)。
 - 首期支持 module-local `@keyframes`，作为不可拆 resource稳定改名，并重写 Module 内静态 animation reference。见 [ADR-0024](adr/0024-support-module-local-keyframes.md)。
+- 首期支持 `@font-face` 不可拆全局资源，font family不改名，完整保留 descriptor/src fallback顺序并跟踪 URL dependency。见 [ADR-0025](adr/0025-support-font-face-as-a-global-resource.md)。
 
 ## 1. 评估目标
 

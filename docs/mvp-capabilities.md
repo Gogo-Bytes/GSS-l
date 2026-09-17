@@ -52,6 +52,7 @@
 ## Global resources
 
 - Module-local `@keyframes`，支持静态 `animation-name`/`animation` reference重写、条件上下文、稳定命名与引用计数。
+- `@font-face` 不可拆全局资源、descriptor/src 顺序保持、URL dependency tracking与引用计数。
 
 ## Output planning
 
