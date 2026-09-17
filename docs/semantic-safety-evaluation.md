@@ -24,6 +24,8 @@
 - `:not()`、`:is()`、`:where()` 支持 pseudo、attribute 和显式 global 参数，但拒绝 local class 参数；分别保留 negative、OR 与零 specificity 语义。见 [ADR-0015](adr/0015-constrain-local-classes-in-functional-pseudos.md)。
 - `:has()` 作为 observed contextual relation 支持；subject 和 observed local class 分别使用 top-level marker，保留 relative selector，不允许 observed local compound 或 nested `:has()`。见 [ADR-0016](adr/0016-support-has-as-an-observed-contextual-relation.md)。
 - 运行时 style path 是 `{ self, ...targets }` scope object；React JSX `className` 内自动降低 `.self`，其他 string context 显式使用 `.self`，scope object 只做受限局部 alias 传播。见 [ADR-0017](adr/0017-use-self-as-the-explicit-class-string-escape.md)。
+- Shorthand/longhand 使用版本化、数据驱动的 property-effect registry；value 保持 opaque，logical/physical 潜在重叠和未知 effect 首期报错。见 [ADR-0018](adr/0018-use-a-data-driven-property-effect-registry.md)。
+- 所有首期限制、deferred capability、替代方式与重新评估条件集中维护在 [deferred-capabilities.md](deferred-capabilities.md)。
 
 ## 1. 评估目标
 
@@ -483,12 +485,11 @@ Collision 可以稳定扩展或 fail fast，具体策略尚未决定。
 
 以下问题均未决策：
 
-1. 对无法证明安全的 declaration，是拒绝编译、要求改写，还是允许显式 fallback？
-2. Property-effect graph 的首批覆盖范围，以及未知关系是 warning 还是 error？
-3. 如何把 importance、specificity、relation implication 和 at-rule condition order组合成完整 cascade order key？
-4. production 中央 CSS、code splitting、SSR 与 HMR 如何共同维持全局 order key？
-5. production class naming 是 hash、稳定短名还是混合方案，collision 如何处理？
-6. semantic reference CSS 是否应成为 Compiler 的正式测试输出？
+1. 对无法证明安全且不属于已记录 deferred capability 的 declaration，是拒绝编译、要求改写，还是允许显式 fallback？
+2. 如何把 importance、specificity、relation implication 和 at-rule condition order组合成完整 cascade order key？
+3. production 中央 CSS、code splitting、SSR 与 HMR 如何共同维持全局 order key？
+4. production class naming 是 hash、稳定短名还是混合方案，collision 如何处理？
+5. semantic reference CSS 是否应成为 Compiler 的正式测试输出？
 
 ## 16. 当前实施状态说明
 
