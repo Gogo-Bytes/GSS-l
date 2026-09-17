@@ -109,6 +109,13 @@
 - **重新评估**：真实项目出现无法通过 supported contextual/residual/global 能力改写的必要案例后；未来设计必须显式 opt-in、限制 scope、进入 manifest/report 并记录原因。
 - **依据**：[ADR-0019](adr/0019-fail-closed-when-safety-cannot-be-proved.md)。
 
+### D015 — Production CSS code splitting
+
+- **当前行为**：所有 reachable main/lazy GSS Module进入一个中央 production CSS asset；不按 JavaScript route拆分。
+- **原因**：跨 asset网络与注入顺序会破坏全局 property/relation/condition order，并可能重复 atom和 resource。
+- **重新评估**：中央模型稳定且真实数据表明 lazy CSS预下载成本显著后；方案必须证明 SSR、prefetch、并行 chunk和 HMR下顺序一致。
+- **依据**：[ADR-0028](adr/0028-use-one-central-css-asset-and-snapshot-hmr.md)。
+
 ## Intentional non-goals and guarantee boundaries
 
 ### N001 — 任意消费侧 class composition winner
