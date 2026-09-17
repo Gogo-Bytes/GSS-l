@@ -27,6 +27,7 @@
 - Shorthand/longhand 使用版本化、数据驱动的 property-effect registry；value 保持 opaque，logical/physical 潜在重叠和未知 effect 首期报错。见 [ADR-0018](adr/0018-use-a-data-driven-property-effect-registry.md)。
 - 所有首期限制、deferred capability、替代方式与重新评估条件集中维护在 [deferred-capabilities.md](deferred-capabilities.md)。
 - 无法证明安全的输入 fail closed，不自动产生 scoped/preserved fallback；只有正式建模的 contextual/residual/global、browserslist 展开和未注册 condition warning 例外可以输出。见 [ADR-0019](adr/0019-fail-closed-when-safety-cannot-be-proved.md)。
+- 首期支持 selector list，并展开为共享 source ordinal 的独立 RuleIR branch；任一 branch 不受支持则整条 rule fail closed。见 [ADR-0020](adr/0020-expand-supported-selector-lists-into-rule-branches.md)。
 
 ## 1. 评估目标
 
