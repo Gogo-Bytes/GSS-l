@@ -31,6 +31,7 @@
 - 首期正向支持常用 pseudo-element capability set；未注册语法统一 fail closed，不维护无限反向排除清单。见 [ADR-0021](adr/0021-support-a-positive-pseudo-element-capability-set.md)。
 - 标准 CSS nesting 在 semantic analysis 前展开，展开结果继续接受相同 capability validation。见 [ADR-0022](adr/0022-normalize-standard-css-nesting-before-semantic-analysis.md)。
 - 第一版正向支持集合集中维护在 [mvp-capabilities.md](mvp-capabilities.md)。
+- 首期支持 size、named、style `@container` query，并将 container condition 纳入 media/supports 的项目级 condition order。见 [ADR-0023](adr/0023-support-container-queries-in-condition-order.md)。
 
 ## 1. 评估目标
 
