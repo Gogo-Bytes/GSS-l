@@ -21,6 +21,7 @@
 - 普通 ownership descendant 继续下推为纯 atom；`>`、`+`、`~`、ancestor browser state 等必须由浏览器判断的关系使用 source/target 双端 contextual marker。见 [ADR-0012](adr/0012-use-contextual-markers-only-for-runtime-relations.md)。
 - Runtime relation 存在可证明包含关系时，更窄 condition 获胜；可共存但不可比较的等优先级冲突继续报错。见 [ADR-0013](adr/0013-prefer-logically-narrower-runtime-relations.md)。
 - 首期拒绝 `.button.primary` 等 local-local compound class；property chaining 只表示 descendant path，业务 variant 使用 attribute/ARIA/pseudo，外部 compound 使用显式 `:global(...)` residual。见 [ADR-0014](adr/0014-reject-local-compound-class-selectors.md)。
+- `:not()`、`:is()`、`:where()` 支持 pseudo、attribute 和显式 global 参数，但拒绝 local class 参数；分别保留 negative、OR 与零 specificity 语义。见 [ADR-0015](adr/0015-constrain-local-classes-in-functional-pseudos.md)。
 
 ## 1. 评估目标
 
@@ -482,7 +483,7 @@ Collision 可以稳定扩展或 fail fast，具体策略尚未决定。
 
 1. 独立 style 是否允许在同一 DOM 节点任意拼接？
 2. 对无法证明安全的 declaration，是拒绝编译、要求改写，还是允许显式 fallback？
-3. 首批允许哪些 functional pseudo 和 residual selector suffix；local class 出现在 `:not()`/`:is()`/`:where()`/`:has()` 时如何处理？
+3. `:has()` 首期支持哪些 relative selector，以及 source/observed marker 如何导出？
 4. React Adapter 首批识别哪些 JSX `className` 形式；局部 alias provenance 和 escape diagnostic 的边界是什么？
 5. 非 `className` string context 是否要求显式 `.self`，以及 React/TypeScript 如何提供准确提示？
 6. Property-effect graph 的首批覆盖范围，以及未知关系是 warning 还是 error？
