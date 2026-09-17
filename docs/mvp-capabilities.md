@@ -49,6 +49,10 @@
 - `@property` 全局 registration。
 - Browserslist transformer生成的兼容 declaration sequence。
 
+## Global resources
+
+- Module-local `@keyframes`，支持静态 `animation-name`/`animation` reference重写、条件上下文、稳定命名与引用计数。
+
 ## Output planning
 
 - Pure declaration atom。
