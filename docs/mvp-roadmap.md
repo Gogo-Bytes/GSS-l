@@ -90,7 +90,7 @@ Completion criteria:
 - [ ] Plan residual and explicit-global selectors.
 - [x] Implement custom property provider and global `@property` resource semantics with transactional conflict detection and reference-counted output.
 - [x] Implement module-local keyframes, condition/layer-aware resource output, and static `animation-name`/`animation` reference rewriting.
-- [ ] Implement global `@font-face` resources and asset dependencies.
+- [x] Implement global `@font-face` resources, face-signature conflict detection, reference counting, and URL dependency extraction.
 - [x] Plan registered `@media`, `@supports`, and `@container` wrappers across all currently supported pure and contextual atom forms; warn on unregistered queries.
 - [x] Plan configured named layers across pure and contextual atoms, emit the global order prelude, and warn on unregistered layer names.
 - [ ] Implement full registered condition precedence and remaining cascade-order planning.

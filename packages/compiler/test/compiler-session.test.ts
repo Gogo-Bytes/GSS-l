@@ -168,6 +168,70 @@ describe('GssCompilerSession', () => {
     );
   });
 
+  it('rejects conflicting @font-face definitions for one selection signature', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    compiler.replaceStylesheet({
+      id: '/project/src/a.gss',
+      source: `@font-face {
+        font-family: "Inter";
+        src: url("./a.woff2");
+        font-weight: 400;
+      }`
+    });
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/b.gss',
+      source: `@font-face {
+        font-family: "Inter";
+        src: url("./b.woff2");
+        font-weight: 400;
+      }`
+    });
+
+    expect(replacement).toMatchObject({
+      committed: false,
+      generation: 1,
+      diagnostics: [{
+        code: 'GSS1301',
+        reason: 'conflicting-global-resource'
+      }]
+    });
+    expect(compiler.finalize().css).toContain('./a.woff2');
+    expect(compiler.finalize().css).not.toContain('./b.woff2');
+  });
+
+  it('emits @font-face intact and reports its URL dependencies', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/typography.gss',
+      source: `
+        @font-face {
+          font-family: "Inter";
+          src: url("./inter.woff2") format("woff2"), url('./inter.woff') format('woff');
+          font-style: normal;
+          font-weight: 400;
+        }
+        .text { font-family: "Inter"; }
+      `
+    });
+
+    expect(replacement).toMatchObject({
+      committed: true,
+      diagnostics: [],
+      module: {
+        dependencies: ['./inter.woff2', './inter.woff']
+      }
+    });
+    expect(compiler.finalize().css).toContain(
+      `@font-face {\n` +
+      `  font-family: "Inter";\n` +
+      `  src: url("./inter.woff2") format("woff2"), url('./inter.woff') format('woff');\n` +
+      `  font-style: normal;\n` +
+      `  font-weight: 400;\n}`
+    );
+  });
+
   it('rewrites static local names in animation shorthand without touching var()', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 

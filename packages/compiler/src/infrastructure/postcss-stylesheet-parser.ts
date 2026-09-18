@@ -67,7 +67,15 @@ export type ParsedKeyframesRegistration = {
   }[];
 };
 
-export type ParsedGlobalResource = ParsedPropertyRegistration | ParsedKeyframesRegistration;
+export type ParsedFontFaceResource = {
+  kind: 'font-face';
+  declarations: readonly ParsedDeclaration[];
+};
+
+export type ParsedGlobalResource =
+  | ParsedPropertyRegistration
+  | ParsedKeyframesRegistration
+  | ParsedFontFaceResource;
 
 export type ParsedStylesheet = {
   rules: readonly ParsedStyleRule[];
@@ -106,6 +114,15 @@ export function parseStylesheet(id: string, source: string): ParsedStylesheet {
   ): void => {
     for (const node of nodes) {
       if (node.type === 'atrule') {
+        if (node.name === 'font-face') {
+          const fontFace = parseFontFaceResource(node, conditions, layer);
+          if (!fontFace) {
+            diagnostics.push(unsupportedDiagnostic(id, 'Unsupported @font-face resource.'));
+          } else {
+            resources.push(fontFace);
+          }
+          continue;
+        }
         if (node.name === 'keyframes') {
           const keyframes = parseKeyframesRegistration(node, conditions, layer);
           if (!keyframes) {
@@ -173,6 +190,24 @@ export function parseStylesheet(id: string, source: string): ParsedStylesheet {
   visitNodes(root.nodes, [], 'unlayered');
 
   return { rules, resources, diagnostics };
+}
+
+function parseFontFaceResource(
+  node: postcss.AtRule,
+  conditions: readonly ParsedCondition[],
+  layer: string
+): ParsedFontFaceResource | undefined {
+  if (conditions.length > 0 || layer !== 'unlayered' || node.params.trim() || !node.nodes) {
+    return undefined;
+  }
+  const declarations: ParsedDeclaration[] = [];
+  for (const child of node.nodes) {
+    if (child.type !== 'decl' || child.important) return undefined;
+    declarations.push(toDeclaration(child));
+  }
+  const descriptors = new Set(declarations.map(({ property }) => property));
+  if (!descriptors.has('font-family') || !descriptors.has('src')) return undefined;
+  return { kind: 'font-face', declarations };
 }
 
 function parseKeyframesRegistration(

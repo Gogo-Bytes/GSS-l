@@ -20,9 +20,11 @@ import {
   parseStylesheet,
   type ParsedAttributeCondition,
   type ParsedCondition,
+  type ParsedFontFaceResource,
   type ParsedGlobalResource,
   type ParsedKeyframesRegistration,
   type ParsedPropertyRegistration,
+  type ParsedStylesheet,
   type ParsedStyleRule
 } from '../infrastructure/postcss-stylesheet-parser.js';
 import type {
@@ -57,8 +59,9 @@ type PlannedDeclaration = {
 };
 
 type PlannedResource = {
-  kind: 'property' | 'keyframes';
+  kind: 'property' | 'keyframes' | 'font-face';
   name: string;
+  conflictKey?: string;
   identity: string;
   css: string;
 };
@@ -707,7 +710,7 @@ function prepareContribution(
     scopeSchema,
     moduleCode: renderModuleCode(exports),
     declarationCode: renderDeclarationCode(exports),
-    dependencies: []
+    dependencies: collectAssetDependencies(parsed)
   };
 
   const resources = parsed.resources.map((resource) => planResource(resource, moduleId));
@@ -736,9 +739,9 @@ function rewriteKeyframeReferences(
 }
 
 function planResource(resource: ParsedGlobalResource, moduleId: string): PlannedResource {
-  return resource.kind === 'property'
-    ? planPropertyRegistration(resource)
-    : planKeyframesRegistration(resource, moduleId);
+  if (resource.kind === 'property') return planPropertyRegistration(resource);
+  if (resource.kind === 'keyframes') return planKeyframesRegistration(resource, moduleId);
+  return planFontFaceResource(resource);
 }
 
 function planPropertyRegistration(resource: ParsedPropertyRegistration): PlannedResource {
@@ -748,6 +751,7 @@ function planPropertyRegistration(resource: ParsedPropertyRegistration): Planned
   return {
     kind: resource.kind,
     name: resource.name,
+    conflictKey: `property:${resource.name}`,
     identity: JSON.stringify([
       resource.kind,
       resource.name,
@@ -755,6 +759,54 @@ function planPropertyRegistration(resource: ParsedPropertyRegistration): Planned
     ]),
     css: `@property ${resource.name} {\n${declarations}\n}`
   };
+}
+
+function planFontFaceResource(resource: ParsedFontFaceResource): PlannedResource {
+  const descriptor = (name: string, fallback: string): string =>
+    resource.declarations.find(({ property }) => property === name)?.value ?? fallback;
+  const signature = [
+    descriptor('font-family', ''),
+    descriptor('font-style', 'normal'),
+    descriptor('font-weight', 'normal'),
+    descriptor('font-stretch', 'normal'),
+    descriptor('unicode-range', 'all')
+  ].join('|');
+  const declarations = resource.declarations
+    .map(({ property, value }) => `  ${property}: ${value};`)
+    .join('\n');
+  return {
+    kind: resource.kind,
+    name: signature,
+    conflictKey: `font-face:${signature}`,
+    identity: JSON.stringify([
+      resource.kind,
+      resource.declarations.map(({ property, value }) => [property, value])
+    ]),
+    css: `@font-face {\n${declarations}\n}`
+  };
+}
+
+function collectAssetDependencies(parsed: ParsedStylesheet): readonly string[] {
+  const values = [
+    ...parsed.rules.flatMap((rule) => rule.declarations.map(({ value }) => value)),
+    ...parsed.resources.flatMap((resource) => {
+      if (resource.kind === 'keyframes') {
+        return resource.frames.flatMap((frame) =>
+          frame.declarations.map(({ value }) => value)
+        );
+      }
+      return resource.declarations.map(({ value }) => value);
+    })
+  ];
+  const dependencies = new Set<string>();
+  for (const value of values) {
+    valueParser(value).walk((node) => {
+      if (node.type !== 'function' || node.value.toLowerCase() !== 'url') return;
+      const url = valueParser.stringify(node.nodes).trim().replace(/^(['"])(.*)\1$/, '$2');
+      if (url) dependencies.add(url);
+    });
+  }
+  return [...dependencies];
 }
 
 function planKeyframesRegistration(
@@ -797,13 +849,15 @@ function findConflictingResource(
 ): string | undefined {
   const incomingByName = new Map<string, string>();
   for (const resource of incoming) {
-    const previous = incomingByName.get(resource.name);
+    if (!resource.conflictKey) continue;
+    const previous = incomingByName.get(resource.conflictKey);
     if (previous && previous !== resource.identity) return resource.name;
-    incomingByName.set(resource.name, resource.identity);
+    incomingByName.set(resource.conflictKey, resource.identity);
     for (const [moduleId, contribution] of modules) {
       if (moduleId === replacingId) continue;
       const conflict = contribution.resources.find((registered) =>
-        registered.name === resource.name && registered.identity !== resource.identity
+        registered.conflictKey === resource.conflictKey &&
+        registered.identity !== resource.identity
       );
       if (conflict) return resource.name;
     }
