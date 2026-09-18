@@ -78,7 +78,8 @@ Completion criteria:
 
 - [ ] Plan ownership declarations as pure atoms.
 - [x] Plan direct-child chains and adjacent/general sibling relations as contextual atoms with path-specific markers.
-- [ ] Plan mixed ownership/runtime chains, ancestor-state, and `:has()` contextual relations.
+- [x] Lower a leading ownership prefix before a child/sibling runtime-relation suffix.
+- [ ] Plan interleaved ownership/runtime chains, ancestor-state, and `:has()` contextual relations.
 - [ ] Plan residual and explicit-global selectors.
 - [ ] Implement custom property provider and `@property` resource semantics.
 - [ ] Implement module-local keyframes and static animation reference rewriting.

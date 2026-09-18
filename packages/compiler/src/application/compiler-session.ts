@@ -107,16 +107,17 @@ function prepareContribution(
   const contextualRules = parsed.rules.filter(({ relations }) =>
     relations.some((relation) => relation !== 'descendant')
   );
-  const unsupportedRelation = contextualRules.find(({ relations }) =>
-    relations.some((relation) => relation === 'descendant')
-  );
+  const unsupportedRelation = contextualRules.find(({ relations }) => {
+    const firstRuntimeRelation = relations.findIndex((relation) => relation !== 'descendant');
+    return relations.slice(firstRuntimeRelation).some((relation) => relation === 'descendant');
+  });
   if (unsupportedRelation) {
     return {
       diagnostics: [{
         code: 'GSS1101',
         severity: 'error',
         phase: 'validate',
-        message: 'Mixed ownership and runtime-relation chains are not registered yet.',
+        message: 'Ownership relations must precede the runtime-relation suffix.',
         id: input.id,
         reason: 'capability-not-registered'
       }]
@@ -144,20 +145,25 @@ function prepareContribution(
   }
 
   for (const rule of contextualRules) {
-    const sourcePath = rule.path.slice(0, 1);
+    const firstRuntimeRelation = rule.relations.findIndex(
+      (relation) => relation !== 'descendant'
+    );
+    const runtimeRelations = rule.relations.slice(firstRuntimeRelation);
+    const sourcePath = rule.path.slice(0, firstRuntimeRelation + 1);
+    const runtimePaths = rule.path.slice(firstRuntimeRelation);
     const sourceMarker = createReadableSourceMarker(moduleId, sourcePath);
     const relationIdentity: ContextualRelationIdentity = {
       moduleId,
-      relations: rule.relations,
+      relations: runtimeRelations,
       sourcePath,
       targetPath: rule.path
     };
     const targetMarker = createReadableTargetMarker(relationIdentity);
-    const markers = rule.path.map((_, index) => {
-      const path = rule.path.slice(0, index + 1);
+    const markers = runtimePaths.map((_, index) => {
+      const path = rule.path.slice(0, firstRuntimeRelation + index + 1);
       const marker = index === 0
         ? sourceMarker
-        : index === rule.path.length - 1
+        : index === runtimePaths.length - 1
           ? targetMarker
           : createReadableContextMarker(relationIdentity, index, path);
       ensureScopePath(roots, path).classNames.add(marker);
@@ -166,7 +172,7 @@ function prepareContribution(
     const selector = markers.map((marker, index) =>
       index === 0
         ? `.${marker}`
-        : ` ${renderRelationCombinator(rule.relations[index - 1]!)} .${marker}`
+        : ` ${renderRelationCombinator(runtimeRelations[index - 1]!)} .${marker}`
     ).join('');
 
     for (const declaration of rule.declarations) {

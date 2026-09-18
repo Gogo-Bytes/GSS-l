@@ -145,6 +145,36 @@ describe('GssCompilerSession', () => {
     });
   });
 
+  it('lowers an ownership prefix before a runtime-relation suffix', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/grid.gss',
+      source: '.panel .row > .cell { color: red; }'
+    });
+
+    const sourceMarker = 'gss-s--module_src_2f_grid_2e_gss--path_panel_2f_row';
+    const targetMarker =
+      'gss-t--module_src_2f_grid_2e_gss--relation_child--source_panel_2f_row--target_panel_2f_row_2f_cell';
+    expect(replacement.diagnostics).toEqual([]);
+    expect(replacement.module?.scopeSchema.exports).toEqual({
+      panel: {
+        selfClassName: '',
+        targets: {
+          row: {
+            selfClassName: sourceMarker,
+            targets: {
+              cell: { selfClassName: targetMarker, targets: {} }
+            }
+          }
+        }
+      }
+    });
+    expect(compiler.finalize().css).toBe(
+      `.${sourceMarker} > .${targetMarker} {\n  color: red;\n}`
+    );
+  });
+
   it('emits a general-sibling contextual atom', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 
