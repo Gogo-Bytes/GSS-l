@@ -62,6 +62,7 @@ export type FinalizedGssSnapshot = {
 
 export type GssCompilerConfig = {
   projectRoot: string;
+  layers?: readonly string[];
   conditions?: {
     media?: readonly string[];
     supports?: readonly string[];

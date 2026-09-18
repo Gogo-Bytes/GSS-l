@@ -91,7 +91,8 @@ Completion criteria:
 - [ ] Implement module-local keyframes and static animation reference rewriting.
 - [ ] Implement global `@font-face` resources and asset dependencies.
 - [x] Plan registered `@media`, `@supports`, and `@container` wrappers across all currently supported pure and contextual atom forms; warn on unregistered queries.
-- [ ] Implement named layers and full registered condition precedence.
+- [x] Plan configured named layers for pure ownership atoms, emit the global order prelude, and warn on unregistered layer names.
+- [ ] Extend layer identity to contextual atoms and implement full registered layer/condition precedence.
 - [ ] Keep compatibility declaration sequences indivisible after browserslist transformation.
 
 Completion criteria:

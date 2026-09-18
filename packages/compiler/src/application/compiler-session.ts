@@ -46,6 +46,7 @@ type PlannedDeclaration = {
   className: string;
   selector: string;
   wrappers?: readonly ParsedCondition[];
+  layer?: string;
 };
 
 type ModuleContribution = {
@@ -97,7 +98,7 @@ export function createGssCompilerSession(config: GssCompilerConfig): GssCompiler
     },
 
     finalize() {
-      return finalizeSnapshot(modules, generation);
+      return finalizeSnapshot(modules, generation, config);
     }
   };
 }
@@ -111,6 +112,21 @@ function prepareContribution(
     return { diagnostics: parsed.diagnostics };
   }
   const conditionDiagnostics = validateRegisteredConditions(config, input.id, parsed.rules);
+  const unsupportedLayerCombination = parsed.rules.find((rule) =>
+    rule.layer !== 'unlayered' && !isPureOwnershipRule(rule)
+  );
+  if (unsupportedLayerCombination) {
+    return {
+      diagnostics: [{
+        code: 'GSS1101',
+        severity: 'error',
+        phase: 'validate',
+        message: 'Named layers currently support pure ownership declarations only.',
+        id: input.id,
+        reason: 'capability-not-registered'
+      }]
+    };
+  }
   const unsupportedConditionCombination = parsed.rules.find((rule) =>
     rule.conditions.length > 0 &&
     !isPureOwnershipRule(rule) &&
@@ -302,14 +318,17 @@ function prepareContribution(
   for (const groupedRules of ownershipGroups.values()) {
     const wrappers = groupedRules[0]!.conditions;
     const condition = canonicalCondition(wrappers);
+    const layer = groupedRules[0]!.layer;
     const declaredPaths = parsed.rules
-      .filter((rule) => canonicalCondition(rule.conditions) === condition)
+      .filter((rule) =>
+        rule.layer === layer && canonicalCondition(rule.conditions) === condition
+      )
       .map(({ path }) => path);
     for (const target of resolveTargetDeclarations(groupedRules, declaredPaths)) {
       const scope = ensureScopePath(roots, target.path);
       for (const declaration of target.declarations) {
         const identity: PureDeclarationIdentity = {
-          layer: 'unlayered',
+          layer,
           condition,
           state: 'self',
           property: declaration.property,
@@ -323,7 +342,8 @@ function prepareContribution(
           identity,
           className,
           selector: `.${className}`,
-          wrappers
+          wrappers,
+          layer
         });
       }
     }
@@ -711,7 +731,7 @@ function validateRegisteredConditions(
       }
     }
   }
-  return [...unregistered.values()]
+  const conditionDiagnostics: GssDiagnostic[] = [...unregistered.values()]
     .sort((left, right) =>
       `${left.kind}\0${left.query}`.localeCompare(`${right.kind}\0${right.query}`)
     )
@@ -724,6 +744,24 @@ function validateRegisteredConditions(
       reason: 'condition-not-registered',
       suggestion: `Add the exact query to compiler conditions.${kind} in project precedence order.`
     }));
+
+  const registeredLayers = new Set(config.layers ?? []);
+  const unregisteredLayers = new Set(
+    rules.map(({ layer }) => layer).filter((layer) =>
+      layer !== 'unlayered' && !registeredLayers.has(layer)
+    )
+  );
+  const layerDiagnostics: GssDiagnostic[] = [...unregisteredLayers].sort().map((layer) => ({
+    code: 'GSS1103',
+    severity: 'warning',
+    phase: 'validate',
+    message: `@layer ${layer} is not registered; its relative precedence is not guaranteed.`,
+    id,
+    reason: 'layer-not-registered',
+    suggestion: 'Add the canonical layer name to compiler layers in project precedence order.'
+  }));
+
+  return [...conditionDiagnostics, ...layerDiagnostics];
 }
 
 function groupRulesByCondition(
@@ -731,7 +769,7 @@ function groupRulesByCondition(
 ): ReadonlyMap<string, readonly ParsedStyleRule[]> {
   const groups = new Map<string, ParsedStyleRule[]>();
   for (const rule of rules) {
-    const key = canonicalCondition(rule.conditions);
+    const key = `${rule.layer}\0${canonicalCondition(rule.conditions)}`;
     groups.set(key, [...(groups.get(key) ?? []), rule]);
   }
   return groups;
@@ -769,7 +807,8 @@ function toScopeSchema(scope: MutableScopeNode): ScopeNodeSchema {
 
 function finalizeSnapshot(
   modules: ReadonlyMap<string, ModuleContribution>,
-  generation: number
+  generation: number,
+  config: GssCompilerConfig
 ): FinalizedGssSnapshot {
   const uniqueRules = new Map<string, {
     rule: PlannedDeclaration;
@@ -787,9 +826,13 @@ function finalizeSnapshot(
   const orderedRules = [...uniqueRules.values()].sort((left, right) =>
     left.rule.className.localeCompare(right.rule.className)
   );
+  const renderedRules = orderedRules.map(({ rule }) => renderRule(rule)).join('\n\n');
+  const layerPrelude = config.layers?.length
+    ? `@layer ${config.layers.join(', ')};`
+    : '';
   return {
     generation,
-    css: orderedRules.map(({ rule }) => renderRule(rule)).join('\n\n'),
+    css: [layerPrelude, renderedRules].filter(Boolean).join('\n\n'),
     manifest: {
       modules: [...modules.keys()].sort(),
       rules: orderedRules.map(({ rule: { kind, className, selector, identity }, sources }) => ({
@@ -840,6 +883,9 @@ function renderRule(rule: PlannedDeclaration): string {
   let css = `${rule.selector} {\n  ${property}: ${value}${important ? ' !important' : ''};\n}`;
   for (const wrapper of [...(rule.wrappers ?? [])].reverse()) {
     css = `@${wrapper.kind} ${wrapper.query} {\n${indentCss(css)}\n}`;
+  }
+  if (rule.layer && rule.layer !== 'unlayered') {
+    css = `@layer ${rule.layer} {\n${indentCss(css)}\n}`;
   }
   return css;
 }

@@ -168,6 +168,44 @@ describe('GssCompilerSession', () => {
     );
   });
 
+  it('warns without rejecting an unregistered named layer', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/button.gss',
+      source: '@layer components { .button { color: red; } }'
+    });
+
+    expect(replacement).toMatchObject({
+      committed: true,
+      diagnostics: [{
+        code: 'GSS1103',
+        severity: 'warning',
+        reason: 'layer-not-registered'
+      }]
+    });
+    expect(compiler.finalize().css).toContain('@layer components {');
+  });
+
+  it('plans a configured named cascade layer and emits its order prelude', () => {
+    const compiler = createGssCompilerSession({
+      projectRoot: '/project',
+      layers: ['reset', 'components']
+    });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/button.gss',
+      source: '@layer components { .button { color: red; } }'
+    });
+
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    const className = replacement.module?.scopeSchema.exports.button?.selfClassName;
+    expect(className).toContain('--layer_components--condition_base--');
+    expect(compiler.finalize().css).toBe(
+      `@layer reset, components;\n\n@layer components {\n  .${className} {\n    color: red;\n  }\n}`
+    );
+  });
+
   it('preserves a registered condition around an ancestor-state atom', () => {
     const compiler = createGssCompilerSession({
       projectRoot: '/project',

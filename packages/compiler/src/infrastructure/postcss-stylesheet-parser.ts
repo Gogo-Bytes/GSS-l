@@ -45,6 +45,7 @@ export type ParsedStyleRule = {
   observations: readonly (readonly ParsedHasCondition[])[];
   pseudoElements: readonly (string | null)[];
   conditions: readonly ParsedCondition[];
+  layer: string;
   declarations: readonly ParsedDeclaration[];
   sourceOrdinal: number;
 };
@@ -78,15 +79,25 @@ export function parseStylesheet(id: string, source: string): ParsedStylesheet {
   let sourceOrdinal = 0;
   const visitNodes = (
     nodes: readonly postcss.ChildNode[],
-    conditions: readonly ParsedCondition[]
+    conditions: readonly ParsedCondition[],
+    layer: string
   ): void => {
     for (const node of nodes) {
       if (node.type === 'atrule') {
+        if (node.name === 'layer' && node.nodes && isNamedLayer(node.params.trim())) {
+          const name = node.params.trim();
+          visitNodes(node.nodes, conditions, layer === 'unlayered' ? name : `${layer}.${name}`);
+          continue;
+        }
         if (!isSupportedConditionKind(node.name) || !node.nodes) {
           diagnostics.push(unsupportedDiagnostic(id, `Unsupported @${node.name} rule.`));
           continue;
         }
-        visitNodes(node.nodes, [...conditions, { kind: node.name, query: node.params.trim() }]);
+        visitNodes(
+          node.nodes,
+          [...conditions, { kind: node.name, query: node.params.trim() }],
+          layer
+        );
         continue;
       }
       if (node.type !== 'rule') {
@@ -113,13 +124,13 @@ export function parseStylesheet(id: string, source: string): ParsedStylesheet {
 
       if (valid) {
         for (const path of paths) {
-          rules.push({ ...path, conditions, declarations, sourceOrdinal });
+          rules.push({ ...path, conditions, layer, declarations, sourceOrdinal });
         }
       }
       sourceOrdinal += 1;
     }
   };
-  visitNodes(root.nodes, []);
+  visitNodes(root.nodes, [], 'unlayered');
 
   return { rules, diagnostics };
 }
@@ -132,6 +143,10 @@ type ParsedSelectorPath = {
   observations: readonly (readonly ParsedHasCondition[])[];
   pseudoElements: readonly (string | null)[];
 };
+
+function isNamedLayer(value: string): boolean {
+  return /^[-_A-Za-z][-_A-Za-z0-9]*(?:\.[-_A-Za-z][-_A-Za-z0-9]*)*$/.test(value);
+}
 
 function isSupportedConditionKind(
   name: string
