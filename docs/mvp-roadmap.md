@@ -90,7 +90,8 @@ Completion criteria:
 - [ ] Implement custom property provider and `@property` resource semantics.
 - [ ] Implement module-local keyframes and static animation reference rewriting.
 - [ ] Implement global `@font-face` resources and asset dependencies.
-- [ ] Implement named layer and condition resources.
+- [x] Plan registered `@media`, `@supports`, and `@container` wrappers for pure ownership atoms and warn on unregistered queries.
+- [ ] Implement named layers, full condition precedence, and conditioned contextual/state atoms.
 - [ ] Keep compatibility declaration sequences indivisible after browserslist transformation.
 
 Completion criteria:

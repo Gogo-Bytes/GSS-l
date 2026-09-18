@@ -14,7 +14,9 @@ import { validateDeclarationSequences } from '../domain/validate-declarations.js
 import { validateStateAmbiguity } from '../domain/validate-state-ambiguity.js';
 import {
   parseStylesheet,
-  type ParsedAttributeCondition
+  type ParsedAttributeCondition,
+  type ParsedCondition,
+  type ParsedStyleRule
 } from '../infrastructure/postcss-stylesheet-parser.js';
 import type {
   FinalizedGssSnapshot,
@@ -43,11 +45,13 @@ type PlannedDeclaration = {
   identity: PureDeclarationIdentity | ContextualDeclarationIdentity | ObservedDeclarationIdentity;
   className: string;
   selector: string;
+  wrappers?: readonly ParsedCondition[];
 };
 
 type ModuleContribution = {
   artifact: StyleModuleArtifact;
   rules: readonly PlannedDeclaration[];
+  diagnostics: readonly GssDiagnostic[];
 };
 
 type MutableScopeNode = {
@@ -62,7 +66,7 @@ export function createGssCompilerSession(config: GssCompilerConfig): GssCompiler
   return {
     replaceStylesheet(input) {
       const prepared = prepareContribution(config, input);
-      if ('diagnostics' in prepared) {
+      if (!('artifact' in prepared)) {
         return {
           id: input.id,
           committed: false,
@@ -78,7 +82,7 @@ export function createGssCompilerSession(config: GssCompilerConfig): GssCompiler
         committed: true,
         generation,
         module: prepared.artifact,
-        diagnostics: []
+        diagnostics: prepared.diagnostics
       };
     },
 
@@ -105,6 +109,22 @@ function prepareContribution(
   const parsed = parseStylesheet(input.id, input.source);
   if (parsed.diagnostics.some(({ severity }) => severity === 'error')) {
     return { diagnostics: parsed.diagnostics };
+  }
+  const conditionDiagnostics = validateRegisteredConditions(config, input.id, parsed.rules);
+  const unsupportedConditionCombination = parsed.rules.find((rule) =>
+    rule.conditions.length > 0 && !isPureOwnershipRule(rule)
+  );
+  if (unsupportedConditionCombination) {
+    return {
+      diagnostics: [{
+        code: 'GSS1101',
+        severity: 'error',
+        phase: 'validate',
+        message: 'Conditions currently support pure ownership declarations only.',
+        id: input.id,
+        reason: 'capability-not-registered'
+      }]
+    };
   }
   const declarationDiagnostics = validateDeclarationSequences(input.id, parsed.rules);
   if (declarationDiagnostics.some(({ severity }) => severity === 'error')) {
@@ -230,19 +250,7 @@ function prepareContribution(
   const moduleId = toLogicalModuleId(config.projectRoot, input.id);
   const roots = new Map<string, MutableScopeNode>();
   const rules: PlannedDeclaration[] = [];
-  const ownershipRules = parsed.rules.filter(({
-    relations,
-    states,
-    attributes,
-    observations,
-    pseudoElements
-  }) =>
-    relations.every((relation) => relation === 'descendant') &&
-    states.every((state) => state.length === 0) &&
-    attributes.every((conditions) => conditions.length === 0) &&
-    observations.every((conditions) => conditions.length === 0) &&
-    pseudoElements.every((pseudoElement) => pseudoElement === null)
-  );
+  const ownershipRules = parsed.rules.filter(isPureOwnershipRule);
   const stateRules = parsed.rules.filter(({ relations, states, pseudoElements }) =>
     relations.every((relation) => relation === 'descendant') &&
     states.at(-1)?.length &&
@@ -286,23 +294,34 @@ function prepareContribution(
     };
   }
 
-  for (const target of resolveTargetDeclarations(
-    ownershipRules,
-    parsed.rules.map(({ path }) => path)
-  )) {
-    const scope = ensureScopePath(roots, target.path);
-    for (const declaration of target.declarations) {
-      const identity: PureDeclarationIdentity = {
-        layer: 'unlayered',
-        condition: 'base',
-        state: 'self',
-        property: declaration.property,
-        value: declaration.value,
-        important: declaration.important
-      };
-      const className = createReadableAtomicName(identity);
-      scope.classNames.add(className);
-      rules.push({ kind: 'pure-atom', identity, className, selector: `.${className}` });
+  const ownershipGroups = groupRulesByCondition(ownershipRules);
+  for (const groupedRules of ownershipGroups.values()) {
+    const wrappers = groupedRules[0]!.conditions;
+    const condition = canonicalCondition(wrappers);
+    const declaredPaths = parsed.rules
+      .filter((rule) => canonicalCondition(rule.conditions) === condition)
+      .map(({ path }) => path);
+    for (const target of resolveTargetDeclarations(groupedRules, declaredPaths)) {
+      const scope = ensureScopePath(roots, target.path);
+      for (const declaration of target.declarations) {
+        const identity: PureDeclarationIdentity = {
+          layer: 'unlayered',
+          condition,
+          state: 'self',
+          property: declaration.property,
+          value: declaration.value,
+          important: declaration.important
+        };
+        const className = createReadableAtomicName(identity);
+        scope.classNames.add(className);
+        rules.push({
+          kind: 'pure-atom',
+          identity,
+          className,
+          selector: `.${className}`,
+          wrappers
+        });
+      }
     }
   }
 
@@ -588,7 +607,61 @@ function prepareContribution(
     dependencies: []
   };
 
-  return { artifact, rules };
+  return { artifact, rules, diagnostics: conditionDiagnostics };
+}
+
+function isPureOwnershipRule(rule: ParsedStyleRule): boolean {
+  return rule.relations.every((relation) => relation === 'descendant') &&
+    rule.states.every((state) => state.length === 0) &&
+    rule.attributes.every((conditions) => conditions.length === 0) &&
+    rule.observations.every((conditions) => conditions.length === 0) &&
+    rule.pseudoElements.every((pseudoElement) => pseudoElement === null);
+}
+
+function validateRegisteredConditions(
+  config: GssCompilerConfig,
+  id: string,
+  rules: readonly ParsedStyleRule[]
+): readonly GssDiagnostic[] {
+  const unregistered = new Map<string, ParsedCondition>();
+  for (const rule of rules) {
+    for (const condition of rule.conditions) {
+      const registered = new Set(config.conditions?.[condition.kind] ?? []);
+      if (!registered.has(condition.query)) {
+        unregistered.set(`${condition.kind}\0${condition.query}`, condition);
+      }
+    }
+  }
+  return [...unregistered.values()]
+    .sort((left, right) =>
+      `${left.kind}\0${left.query}`.localeCompare(`${right.kind}\0${right.query}`)
+    )
+    .map(({ kind, query }) => ({
+      code: 'GSS1102',
+      severity: 'warning',
+      phase: 'validate',
+      message: `@${kind} ${query} is not registered; its relative precedence is not guaranteed.`,
+      id,
+      reason: 'condition-not-registered',
+      suggestion: `Add the exact query to compiler conditions.${kind} in project precedence order.`
+    }));
+}
+
+function groupRulesByCondition(
+  rules: readonly ParsedStyleRule[]
+): ReadonlyMap<string, readonly ParsedStyleRule[]> {
+  const groups = new Map<string, ParsedStyleRule[]>();
+  for (const rule of rules) {
+    const key = canonicalCondition(rule.conditions);
+    groups.set(key, [...(groups.get(key) ?? []), rule]);
+  }
+  return groups;
+}
+
+function canonicalCondition(conditions: readonly ParsedCondition[]): string {
+  return conditions.length === 0
+    ? 'base'
+    : conditions.map(({ kind, query }) => `${kind}:${query}`).join('&&');
 }
 
 function ensureScopePath(
@@ -685,7 +758,15 @@ function renderRelationCombinator(
 
 function renderRule(rule: PlannedDeclaration): string {
   const { property, value, important } = rule.identity;
-  return `${rule.selector} {\n  ${property}: ${value}${important ? ' !important' : ''};\n}`;
+  let css = `${rule.selector} {\n  ${property}: ${value}${important ? ' !important' : ''};\n}`;
+  for (const wrapper of [...(rule.wrappers ?? [])].reverse()) {
+    css = `@${wrapper.kind} ${wrapper.query} {\n${indentCss(css)}\n}`;
+  }
+  return css;
+}
+
+function indentCss(css: string): string {
+  return css.split('\n').map((line) => `  ${line}`).join('\n');
 }
 
 function renderModuleCode(exports: Readonly<Record<string, ScopeNodeSchema>>): string {

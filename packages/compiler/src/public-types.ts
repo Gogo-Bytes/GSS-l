@@ -62,6 +62,11 @@ export type FinalizedGssSnapshot = {
 
 export type GssCompilerConfig = {
   projectRoot: string;
+  conditions?: {
+    media?: readonly string[];
+    supports?: readonly string[];
+    container?: readonly string[];
+  };
 };
 
 export type GssCompilerSession = {

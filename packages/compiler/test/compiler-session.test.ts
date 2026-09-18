@@ -168,6 +168,86 @@ describe('GssCompilerSession', () => {
     );
   });
 
+  it('fails closed instead of dropping a condition around a state atom', () => {
+    const compiler = createGssCompilerSession({
+      projectRoot: '/project',
+      conditions: { media: ['(hover: hover)'] }
+    });
+
+    expect(compiler.replaceStylesheet({
+      id: '/project/src/button.gss',
+      source: '@media (hover: hover) { .button:hover { color: red; } }'
+    })).toMatchObject({
+      committed: false,
+      generation: 0,
+      diagnostics: [{
+        code: 'GSS1101',
+        reason: 'capability-not-registered'
+      }]
+    });
+  });
+
+  it.each([
+    ['supports', '(display: grid)'],
+    ['container', 'sidebar (min-width: 30rem)']
+  ])('plans a registered @%s condition', (kind, query) => {
+    const compiler = createGssCompilerSession({
+      projectRoot: '/project',
+      conditions: { [kind]: [query] }
+    });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/layout.gss',
+      source: `@${kind} ${query} { .layout { display: block; } }`
+    });
+
+    expect(replacement.diagnostics).toEqual([]);
+    const className = replacement.module?.scopeSchema.exports.layout?.selfClassName;
+    expect(compiler.finalize().css).toBe(
+      `@${kind} ${query} {\n  .${className} {\n    display: block;\n  }\n}`
+    );
+  });
+
+  it('warns without rejecting an unregistered @media condition', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/layout.gss',
+      source: '@media (orientation: landscape) { .layout { display: block; } }'
+    });
+
+    expect(replacement).toMatchObject({
+      committed: true,
+      generation: 1,
+      diagnostics: [{
+        code: 'GSS1102',
+        severity: 'warning',
+        phase: 'validate',
+        reason: 'condition-not-registered'
+      }]
+    });
+    expect(compiler.finalize().css).toContain('@media (orientation: landscape)');
+  });
+
+  it('plans a registered @media condition around a pure atom', () => {
+    const compiler = createGssCompilerSession({
+      projectRoot: '/project',
+      conditions: { media: ['(min-width: 40rem)'] }
+    });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/layout.gss',
+      source: '@media (min-width: 40rem) { .layout { display: block; } }'
+    });
+
+    expect(replacement.diagnostics).toEqual([]);
+    const className = replacement.module?.scopeSchema.exports.layout?.selfClassName;
+    expect(className).toContain('--condition_media_3a__28_min_2d_width_3a__20_40rem_29_--');
+    expect(compiler.finalize().css).toBe(
+      `@media (min-width: 40rem) {\n  .${className} {\n    display: block;\n  }\n}`
+    );
+  });
+
   it.each([
     ['[aria-invalid="true"]', '[aria-invalid="true"]'],
     ['> img', '> img'],

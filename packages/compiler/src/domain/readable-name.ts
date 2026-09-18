@@ -1,6 +1,6 @@
 export type PureDeclarationIdentity = {
   layer: 'unlayered';
-  condition: 'base';
+  condition: string;
   state: string;
   pseudoElement?: string;
   property: string;

@@ -32,6 +32,11 @@ export type ParsedHasCondition = {
   observedResidual?: string;
 };
 
+export type ParsedCondition = {
+  kind: 'media' | 'supports' | 'container';
+  query: string;
+};
+
 export type ParsedStyleRule = {
   path: readonly string[];
   relations: readonly SelectorRelation[];
@@ -39,6 +44,7 @@ export type ParsedStyleRule = {
   attributes: readonly (readonly ParsedAttributeCondition[])[];
   observations: readonly (readonly ParsedHasCondition[])[];
   pseudoElements: readonly (string | null)[];
+  conditions: readonly ParsedCondition[];
   declarations: readonly ParsedDeclaration[];
   sourceOrdinal: number;
 };
@@ -69,33 +75,51 @@ export function parseStylesheet(id: string, source: string): ParsedStylesheet {
   const diagnostics: GssDiagnostic[] = [];
   const rules: ParsedStyleRule[] = [];
 
-  for (const [sourceOrdinal, node] of root.nodes.entries()) {
-    if (node.type !== 'rule') {
-      diagnostics.push(unsupportedDiagnostic(id, `Unsupported top-level ${node.type}.`));
-      continue;
-    }
-
-    const paths = parseDescendantClassPaths(node.selector);
-    if (!paths) {
-      diagnostics.push(unsupportedDiagnostic(id, `Unsupported selector: ${node.selector}`));
-      continue;
-    }
-
-    const declarations: ParsedDeclaration[] = [];
-    let valid = true;
-    for (const child of node.nodes) {
-      if (child.type !== 'decl') {
-        diagnostics.push(unsupportedDiagnostic(id, `Unsupported nested ${child.type} in ${node.selector}.`));
-        valid = false;
+  let sourceOrdinal = 0;
+  const visitNodes = (
+    nodes: readonly postcss.ChildNode[],
+    conditions: readonly ParsedCondition[]
+  ): void => {
+    for (const node of nodes) {
+      if (node.type === 'atrule') {
+        if (!isSupportedConditionKind(node.name) || !node.nodes) {
+          diagnostics.push(unsupportedDiagnostic(id, `Unsupported @${node.name} rule.`));
+          continue;
+        }
+        visitNodes(node.nodes, [...conditions, { kind: node.name, query: node.params.trim() }]);
         continue;
       }
-      declarations.push(toDeclaration(child));
-    }
+      if (node.type !== 'rule') {
+        diagnostics.push(unsupportedDiagnostic(id, `Unsupported top-level ${node.type}.`));
+        continue;
+      }
 
-    if (valid) {
-      for (const path of paths) rules.push({ ...path, declarations, sourceOrdinal });
+      const paths = parseDescendantClassPaths(node.selector);
+      if (!paths) {
+        diagnostics.push(unsupportedDiagnostic(id, `Unsupported selector: ${node.selector}`));
+        continue;
+      }
+
+      const declarations: ParsedDeclaration[] = [];
+      let valid = true;
+      for (const child of node.nodes) {
+        if (child.type !== 'decl') {
+          diagnostics.push(unsupportedDiagnostic(id, `Unsupported nested ${child.type} in ${node.selector}.`));
+          valid = false;
+          continue;
+        }
+        declarations.push(toDeclaration(child));
+      }
+
+      if (valid) {
+        for (const path of paths) {
+          rules.push({ ...path, conditions, declarations, sourceOrdinal });
+        }
+      }
+      sourceOrdinal += 1;
     }
-  }
+  };
+  visitNodes(root.nodes, []);
 
   return { rules, diagnostics };
 }
@@ -108,6 +132,12 @@ type ParsedSelectorPath = {
   observations: readonly (readonly ParsedHasCondition[])[];
   pseudoElements: readonly (string | null)[];
 };
+
+function isSupportedConditionKind(
+  name: string
+): name is ParsedCondition['kind'] {
+  return name === 'media' || name === 'supports' || name === 'container';
+}
 
 function parseDescendantClassPaths(selector: string): readonly ParsedSelectorPath[] | undefined {
   const root = selectorParser().astSync(selector);
