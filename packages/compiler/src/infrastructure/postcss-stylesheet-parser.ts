@@ -1,6 +1,11 @@
 import postcss, { type Declaration } from 'postcss';
 import postcssNesting from 'postcss-nesting';
-import selectorParser, { type ClassName, type Combinator, type Node } from 'postcss-selector-parser';
+import selectorParser, {
+  type Attribute,
+  type ClassName,
+  type Combinator,
+  type Node
+} from 'postcss-selector-parser';
 import { isSupportedPseudoState } from '../domain/pseudo-state-capabilities.js';
 import type { GssDiagnostic } from '../public-types.js';
 
@@ -12,10 +17,17 @@ export type ParsedDeclaration = {
 
 export type SelectorRelation = 'descendant' | 'child' | 'adjacent' | 'general-sibling';
 
+export type ParsedAttributeCondition = {
+  attribute: string;
+  operator: '=';
+  value: string;
+};
+
 export type ParsedStyleRule = {
   path: readonly string[];
   relations: readonly SelectorRelation[];
   states: readonly (readonly string[])[];
+  attributes: readonly (readonly ParsedAttributeCondition[])[];
   declarations: readonly ParsedDeclaration[];
   sourceOrdinal: number;
 };
@@ -81,6 +93,7 @@ type ParsedSelectorPath = {
   path: readonly string[];
   relations: readonly SelectorRelation[];
   states: readonly (readonly string[])[];
+  attributes: readonly (readonly ParsedAttributeCondition[])[];
 };
 
 function parseDescendantClassPaths(selector: string): readonly ParsedSelectorPath[] | undefined {
@@ -98,11 +111,13 @@ function parseClassPath(nodes: readonly Node[]): ParsedSelectorPath | undefined 
   const path: string[] = [];
   const relations: SelectorRelation[] = [];
   const states: string[][] = [];
+  const attributes: ParsedAttributeCondition[][] = [];
   let expectClass = true;
   for (const node of nodes) {
     if (expectClass && node.type === 'class') {
       path.push((node as ClassName).value);
       states.push([]);
+      attributes.push([]);
       expectClass = false;
       continue;
     }
@@ -110,6 +125,21 @@ function parseClassPath(nodes: readonly Node[]): ParsedSelectorPath | undefined 
       const state = node.value.slice(1);
       if (!isSupportedPseudoState(state)) return undefined;
       states.at(-1)?.push(state);
+      continue;
+    }
+    if (!expectClass && node.type === 'attribute') {
+      const attribute = node as Attribute;
+      if (
+        attribute.operator !== '=' ||
+        typeof attribute.value !== 'string' ||
+        attribute.insensitive !== undefined ||
+        attribute.namespace !== undefined
+      ) return undefined;
+      attributes.at(-1)?.push({
+        attribute: attribute.attribute,
+        operator: '=',
+        value: attribute.value
+      });
       continue;
     }
     if (!expectClass && node.type === 'combinator') {
@@ -130,7 +160,7 @@ function parseClassPath(nodes: readonly Node[]): ParsedSelectorPath | undefined 
     return undefined;
   }
 
-  return path.length > 0 && !expectClass ? { path, relations, states } : undefined;
+  return path.length > 0 && !expectClass ? { path, relations, states, attributes } : undefined;
 }
 
 function toDeclaration(declaration: Declaration): ParsedDeclaration {

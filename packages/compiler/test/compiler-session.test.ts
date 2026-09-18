@@ -147,6 +147,63 @@ describe('GssCompilerSession', () => {
     });
   });
 
+  it('combines an ARIA condition with a sibling runtime relation', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/field.gss',
+      source: '.input[aria-invalid="true"] + .hint { color: red; }'
+    });
+
+    const sourceMarker = 'gss-s--module_src_2f_field_2e_gss--path_input';
+    const targetMarker =
+      'gss-t--module_src_2f_field_2e_gss--relation_adjacent--condition_attribute_3a_aria_2d_invalid_3d_true--source_input--target_input_2f_hint';
+    expect(replacement.diagnostics).toEqual([]);
+    expect(compiler.finalize().css).toBe(
+      `.${sourceMarker}[aria-invalid="true"] + .${targetMarker} {\n  color: red;\n}`
+    );
+  });
+
+  it('plans an ancestor ARIA condition as a source-target contextual atom', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/disclosure.gss',
+      source: '.group[aria-expanded="true"] .item { color: red; }'
+    });
+
+    const sourceMarker = 'gss-s--module_src_2f_disclosure_2e_gss--path_group';
+    const targetMarker =
+      'gss-t--module_src_2f_disclosure_2e_gss--relation_descendant--condition_attribute_3a_aria_2d_expanded_3d_true--source_group--target_group_2f_item';
+    expect(replacement.diagnostics).toEqual([]);
+    expect(replacement.module?.scopeSchema.exports.group?.selfClassName).toBe(sourceMarker);
+    expect(replacement.module?.scopeSchema.exports.group?.targets.item?.selfClassName).toBe(
+      targetMarker
+    );
+    expect(compiler.finalize().css).toBe(
+      `.${sourceMarker}[aria-expanded="true"] .${targetMarker} {\n  color: red;\n}`
+    );
+  });
+
+  it.each([
+    ['data-variant', 'primary'],
+    ['aria-selected', 'true']
+  ])('plans the current-element [%s="%s"] condition', (attribute, value) => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/control.gss',
+      source: `.control[${attribute}="${value}"] { color: red; }`
+    });
+
+    expect(replacement.diagnostics).toEqual([]);
+    const className = replacement.module?.scopeSchema.exports.control?.selfClassName;
+    expect(className).toContain(`--state_attribute_3a_${attribute.replace('-', '_2d_')}_3d_${value}--`);
+    expect(compiler.finalize().css).toBe(
+      `.${className}[${attribute}="${value}"] {\n  color: red;\n}`
+    );
+  });
+
   it('combines a source state with a runtime relation', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 

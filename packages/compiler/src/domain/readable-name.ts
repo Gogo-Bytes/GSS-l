@@ -11,6 +11,7 @@ export type ContextualRelationIdentity = {
   moduleId: string;
   relations: readonly ('descendant' | 'child' | 'adjacent' | 'general-sibling')[];
   sourceState?: string;
+  sourceAttribute?: string;
   sourcePath: readonly string[];
   targetPath: readonly string[];
 };
@@ -44,6 +45,9 @@ export function createReadableTargetMarker(identity: ContextualRelationIdentity)
     `module_${encodeNamePart(identity.moduleId)}`,
     `relation_${encodeRelations(identity.relations)}`,
     identity.sourceState ? `state_${encodeNamePart(identity.sourceState)}` : undefined,
+    identity.sourceAttribute
+      ? `condition_${encodeNamePart(identity.sourceAttribute)}`
+      : undefined,
     `source_${encodePath(identity.sourcePath)}`,
     `target_${encodePath(identity.targetPath)}`
   ].filter((part): part is string => part !== undefined).join('--');
@@ -59,6 +63,9 @@ export function createReadableContextMarker(
     `module_${encodeNamePart(identity.moduleId)}`,
     `relation_${encodeRelations(identity.relations)}`,
     identity.sourceState ? `state_${encodeNamePart(identity.sourceState)}` : undefined,
+    identity.sourceAttribute
+      ? `condition_${encodeNamePart(identity.sourceAttribute)}`
+      : undefined,
     `position_${position}`,
     `path_${encodePath(path)}`,
     `target_${encodePath(identity.targetPath)}`

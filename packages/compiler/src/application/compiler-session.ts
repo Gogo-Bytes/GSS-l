@@ -8,7 +8,10 @@ import {
 } from '../domain/readable-name.js';
 import { resolveTargetDeclarations } from '../domain/resolve-target-declarations.js';
 import { validateDeclarationSequences } from '../domain/validate-declarations.js';
-import { parseStylesheet } from '../infrastructure/postcss-stylesheet-parser.js';
+import {
+  parseStylesheet,
+  type ParsedAttributeCondition
+} from '../infrastructure/postcss-stylesheet-parser.js';
 import type {
   FinalizedGssSnapshot,
   GssCompilerConfig,
@@ -98,6 +101,32 @@ function prepareContribution(
     return { diagnostics: declarationDiagnostics };
   }
 
+  const unsupportedAttribute = parsed.rules.find(({ path, relations, states, attributes }) => {
+    const attributeIndexes = attributes.flatMap((conditions, index) =>
+      conditions.length > 0 ? [index] : []
+    );
+    const firstRuntimeRelation = relations.findIndex((relation) => relation !== 'descendant');
+    return attributeIndexes.length > 0 && (
+      attributeIndexes.length !== 1 ||
+      attributes[attributeIndexes[0]!]!.length !== 1 ||
+      path.length === 0 ||
+      (firstRuntimeRelation >= 0 && attributeIndexes[0] !== firstRuntimeRelation) ||
+      states.some((state) => state.length > 0)
+    );
+  });
+  if (unsupportedAttribute) {
+    return {
+      diagnostics: [{
+        code: 'GSS1101',
+        severity: 'error',
+        phase: 'validate',
+        message: 'A selector may contain one equality attribute on its current or runtime-source node.',
+        id: input.id,
+        reason: 'capability-not-registered'
+      }]
+    };
+  }
+
   const unsupportedState = parsed.rules.find(({ path, relations, states }) => {
     const stateIndexes = states.flatMap((state, index) => state.length > 0 ? [index] : []);
     const firstRuntimeRelation = relations.findIndex((relation) => relation !== 'descendant');
@@ -123,9 +152,10 @@ function prepareContribution(
   const moduleId = toLogicalModuleId(config.projectRoot, input.id);
   const roots = new Map<string, MutableScopeNode>();
   const rules: PlannedDeclaration[] = [];
-  const ownershipRules = parsed.rules.filter(({ relations, states }) =>
+  const ownershipRules = parsed.rules.filter(({ relations, states, attributes }) =>
     relations.every((relation) => relation === 'descendant') &&
-    states.every((state) => state.length === 0)
+    states.every((state) => state.length === 0) &&
+    attributes.every((conditions) => conditions.length === 0)
   );
   const stateRules = parsed.rules.filter(({ relations, states }) =>
     relations.every((relation) => relation === 'descendant') &&
@@ -134,6 +164,14 @@ function prepareContribution(
   const ancestorStateRules = parsed.rules.filter(({ relations, states }) =>
     relations.every((relation) => relation === 'descendant') &&
     states.slice(0, -1).some((state) => state.length > 0)
+  );
+  const attributeRules = parsed.rules.filter(({ relations, attributes }) =>
+    relations.every((relation) => relation === 'descendant') &&
+    attributes.at(-1)?.length
+  );
+  const ancestorAttributeRules = parsed.rules.filter(({ relations, attributes }) =>
+    relations.every((relation) => relation === 'descendant') &&
+    attributes.slice(0, -1).some((conditions) => conditions.length > 0)
   );
   const contextualRules = parsed.rules.filter(({ relations }) =>
     relations.some((relation) => relation !== 'descendant')
@@ -207,6 +245,74 @@ function prepareContribution(
     }
   }
 
+  const attributeGroups = new Map<string, typeof attributeRules>();
+  for (const rule of attributeRules) {
+    const condition = rule.attributes.at(-1)![0]!;
+    const key = canonicalAttributeCondition(condition);
+    attributeGroups.set(key, [...(attributeGroups.get(key) ?? []), rule]);
+  }
+  for (const [conditionKey, groupedRules] of attributeGroups) {
+    const condition = groupedRules[0]!.attributes.at(-1)![0]!;
+    for (const target of resolveTargetDeclarations(
+      groupedRules,
+      groupedRules.map(({ path }) => path)
+    )) {
+      const scope = ensureScopePath(roots, target.path);
+      for (const declaration of target.declarations) {
+        const identity: PureDeclarationIdentity = {
+          layer: 'unlayered',
+          condition: 'base',
+          state: conditionKey,
+          property: declaration.property,
+          value: declaration.value,
+          important: declaration.important
+        };
+        const className = createReadableAtomicName(identity);
+        scope.classNames.add(className);
+        rules.push({
+          kind: 'contextual-atom',
+          identity,
+          className,
+          selector: `.${className}${renderAttributeCondition(condition)}`
+        });
+      }
+    }
+  }
+
+  for (const rule of ancestorAttributeRules) {
+    const sourceIndex = rule.attributes.findIndex((conditions) => conditions.length > 0);
+    const sourceCondition = rule.attributes[sourceIndex]![0]!;
+    const sourceAttribute = canonicalAttributeCondition(sourceCondition);
+    const sourcePath = rule.path.slice(0, sourceIndex + 1);
+    const sourceMarker = createReadableSourceMarker(moduleId, sourcePath);
+    const relationIdentity: ContextualRelationIdentity = {
+      moduleId,
+      relations: rule.relations.slice(sourceIndex),
+      sourceAttribute,
+      sourcePath,
+      targetPath: rule.path
+    };
+    const targetMarker = createReadableTargetMarker(relationIdentity);
+    ensureScopePath(roots, sourcePath).classNames.add(sourceMarker);
+    ensureScopePath(roots, rule.path).classNames.add(targetMarker);
+    const selector = `.${sourceMarker}${renderAttributeCondition(sourceCondition)} .${targetMarker}`;
+
+    for (const declaration of rule.declarations) {
+      const identity: ContextualDeclarationIdentity = {
+        ...relationIdentity,
+        property: declaration.property,
+        value: declaration.value,
+        important: declaration.important
+      };
+      rules.push({
+        kind: 'contextual-atom',
+        identity,
+        className: targetMarker,
+        selector
+      });
+    }
+  }
+
   for (const rule of ancestorStateRules) {
     const sourceIndex = rule.states.findIndex((state) => state.length > 0);
     const sourceState = rule.states[sourceIndex]!.join(':');
@@ -248,11 +354,16 @@ function prepareContribution(
     const sourcePath = rule.path.slice(0, firstRuntimeRelation + 1);
     const runtimePaths = rule.path.slice(firstRuntimeRelation);
     const sourceState = rule.states[firstRuntimeRelation]?.join(':') || undefined;
+    const sourceAttributeCondition = rule.attributes[firstRuntimeRelation]?.[0];
+    const sourceAttribute = sourceAttributeCondition
+      ? canonicalAttributeCondition(sourceAttributeCondition)
+      : undefined;
     const sourceMarker = createReadableSourceMarker(moduleId, sourcePath);
     const relationIdentity: ContextualRelationIdentity = {
       moduleId,
       relations: runtimeRelations,
       ...(sourceState ? { sourceState } : {}),
+      ...(sourceAttribute ? { sourceAttribute } : {}),
       sourcePath,
       targetPath: rule.path
     };
@@ -269,7 +380,9 @@ function prepareContribution(
     });
     const selector = markers.map((marker, index) =>
       index === 0
-        ? `.${marker}${sourceState ? `:${sourceState}` : ''}`
+        ? `.${marker}${sourceState ? `:${sourceState}` : ''}${
+          sourceAttributeCondition ? renderAttributeCondition(sourceAttributeCondition) : ''
+        }`
         : ` ${renderRelationCombinator(runtimeRelations[index - 1]!)} .${marker}`
     ).join('');
 
@@ -371,6 +484,14 @@ function finalizeSnapshot(
   };
 }
 
+function canonicalAttributeCondition(condition: ParsedAttributeCondition): string {
+  return `attribute:${condition.attribute}=${condition.value}`;
+}
+
+function renderAttributeCondition(condition: ParsedAttributeCondition): string {
+  return `[${condition.attribute}=${JSON.stringify(condition.value)}]`;
+}
+
 function renderRelationCombinator(
   relation: ContextualRelationIdentity['relations'][number]
 ): '>' | '+' | '~' | '' {
@@ -431,6 +552,7 @@ function serializeIdentity(identity: PlannedDeclaration['identity']): string {
       identity.moduleId,
       identity.relations,
       identity.sourceState,
+      identity.sourceAttribute,
       identity.sourcePath,
       identity.targetPath,
       identity.property,
