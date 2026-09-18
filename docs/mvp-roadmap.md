@@ -62,7 +62,7 @@ Completion criteria:
 - [x] Establish the data-driven `PropertyEffectRegistry` seam with margin/padding effect families.
 - [x] Resolve exact-property and registered shorthand/longhand winners per closed target candidate set.
 - [x] Version the property-effect registry and expand its first dataset across box, border, background, typography, layout, transition, animation, and mask families.
-- [ ] Complete shorthand classification for the full positive property set and fail closed for unclassified shorthands.
+- [ ] Complete shorthand classification for the full positive property set; unclassified effects must not enter atomic output.
 - [x] Detect registered logical/physical property conflicts, including conflicts introduced by ownership target accumulation.
 - [ ] Implement importance and authored cascade layer semantics.
 - [ ] Implement selector specificity, including `:where()` zero specificity.
@@ -96,6 +96,7 @@ Completion criteria:
 - [x] Plan configured named layers across pure and contextual atoms, emit the global order prelude, and warn on unregistered layer names.
 - [ ] Implement full registered condition precedence and remaining cascade-order planning.
 - [ ] Keep compatibility declaration sequences indivisible after browserslist transformation.
+- [ ] Replan recoverable atomization failures as one whole preserved Module while retaining ScopeSchema, resources, authored order, and transactional replacement.
 
 Completion criteria:
 
@@ -112,7 +113,7 @@ Completion criteria:
 - [x] Implement `RuleOrderPlanner` separately from `CascadeResolver`.
 - [ ] Implement reversible readable names behind `NameAllocatorPort`.
 - [ ] Emit nested static scope objects and branded TypeScript declarations.
-- [ ] Emit central CSS, source map, manifest, and report.
+- [ ] Emit central CSS, source map, manifest, and report, including Module compilation mode, fallback reasons, and atomic coverage.
 
 Completion criteria:
 
@@ -194,4 +195,4 @@ Pilot gates:
 
 ## After the MVP
 
-Use pilot evidence—not assumptions—to prioritize deferred work in [`deferred-capabilities.md`](deferred-capabilities.md), including additional framework Adapters, CSS code splitting, editor integration, explicit preserve capabilities, and short/hash naming.
+Use pilot evidence—not assumptions—to prioritize deferred work in [`deferred-capabilities.md`](deferred-capabilities.md), including additional framework Adapters, CSS code splitting, editor integration, broader raw escape capabilities, and short/hash naming.
