@@ -45,7 +45,7 @@
 
 - 标准 property/value syntax，value 默认 opaque。
 - `!important`。
-- Data-driven shorthand/longhand property effects。
+- Versioned、data-driven shorthand/longhand property effects；v1覆盖 box、border、background、typography、flex/alignment、transition、animation和mask family。
 - Custom property provider、inheritance 与 `var(...)` consumer。
 - `@property` 全局 registration。
 - Browserslist transformer生成的兼容 declaration sequence。

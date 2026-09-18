@@ -373,6 +373,19 @@ describe('GssCompilerSession', () => {
     });
   });
 
+  it('resolves border family shorthand and longhand effects', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    compiler.replaceStylesheet({
+      id: '/project/src/border.gss',
+      source: '.box { border-top-color: red; border: 1px solid blue; }'
+    });
+
+    expect(compiler.finalize()).toMatchObject({ report: { modules: 1, rules: 1 } });
+    expect(compiler.finalize().css).toContain('border: 1px solid blue;');
+    expect(compiler.finalize().css).not.toContain('border-top-color: red;');
+  });
+
   it('removes a longhand fully shadowed by a later shorthand', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 

@@ -61,7 +61,8 @@ Completion criteria:
 
 - [x] Establish the data-driven `PropertyEffectRegistry` seam with margin/padding effect families.
 - [x] Resolve exact-property and registered shorthand/longhand winners per closed target candidate set.
-- [ ] Expand and version the property-effect dataset for the full positive property set.
+- [x] Version the property-effect registry and expand its first dataset across box, border, background, typography, layout, transition, animation, and mask families.
+- [ ] Complete shorthand classification for the full positive property set and fail closed for unclassified shorthands.
 - [x] Detect registered logical/physical property conflicts, including conflicts introduced by ownership target accumulation.
 - [ ] Implement importance and authored cascade layer semantics.
 - [ ] Implement selector specificity, including `:where()` zero specificity.
