@@ -168,23 +168,65 @@ describe('GssCompilerSession', () => {
     );
   });
 
-  it('fails closed instead of dropping a condition around a state atom', () => {
+  it('preserves a registered condition around an attribute atom', () => {
+    const compiler = createGssCompilerSession({
+      projectRoot: '/project',
+      conditions: { supports: ['selector(:has(*))'] }
+    });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/tab.gss',
+      source: `
+        @supports selector(:has(*)) {
+          .tab[aria-selected="true"] { color: red; }
+        }
+      `
+    });
+
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    const className = replacement.module?.scopeSchema.exports.tab?.selfClassName;
+    expect(className).toContain('--condition_supports_3a_selector_28__3a_has_28__2a__29__29_--');
+    expect(compiler.finalize().css).toContain(
+      `.${className}[aria-selected="true"] {\n    color: red;\n  }`
+    );
+  });
+
+  it('preserves a registered condition around a pseudo-element atom', () => {
+    const compiler = createGssCompilerSession({
+      projectRoot: '/project',
+      conditions: { media: ['print'] }
+    });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/article.gss',
+      source: '@media print { .article::first-letter { color: red; } }'
+    });
+
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    const className = replacement.module?.scopeSchema.exports.article?.selfClassName;
+    expect(className).toContain('--condition_media_3a_print--state_self--pseudo_first_2d_letter--');
+    expect(compiler.finalize().css).toBe(
+      `@media print {\n  .${className}::first-letter {\n    color: red;\n  }\n}`
+    );
+  });
+
+  it('preserves a registered condition around a state atom', () => {
     const compiler = createGssCompilerSession({
       projectRoot: '/project',
       conditions: { media: ['(hover: hover)'] }
     });
 
-    expect(compiler.replaceStylesheet({
+    const replacement = compiler.replaceStylesheet({
       id: '/project/src/button.gss',
       source: '@media (hover: hover) { .button:hover { color: red; } }'
-    })).toMatchObject({
-      committed: false,
-      generation: 0,
-      diagnostics: [{
-        code: 'GSS1101',
-        reason: 'capability-not-registered'
-      }]
     });
+
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    const className = replacement.module?.scopeSchema.exports.button?.selfClassName;
+    expect(className).toContain('--condition_media_3a__28_hover_3a__20_hover_29_--state_hover--');
+    expect(compiler.finalize().css).toBe(
+      `@media (hover: hover) {\n  .${className}:hover {\n    color: red;\n  }\n}`
+    );
   });
 
   it.each([

@@ -112,7 +112,11 @@ function prepareContribution(
   }
   const conditionDiagnostics = validateRegisteredConditions(config, input.id, parsed.rules);
   const unsupportedConditionCombination = parsed.rules.find((rule) =>
-    rule.conditions.length > 0 && !isPureOwnershipRule(rule)
+    rule.conditions.length > 0 &&
+    !isPureOwnershipRule(rule) &&
+    !isCurrentStateRule(rule) &&
+    !isPseudoElementRule(rule) &&
+    !isCurrentAttributeRule(rule)
   );
   if (unsupportedConditionCombination) {
     return {
@@ -251,11 +255,7 @@ function prepareContribution(
   const roots = new Map<string, MutableScopeNode>();
   const rules: PlannedDeclaration[] = [];
   const ownershipRules = parsed.rules.filter(isPureOwnershipRule);
-  const stateRules = parsed.rules.filter(({ relations, states, pseudoElements }) =>
-    relations.every((relation) => relation === 'descendant') &&
-    states.at(-1)?.length &&
-    pseudoElements.every((pseudoElement) => pseudoElement === null)
-  );
+  const stateRules = parsed.rules.filter(isCurrentStateRule);
   const ancestorStateRules = parsed.rules.filter(({ relations, states }) =>
     relations.every((relation) => relation === 'descendant') &&
     states.slice(0, -1).some((state) => state.length > 0)
@@ -328,9 +328,13 @@ function prepareContribution(
   const stateGroups = new Map<string, typeof stateRules>();
   for (const rule of stateRules) {
     const state = rule.states.at(-1)!.join(':');
-    stateGroups.set(state, [...(stateGroups.get(state) ?? []), rule]);
+    const key = `${canonicalCondition(rule.conditions)}\0${state}`;
+    stateGroups.set(key, [...(stateGroups.get(key) ?? []), rule]);
   }
-  for (const [state, groupedRules] of stateGroups) {
+  for (const groupedRules of stateGroups.values()) {
+    const state = groupedRules[0]!.states.at(-1)!.join(':');
+    const wrappers = groupedRules[0]!.conditions;
+    const condition = canonicalCondition(wrappers);
     for (const target of resolveTargetDeclarations(
       groupedRules,
       groupedRules.map(({ path }) => path)
@@ -339,7 +343,7 @@ function prepareContribution(
       for (const declaration of target.declarations) {
         const identity: PureDeclarationIdentity = {
           layer: 'unlayered',
-          condition: 'base',
+          condition,
           state,
           property: declaration.property,
           value: declaration.value,
@@ -351,7 +355,8 @@ function prepareContribution(
           kind: 'contextual-atom',
           identity,
           className,
-          selector: `.${className}:${state}`
+          selector: `.${className}:${state}`,
+          wrappers
         });
       }
     }
@@ -362,13 +367,15 @@ function prepareContribution(
     const pseudoElement = rule.pseudoElements.at(-1);
     if (!pseudoElement) throw new Error('GSS invariant: pseudo-element rule lost its target.');
     const state = rule.states.at(-1)!.join(':') || 'self';
-    const key = `${pseudoElement}\0${state}`;
+    const key = `${canonicalCondition(rule.conditions)}\0${pseudoElement}\0${state}`;
     pseudoElementGroups.set(key, [...(pseudoElementGroups.get(key) ?? []), rule]);
   }
   for (const groupedRules of pseudoElementGroups.values()) {
     const pseudoElement = groupedRules[0]!.pseudoElements.at(-1);
     if (!pseudoElement) throw new Error('GSS invariant: pseudo-element group lost its target.');
     const state = groupedRules[0]!.states.at(-1)!.join(':') || 'self';
+    const wrappers = groupedRules[0]!.conditions;
+    const condition = canonicalCondition(wrappers);
     for (const target of resolveTargetDeclarations(
       groupedRules,
       groupedRules.map(({ path }) => path)
@@ -377,7 +384,7 @@ function prepareContribution(
       for (const declaration of target.declarations) {
         const identity: PureDeclarationIdentity = {
           layer: 'unlayered',
-          condition: 'base',
+          condition,
           state,
           pseudoElement,
           property: declaration.property,
@@ -390,7 +397,8 @@ function prepareContribution(
           kind: state === 'self' ? 'pure-atom' : 'contextual-atom',
           identity,
           className,
-          selector: `.${className}${state === 'self' ? '' : `:${state}`}::${pseudoElement}`
+          selector: `.${className}${state === 'self' ? '' : `:${state}`}::${pseudoElement}`,
+          wrappers
         });
       }
     }
@@ -440,11 +448,14 @@ function prepareContribution(
   const attributeGroups = new Map<string, typeof attributeRules>();
   for (const rule of attributeRules) {
     const condition = rule.attributes.at(-1)![0]!;
-    const key = canonicalAttributeCondition(condition);
+    const key = `${canonicalCondition(rule.conditions)}\0${canonicalAttributeCondition(condition)}`;
     attributeGroups.set(key, [...(attributeGroups.get(key) ?? []), rule]);
   }
-  for (const [conditionKey, groupedRules] of attributeGroups) {
-    const condition = groupedRules[0]!.attributes.at(-1)![0]!;
+  for (const groupedRules of attributeGroups.values()) {
+    const attributeCondition = groupedRules[0]!.attributes.at(-1)![0]!;
+    const state = canonicalAttributeCondition(attributeCondition);
+    const wrappers = groupedRules[0]!.conditions;
+    const condition = canonicalCondition(wrappers);
     for (const target of resolveTargetDeclarations(
       groupedRules,
       groupedRules.map(({ path }) => path)
@@ -453,8 +464,8 @@ function prepareContribution(
       for (const declaration of target.declarations) {
         const identity: PureDeclarationIdentity = {
           layer: 'unlayered',
-          condition: 'base',
-          state: conditionKey,
+          condition,
+          state,
           property: declaration.property,
           value: declaration.value,
           important: declaration.important
@@ -465,7 +476,8 @@ function prepareContribution(
           kind: 'contextual-atom',
           identity,
           className,
-          selector: `.${className}${renderAttributeCondition(condition)}`
+          selector: `.${className}${renderAttributeCondition(attributeCondition)}`,
+          wrappers
         });
       }
     }
@@ -608,6 +620,33 @@ function prepareContribution(
   };
 
   return { artifact, rules, diagnostics: conditionDiagnostics };
+}
+
+function isCurrentAttributeRule(rule: ParsedStyleRule): boolean {
+  return rule.relations.every((relation) => relation === 'descendant') &&
+    rule.attributes.at(-1)!.length === 1 &&
+    rule.attributes.slice(0, -1).every((conditions) => conditions.length === 0) &&
+    rule.states.every((state) => state.length === 0) &&
+    rule.observations.every((conditions) => conditions.length === 0) &&
+    rule.pseudoElements.every((pseudoElement) => pseudoElement === null);
+}
+
+function isPseudoElementRule(rule: ParsedStyleRule): boolean {
+  return rule.relations.every((relation) => relation === 'descendant') &&
+    Boolean(rule.pseudoElements.at(-1)) &&
+    rule.pseudoElements.slice(0, -1).every((pseudoElement) => pseudoElement === null) &&
+    rule.states.slice(0, -1).every((state) => state.length === 0) &&
+    rule.attributes.every((conditions) => conditions.length === 0) &&
+    rule.observations.every((conditions) => conditions.length === 0);
+}
+
+function isCurrentStateRule(rule: ParsedStyleRule): boolean {
+  return rule.relations.every((relation) => relation === 'descendant') &&
+    rule.states.at(-1)!.length > 0 &&
+    rule.states.slice(0, -1).every((state) => state.length === 0) &&
+    rule.attributes.every((conditions) => conditions.length === 0) &&
+    rule.observations.every((conditions) => conditions.length === 0) &&
+    rule.pseudoElements.every((pseudoElement) => pseudoElement === null);
 }
 
 function isPureOwnershipRule(rule: ParsedStyleRule): boolean {
