@@ -62,7 +62,7 @@ Completion criteria:
 - [x] Establish the data-driven `PropertyEffectRegistry` seam with margin/padding effect families.
 - [x] Resolve exact-property and registered shorthand/longhand winners per closed target candidate set.
 - [ ] Expand and version the property-effect dataset for the full positive property set.
-- [ ] Detect logical/physical property conflicts.
+- [x] Detect registered logical/physical property conflicts, including conflicts introduced by ownership target accumulation.
 - [ ] Implement importance and authored cascade layer semantics.
 - [ ] Implement selector specificity, including `:where()` zero specificity.
 - [x] Implement registered at-rule condition rank for deterministic rule planning.

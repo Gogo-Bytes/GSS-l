@@ -12,6 +12,7 @@ import {
 import { resolveTargetDeclarations } from '../domain/resolve-target-declarations.js';
 import { compareRuleOrder } from '../domain/rule-order-planner.js';
 import { validateDeclarationSequences } from '../domain/validate-declarations.js';
+import { validateLogicalPhysicalConflicts } from '../domain/validate-logical-physical-conflicts.js';
 import { validateStateAmbiguity } from '../domain/validate-state-ambiguity.js';
 import {
   parseStylesheet,
@@ -139,6 +140,10 @@ function prepareContribution(
   const declarationDiagnostics = validateDeclarationSequences(input.id, parsed.rules);
   if (declarationDiagnostics.some(({ severity }) => severity === 'error')) {
     return { diagnostics: declarationDiagnostics };
+  }
+  const logicalPhysicalDiagnostics = validateLogicalPhysicalConflicts(input.id, parsed.rules);
+  if (logicalPhysicalDiagnostics.some(({ severity }) => severity === 'error')) {
+    return { diagnostics: logicalPhysicalDiagnostics };
   }
   const stateDiagnostics = validateStateAmbiguity(input.id, parsed.rules);
   if (stateDiagnostics.some(({ severity }) => severity === 'error')) {

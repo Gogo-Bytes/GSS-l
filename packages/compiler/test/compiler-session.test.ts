@@ -168,6 +168,50 @@ describe('GssCompilerSession', () => {
     );
   });
 
+  it('rejects logical and physical conflicts introduced by target accumulation', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/family.gss',
+      source: `
+        .son { margin-inline-start: 1rem; }
+        .father .son { margin-left: 2rem; }
+      `
+    });
+
+    expect(replacement).toMatchObject({
+      committed: false,
+      diagnostics: [{
+        code: 'GSS1206',
+        reason: 'logical-physical-property-conflict'
+      }]
+    });
+  });
+
+  it('rejects direction-dependent logical and physical property conflicts', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/box.gss',
+      source: '.box { margin-inline-start: 1rem; margin-left: 2rem; }'
+    });
+
+    expect(replacement).toMatchObject({
+      committed: false,
+      generation: 0,
+      diagnostics: [{
+        code: 'GSS1206',
+        severity: 'error',
+        phase: 'resolve',
+        reason: 'logical-physical-property-conflict'
+      }]
+    });
+    expect(compiler.finalize()).toMatchObject({
+      css: '',
+      report: { modules: 0, rules: 0 }
+    });
+  });
+
   it('removes a longhand fully shadowed by a later shorthand', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 
