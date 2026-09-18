@@ -18,6 +18,7 @@ import {
   parseStylesheet,
   type ParsedAttributeCondition,
   type ParsedCondition,
+  type ParsedPropertyRegistration,
   type ParsedStyleRule
 } from '../infrastructure/postcss-stylesheet-parser.js';
 import type {
@@ -51,9 +52,17 @@ type PlannedDeclaration = {
   layer?: string;
 };
 
+type PlannedResource = {
+  kind: 'property';
+  name: string;
+  identity: string;
+  css: string;
+};
+
 type ModuleContribution = {
   artifact: StyleModuleArtifact;
   rules: readonly PlannedDeclaration[];
+  resources: readonly PlannedResource[];
   diagnostics: readonly GssDiagnostic[];
 };
 
@@ -75,6 +84,24 @@ export function createGssCompilerSession(config: GssCompilerConfig): GssCompiler
           committed: false,
           generation,
           diagnostics: prepared.diagnostics
+        };
+      }
+
+      const conflictingResource = findConflictingResource(modules, input.id, prepared.resources);
+      if (conflictingResource) {
+        return {
+          id: input.id,
+          committed: false,
+          generation,
+          diagnostics: [{
+            code: 'GSS1301',
+            severity: 'error',
+            phase: 'registry',
+            message: `Global resource ${conflictingResource} has incompatible registrations.`,
+            id: input.id,
+            reason: 'conflicting-global-resource',
+            suggestion: 'Keep one project-wide registration with identical descriptors.'
+          }]
         };
       }
 
@@ -668,7 +695,45 @@ function prepareContribution(
     dependencies: []
   };
 
-  return { artifact, rules, diagnostics: conditionDiagnostics };
+  const resources = parsed.resources.map(planPropertyRegistration);
+  return { artifact, rules, resources, diagnostics: conditionDiagnostics };
+}
+
+function planPropertyRegistration(resource: ParsedPropertyRegistration): PlannedResource {
+  const declarations = resource.declarations
+    .map(({ property, value }) => `  ${property}: ${value};`)
+    .join('\n');
+  return {
+    kind: resource.kind,
+    name: resource.name,
+    identity: JSON.stringify([
+      resource.kind,
+      resource.name,
+      resource.declarations.map(({ property, value }) => [property, value])
+    ]),
+    css: `@property ${resource.name} {\n${declarations}\n}`
+  };
+}
+
+function findConflictingResource(
+  modules: ReadonlyMap<string, ModuleContribution>,
+  replacingId: string,
+  incoming: readonly PlannedResource[]
+): string | undefined {
+  const incomingByName = new Map<string, string>();
+  for (const resource of incoming) {
+    const previous = incomingByName.get(resource.name);
+    if (previous && previous !== resource.identity) return resource.name;
+    incomingByName.set(resource.name, resource.identity);
+    for (const [moduleId, contribution] of modules) {
+      if (moduleId === replacingId) continue;
+      const conflict = contribution.resources.find((registered) =>
+        registered.name === resource.name && registered.identity !== resource.identity
+      );
+      if (conflict) return resource.name;
+    }
+  }
+  return undefined;
 }
 
 function isAncestorStateRule(rule: ParsedStyleRule): boolean {
@@ -819,6 +884,26 @@ function finalizeSnapshot(
   generation: number,
   config: GssCompilerConfig
 ): FinalizedGssSnapshot {
+  const uniqueResources = new Map<string, {
+    resource: PlannedResource;
+    sources: Set<string>;
+  }>();
+  for (const contribution of modules.values()) {
+    for (const resource of contribution.resources) {
+      const registered = uniqueResources.get(resource.identity) ?? {
+        resource,
+        sources: new Set<string>()
+      };
+      registered.sources.add(contribution.artifact.scopeSchema.moduleId);
+      uniqueResources.set(resource.identity, registered);
+    }
+  }
+  const orderedResources = [...uniqueResources.values()]
+    .sort((left, right) => left.resource.identity.localeCompare(right.resource.identity));
+  const renderedResources = orderedResources
+    .map(({ resource }) => resource.css)
+    .join('\n\n');
+
   const uniqueRules = new Map<string, {
     rule: PlannedDeclaration;
     sources: Set<string>;
@@ -841,9 +926,14 @@ function finalizeSnapshot(
     : '';
   return {
     generation,
-    css: [layerPrelude, renderedRules].filter(Boolean).join('\n\n'),
+    css: [renderedResources, layerPrelude, renderedRules].filter(Boolean).join('\n\n'),
     manifest: {
       modules: [...modules.keys()].sort(),
+      resources: orderedResources.map(({ resource, sources }) => ({
+        kind: resource.kind,
+        name: resource.name,
+        sources: [...sources].sort()
+      })),
       rules: orderedRules.map(({ rule: { kind, className, selector, identity }, sources }) => ({
         kind,
         className,
@@ -856,7 +946,8 @@ function finalizeSnapshot(
     },
     report: {
       modules: modules.size,
-      rules: orderedRules.length
+      rules: orderedRules.length,
+      resources: orderedResources.length
     }
   };
 }

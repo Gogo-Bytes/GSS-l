@@ -168,6 +168,55 @@ describe('GssCompilerSession', () => {
     );
   });
 
+  it('rejects conflicting global @property registrations transactionally', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    compiler.replaceStylesheet({
+      id: '/project/src/a.gss',
+      source: '@property --brand { syntax: "<color>"; inherits: true; initial-value: red; }'
+    });
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/b.gss',
+      source: '@property --brand { syntax: "<length>"; inherits: false; initial-value: 0px; }'
+    });
+
+    expect(replacement).toMatchObject({
+      committed: false,
+      generation: 1,
+      diagnostics: [{
+        code: 'GSS1301',
+        phase: 'registry',
+        reason: 'conflicting-global-resource'
+      }]
+    });
+    expect(compiler.finalize()).toMatchObject({ report: { modules: 1 } });
+    expect(compiler.finalize().css).toContain('syntax: "<color>";');
+    expect(compiler.finalize().css).not.toContain('syntax: "<length>";');
+  });
+
+  it('emits an @property registration as an indivisible global resource', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/theme.gss',
+      source: `
+        @property --brand {
+          syntax: "<color>";
+          inherits: true;
+          initial-value: red;
+        }
+        .theme { --brand: blue; }
+      `
+    });
+
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    const className = replacement.module?.scopeSchema.exports.theme?.selfClassName;
+    expect(compiler.finalize().css).toBe(
+      `@property --brand {\n  syntax: "<color>";\n  inherits: true;\n  initial-value: red;\n}\n\n` +
+      `.${className} {\n  --brand: blue;\n}`
+    );
+  });
+
   it('rejects logical and physical conflicts introduced by target accumulation', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 

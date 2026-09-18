@@ -88,7 +88,7 @@ Completion criteria:
 - [x] Plan local-class and residual tag/attribute/pseudo `:has()` observations, including selector lists and supported combinators.
 - [ ] Plan interleaved ownership/runtime chains and explicit-global functional/`:has()` branches.
 - [ ] Plan residual and explicit-global selectors.
-- [ ] Implement custom property provider and `@property` resource semantics.
+- [x] Implement custom property provider and global `@property` resource semantics with transactional conflict detection and reference-counted output.
 - [ ] Implement module-local keyframes and static animation reference rewriting.
 - [ ] Implement global `@font-face` resources and asset dependencies.
 - [x] Plan registered `@media`, `@supports`, and `@container` wrappers across all currently supported pure and contextual atom forms; warn on unregistered queries.

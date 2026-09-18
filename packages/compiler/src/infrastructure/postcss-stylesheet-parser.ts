@@ -50,8 +50,15 @@ export type ParsedStyleRule = {
   sourceOrdinal: number;
 };
 
+export type ParsedPropertyRegistration = {
+  kind: 'property';
+  name: string;
+  declarations: readonly ParsedDeclaration[];
+};
+
 export type ParsedStylesheet = {
   rules: readonly ParsedStyleRule[];
+  resources: readonly ParsedPropertyRegistration[];
   diagnostics: readonly GssDiagnostic[];
 };
 
@@ -63,6 +70,7 @@ export function parseStylesheet(id: string, source: string): ParsedStylesheet {
     const message = error instanceof Error ? error.message : String(error);
     return {
       rules: [],
+      resources: [],
       diagnostics: [{
         code: 'GSS1001',
         severity: 'error',
@@ -75,6 +83,7 @@ export function parseStylesheet(id: string, source: string): ParsedStylesheet {
 
   const diagnostics: GssDiagnostic[] = [];
   const rules: ParsedStyleRule[] = [];
+  const resources: ParsedPropertyRegistration[] = [];
 
   let sourceOrdinal = 0;
   const visitNodes = (
@@ -84,6 +93,15 @@ export function parseStylesheet(id: string, source: string): ParsedStylesheet {
   ): void => {
     for (const node of nodes) {
       if (node.type === 'atrule') {
+        if (node.name === 'property') {
+          const registration = parsePropertyRegistration(node, conditions, layer);
+          if (!registration) {
+            diagnostics.push(unsupportedDiagnostic(id, 'Unsupported @property registration.'));
+          } else {
+            resources.push(registration);
+          }
+          continue;
+        }
         if (node.name === 'layer' && node.nodes && isNamedLayer(node.params.trim())) {
           const name = node.params.trim();
           visitNodes(node.nodes, conditions, layer === 'unlayered' ? name : `${layer}.${name}`);
@@ -132,7 +150,34 @@ export function parseStylesheet(id: string, source: string): ParsedStylesheet {
   };
   visitNodes(root.nodes, [], 'unlayered');
 
-  return { rules, diagnostics };
+  return { rules, resources, diagnostics };
+}
+
+function parsePropertyRegistration(
+  node: postcss.AtRule,
+  conditions: readonly ParsedCondition[],
+  layer: string
+): ParsedPropertyRegistration | undefined {
+  const name = node.params.trim();
+  if (
+    conditions.length > 0 ||
+    layer !== 'unlayered' ||
+    !/^--[-_A-Za-z0-9]+$/.test(name) ||
+    !node.nodes
+  ) return undefined;
+
+  const declarations: ParsedDeclaration[] = [];
+  for (const child of node.nodes) {
+    if (child.type !== 'decl' || child.important) return undefined;
+    declarations.push(toDeclaration(child));
+  }
+  const descriptorNames = declarations.map(({ property }) => property);
+  if (
+    new Set(descriptorNames).size !== descriptorNames.length ||
+    !descriptorNames.includes('syntax') ||
+    !descriptorNames.includes('inherits')
+  ) return undefined;
+  return { kind: 'property', name, declarations };
 }
 
 type ParsedSelectorPath = {

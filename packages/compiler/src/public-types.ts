@@ -44,6 +44,11 @@ export type FinalizedGssSnapshot = {
   css: string;
   manifest: {
     modules: readonly string[];
+    resources: readonly {
+      kind: 'property';
+      name: string;
+      sources: readonly string[];
+    }[];
     rules: readonly {
       kind: 'pure-atom' | 'contextual-atom';
       className: string;
@@ -57,6 +62,7 @@ export type FinalizedGssSnapshot = {
   report: {
     modules: number;
     rules: number;
+    resources: number;
   };
 };
 
