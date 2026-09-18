@@ -15,7 +15,7 @@
 - Selector list。
 - Runtime combinator：`>`、`+`、`~`。
 - Attribute 与 ARIA condition。
-- Current-element pseudo state，以及 ancestor state 驱动 target。
+- Current-element 与 ancestor pseudo state：`:hover`、`:focus`、`:focus-visible`、`:focus-within`、`:active`、`:disabled`、`:checked`。
 - `:not()`、`:is()`、`:where()` 的 pseudo、attribute 和 explicit-global 参数。
 - 受约束的 `:has()` observed relation。
 - Tag/attribute 与 `:global(...)` residual selector。
@@ -67,3 +67,9 @@
 - Production 全局 census/finalize并输出一个中央 CSS asset；SSR引用同一 build manifest asset。
 - Dev replace-by-id transaction、last-known-good rollback、ref-count回收与完整 ordered snapshot HMR。
 - 独立 NameAllocator生成由完整 canonical identity 可逆编码的可读名称。
+
+## Verification
+
+- 独立 `compileGssReference()` testing API生成非原子化 reference CSS/style mapping。
+- 隔离浏览器 computed-style oracle比较 reference 与 atomic touched properties。
+- 快速 snapshot、浏览器 corpus与真实 Pilot零未解释差异门禁。
