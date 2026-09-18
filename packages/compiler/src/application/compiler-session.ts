@@ -1,9 +1,12 @@
 import {
   createReadableAtomicName,
   createReadableContextMarker,
+  createReadableHasSubjectMarker,
+  createReadableObservedMarker,
   createReadableSourceMarker,
   createReadableTargetMarker,
   type ContextualRelationIdentity,
+  type ObservedRelationIdentity,
   type PureDeclarationIdentity
 } from '../domain/readable-name.js';
 import { resolveTargetDeclarations } from '../domain/resolve-target-declarations.js';
@@ -29,9 +32,15 @@ type ContextualDeclarationIdentity = ContextualRelationIdentity & {
   important: boolean;
 };
 
+type ObservedDeclarationIdentity = ObservedRelationIdentity & {
+  property: string;
+  value: string;
+  important: boolean;
+};
+
 type PlannedDeclaration = {
   kind: 'pure-atom' | 'contextual-atom';
-  identity: PureDeclarationIdentity | ContextualDeclarationIdentity;
+  identity: PureDeclarationIdentity | ContextualDeclarationIdentity | ObservedDeclarationIdentity;
   className: string;
   selector: string;
 };
@@ -106,6 +115,38 @@ function prepareContribution(
     return { diagnostics: stateDiagnostics };
   }
 
+  const unsupportedObservation = parsed.rules.find(({
+    path,
+    relations,
+    states,
+    attributes,
+    observations
+  }) => {
+    const observationIndexes = observations.flatMap((conditions, index) =>
+      conditions.length > 0 ? [index] : []
+    );
+    return observationIndexes.length > 0 && (
+      observationIndexes.length !== 1 ||
+      observations[observationIndexes[0]!]!.length !== 1 ||
+      observationIndexes[0] !== path.length - 1 ||
+      relations.some((relation) => relation !== 'descendant') ||
+      states.some((state) => state.length > 0) ||
+      attributes.some((conditions) => conditions.length > 0)
+    );
+  });
+  if (unsupportedObservation) {
+    return {
+      diagnostics: [{
+        code: 'GSS1101',
+        severity: 'error',
+        phase: 'validate',
+        message: 'The initial :has() capability requires one simple observed local class.',
+        id: input.id,
+        reason: 'capability-not-registered'
+      }]
+    };
+  }
+
   const unsupportedAttribute = parsed.rules.find(({ path, relations, states, attributes }) => {
     const attributeIndexes = attributes.flatMap((conditions, index) =>
       conditions.length > 0 ? [index] : []
@@ -157,10 +198,16 @@ function prepareContribution(
   const moduleId = toLogicalModuleId(config.projectRoot, input.id);
   const roots = new Map<string, MutableScopeNode>();
   const rules: PlannedDeclaration[] = [];
-  const ownershipRules = parsed.rules.filter(({ relations, states, attributes }) =>
+  const ownershipRules = parsed.rules.filter(({
+    relations,
+    states,
+    attributes,
+    observations
+  }) =>
     relations.every((relation) => relation === 'descendant') &&
     states.every((state) => state.length === 0) &&
-    attributes.every((conditions) => conditions.length === 0)
+    attributes.every((conditions) => conditions.length === 0) &&
+    observations.every((conditions) => conditions.length === 0)
   );
   const stateRules = parsed.rules.filter(({ relations, states }) =>
     relations.every((relation) => relation === 'descendant') &&
@@ -177,6 +224,9 @@ function prepareContribution(
   const ancestorAttributeRules = parsed.rules.filter(({ relations, attributes }) =>
     relations.every((relation) => relation === 'descendant') &&
     attributes.slice(0, -1).some((conditions) => conditions.length > 0)
+  );
+  const hasRules = parsed.rules.filter(({ observations }) =>
+    observations.at(-1)?.length
   );
   const contextualRules = parsed.rules.filter(({ relations }) =>
     relations.some((relation) => relation !== 'descendant')
@@ -247,6 +297,37 @@ function prepareContribution(
           selector: `.${className}:${state}`
         });
       }
+    }
+  }
+
+  for (const rule of hasRules) {
+    const observation = rule.observations.at(-1)![0]!;
+    const relationIdentity: ObservedRelationIdentity = {
+      moduleId,
+      subjectPath: rule.path,
+      relation: observation.relation,
+      observedClass: observation.observedClass
+    };
+    const subjectMarker = createReadableHasSubjectMarker(relationIdentity);
+    const observedMarker = createReadableObservedMarker(relationIdentity);
+    ensureScopePath(roots, rule.path).classNames.add(subjectMarker);
+    ensureScopePath(roots, [observation.observedClass]).classNames.add(observedMarker);
+    const observedCombinator = renderObservedCombinator(observation.relation);
+    const selector = `.${subjectMarker}:has(${observedCombinator}.${observedMarker})`;
+
+    for (const declaration of rule.declarations) {
+      const identity: ObservedDeclarationIdentity = {
+        ...relationIdentity,
+        property: declaration.property,
+        value: declaration.value,
+        important: declaration.important
+      };
+      rules.push({
+        kind: 'contextual-atom',
+        identity,
+        className: subjectMarker,
+        selector
+      });
     }
   }
 
@@ -489,6 +570,15 @@ function finalizeSnapshot(
   };
 }
 
+function renderObservedCombinator(
+  relation: ObservedRelationIdentity['relation']
+): '' | '> ' | '+ ' | '~ ' {
+  if (relation === 'child') return '> ';
+  if (relation === 'adjacent') return '+ ';
+  if (relation === 'general-sibling') return '~ ';
+  return '';
+}
+
 function canonicalAttributeCondition(condition: ParsedAttributeCondition): string {
   return `attribute:${condition.attribute}=${condition.value}`;
 }
@@ -551,6 +641,18 @@ function renderScopeType(scope: ScopeNodeSchema): string {
 }
 
 function serializeIdentity(identity: PlannedDeclaration['identity']): string {
+  if ('observedClass' in identity) {
+    return JSON.stringify([
+      'observed',
+      identity.moduleId,
+      identity.subjectPath,
+      identity.relation,
+      identity.observedClass,
+      identity.property,
+      identity.value,
+      identity.important
+    ]);
+  }
   if ('relations' in identity) {
     return JSON.stringify([
       'contextual',

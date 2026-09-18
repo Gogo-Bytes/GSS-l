@@ -24,11 +24,17 @@ export type ParsedAttributeCondition = {
   value: string;
 };
 
+export type ParsedHasCondition = {
+  relation: 'descendant' | 'child' | 'adjacent' | 'general-sibling';
+  observedClass: string;
+};
+
 export type ParsedStyleRule = {
   path: readonly string[];
   relations: readonly SelectorRelation[];
   states: readonly (readonly string[])[];
   attributes: readonly (readonly ParsedAttributeCondition[])[];
+  observations: readonly (readonly ParsedHasCondition[])[];
   declarations: readonly ParsedDeclaration[];
   sourceOrdinal: number;
 };
@@ -95,6 +101,7 @@ type ParsedSelectorPath = {
   relations: readonly SelectorRelation[];
   states: readonly (readonly string[])[];
   attributes: readonly (readonly ParsedAttributeCondition[])[];
+  observations: readonly (readonly ParsedHasCondition[])[];
 };
 
 function parseDescendantClassPaths(selector: string): readonly ParsedSelectorPath[] | undefined {
@@ -113,12 +120,14 @@ function parseClassPath(nodes: readonly Node[]): ParsedSelectorPath | undefined 
   const relations: SelectorRelation[] = [];
   const states: string[][] = [];
   const attributes: ParsedAttributeCondition[][] = [];
+  const observations: ParsedHasCondition[][] = [];
   let expectClass = true;
   for (const node of nodes) {
     if (expectClass && node.type === 'class') {
       path.push((node as ClassName).value);
       states.push([]);
       attributes.push([]);
+      observations.push([]);
       expectClass = false;
       continue;
     }
@@ -126,6 +135,12 @@ function parseClassPath(nodes: readonly Node[]): ParsedSelectorPath | undefined 
       const state = node.value.slice(1);
       if (!isSupportedPseudoState(state)) return undefined;
       states.at(-1)?.push(state);
+      continue;
+    }
+    if (!expectClass && node.type === 'pseudo' && node.value === ':has') {
+      const observation = parseHasCondition(node as Pseudo);
+      if (!observation) return undefined;
+      observations.at(-1)?.push(observation);
       continue;
     }
     if (!expectClass && node.type === 'pseudo' && node.nodes.length > 0) {
@@ -163,9 +178,42 @@ function parseClassPath(nodes: readonly Node[]): ParsedSelectorPath | undefined 
       path,
       relations,
       states: states.map((state) => [...new Set(state)].sort()),
-      attributes
+      attributes,
+      observations
     }
     : undefined;
+}
+
+function parseHasCondition(pseudo: Pseudo): ParsedHasCondition | undefined {
+  if (pseudo.nodes.length !== 1) return undefined;
+  const selector = pseudo.nodes[0]!;
+  if (selector.nodes.length === 1 && selector.nodes[0]?.type === 'class') {
+    return {
+      relation: 'descendant',
+      observedClass: (selector.nodes[0] as ClassName).value
+    };
+  }
+  if (
+    selector.nodes.length !== 2 ||
+    selector.nodes[0]?.type !== 'combinator' ||
+    selector.nodes[1]?.type !== 'class'
+  ) return undefined;
+
+  const relation = parseRuntimeRelation((selector.nodes[0] as Combinator).value.trim());
+  if (!relation) return undefined;
+  return {
+    relation,
+    observedClass: (selector.nodes[1] as ClassName).value
+  };
+}
+
+function parseRuntimeRelation(
+  combinator: string
+): 'child' | 'adjacent' | 'general-sibling' | undefined {
+  if (combinator === '>') return 'child';
+  if (combinator === '+') return 'adjacent';
+  if (combinator === '~') return 'general-sibling';
+  return undefined;
 }
 
 function parseFunctionalState(pseudo: Pseudo): string | undefined {

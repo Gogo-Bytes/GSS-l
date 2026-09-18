@@ -168,6 +168,49 @@ describe('GssCompilerSession', () => {
     );
   });
 
+  it.each([
+    ['>', 'child'],
+    ['+', 'adjacent'],
+    ['~', 'general_2d_sibling']
+  ])('plans the :has(%s .error) observed relation', (combinator, encodedRelation) => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/card.gss',
+      source: `.card:has(${combinator} .error) { color: red; }`
+    });
+
+    expect(replacement.diagnostics).toEqual([]);
+    const cardClass = replacement.module?.scopeSchema.exports.card?.selfClassName;
+    const errorClass = replacement.module?.scopeSchema.exports.error?.selfClassName;
+    expect(cardClass).toContain(`--relation_${encodedRelation}--`);
+    expect(compiler.finalize().css).toBe(
+      `.${cardClass}:has(${combinator} .${errorClass}) {\n  color: red;\n}`
+    );
+  });
+
+  it('plans :has() as a subject-observed contextual relation', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/card.gss',
+      source: '.card:has(.error) { color: red; }'
+    });
+
+    const subjectMarker =
+      'gss-hs--module_src_2f_card_2e_gss--subject_card--relation_descendant--observed_error';
+    const observedMarker =
+      'gss-ho--module_src_2f_card_2e_gss--subject_card--relation_descendant--observed_error';
+    expect(replacement.diagnostics).toEqual([]);
+    expect(replacement.module?.scopeSchema.exports).toEqual({
+      card: { selfClassName: subjectMarker, targets: {} },
+      error: { selfClassName: observedMarker, targets: {} }
+    });
+    expect(compiler.finalize().css).toBe(
+      `.${subjectMarker}:has(.${observedMarker}) {\n  color: red;\n}`
+    );
+  });
+
   it('uses zero specificity for :where() during ambiguity analysis', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 

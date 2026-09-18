@@ -7,6 +7,13 @@ export type PureDeclarationIdentity = {
   important: boolean;
 };
 
+export type ObservedRelationIdentity = {
+  moduleId: string;
+  subjectPath: readonly string[];
+  relation: 'descendant' | 'child' | 'adjacent' | 'general-sibling';
+  observedClass: string;
+};
+
 export type ContextualRelationIdentity = {
   moduleId: string;
   relations: readonly ('descendant' | 'child' | 'adjacent' | 'general-sibling')[];
@@ -25,6 +32,26 @@ export function createReadableAtomicName(identity: PureDeclarationIdentity): str
     `property_${encodeNamePart(identity.property)}`,
     `value_${encodeNamePart(identity.value)}`,
     `importance_${identity.important ? 'important' : 'normal'}`
+  ].join('--');
+}
+
+export function createReadableHasSubjectMarker(identity: ObservedRelationIdentity): string {
+  return [
+    'gss-hs',
+    `module_${encodeNamePart(identity.moduleId)}`,
+    `subject_${encodePath(identity.subjectPath)}`,
+    `relation_${encodeNamePart(identity.relation)}`,
+    `observed_${encodeNamePart(identity.observedClass)}`
+  ].join('--');
+}
+
+export function createReadableObservedMarker(identity: ObservedRelationIdentity): string {
+  return [
+    'gss-ho',
+    `module_${encodeNamePart(identity.moduleId)}`,
+    `subject_${encodePath(identity.subjectPath)}`,
+    `relation_${encodeNamePart(identity.relation)}`,
+    `observed_${encodeNamePart(identity.observedClass)}`
   ].join('--');
 }
 
