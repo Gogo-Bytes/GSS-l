@@ -1,4 +1,10 @@
-import { createReadableAtomicName, type PureDeclarationIdentity } from '../domain/readable-name.js';
+import {
+  createReadableAtomicName,
+  createReadableSourceMarker,
+  createReadableTargetMarker,
+  type ContextualRelationIdentity,
+  type PureDeclarationIdentity
+} from '../domain/readable-name.js';
 import { resolveTargetDeclarations } from '../domain/resolve-target-declarations.js';
 import { validateDeclarationSequences } from '../domain/validate-declarations.js';
 import { parseStylesheet } from '../infrastructure/postcss-stylesheet-parser.js';
@@ -12,9 +18,17 @@ import type {
   StyleModuleArtifact
 } from '../public-types.js';
 
+type ContextualDeclarationIdentity = ContextualRelationIdentity & {
+  property: string;
+  value: string;
+  important: boolean;
+};
+
 type PlannedDeclaration = {
-  identity: PureDeclarationIdentity;
+  kind: 'pure-atom' | 'contextual-atom';
+  identity: PureDeclarationIdentity | ContextualDeclarationIdentity;
   className: string;
+  selector: string;
 };
 
 type ModuleContribution = {
@@ -83,10 +97,38 @@ function prepareContribution(
     return { diagnostics: declarationDiagnostics };
   }
 
+  const moduleId = toLogicalModuleId(config.projectRoot, input.id);
   const roots = new Map<string, MutableScopeNode>();
   const rules: PlannedDeclaration[] = [];
+  const ownershipRules = parsed.rules.filter(({ relations }) =>
+    relations.every((relation) => relation === 'descendant')
+  );
+  const contextualRules = parsed.rules.filter(({ relations }) =>
+    relations.some((relation) => relation === 'child')
+  );
+  const unsupportedRelation = contextualRules.find(({ relations }) => {
+    const childIndexes = relations.flatMap((relation, index) =>
+      relation === 'child' ? [index] : []
+    );
+    return childIndexes.length !== 1 || childIndexes[0] !== relations.length - 1;
+  });
+  if (unsupportedRelation) {
+    return {
+      diagnostics: [{
+        code: 'GSS1101',
+        severity: 'error',
+        phase: 'validate',
+        message: 'The initial child-relation capability requires one final > combinator.',
+        id: input.id,
+        reason: 'capability-not-registered'
+      }]
+    };
+  }
 
-  for (const target of resolveTargetDeclarations(parsed.rules)) {
+  for (const target of resolveTargetDeclarations(
+    ownershipRules,
+    parsed.rules.map(({ path }) => path)
+  )) {
     const scope = ensureScopePath(roots, target.path);
     for (const declaration of target.declarations) {
       const identity: PureDeclarationIdentity = {
@@ -99,7 +141,37 @@ function prepareContribution(
       };
       const className = createReadableAtomicName(identity);
       scope.classNames.add(className);
-      rules.push({ identity, className });
+      rules.push({ kind: 'pure-atom', identity, className, selector: `.${className}` });
+    }
+  }
+
+  for (const rule of contextualRules) {
+    const sourcePath = rule.path.slice(0, -1);
+    const sourceMarker = createReadableSourceMarker(moduleId, sourcePath);
+    const relationIdentity: ContextualRelationIdentity = {
+      moduleId,
+      relation: 'child',
+      sourcePath,
+      targetPath: rule.path
+    };
+    const targetMarker = createReadableTargetMarker(relationIdentity);
+    ensureScopePath(roots, sourcePath).classNames.add(sourceMarker);
+    ensureScopePath(roots, rule.path).classNames.add(targetMarker);
+    const selector = `.${sourceMarker} > .${targetMarker}`;
+
+    for (const declaration of rule.declarations) {
+      const identity: ContextualDeclarationIdentity = {
+        ...relationIdentity,
+        property: declaration.property,
+        value: declaration.value,
+        important: declaration.important
+      };
+      rules.push({
+        kind: 'contextual-atom',
+        identity,
+        className: targetMarker,
+        selector
+      });
     }
   }
 
@@ -107,7 +179,6 @@ function prepareContribution(
     [...roots.entries()].map(([name, scope]) => [name, toScopeSchema(scope)])
   );
 
-  const moduleId = toLogicalModuleId(config.projectRoot, input.id);
   const scopeSchema = { moduleId, exports };
   const artifact: StyleModuleArtifact = {
     id: input.id,
@@ -169,8 +240,10 @@ function finalizeSnapshot(
     css: orderedRules.map(({ rule }) => renderRule(rule)).join('\n\n'),
     manifest: {
       modules: [...modules.keys()].sort(),
-      rules: orderedRules.map(({ rule: { className, identity }, sources }) => ({
+      rules: orderedRules.map(({ rule: { kind, className, selector, identity }, sources }) => ({
+        kind,
         className,
+        selector,
         property: identity.property,
         value: identity.value,
         important: identity.important,
@@ -186,7 +259,7 @@ function finalizeSnapshot(
 
 function renderRule(rule: PlannedDeclaration): string {
   const { property, value, important } = rule.identity;
-  return `.${rule.className} {\n  ${property}: ${value}${important ? ' !important' : ''};\n}`;
+  return `${rule.selector} {\n  ${property}: ${value}${important ? ' !important' : ''};\n}`;
 }
 
 function renderModuleCode(exports: Readonly<Record<string, ScopeNodeSchema>>): string {
@@ -228,8 +301,21 @@ function renderScopeType(scope: ScopeNodeSchema): string {
   return `GssScope<{ ${targets.join('; ')}${targets.length > 0 ? ';' : ''} }>`;
 }
 
-function serializeIdentity(identity: PureDeclarationIdentity): string {
+function serializeIdentity(identity: PlannedDeclaration['identity']): string {
+  if ('relation' in identity) {
+    return JSON.stringify([
+      'contextual',
+      identity.moduleId,
+      identity.relation,
+      identity.sourcePath,
+      identity.targetPath,
+      identity.property,
+      identity.value,
+      identity.important
+    ]);
+  }
   return JSON.stringify([
+    'pure',
     identity.layer,
     identity.condition,
     identity.state,

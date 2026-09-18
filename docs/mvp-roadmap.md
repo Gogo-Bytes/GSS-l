@@ -77,7 +77,8 @@ Completion criteria:
 ## Stage 4 — Rule and resource planning
 
 - [ ] Plan ownership declarations as pure atoms.
-- [ ] Plan child/sibling/ancestor-state and `:has()` relations as contextual atoms with path-specific markers.
+- [x] Plan the initial direct-child relation as a contextual atom with path-specific source and target markers.
+- [ ] Plan remaining child forms, sibling/ancestor-state, and `:has()` contextual relations.
 - [ ] Plan residual and explicit-global selectors.
 - [ ] Implement custom property provider and `@property` resource semantics.
 - [ ] Implement module-local keyframes and static animation reference rewriting.

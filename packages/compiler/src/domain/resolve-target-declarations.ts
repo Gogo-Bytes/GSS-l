@@ -23,10 +23,11 @@ type RankedDeclaration = {
 };
 
 export function resolveTargetDeclarations(
-  rules: readonly RuleCandidate[]
+  rules: readonly RuleCandidate[],
+  declaredTargetPaths: readonly (readonly string[])[] = rules.map(({ path }) => path)
 ): readonly ResolvedTarget[] {
   const targetPaths = new Map<string, readonly string[]>();
-  for (const rule of rules) targetPaths.set(serializePath(rule.path), rule.path);
+  for (const path of declaredTargetPaths) targetPaths.set(serializePath(path), path);
 
   return [...targetPaths.values()].map((targetPath) => ({
     path: targetPath,

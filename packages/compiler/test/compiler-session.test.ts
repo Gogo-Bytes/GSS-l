@@ -145,6 +145,42 @@ describe('GssCompilerSession', () => {
     });
   });
 
+  it('emits source and target markers for a direct-child contextual atom', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/family.gss',
+      source: '.father > .son { color: red; }'
+    });
+
+    const sourceMarker = 'gss-s--module_src_2f_family_2e_gss--path_father';
+    const targetMarker =
+      'gss-t--module_src_2f_family_2e_gss--relation_child--source_father--target_father_2f_son';
+    expect(replacement.diagnostics).toEqual([]);
+    expect(replacement.module?.scopeSchema.exports).toEqual({
+      father: {
+        selfClassName: sourceMarker,
+        targets: {
+          son: {
+            selfClassName: targetMarker,
+            targets: {}
+          }
+        }
+      }
+    });
+    expect(compiler.finalize()).toMatchObject({
+      css: `.${sourceMarker} > .${targetMarker} {\n  color: red;\n}`,
+      manifest: {
+        rules: [{
+          kind: 'contextual-atom',
+          selector: `.${sourceMarker} > .${targetMarker}`,
+          property: 'color',
+          value: 'red'
+        }]
+      }
+    });
+  });
+
   it('normalizes standard CSS nesting before building target paths', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 

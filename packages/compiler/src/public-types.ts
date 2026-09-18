@@ -45,7 +45,9 @@ export type FinalizedGssSnapshot = {
   manifest: {
     modules: readonly string[];
     rules: readonly {
+      kind: 'pure-atom' | 'contextual-atom';
       className: string;
+      selector: string;
       property: string;
       value: string;
       important: boolean;

@@ -9,8 +9,11 @@ export type ParsedDeclaration = {
   important: boolean;
 };
 
+export type SelectorRelation = 'descendant' | 'child';
+
 export type ParsedStyleRule = {
   path: readonly string[];
+  relations: readonly SelectorRelation[];
   declarations: readonly ParsedDeclaration[];
   sourceOrdinal: number;
 };
@@ -65,26 +68,32 @@ export function parseStylesheet(id: string, source: string): ParsedStylesheet {
     }
 
     if (valid) {
-      for (const path of paths) rules.push({ path, declarations, sourceOrdinal });
+      for (const path of paths) rules.push({ ...path, declarations, sourceOrdinal });
     }
   }
 
   return { rules, diagnostics };
 }
 
-function parseDescendantClassPaths(selector: string): readonly (readonly string[])[] | undefined {
+type ParsedSelectorPath = {
+  path: readonly string[];
+  relations: readonly SelectorRelation[];
+};
+
+function parseDescendantClassPaths(selector: string): readonly ParsedSelectorPath[] | undefined {
   const root = selectorParser().astSync(selector);
-  const paths: (readonly string[])[] = [];
+  const paths: ParsedSelectorPath[] = [];
   for (const branch of root.nodes) {
-    const path = parseDescendantClassPath(branch.nodes);
+    const path = parseClassPath(branch.nodes);
     if (!path) return undefined;
     paths.push(path);
   }
   return paths.length > 0 ? paths : undefined;
 }
 
-function parseDescendantClassPath(nodes: readonly Node[]): readonly string[] | undefined {
+function parseClassPath(nodes: readonly Node[]): ParsedSelectorPath | undefined {
   const path: string[] = [];
+  const relations: SelectorRelation[] = [];
   let expectClass = true;
   for (const node of nodes) {
     if (expectClass && node.type === 'class') {
@@ -92,14 +101,17 @@ function parseDescendantClassPath(nodes: readonly Node[]): readonly string[] | u
       expectClass = false;
       continue;
     }
-    if (!expectClass && node.type === 'combinator' && (node as Combinator).value.trim() === '') {
+    if (!expectClass && node.type === 'combinator') {
+      const combinator = (node as Combinator).value.trim();
+      if (combinator !== '' && combinator !== '>') return undefined;
+      relations.push(combinator === '>' ? 'child' : 'descendant');
       expectClass = true;
       continue;
     }
     return undefined;
   }
 
-  return path.length > 0 && !expectClass ? path : undefined;
+  return path.length > 0 && !expectClass ? { path, relations } : undefined;
 }
 
 function toDeclaration(declaration: Declaration): ParsedDeclaration {
