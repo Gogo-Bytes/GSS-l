@@ -98,11 +98,40 @@ function prepareContribution(
     return { diagnostics: declarationDiagnostics };
   }
 
+  const unsupportedState = parsed.rules.find(({ path, relations, states }) => {
+    const stateIndexes = states.flatMap((state, index) => state.length > 0 ? [index] : []);
+    return stateIndexes.length > 0 && (
+      relations.some((relation) => relation !== 'descendant') ||
+      stateIndexes.length !== 1 ||
+      path.length === 0
+    );
+  });
+  if (unsupportedState) {
+    return {
+      diagnostics: [{
+        code: 'GSS1101',
+        severity: 'error',
+        phase: 'validate',
+        message: 'The initial state capability requires one state-bearing node on an ownership path.',
+        id: input.id,
+        reason: 'capability-not-registered'
+      }]
+    };
+  }
+
   const moduleId = toLogicalModuleId(config.projectRoot, input.id);
   const roots = new Map<string, MutableScopeNode>();
   const rules: PlannedDeclaration[] = [];
-  const ownershipRules = parsed.rules.filter(({ relations }) =>
-    relations.every((relation) => relation === 'descendant')
+  const ownershipRules = parsed.rules.filter(({ relations, states }) =>
+    relations.every((relation) => relation === 'descendant') &&
+    states.every((state) => state.length === 0)
+  );
+  const stateRules = parsed.rules.filter(({ relations, states }) =>
+    relations.every((relation) => relation === 'descendant') &&
+    states.at(-1)?.length
+  );
+  const ancestorStateRules = parsed.rules.filter(({ states }) =>
+    states.slice(0, -1).some((state) => state.length > 0)
   );
   const contextualRules = parsed.rules.filter(({ relations }) =>
     relations.some((relation) => relation !== 'descendant')
@@ -141,6 +170,71 @@ function prepareContribution(
       const className = createReadableAtomicName(identity);
       scope.classNames.add(className);
       rules.push({ kind: 'pure-atom', identity, className, selector: `.${className}` });
+    }
+  }
+
+  const stateGroups = new Map<string, typeof stateRules>();
+  for (const rule of stateRules) {
+    const state = rule.states.at(-1)!.join(':');
+    stateGroups.set(state, [...(stateGroups.get(state) ?? []), rule]);
+  }
+  for (const [state, groupedRules] of stateGroups) {
+    for (const target of resolveTargetDeclarations(
+      groupedRules,
+      groupedRules.map(({ path }) => path)
+    )) {
+      const scope = ensureScopePath(roots, target.path);
+      for (const declaration of target.declarations) {
+        const identity: PureDeclarationIdentity = {
+          layer: 'unlayered',
+          condition: 'base',
+          state,
+          property: declaration.property,
+          value: declaration.value,
+          important: declaration.important
+        };
+        const className = createReadableAtomicName(identity);
+        scope.classNames.add(className);
+        rules.push({
+          kind: 'contextual-atom',
+          identity,
+          className,
+          selector: `.${className}:${state}`
+        });
+      }
+    }
+  }
+
+  for (const rule of ancestorStateRules) {
+    const sourceIndex = rule.states.findIndex((state) => state.length > 0);
+    const sourceState = rule.states[sourceIndex]!.join(':');
+    const sourcePath = rule.path.slice(0, sourceIndex + 1);
+    const sourceMarker = createReadableSourceMarker(moduleId, sourcePath);
+    const relationIdentity: ContextualRelationIdentity = {
+      moduleId,
+      relations: rule.relations.slice(sourceIndex),
+      sourceState,
+      sourcePath,
+      targetPath: rule.path
+    };
+    const targetMarker = createReadableTargetMarker(relationIdentity);
+    ensureScopePath(roots, sourcePath).classNames.add(sourceMarker);
+    ensureScopePath(roots, rule.path).classNames.add(targetMarker);
+    const selector = `.${sourceMarker}:${sourceState} .${targetMarker}`;
+
+    for (const declaration of rule.declarations) {
+      const identity: ContextualDeclarationIdentity = {
+        ...relationIdentity,
+        property: declaration.property,
+        value: declaration.value,
+        important: declaration.important
+      };
+      rules.push({
+        kind: 'contextual-atom',
+        identity,
+        className: targetMarker,
+        selector
+      });
     }
   }
 
@@ -332,6 +426,7 @@ function serializeIdentity(identity: PlannedDeclaration['identity']): string {
       'contextual',
       identity.moduleId,
       identity.relations,
+      identity.sourceState,
       identity.sourcePath,
       identity.targetPath,
       identity.property,

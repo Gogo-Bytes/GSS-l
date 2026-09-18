@@ -1,7 +1,7 @@
 export type PureDeclarationIdentity = {
   layer: 'unlayered';
   condition: 'base';
-  state: 'self';
+  state: string;
   property: string;
   value: string;
   important: boolean;
@@ -10,6 +10,7 @@ export type PureDeclarationIdentity = {
 export type ContextualRelationIdentity = {
   moduleId: string;
   relations: readonly ('descendant' | 'child' | 'adjacent' | 'general-sibling')[];
+  sourceState?: string;
   sourcePath: readonly string[];
   targetPath: readonly string[];
 };
@@ -42,9 +43,10 @@ export function createReadableTargetMarker(identity: ContextualRelationIdentity)
     'gss-t',
     `module_${encodeNamePart(identity.moduleId)}`,
     `relation_${encodeRelations(identity.relations)}`,
+    identity.sourceState ? `state_${encodeNamePart(identity.sourceState)}` : undefined,
     `source_${encodePath(identity.sourcePath)}`,
     `target_${encodePath(identity.targetPath)}`
-  ].join('--');
+  ].filter((part): part is string => part !== undefined).join('--');
 }
 
 export function createReadableContextMarker(
@@ -56,10 +58,11 @@ export function createReadableContextMarker(
     'gss-c',
     `module_${encodeNamePart(identity.moduleId)}`,
     `relation_${encodeRelations(identity.relations)}`,
+    identity.sourceState ? `state_${encodeNamePart(identity.sourceState)}` : undefined,
     `position_${position}`,
     `path_${encodePath(path)}`,
     `target_${encodePath(identity.targetPath)}`
-  ].join('--');
+  ].filter((part): part is string => part !== undefined).join('--');
 }
 
 function encodeRelations(relations: ContextualRelationIdentity['relations']): string {

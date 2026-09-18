@@ -7,6 +7,8 @@ const colorBlueClass =
   'gss-a--layer_unlayered--condition_base--state_self--property_color--value_blue--importance_normal';
 const colorGreenClass =
   'gss-a--layer_unlayered--condition_base--state_self--property_color--value_green--importance_normal';
+const hoverColorRedClass =
+  'gss-a--layer_unlayered--condition_base--state_hover--property_color--value_red--importance_normal';
 const displayBlockClass =
   'gss-a--layer_unlayered--condition_base--state_self--property_display--value_block--importance_normal';
 const displayInlineBlockClass =
@@ -143,6 +145,48 @@ describe('GssCompilerSession', () => {
         }]
       }
     });
+  });
+
+  it('plans an ancestor hover as a source-target contextual atom', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/family.gss',
+      source: '.father:hover .son { color: red; }'
+    });
+
+    const sourceMarker = 'gss-s--module_src_2f_family_2e_gss--path_father';
+    const targetMarker =
+      'gss-t--module_src_2f_family_2e_gss--relation_descendant--state_hover--source_father--target_father_2f_son';
+    expect(replacement.diagnostics).toEqual([]);
+    expect(replacement.module?.scopeSchema.exports).toEqual({
+      father: {
+        selfClassName: sourceMarker,
+        targets: {
+          son: { selfClassName: targetMarker, targets: {} }
+        }
+      }
+    });
+    expect(compiler.finalize().css).toBe(
+      `.${sourceMarker}:hover .${targetMarker} {\n  color: red;\n}`
+    );
+  });
+
+  it('plans a current-element hover declaration as a state atom', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/button.gss',
+      source: '.button { color: green; } .button:hover { color: red; }'
+    });
+
+    expect(replacement.diagnostics).toEqual([]);
+    expect(replacement.module?.scopeSchema.exports.button?.selfClassName).toBe(
+      `${hoverColorRedClass} ${colorGreenClass}`
+    );
+    expect(compiler.finalize().css).toContain(
+      `.${hoverColorRedClass}:hover {\n  color: red;\n}`
+    );
   });
 
   it('lowers an ownership prefix before a runtime-relation suffix', () => {

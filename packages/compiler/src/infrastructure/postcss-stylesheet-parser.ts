@@ -14,6 +14,7 @@ export type SelectorRelation = 'descendant' | 'child' | 'adjacent' | 'general-si
 export type ParsedStyleRule = {
   path: readonly string[];
   relations: readonly SelectorRelation[];
+  states: readonly (readonly string[])[];
   declarations: readonly ParsedDeclaration[];
   sourceOrdinal: number;
 };
@@ -78,6 +79,7 @@ export function parseStylesheet(id: string, source: string): ParsedStylesheet {
 type ParsedSelectorPath = {
   path: readonly string[];
   relations: readonly SelectorRelation[];
+  states: readonly (readonly string[])[];
 };
 
 function parseDescendantClassPaths(selector: string): readonly ParsedSelectorPath[] | undefined {
@@ -94,11 +96,17 @@ function parseDescendantClassPaths(selector: string): readonly ParsedSelectorPat
 function parseClassPath(nodes: readonly Node[]): ParsedSelectorPath | undefined {
   const path: string[] = [];
   const relations: SelectorRelation[] = [];
+  const states: string[][] = [];
   let expectClass = true;
   for (const node of nodes) {
     if (expectClass && node.type === 'class') {
       path.push((node as ClassName).value);
+      states.push([]);
       expectClass = false;
+      continue;
+    }
+    if (!expectClass && node.type === 'pseudo' && node.value === ':hover' && node.nodes.length === 0) {
+      states.at(-1)?.push('hover');
       continue;
     }
     if (!expectClass && node.type === 'combinator') {
@@ -119,7 +127,7 @@ function parseClassPath(nodes: readonly Node[]): ParsedSelectorPath | undefined 
     return undefined;
   }
 
-  return path.length > 0 && !expectClass ? { path, relations } : undefined;
+  return path.length > 0 && !expectClass ? { path, relations, states } : undefined;
 }
 
 function toDeclaration(declaration: Declaration): ParsedDeclaration {
