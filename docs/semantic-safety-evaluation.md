@@ -24,6 +24,20 @@
 - `:not()`、`:is()`、`:where()` 支持 pseudo、attribute 和显式 global 参数，但拒绝 local class 参数；分别保留 negative、OR 与零 specificity 语义。见 [ADR-0015](adr/0015-constrain-local-classes-in-functional-pseudos.md)。
 - `:has()` 作为 observed contextual relation 支持；subject 和 observed local class 分别使用 top-level marker，保留 relative selector，不允许 observed local compound 或 nested `:has()`。见 [ADR-0016](adr/0016-support-has-as-an-observed-contextual-relation.md)。
 - 运行时 style path 是 `{ self, ...targets }` scope object；React JSX `className` 内自动降低 `.self`，其他 string context 显式使用 `.self`，scope object 只做受限局部 alias 传播。见 [ADR-0017](adr/0017-use-self-as-the-explicit-class-string-escape.md)。
+- Shorthand/longhand 使用版本化、数据驱动的 property-effect registry；value 保持 opaque，logical/physical 潜在重叠和未知 effect 首期报错。见 [ADR-0018](adr/0018-use-a-data-driven-property-effect-registry.md)。
+- 所有首期限制、deferred capability、替代方式与重新评估条件集中维护在 [deferred-capabilities.md](deferred-capabilities.md)。
+- 无法证明安全的输入 fail closed，不自动产生 scoped/preserved fallback；只有正式建模的 contextual/residual/global、browserslist 展开和未注册 condition warning 例外可以输出。见 [ADR-0019](adr/0019-fail-closed-when-safety-cannot-be-proved.md)。
+- 首期支持 selector list，并展开为共享 source ordinal 的独立 RuleIR branch；任一 branch 不受支持则整条 rule fail closed。见 [ADR-0020](adr/0020-expand-supported-selector-lists-into-rule-branches.md)。
+- 首期正向支持常用 pseudo-element capability set；未注册语法统一 fail closed，不维护无限反向排除清单。见 [ADR-0021](adr/0021-support-a-positive-pseudo-element-capability-set.md)。
+- 标准 CSS nesting 在 semantic analysis 前展开，展开结果继续接受相同 capability validation。见 [ADR-0022](adr/0022-normalize-standard-css-nesting-before-semantic-analysis.md)。
+- 第一版正向支持集合集中维护在 [mvp-capabilities.md](mvp-capabilities.md)。
+- 首期支持 size、named、style `@container` query，并将 container condition 纳入 media/supports 的项目级 condition order。见 [ADR-0023](adr/0023-support-container-queries-in-condition-order.md)。
+- 首期支持 module-local `@keyframes`，作为不可拆 resource稳定改名，并重写 Module 内静态 animation reference。见 [ADR-0024](adr/0024-support-module-local-keyframes.md)。
+- 首期支持 `@font-face` 不可拆全局资源，font family不改名，完整保留 descriptor/src fallback顺序并跟踪 URL dependency。见 [ADR-0025](adr/0025-support-font-face-as-a-global-resource.md)。
+- 首期支持由项目 `layerOrder` 稳定排序的命名 `@layer`；layer进入 identity，并保留 unlayered 与 important layer reversal 的原生 cascade。见 [ADR-0026](adr/0026-support-configured-named-cascade-layers.md)。
+- CascadeResolver按 importance/layer、specificity和 condition/relation/property semantic order解析；RuleOrderPlanner只稳定排序已证明安全的 rule，hash/注册顺序不参与 winner。见 [ADR-0027](adr/0027-separate-cascade-resolution-from-render-order.md)。
+- 第一版 production生成一个覆盖 main/lazy reachable Module 的中央 CSS asset；SSR引用同一 asset，dev/HMR以 transaction replace-by-id 重建完整有序 snapshot。见 [ADR-0028](adr/0028-use-one-central-css-asset-and-snapshot-hmr.md)。
+- 第一版使用完整 canonical identity 的可逆可读名称，并以独立 NameAllocator隔离命名策略；短名/hash待真实项目稳定后评估。见 [ADR-0029](adr/0029-use-reversible-readable-names-for-the-first-version.md)。
 
 ## 1. 评估目标
 
@@ -483,12 +497,7 @@ Collision 可以稳定扩展或 fail fast，具体策略尚未决定。
 
 以下问题均未决策：
 
-1. 对无法证明安全的 declaration，是拒绝编译、要求改写，还是允许显式 fallback？
-2. Property-effect graph 的首批覆盖范围，以及未知关系是 warning 还是 error？
-3. 如何把 importance、specificity、relation implication 和 at-rule condition order组合成完整 cascade order key？
-4. production 中央 CSS、code splitting、SSR 与 HMR 如何共同维持全局 order key？
-5. production class naming 是 hash、稳定短名还是混合方案，collision 如何处理？
-6. semantic reference CSS 是否应成为 Compiler 的正式测试输出？
+1. semantic reference CSS 是否应成为 Compiler 的正式测试输出？
 
 ## 16. 当前实施状态说明
 
