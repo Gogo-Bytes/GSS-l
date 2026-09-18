@@ -168,6 +168,35 @@ describe('GssCompilerSession', () => {
     );
   });
 
+  it('removes a longhand fully shadowed by a later shorthand', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/box.gss',
+      source: '.box { margin-left: 10px; margin: 0; }'
+    });
+
+    expect(replacement.diagnostics).toEqual([]);
+    expect(replacement.module?.scopeSchema.exports.box?.selfClassName).not.toContain(
+      '--property_margin_2d_left--'
+    );
+    expect(compiler.finalize()).toMatchObject({ report: { modules: 1, rules: 1 } });
+    expect(compiler.finalize().css).toContain('margin: 0;');
+  });
+
+  it('orders a surviving shorthand before its later longhand override', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    compiler.replaceStylesheet({
+      id: '/project/src/box.gss',
+      source: '.box { margin: 0; margin-left: 10px; }'
+    });
+
+    const css = compiler.finalize().css;
+    expect(compiler.finalize()).toMatchObject({ report: { modules: 1, rules: 2 } });
+    expect(css.indexOf('margin: 0;')).toBeLessThan(css.indexOf('margin-left: 10px;'));
+  });
+
   it('orders coactive condition rules by registered project order', () => {
     const compiler = createGssCompilerSession({
       projectRoot: '/project',

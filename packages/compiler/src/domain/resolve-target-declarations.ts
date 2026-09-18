@@ -1,3 +1,5 @@
+import { comparePropertyRenderOrder, effectsOfProperty } from './property-effects.js';
+
 type DeclarationCandidate = {
   property: string;
   value: string;
@@ -51,16 +53,18 @@ function resolveOneTarget(
         sourceOrdinal: rule.sourceOrdinal,
         declarationOrdinal
       };
-      const current = winners.get(declaration.property);
-      if (!current || comparePrecedence(candidate, current) > 0) {
-        winners.set(declaration.property, candidate);
+      for (const effect of effectsOfProperty(declaration.property)) {
+        const current = winners.get(effect);
+        if (!current || comparePrecedence(candidate, current) > 0) {
+          winners.set(effect, candidate);
+        }
       }
     });
   }
 
-  return [...winners.values()]
+  return [...new Set(winners.values())]
     .map(({ declaration }) => declaration)
-    .sort((left, right) => left.property.localeCompare(right.property));
+    .sort((left, right) => comparePropertyRenderOrder(left.property, right.property));
 }
 
 function isMatchingGeneralPath(

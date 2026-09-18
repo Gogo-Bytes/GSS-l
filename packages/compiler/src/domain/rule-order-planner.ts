@@ -3,8 +3,11 @@ export type OrderableCondition = {
   query: string;
 };
 
+import { comparePropertyRenderOrder } from './property-effects.js';
+
 export type OrderableRule = {
   className: string;
+  identity: { property: string };
   layer?: string;
   wrappers?: readonly OrderableCondition[];
 };
@@ -33,6 +36,9 @@ export function compareRuleOrder(
 
   const conditions = compareConditions(left.wrappers ?? [], right.wrappers ?? [], config);
   if (conditions !== 0) return conditions;
+
+  const property = comparePropertyRenderOrder(left.identity.property, right.identity.property);
+  if (property !== 0) return property;
 
   return left.className.localeCompare(right.className);
 }

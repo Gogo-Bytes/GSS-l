@@ -59,8 +59,9 @@ Completion criteria:
 
 ## Stage 3 — Declaration and cascade resolution
 
-- [ ] Implement the versioned data-driven `PropertyEffectRegistry`.
-- [ ] Resolve exact-property and shorthand/longhand winners per closed target candidate set.
+- [x] Establish the data-driven `PropertyEffectRegistry` seam with margin/padding effect families.
+- [x] Resolve exact-property and registered shorthand/longhand winners per closed target candidate set.
+- [ ] Expand and version the property-effect dataset for the full positive property set.
 - [ ] Detect logical/physical property conflicts.
 - [ ] Implement importance and authored cascade layer semantics.
 - [ ] Implement selector specificity, including `:where()` zero specificity.
