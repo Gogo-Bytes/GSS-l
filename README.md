@@ -72,7 +72,7 @@ const className = styles.father.self;
 
 第一版产品语义和架构已经形成 ADR，正式实现尚未开始。
 
-当前分支中的早期 Compiler/parser代码是旧 recipe/variant/slot 方向的探索性原型，不代表已接受 interface。实施首先会清理该原型，再按照新的 roadmap 从 Domain 与测试闭环重新开始。
+当前分支中的早期 Compiler/parser代码是旧 recipe/variant/slot 方向的探索性原型，不代表已接受 interface。新实现将在本仓库按新的 Domain 与测试闭环重新建立；相邻的旧 GSS 项目只作为只读参考，需要的工具或测试复制到本仓库后再适配。
 
 项目尚未达到 production-ready 状态，也未发布 package。
 

@@ -336,6 +336,6 @@ The reference renderer does not call the atomic winner/pruning/planning path. A 
 
 ## 18. Implementation status
 
-The semantic design stage is complete. The existing uncommitted Compiler/parser implementation follows an earlier recipe-oriented interface and is not an accepted foundation by default.
+The semantic design stage is complete. The existing uncommitted Compiler/parser implementation follows an earlier recipe-oriented interface and is not an accepted foundation.
 
-Implementation resumes with Stage 1 of [`mvp-roadmap.md`](mvp-roadmap.md): audit the prototype, retain only direction-independent tests or utilities, and restore a minimal clean workspace before building the accepted domain model.
+Implementation resumes with Stage 1 of [`mvp-roadmap.md`](mvp-roadmap.md): establish new package boundaries in this repository, discard the local exploratory prototype, and copy only useful utilities or tests from the read-only legacy project into the new architecture.
