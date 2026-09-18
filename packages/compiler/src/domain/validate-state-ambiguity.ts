@@ -42,7 +42,8 @@ export function validateStateAmbiguity(
       const right = stateRules[rightIndex]!;
       if (left.pathKey !== right.pathKey) continue;
       if (left.states.join('\0') === right.states.join('\0')) continue;
-      if (left.states.length !== right.states.length) continue;
+      if (stateSpecificity(left.states) !== stateSpecificity(right.states)) continue;
+      if (areMutuallyExclusive(left.states, right.states)) continue;
 
       for (const leftDeclaration of left.declarations) {
         const rightDeclaration = right.declarations.find(
@@ -71,6 +72,19 @@ export function validateStateAmbiguity(
   }
 
   return [];
+}
+
+function stateSpecificity(states: readonly string[]): number {
+  return states.reduce((specificity, condition) =>
+    specificity + (condition.startsWith('where(') ? 0 : 1), 0);
+}
+
+function areMutuallyExclusive(
+  left: readonly string[],
+  right: readonly string[]
+): boolean {
+  return left.some((condition) => right.includes(`not(:${condition})`)) ||
+    right.some((condition) => left.includes(`not(:${condition})`));
 }
 
 function hasExplicitIntersection(

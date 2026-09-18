@@ -82,7 +82,8 @@ Completion criteria:
 - [x] Lower a leading ownership prefix before a child/sibling runtime-relation suffix.
 - [x] Plan the positive current/ancestor pseudo-state set and compose source state with runtime-relation suffixes.
 - [x] Plan current, ancestor, and runtime-source attribute/ARIA equality conditions.
-- [ ] Plan interleaved ownership/runtime chains, functional pseudos, and `:has()` contextual relations.
+- [x] Plan `:not()`, `:is()`, and `:where()` conditions with supported pseudo-state and attribute-equality branches.
+- [ ] Plan interleaved ownership/runtime chains, explicit-global functional branches, and `:has()` contextual relations.
 - [ ] Plan residual and explicit-global selectors.
 - [ ] Implement custom property provider and `@property` resource semantics.
 - [ ] Implement module-local keyframes and static animation reference rewriting.

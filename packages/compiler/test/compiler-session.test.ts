@@ -147,6 +147,77 @@ describe('GssCompilerSession', () => {
     });
   });
 
+  it.each([
+    [':not([aria-disabled="true"])', ':not([aria-disabled="true"])'],
+    [
+      ':is([data-size="small"], :hover)',
+      ':is(:hover,[data-size="small"])'
+    ]
+  ])('plans the functional attribute condition %s', (authoredCondition, normalizedCondition) => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/control.gss',
+      source: `.control${authoredCondition} { color: red; }`
+    });
+
+    expect(replacement.diagnostics).toEqual([]);
+    const className = replacement.module?.scopeSchema.exports.control?.selfClassName;
+    expect(compiler.finalize().css).toBe(
+      `.${className}${normalizedCondition} {\n  color: red;\n}`
+    );
+  });
+
+  it('uses zero specificity for :where() during ambiguity analysis', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/control.gss',
+      source: `
+        .control:where(:hover) { color: red; }
+        .control:focus { color: blue; }
+      `
+    });
+
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    expect(compiler.finalize().report.rules).toBe(2);
+  });
+
+  it('accepts mutually exclusive positive and negative state conditions', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/control.gss',
+      source: `
+        .control:disabled { color: red; }
+        .control:not(:disabled) { color: blue; }
+      `
+    });
+
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    expect(compiler.finalize().report.rules).toBe(2);
+  });
+
+  it.each([
+    [':not(:disabled)', ':not(:disabled)'],
+    [':is(:hover, :focus-visible)', ':is(:focus-visible,:hover)'],
+    [':where(:hover, :active)', ':where(:active,:hover)']
+  ])('plans the supported functional condition %s', (authoredCondition, normalizedCondition) => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/control.gss',
+      source: `.control${authoredCondition} { color: red; }`
+    });
+
+    expect(replacement.diagnostics).toEqual([]);
+    const className = replacement.module?.scopeSchema.exports.control?.selfClassName;
+    expect(className).toContain('--property_color--value_red--');
+    expect(compiler.finalize().css).toBe(
+      `.${className}${normalizedCondition} {\n  color: red;\n}`
+    );
+  });
+
   it('canonicalizes equivalent state intersections for global atom reuse', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 

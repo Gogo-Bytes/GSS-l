@@ -4,7 +4,8 @@ import selectorParser, {
   type Attribute,
   type ClassName,
   type Combinator,
-  type Node
+  type Node,
+  type Pseudo
 } from 'postcss-selector-parser';
 import { isSupportedPseudoState } from '../domain/pseudo-state-capabilities.js';
 import type { GssDiagnostic } from '../public-types.js';
@@ -127,19 +128,16 @@ function parseClassPath(nodes: readonly Node[]): ParsedSelectorPath | undefined 
       states.at(-1)?.push(state);
       continue;
     }
+    if (!expectClass && node.type === 'pseudo' && node.nodes.length > 0) {
+      const condition = parseFunctionalState(node as Pseudo);
+      if (!condition) return undefined;
+      states.at(-1)?.push(condition);
+      continue;
+    }
     if (!expectClass && node.type === 'attribute') {
-      const attribute = node as Attribute;
-      if (
-        attribute.operator !== '=' ||
-        typeof attribute.value !== 'string' ||
-        attribute.insensitive !== undefined ||
-        attribute.namespace !== undefined
-      ) return undefined;
-      attributes.at(-1)?.push({
-        attribute: attribute.attribute,
-        operator: '=',
-        value: attribute.value
-      });
+      const condition = parseAttributeCondition(node as Attribute);
+      if (!condition) return undefined;
+      attributes.at(-1)?.push(condition);
       continue;
     }
     if (!expectClass && node.type === 'combinator') {
@@ -168,6 +166,53 @@ function parseClassPath(nodes: readonly Node[]): ParsedSelectorPath | undefined 
       attributes
     }
     : undefined;
+}
+
+function parseFunctionalState(pseudo: Pseudo): string | undefined {
+  const name = pseudo.value.slice(1);
+  if (!['not', 'is', 'where'].includes(name)) return undefined;
+
+  const branches: string[] = [];
+  for (const selector of pseudo.nodes) {
+    if (selector.nodes.length !== 1) return undefined;
+    const branch = selector.nodes[0]!;
+    if (branch.type === 'pseudo' && branch.nodes.length === 0) {
+      const state = branch.value.slice(1);
+      if (!isSupportedPseudoState(state)) return undefined;
+      branches.push(`:${state}`);
+      continue;
+    }
+    if (branch.type === 'attribute') {
+      const condition = parseAttributeCondition(branch as Attribute);
+      if (!condition) return undefined;
+      branches.push(renderParsedAttributeCondition(condition));
+      continue;
+    }
+    return undefined;
+  }
+
+  const canonicalBranches = [...new Set(branches)].sort();
+  return canonicalBranches.length > 0
+    ? `${name}(${canonicalBranches.join(',')})`
+    : undefined;
+}
+
+function parseAttributeCondition(attribute: Attribute): ParsedAttributeCondition | undefined {
+  if (
+    attribute.operator !== '=' ||
+    typeof attribute.value !== 'string' ||
+    attribute.insensitive !== undefined ||
+    attribute.namespace !== undefined
+  ) return undefined;
+  return {
+    attribute: attribute.attribute,
+    operator: '=',
+    value: attribute.value
+  };
+}
+
+function renderParsedAttributeCondition(condition: ParsedAttributeCondition): string {
+  return `[${condition.attribute}=${JSON.stringify(condition.value)}]`;
 }
 
 function toDeclaration(declaration: Declaration): ParsedDeclaration {
