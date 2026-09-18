@@ -10,6 +10,7 @@ import {
   type PureDeclarationIdentity
 } from '../domain/readable-name.js';
 import { resolveTargetDeclarations } from '../domain/resolve-target-declarations.js';
+import { compareRuleOrder } from '../domain/rule-order-planner.js';
 import { validateDeclarationSequences } from '../domain/validate-declarations.js';
 import { validateStateAmbiguity } from '../domain/validate-state-ambiguity.js';
 import {
@@ -827,7 +828,7 @@ function finalizeSnapshot(
   }
 
   const orderedRules = [...uniqueRules.values()].sort((left, right) =>
-    left.rule.className.localeCompare(right.rule.className)
+    compareRuleOrder(left.rule, right.rule, config)
   );
   const renderedRules = orderedRules.map(({ rule }) => renderRule(rule)).join('\n\n');
   const layerPrelude = config.layers?.length

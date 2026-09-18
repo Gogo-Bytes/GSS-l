@@ -64,7 +64,7 @@ Completion criteria:
 - [ ] Detect logical/physical property conflicts.
 - [ ] Implement importance and authored cascade layer semantics.
 - [ ] Implement selector specificity, including `:where()` zero specificity.
-- [ ] Implement registered at-rule condition rank.
+- [x] Implement registered at-rule condition rank for deterministic rule planning.
 - [x] Reject equal-precedence coactive current-state conflicts unless an explicit intersection resolves them.
 - [ ] Implement full relation implication and remaining incomparable-condition diagnostics.
 - [x] Accumulate descendant-class selectors whose paths provably match a declared target and resolve their exact-property winners.
@@ -107,7 +107,7 @@ Completion criteria:
 - [ ] Implement transactional `replaceStylesheet(id, source)`.
 - [ ] Implement `invalidate(id)` and reference-count cleanup.
 - [ ] Implement full-census `finalize()`.
-- [ ] Implement `RuleOrderPlanner` separately from `CascadeResolver`.
+- [x] Implement `RuleOrderPlanner` separately from `CascadeResolver`.
 - [ ] Implement reversible readable names behind `NameAllocatorPort`.
 - [ ] Emit nested static scope objects and branded TypeScript declarations.
 - [ ] Emit central CSS, source map, manifest, and report.

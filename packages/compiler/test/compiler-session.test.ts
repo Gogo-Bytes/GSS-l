@@ -168,6 +168,29 @@ describe('GssCompilerSession', () => {
     );
   });
 
+  it('orders coactive condition rules by registered project order', () => {
+    const compiler = createGssCompilerSession({
+      projectRoot: '/project',
+      conditions: {
+        media: ['(min-width: 80rem)', '(min-width: 40rem)']
+      }
+    });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/layout.gss',
+      source: `
+        @media (min-width: 40rem) { .layout { color: blue; } }
+        @media (min-width: 80rem) { .layout { color: red; } }
+      `
+    });
+
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    const css = compiler.finalize().css;
+    expect(css.indexOf('@media (min-width: 80rem)')).toBeLessThan(
+      css.indexOf('@media (min-width: 40rem)')
+    );
+  });
+
   it('preserves a configured layer around a structural contextual atom', () => {
     const compiler = createGssCompilerSession({
       projectRoot: '/project',
