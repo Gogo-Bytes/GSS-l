@@ -70,9 +70,9 @@ const className = styles.father.self;
 
 ## 当前状态
 
-第一版产品语义和架构已经形成 ADR，正式实现尚未开始。
+第一版产品语义和架构已经形成 ADR，正式实现已按 [`docs/mvp-roadmap.md`](docs/mvp-roadmap.md) 启动。
 
-当前分支中的早期 Compiler/parser代码是旧 recipe/variant/slot 方向的探索性原型，不代表已接受 interface。新实现将在本仓库按新的 Domain 与测试闭环重新建立；相邻的旧 GSS 项目只作为只读参考，需要的工具或测试复制到本仓库后再适配。
+新的 Compiler workspace 已建立，第一个 public-seam tracer可以通过 `GssCompilerSession.replaceStylesheet()` 与 `finalize()` 把一个 flat local class declaration编译为静态 scope object和可读 pure atom。相邻的旧 GSS 项目只作为只读参考，需要的工具或测试复制到本仓库后再适配。
 
 项目尚未达到 production-ready 状态，也未发布 package。
 

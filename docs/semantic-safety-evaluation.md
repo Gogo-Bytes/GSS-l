@@ -336,6 +336,6 @@ The reference renderer does not call the atomic winner/pruning/planning path. A 
 
 ## 18. Implementation status
 
-The semantic design stage is complete. The existing uncommitted Compiler/parser implementation follows an earlier recipe-oriented interface and is not an accepted foundation.
+The semantic design stage is complete. The recipe-oriented exploratory implementation has been discarded without modifying the read-only legacy project.
 
-Implementation resumes with Stage 1 of [`mvp-roadmap.md`](mvp-roadmap.md): establish new package boundaries in this repository, discard the local exploratory prototype, and copy only useful utilities or tests from the read-only legacy project into the new architecture.
+Stage 1 of [`mvp-roadmap.md`](mvp-roadmap.md) established the new Compiler workspace and verification commands. Implementation now proceeds in test-first vertical slices through the accepted `GssCompilerSession` seam.

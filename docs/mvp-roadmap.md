@@ -26,11 +26,11 @@ Completion evidence:
 
 ## Stage 1 — Establish the new implementation baseline
 
-- [ ] Treat the sibling legacy GSS project as read-only reference material.
-- [ ] Discard the uncommitted recipe-oriented prototype created during early exploration in this repository.
-- [ ] Create the new workspace/package boundaries from the accepted Domain/Application/Adapter architecture.
-- [ ] Copy legacy utilities or tests into this repository only when they express an accepted invariant, adapting them to the new interfaces.
-- [ ] Establish install, typecheck, lint, test, and build commands for the new workspace.
+- [x] Treat the sibling legacy GSS project as read-only reference material.
+- [x] Discard the uncommitted recipe-oriented prototype created during early exploration in this repository.
+- [x] Create the initial Compiler workspace boundary from the accepted Domain/Application/Adapter architecture.
+- [x] Copy legacy utilities or tests into this repository only when they express an accepted invariant, adapting them to the new interfaces.
+- [x] Establish install, typecheck, lint, test, and build commands for the new workspace.
 
 Completion criteria:
 
