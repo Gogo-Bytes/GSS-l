@@ -27,8 +27,9 @@ export type ParsedAttributeCondition = {
 
 export type ParsedHasCondition = {
   relation: 'descendant' | 'child' | 'adjacent' | 'general-sibling';
-  observedClass: string;
+  observedClass?: string;
   observedState?: string;
+  observedResidual?: string;
 };
 
 export type ParsedStyleRule = {
@@ -219,25 +220,44 @@ function parseHasSelector(nodes: readonly Node[]): ParsedHasCondition | undefine
   }
 
   const observed = nodes[index];
-  if (observed?.type !== 'class') return undefined;
+  if (!observed) return undefined;
   index += 1;
 
-  let observedState: string | undefined;
-  const stateNode = nodes[index];
-  if (stateNode) {
-    if (stateNode.type !== 'pseudo' || stateNode.nodes.length > 0) return undefined;
-    const state = stateNode.value.slice(1);
-    if (!isSupportedPseudoState(state)) return undefined;
-    observedState = state;
-    index += 1;
+  if (observed.type === 'class') {
+    let observedState: string | undefined;
+    const stateNode = nodes[index];
+    if (stateNode) {
+      if (stateNode.type !== 'pseudo' || stateNode.nodes.length > 0) return undefined;
+      const state = stateNode.value.slice(1);
+      if (!isSupportedPseudoState(state)) return undefined;
+      observedState = state;
+      index += 1;
+    }
+    if (index !== nodes.length) return undefined;
+    return {
+      relation,
+      observedClass: (observed as ClassName).value,
+      ...(observedState ? { observedState } : {})
+    };
   }
-  if (index !== nodes.length) return undefined;
 
-  return {
-    relation,
-    observedClass: (observed as ClassName).value,
-    ...(observedState ? { observedState } : {})
-  };
+  if (index !== nodes.length) return undefined;
+  if (observed.type === 'attribute') {
+    const condition = parseAttributeCondition(observed as Attribute);
+    return condition
+      ? { relation, observedResidual: renderParsedAttributeCondition(condition) }
+      : undefined;
+  }
+  if (observed.type === 'tag' && observed.namespace === undefined) {
+    return { relation, observedResidual: observed.value };
+  }
+  if (observed.type === 'pseudo' && observed.nodes.length === 0) {
+    const state = observed.value.slice(1);
+    return isSupportedPseudoState(state)
+      ? { relation, observedResidual: `:${state}` }
+      : undefined;
+  }
+  return undefined;
 }
 
 function parseRuntimeRelation(

@@ -168,6 +168,30 @@ describe('GssCompilerSession', () => {
     );
   });
 
+  it.each([
+    ['[aria-invalid="true"]', '[aria-invalid="true"]'],
+    ['> img', '> img'],
+    [':focus', ':focus']
+  ])('plans the residual :has(%s) observation without a local export', (
+    authoredObservation,
+    normalizedObservation
+  ) => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/card.gss',
+      source: `.card:has(${authoredObservation}) { color: red; }`
+    });
+
+    expect(replacement.diagnostics).toEqual([]);
+    expect(Object.keys(replacement.module?.scopeSchema.exports ?? {})).toEqual(['card']);
+    const cardClass = replacement.module?.scopeSchema.exports.card?.selfClassName;
+    expect(cardClass).toContain('--residual_');
+    expect(compiler.finalize().css).toBe(
+      `.${cardClass}:has(${normalizedObservation}) {\n  color: red;\n}`
+    );
+  });
+
   it('composes a current-element state with a pseudo-element', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 

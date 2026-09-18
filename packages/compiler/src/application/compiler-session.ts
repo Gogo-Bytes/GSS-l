@@ -383,17 +383,23 @@ function prepareContribution(
         moduleId,
         subjectPath: rule.path,
         relation: observation.relation,
-        observedClass: observation.observedClass,
-        ...(observation.observedState ? { observedState: observation.observedState } : {})
+        ...(observation.observedClass ? { observedClass: observation.observedClass } : {}),
+        ...(observation.observedState ? { observedState: observation.observedState } : {}),
+        ...(observation.observedResidual
+          ? { observedResidual: observation.observedResidual }
+          : {})
       };
       const subjectMarker = createReadableHasSubjectMarker(relationIdentity);
-      const observedMarker = createReadableObservedMarker(relationIdentity);
       ensureScopePath(roots, rule.path).classNames.add(subjectMarker);
-      ensureScopePath(roots, [observation.observedClass]).classNames.add(observedMarker);
+      const observedSelector = observation.observedClass
+        ? (() => {
+          const observedMarker = createReadableObservedMarker(relationIdentity);
+          ensureScopePath(roots, [observation.observedClass]).classNames.add(observedMarker);
+          return `.${observedMarker}${observation.observedState ? `:${observation.observedState}` : ''}`;
+        })()
+        : observation.observedResidual!;
       const observedCombinator = renderObservedCombinator(observation.relation);
-      const selector = `.${subjectMarker}:has(${observedCombinator}.${observedMarker}${
-        observation.observedState ? `:${observation.observedState}` : ''
-      })`;
+      const selector = `.${subjectMarker}:has(${observedCombinator}${observedSelector})`;
 
       for (const declaration of rule.declarations) {
         const identity: ObservedDeclarationIdentity = {
@@ -722,7 +728,7 @@ function renderScopeType(scope: ScopeNodeSchema): string {
 }
 
 function serializeIdentity(identity: PlannedDeclaration['identity']): string {
-  if ('observedClass' in identity) {
+  if ('subjectPath' in identity) {
     return JSON.stringify([
       'observed',
       identity.moduleId,
@@ -730,6 +736,7 @@ function serializeIdentity(identity: PlannedDeclaration['identity']): string {
       identity.relation,
       identity.observedClass,
       identity.observedState,
+      identity.observedResidual,
       identity.property,
       identity.value,
       identity.important

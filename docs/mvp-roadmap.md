@@ -84,8 +84,8 @@ Completion criteria:
 - [x] Plan current, ancestor, and runtime-source attribute/ARIA equality conditions.
 - [x] Plan the positive pseudo-element set, including current-state composition.
 - [x] Plan `:not()`, `:is()`, and `:where()` conditions with supported pseudo-state and attribute-equality branches.
-- [x] Plan local-class `:has()` observations, including selector lists, registered observed states, and all supported combinators.
-- [ ] Plan interleaved ownership/runtime chains, explicit-global functional branches, and residual tag/attribute/global `:has()` forms.
+- [x] Plan local-class and residual tag/attribute/pseudo `:has()` observations, including selector lists and supported combinators.
+- [ ] Plan interleaved ownership/runtime chains and explicit-global functional/`:has()` branches.
 - [ ] Plan residual and explicit-global selectors.
 - [ ] Implement custom property provider and `@property` resource semantics.
 - [ ] Implement module-local keyframes and static animation reference rewriting.
