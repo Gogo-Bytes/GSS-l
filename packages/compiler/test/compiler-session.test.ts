@@ -145,6 +145,36 @@ describe('GssCompilerSession', () => {
     });
   });
 
+  it('normalizes standard CSS nesting before building target paths', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/family.gss',
+      source: `
+        .father {
+          display: block;
+
+          .son {
+            color: red;
+          }
+        }
+      `
+    });
+
+    expect(replacement.diagnostics).toEqual([]);
+    expect(replacement.module?.scopeSchema.exports).toEqual({
+      father: {
+        selfClassName: displayBlockClass,
+        targets: {
+          son: {
+            selfClassName: colorRedClass,
+            targets: {}
+          }
+        }
+      }
+    });
+  });
+
   it('accumulates general path declarations and keeps only the target winner', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 

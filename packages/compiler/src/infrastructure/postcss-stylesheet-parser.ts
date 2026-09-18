@@ -1,4 +1,5 @@
 import postcss, { type Declaration } from 'postcss';
+import postcssNesting from 'postcss-nesting';
 import selectorParser, { type ClassName, type Combinator, type Node } from 'postcss-selector-parser';
 import type { GssDiagnostic } from '../public-types.js';
 
@@ -22,7 +23,7 @@ export type ParsedStylesheet = {
 export function parseStylesheet(id: string, source: string): ParsedStylesheet {
   let root: postcss.Root;
   try {
-    root = postcss.parse(source, { from: id });
+    root = postcss([postcssNesting()]).process(source, { from: id }).sync().root;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return {

@@ -46,7 +46,7 @@ Use test-first vertical slices.
 - [ ] Define value objects for logical Module id, selector path, declaration, condition, layer, relation, specificity, semantic identity, and diagnostics.
 - [ ] Implement standard CSS parsing behind `CssParserPort`.
 - [x] Normalize selector lists into independent semantic branches.
-- [ ] Normalize standard CSS nesting while preserving source ranges.
+- [x] Normalize standard CSS nesting before selector-path analysis.
 - [ ] Build `ScopeTree` and positive capability validation.
 - [ ] Parse attributes, pseudo states, functional pseudo conditions, pseudo-elements, combinators, residual selectors, and explicit globals in the accepted set.
 - [ ] Return stable diagnostics for unsupported or unsafe input.
