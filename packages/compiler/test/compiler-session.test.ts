@@ -168,6 +168,54 @@ describe('GssCompilerSession', () => {
     );
   });
 
+  it('rewrites static local names in animation shorthand without touching var()', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/motion.gss',
+      source: `
+        @keyframes fade { to { opacity: 1; } }
+        @keyframes spin { to { transform: rotate(1turn); } }
+        .motion {
+          animation: 1s ease fade, 2s linear spin, 3s external, var(--animation);
+        }
+      `
+    });
+
+    const fade = 'gss-k--module_src_2f_motion_2e_gss--name_fade';
+    const spin = 'gss-k--module_src_2f_motion_2e_gss--name_spin';
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    expect(compiler.finalize().css).toContain(
+      `animation: 1s ease ${fade}, 2s linear ${spin}, 3s external, var(--animation);`
+    );
+  });
+
+  it('renames module-local keyframes and rewrites a static animation-name reference', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/spinner.gss',
+      source: `
+        @keyframes fade {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        .spinner { animation-name: fade; }
+      `
+    });
+
+    const generatedName = 'gss-k--module_src_2f_spinner_2e_gss--name_fade';
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    const className = replacement.module?.scopeSchema.exports.spinner?.selfClassName;
+    expect(className).toContain('--property_animation_2d_name--value_gss_2d_k');
+    expect(compiler.finalize().css).toBe(
+      `@keyframes ${generatedName} {\n` +
+      `  from {\n    opacity: 0;\n  }\n` +
+      `  to {\n    opacity: 1;\n  }\n` +
+      `}\n\n.${className} {\n  animation-name: ${generatedName};\n}`
+    );
+  });
+
   it('rejects conflicting global @property registrations transactionally', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 

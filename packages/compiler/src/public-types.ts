@@ -45,7 +45,7 @@ export type FinalizedGssSnapshot = {
   manifest: {
     modules: readonly string[];
     resources: readonly {
-      kind: 'property';
+      kind: 'property' | 'keyframes';
       name: string;
       sources: readonly string[];
     }[];

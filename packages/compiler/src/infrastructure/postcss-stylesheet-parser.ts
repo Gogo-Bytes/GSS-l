@@ -56,9 +56,22 @@ export type ParsedPropertyRegistration = {
   declarations: readonly ParsedDeclaration[];
 };
 
+export type ParsedKeyframesRegistration = {
+  kind: 'keyframes';
+  name: string;
+  conditions: readonly ParsedCondition[];
+  layer: string;
+  frames: readonly {
+    selector: string;
+    declarations: readonly ParsedDeclaration[];
+  }[];
+};
+
+export type ParsedGlobalResource = ParsedPropertyRegistration | ParsedKeyframesRegistration;
+
 export type ParsedStylesheet = {
   rules: readonly ParsedStyleRule[];
-  resources: readonly ParsedPropertyRegistration[];
+  resources: readonly ParsedGlobalResource[];
   diagnostics: readonly GssDiagnostic[];
 };
 
@@ -83,7 +96,7 @@ export function parseStylesheet(id: string, source: string): ParsedStylesheet {
 
   const diagnostics: GssDiagnostic[] = [];
   const rules: ParsedStyleRule[] = [];
-  const resources: ParsedPropertyRegistration[] = [];
+  const resources: ParsedGlobalResource[] = [];
 
   let sourceOrdinal = 0;
   const visitNodes = (
@@ -93,6 +106,15 @@ export function parseStylesheet(id: string, source: string): ParsedStylesheet {
   ): void => {
     for (const node of nodes) {
       if (node.type === 'atrule') {
+        if (node.name === 'keyframes') {
+          const keyframes = parseKeyframesRegistration(node, conditions, layer);
+          if (!keyframes) {
+            diagnostics.push(unsupportedDiagnostic(id, 'Unsupported @keyframes resource.'));
+          } else {
+            resources.push(keyframes);
+          }
+          continue;
+        }
         if (node.name === 'property') {
           const registration = parsePropertyRegistration(node, conditions, layer);
           if (!registration) {
@@ -151,6 +173,37 @@ export function parseStylesheet(id: string, source: string): ParsedStylesheet {
   visitNodes(root.nodes, [], 'unlayered');
 
   return { rules, resources, diagnostics };
+}
+
+function parseKeyframesRegistration(
+  node: postcss.AtRule,
+  conditions: readonly ParsedCondition[],
+  layer: string
+): ParsedKeyframesRegistration | undefined {
+  const name = node.params.trim();
+  if (!/^[-_A-Za-z][-_A-Za-z0-9]*$/.test(name) || !node.nodes) return undefined;
+
+  const frames: ParsedKeyframesRegistration['frames'][number][] = [];
+  for (const child of node.nodes) {
+    if (child.type !== 'rule' || !isKeyframeSelector(child.selector)) return undefined;
+    const declarations: ParsedDeclaration[] = [];
+    for (const declaration of child.nodes) {
+      if (declaration.type !== 'decl' || declaration.important) return undefined;
+      declarations.push(toDeclaration(declaration));
+    }
+    frames.push({ selector: child.selector.trim(), declarations });
+  }
+  return { kind: 'keyframes', name, conditions, layer, frames };
+}
+
+function isKeyframeSelector(selector: string): boolean {
+  return selector.split(',').every((part) => {
+    const value = part.trim();
+    if (value === 'from' || value === 'to') return true;
+    if (!/^\d+(?:\.\d+)?%$/.test(value)) return false;
+    const percentage = Number(value.slice(0, -1));
+    return percentage >= 0 && percentage <= 100;
+  });
 }
 
 function parsePropertyRegistration(

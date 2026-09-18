@@ -1,7 +1,9 @@
+import valueParser from 'postcss-value-parser';
 import {
   createReadableAtomicName,
   createReadableContextMarker,
   createReadableHasSubjectMarker,
+  createReadableKeyframesName,
   createReadableObservedMarker,
   createReadableSourceMarker,
   createReadableTargetMarker,
@@ -18,6 +20,8 @@ import {
   parseStylesheet,
   type ParsedAttributeCondition,
   type ParsedCondition,
+  type ParsedGlobalResource,
+  type ParsedKeyframesRegistration,
   type ParsedPropertyRegistration,
   type ParsedStyleRule
 } from '../infrastructure/postcss-stylesheet-parser.js';
@@ -53,7 +57,7 @@ type PlannedDeclaration = {
 };
 
 type PlannedResource = {
-  kind: 'property';
+  kind: 'property' | 'keyframes';
   name: string;
   identity: string;
   css: string;
@@ -140,7 +144,19 @@ function prepareContribution(
   if (parsed.diagnostics.some(({ severity }) => severity === 'error')) {
     return { diagnostics: parsed.diagnostics };
   }
-  const conditionDiagnostics = validateRegisteredConditions(config, input.id, parsed.rules);
+  const moduleId = toLogicalModuleId(config.projectRoot, input.id);
+  const keyframeNames = new Map(
+    parsed.resources
+      .filter((resource): resource is ParsedKeyframesRegistration => resource.kind === 'keyframes')
+      .map((resource) => [resource.name, createReadableKeyframesName(moduleId, resource.name)])
+  );
+  const semanticRules = rewriteKeyframeReferences(parsed.rules, keyframeNames);
+  const conditionDiagnostics = validateRegisteredConditions(
+    config,
+    input.id,
+    parsed.rules,
+    parsed.resources
+  );
   const unsupportedConditionCombination = parsed.rules.find((rule) =>
     rule.conditions.length > 0 &&
     !isPureOwnershipRule(rule) &&
@@ -289,30 +305,29 @@ function prepareContribution(
     };
   }
 
-  const moduleId = toLogicalModuleId(config.projectRoot, input.id);
   const roots = new Map<string, MutableScopeNode>();
   const rules: PlannedDeclaration[] = [];
-  const ownershipRules = parsed.rules.filter(isPureOwnershipRule);
-  const stateRules = parsed.rules.filter(isCurrentStateRule);
-  const ancestorStateRules = parsed.rules.filter(({ relations, states }) =>
+  const ownershipRules = semanticRules.filter(isPureOwnershipRule);
+  const stateRules = semanticRules.filter(isCurrentStateRule);
+  const ancestorStateRules = semanticRules.filter(({ relations, states }) =>
     relations.every((relation) => relation === 'descendant') &&
     states.slice(0, -1).some((state) => state.length > 0)
   );
-  const attributeRules = parsed.rules.filter(({ relations, attributes }) =>
+  const attributeRules = semanticRules.filter(({ relations, attributes }) =>
     relations.every((relation) => relation === 'descendant') &&
     attributes.at(-1)?.length
   );
-  const ancestorAttributeRules = parsed.rules.filter(({ relations, attributes }) =>
+  const ancestorAttributeRules = semanticRules.filter(({ relations, attributes }) =>
     relations.every((relation) => relation === 'descendant') &&
     attributes.slice(0, -1).some((conditions) => conditions.length > 0)
   );
-  const hasRules = parsed.rules.filter(({ observations }) =>
+  const hasRules = semanticRules.filter(({ observations }) =>
     observations.at(-1)?.length
   );
-  const pseudoElementRules = parsed.rules.filter(({ pseudoElements }) =>
+  const pseudoElementRules = semanticRules.filter(({ pseudoElements }) =>
     pseudoElements.at(-1)
   );
-  const contextualRules = parsed.rules.filter(({ relations }) =>
+  const contextualRules = semanticRules.filter(({ relations }) =>
     relations.some((relation) => relation !== 'descendant')
   );
   const unsupportedRelation = contextualRules.find(({ relations }) => {
@@ -337,7 +352,7 @@ function prepareContribution(
     const wrappers = groupedRules[0]!.conditions;
     const condition = canonicalCondition(wrappers);
     const layer = groupedRules[0]!.layer;
-    const declaredPaths = parsed.rules
+    const declaredPaths = semanticRules
       .filter((rule) =>
         rule.layer === layer && canonicalCondition(rule.conditions) === condition
       )
@@ -695,8 +710,35 @@ function prepareContribution(
     dependencies: []
   };
 
-  const resources = parsed.resources.map(planPropertyRegistration);
+  const resources = parsed.resources.map((resource) => planResource(resource, moduleId));
   return { artifact, rules, resources, diagnostics: conditionDiagnostics };
+}
+
+function rewriteKeyframeReferences(
+  rules: readonly ParsedStyleRule[],
+  keyframeNames: ReadonlyMap<string, string>
+): readonly ParsedStyleRule[] {
+  return rules.map((rule) => ({
+    ...rule,
+    declarations: rule.declarations.map((declaration) => {
+      if (declaration.property !== 'animation-name' && declaration.property !== 'animation') {
+        return declaration;
+      }
+      const parsedValue = valueParser(declaration.value);
+      for (const node of parsedValue.nodes) {
+        if (node.type !== 'word') continue;
+        const generatedName = keyframeNames.get(node.value);
+        if (generatedName) node.value = generatedName;
+      }
+      return { ...declaration, value: parsedValue.toString() };
+    })
+  }));
+}
+
+function planResource(resource: ParsedGlobalResource, moduleId: string): PlannedResource {
+  return resource.kind === 'property'
+    ? planPropertyRegistration(resource)
+    : planKeyframesRegistration(resource, moduleId);
 }
 
 function planPropertyRegistration(resource: ParsedPropertyRegistration): PlannedResource {
@@ -712,6 +754,39 @@ function planPropertyRegistration(resource: ParsedPropertyRegistration): Planned
       resource.declarations.map(({ property, value }) => [property, value])
     ]),
     css: `@property ${resource.name} {\n${declarations}\n}`
+  };
+}
+
+function planKeyframesRegistration(
+  resource: ParsedKeyframesRegistration,
+  moduleId: string
+): PlannedResource {
+  const generatedName = createReadableKeyframesName(moduleId, resource.name);
+  const frames = resource.frames.map((frame) => {
+    const declarations = frame.declarations
+      .map(({ property, value }) => `    ${property}: ${value};`)
+      .join('\n');
+    return `  ${frame.selector} {\n${declarations}\n  }`;
+  }).join('\n');
+  let css = `@keyframes ${generatedName} {\n${frames}\n}`;
+  for (const condition of [...resource.conditions].reverse()) {
+    css = `@${condition.kind} ${condition.query} {\n${indentCss(css)}\n}`;
+  }
+  if (resource.layer !== 'unlayered') {
+    css = `@layer ${resource.layer} {\n${indentCss(css)}\n}`;
+  }
+  return {
+    kind: resource.kind,
+    name: generatedName,
+    identity: JSON.stringify([
+      resource.kind,
+      moduleId,
+      resource.name,
+      resource.layer,
+      resource.conditions,
+      resource.frames
+    ]),
+    css
   };
 }
 
@@ -794,11 +869,18 @@ function isPureOwnershipRule(rule: ParsedStyleRule): boolean {
 function validateRegisteredConditions(
   config: GssCompilerConfig,
   id: string,
-  rules: readonly ParsedStyleRule[]
+  rules: readonly ParsedStyleRule[],
+  resources: readonly ParsedGlobalResource[]
 ): readonly GssDiagnostic[] {
   const unregistered = new Map<string, ParsedCondition>();
-  for (const rule of rules) {
-    for (const condition of rule.conditions) {
+  const conditionContexts = [
+    ...rules.map(({ conditions }) => conditions),
+    ...resources.flatMap((resource) =>
+      resource.kind === 'keyframes' ? [resource.conditions] : []
+    )
+  ];
+  for (const conditions of conditionContexts) {
+    for (const condition of conditions) {
       const registered = new Set(config.conditions?.[condition.kind] ?? []);
       if (!registered.has(condition.query)) {
         unregistered.set(`${condition.kind}\0${condition.query}`, condition);
@@ -820,8 +902,11 @@ function validateRegisteredConditions(
     }));
 
   const registeredLayers = new Set(config.layers ?? []);
+  const resourceLayers = resources.flatMap((resource) =>
+    resource.kind === 'keyframes' ? [resource.layer] : []
+  );
   const unregisteredLayers = new Set(
-    rules.map(({ layer }) => layer).filter((layer) =>
+    [...rules.map(({ layer }) => layer), ...resourceLayers].filter((layer) =>
       layer !== 'unlayered' && !registeredLayers.has(layer)
     )
   );
@@ -926,7 +1011,7 @@ function finalizeSnapshot(
     : '';
   return {
     generation,
-    css: [renderedResources, layerPrelude, renderedRules].filter(Boolean).join('\n\n'),
+    css: [layerPrelude, renderedResources, renderedRules].filter(Boolean).join('\n\n'),
     manifest: {
       modules: [...modules.keys()].sort(),
       resources: orderedResources.map(({ resource, sources }) => ({

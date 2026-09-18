@@ -30,6 +30,14 @@ export type ContextualRelationIdentity = {
   targetPath: readonly string[];
 };
 
+export function createReadableKeyframesName(moduleId: string, authoredName: string): string {
+  return [
+    'gss-k',
+    `module_${encodeNamePart(moduleId)}`,
+    `name_${encodeNamePart(authoredName)}`
+  ].join('--');
+}
+
 export function createReadableAtomicName(identity: PureDeclarationIdentity): string {
   return [
     'gss-a',
