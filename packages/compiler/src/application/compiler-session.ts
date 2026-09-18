@@ -100,10 +100,11 @@ function prepareContribution(
 
   const unsupportedState = parsed.rules.find(({ path, relations, states }) => {
     const stateIndexes = states.flatMap((state, index) => state.length > 0 ? [index] : []);
+    const firstRuntimeRelation = relations.findIndex((relation) => relation !== 'descendant');
     return stateIndexes.length > 0 && (
-      relations.some((relation) => relation !== 'descendant') ||
       stateIndexes.length !== 1 ||
-      path.length === 0
+      path.length === 0 ||
+      (firstRuntimeRelation >= 0 && stateIndexes[0] !== firstRuntimeRelation)
     );
   });
   if (unsupportedState) {
@@ -112,7 +113,7 @@ function prepareContribution(
         code: 'GSS1101',
         severity: 'error',
         phase: 'validate',
-        message: 'The initial state capability requires one state-bearing node on an ownership path.',
+        message: 'A runtime chain requires its single state to be on the chain source.',
         id: input.id,
         reason: 'capability-not-registered'
       }]
@@ -130,7 +131,8 @@ function prepareContribution(
     relations.every((relation) => relation === 'descendant') &&
     states.at(-1)?.length
   );
-  const ancestorStateRules = parsed.rules.filter(({ states }) =>
+  const ancestorStateRules = parsed.rules.filter(({ relations, states }) =>
+    relations.every((relation) => relation === 'descendant') &&
     states.slice(0, -1).some((state) => state.length > 0)
   );
   const contextualRules = parsed.rules.filter(({ relations }) =>
@@ -245,10 +247,12 @@ function prepareContribution(
     const runtimeRelations = rule.relations.slice(firstRuntimeRelation);
     const sourcePath = rule.path.slice(0, firstRuntimeRelation + 1);
     const runtimePaths = rule.path.slice(firstRuntimeRelation);
+    const sourceState = rule.states[firstRuntimeRelation]?.join(':') || undefined;
     const sourceMarker = createReadableSourceMarker(moduleId, sourcePath);
     const relationIdentity: ContextualRelationIdentity = {
       moduleId,
       relations: runtimeRelations,
+      ...(sourceState ? { sourceState } : {}),
       sourcePath,
       targetPath: rule.path
     };
@@ -265,7 +269,7 @@ function prepareContribution(
     });
     const selector = markers.map((marker, index) =>
       index === 0
-        ? `.${marker}`
+        ? `.${marker}${sourceState ? `:${sourceState}` : ''}`
         : ` ${renderRelationCombinator(runtimeRelations[index - 1]!)} .${marker}`
     ).join('');
 

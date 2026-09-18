@@ -147,6 +147,66 @@ describe('GssCompilerSession', () => {
     });
   });
 
+  it('combines a source state with a runtime relation', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/field.gss',
+      source: '.field:focus-within > .hint { color: red; }'
+    });
+
+    const sourceMarker = 'gss-s--module_src_2f_field_2e_gss--path_field';
+    const targetMarker =
+      'gss-t--module_src_2f_field_2e_gss--relation_child--state_focus_2d_within--source_field--target_field_2f_hint';
+    expect(replacement.diagnostics).toEqual([]);
+    expect(replacement.module?.scopeSchema.exports.field?.selfClassName).toBe(sourceMarker);
+    expect(replacement.module?.scopeSchema.exports.field?.targets.hint?.selfClassName).toBe(
+      targetMarker
+    );
+    expect(compiler.finalize().css).toBe(
+      `.${sourceMarker}:focus-within > .${targetMarker} {\n  color: red;\n}`
+    );
+  });
+
+  it.each([
+    ['focus', 'focus'],
+    ['focus-visible', 'focus_2d_visible'],
+    ['focus-within', 'focus_2d_within'],
+    ['active', 'active'],
+    ['disabled', 'disabled'],
+    ['checked', 'checked']
+  ])('plans the supported current-element :%s state', (state, encodedState) => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/control.gss',
+      source: `.control:${state} { color: red; }`
+    });
+
+    const className =
+      `gss-a--layer_unlayered--condition_base--state_${encodedState}--property_color--value_red--importance_normal`;
+    expect(replacement.diagnostics).toEqual([]);
+    expect(replacement.module?.scopeSchema.exports.control?.selfClassName).toBe(className);
+    expect(compiler.finalize().css).toBe(`.${className}:${state} {\n  color: red;\n}`);
+  });
+
+  it('fails closed for an unregistered pseudo state', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    expect(compiler.replaceStylesheet({
+      id: '/project/src/link.gss',
+      source: '.link:visited { color: red; }'
+    })).toMatchObject({
+      committed: false,
+      generation: 0,
+      diagnostics: [{
+        code: 'GSS1101',
+        phase: 'validate',
+        reason: 'capability-not-registered'
+      }]
+    });
+  });
+
   it('plans an ancestor hover as a source-target contextual atom', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 

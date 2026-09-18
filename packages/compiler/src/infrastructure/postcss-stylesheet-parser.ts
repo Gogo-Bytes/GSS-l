@@ -1,6 +1,7 @@
 import postcss, { type Declaration } from 'postcss';
 import postcssNesting from 'postcss-nesting';
 import selectorParser, { type ClassName, type Combinator, type Node } from 'postcss-selector-parser';
+import { isSupportedPseudoState } from '../domain/pseudo-state-capabilities.js';
 import type { GssDiagnostic } from '../public-types.js';
 
 export type ParsedDeclaration = {
@@ -105,8 +106,10 @@ function parseClassPath(nodes: readonly Node[]): ParsedSelectorPath | undefined 
       expectClass = false;
       continue;
     }
-    if (!expectClass && node.type === 'pseudo' && node.value === ':hover' && node.nodes.length === 0) {
-      states.at(-1)?.push('hover');
+    if (!expectClass && node.type === 'pseudo' && node.nodes.length === 0) {
+      const state = node.value.slice(1);
+      if (!isSupportedPseudoState(state)) return undefined;
+      states.at(-1)?.push(state);
       continue;
     }
     if (!expectClass && node.type === 'combinator') {

@@ -15,7 +15,7 @@
 - Selector list。
 - Runtime combinator：`>`、`+`、`~`。
 - Attribute 与 ARIA condition。
-- Current-element pseudo state，以及 ancestor state 驱动 target。
+- Current-element 与 ancestor pseudo state：`:hover`、`:focus`、`:focus-visible`、`:focus-within`、`:active`、`:disabled`、`:checked`。
 - `:not()`、`:is()`、`:where()` 的 pseudo、attribute 和 explicit-global 参数。
 - 受约束的 `:has()` observed relation。
 - Tag/attribute 与 `:global(...)` residual selector。
