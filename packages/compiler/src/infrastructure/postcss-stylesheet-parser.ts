@@ -7,6 +7,7 @@ import selectorParser, {
   type Node,
   type Pseudo
 } from 'postcss-selector-parser';
+import { isSupportedPseudoElement } from '../domain/pseudo-element-capabilities.js';
 import { isSupportedPseudoState } from '../domain/pseudo-state-capabilities.js';
 import type { GssDiagnostic } from '../public-types.js';
 
@@ -36,6 +37,7 @@ export type ParsedStyleRule = {
   states: readonly (readonly string[])[];
   attributes: readonly (readonly ParsedAttributeCondition[])[];
   observations: readonly (readonly ParsedHasCondition[])[];
+  pseudoElements: readonly (string | null)[];
   declarations: readonly ParsedDeclaration[];
   sourceOrdinal: number;
 };
@@ -103,6 +105,7 @@ type ParsedSelectorPath = {
   states: readonly (readonly string[])[];
   attributes: readonly (readonly ParsedAttributeCondition[])[];
   observations: readonly (readonly ParsedHasCondition[])[];
+  pseudoElements: readonly (string | null)[];
 };
 
 function parseDescendantClassPaths(selector: string): readonly ParsedSelectorPath[] | undefined {
@@ -122,6 +125,7 @@ function parseClassPath(nodes: readonly Node[]): ParsedSelectorPath | undefined 
   const states: string[][] = [];
   const attributes: ParsedAttributeCondition[][] = [];
   const observations: ParsedHasCondition[][] = [];
+  const pseudoElements: (string | null)[] = [];
   let expectClass = true;
   for (const node of nodes) {
     if (expectClass && node.type === 'class') {
@@ -129,10 +133,18 @@ function parseClassPath(nodes: readonly Node[]): ParsedSelectorPath | undefined 
       states.push([]);
       attributes.push([]);
       observations.push([]);
+      pseudoElements.push(null);
       expectClass = false;
       continue;
     }
     if (!expectClass && node.type === 'pseudo' && node.nodes.length === 0) {
+      if (node.value.startsWith('::')) {
+        const pseudoElement = node.value.slice(2);
+        if (!isSupportedPseudoElement(pseudoElement) || pseudoElements.at(-1)) return undefined;
+        pseudoElements[pseudoElements.length - 1] = pseudoElement;
+        continue;
+      }
+      if (pseudoElements.at(-1)) return undefined;
       const state = node.value.slice(1);
       if (!isSupportedPseudoState(state)) return undefined;
       states.at(-1)?.push(state);
@@ -180,7 +192,8 @@ function parseClassPath(nodes: readonly Node[]): ParsedSelectorPath | undefined 
       relations,
       states: states.map((state) => [...new Set(state)].sort()),
       attributes,
-      observations
+      observations,
+      pseudoElements
     }
     : undefined;
 }

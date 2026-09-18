@@ -2,6 +2,7 @@ export type PureDeclarationIdentity = {
   layer: 'unlayered';
   condition: 'base';
   state: string;
+  pseudoElement?: string;
   property: string;
   value: string;
   important: boolean;
@@ -30,10 +31,13 @@ export function createReadableAtomicName(identity: PureDeclarationIdentity): str
     `layer_${encodeNamePart(identity.layer)}`,
     `condition_${encodeNamePart(identity.condition)}`,
     `state_${encodeNamePart(identity.state)}`,
+    identity.pseudoElement
+      ? `pseudo_${encodeNamePart(identity.pseudoElement)}`
+      : undefined,
     `property_${encodeNamePart(identity.property)}`,
     `value_${encodeNamePart(identity.value)}`,
     `importance_${identity.important ? 'important' : 'normal'}`
-  ].join('--');
+  ].filter((part): part is string => part !== undefined).join('--');
 }
 
 export function createReadableHasSubjectMarker(identity: ObservedRelationIdentity): string {

@@ -115,6 +115,39 @@ function prepareContribution(
     return { diagnostics: stateDiagnostics };
   }
 
+  const unsupportedPseudoElement = parsed.rules.find(({
+    path,
+    relations,
+    states,
+    attributes,
+    observations,
+    pseudoElements
+  }) => {
+    const pseudoElementIndexes = pseudoElements.flatMap((pseudoElement, index) =>
+      pseudoElement ? [index] : []
+    );
+    return pseudoElementIndexes.length > 0 && (
+      pseudoElementIndexes.length !== 1 ||
+      pseudoElementIndexes[0] !== path.length - 1 ||
+      relations.some((relation) => relation !== 'descendant') ||
+      states.slice(0, -1).some((state) => state.length > 0) ||
+      attributes.some((conditions) => conditions.length > 0) ||
+      observations.some((conditions) => conditions.length > 0)
+    );
+  });
+  if (unsupportedPseudoElement) {
+    return {
+      diagnostics: [{
+        code: 'GSS1101',
+        severity: 'error',
+        phase: 'validate',
+        message: 'A pseudo-element must terminate an ownership selector path.',
+        id: input.id,
+        reason: 'capability-not-registered'
+      }]
+    };
+  }
+
   const unsupportedObservation = parsed.rules.find(({
     path,
     relations,
@@ -201,16 +234,19 @@ function prepareContribution(
     relations,
     states,
     attributes,
-    observations
+    observations,
+    pseudoElements
   }) =>
     relations.every((relation) => relation === 'descendant') &&
     states.every((state) => state.length === 0) &&
     attributes.every((conditions) => conditions.length === 0) &&
-    observations.every((conditions) => conditions.length === 0)
+    observations.every((conditions) => conditions.length === 0) &&
+    pseudoElements.every((pseudoElement) => pseudoElement === null)
   );
-  const stateRules = parsed.rules.filter(({ relations, states }) =>
+  const stateRules = parsed.rules.filter(({ relations, states, pseudoElements }) =>
     relations.every((relation) => relation === 'descendant') &&
-    states.at(-1)?.length
+    states.at(-1)?.length &&
+    pseudoElements.every((pseudoElement) => pseudoElement === null)
   );
   const ancestorStateRules = parsed.rules.filter(({ relations, states }) =>
     relations.every((relation) => relation === 'descendant') &&
@@ -226,6 +262,9 @@ function prepareContribution(
   );
   const hasRules = parsed.rules.filter(({ observations }) =>
     observations.at(-1)?.length
+  );
+  const pseudoElementRules = parsed.rules.filter(({ pseudoElements }) =>
+    pseudoElements.at(-1)
   );
   const contextualRules = parsed.rules.filter(({ relations }) =>
     relations.some((relation) => relation !== 'descendant')
@@ -294,6 +333,45 @@ function prepareContribution(
           identity,
           className,
           selector: `.${className}:${state}`
+        });
+      }
+    }
+  }
+
+  const pseudoElementGroups = new Map<string, typeof pseudoElementRules>();
+  for (const rule of pseudoElementRules) {
+    const pseudoElement = rule.pseudoElements.at(-1);
+    if (!pseudoElement) throw new Error('GSS invariant: pseudo-element rule lost its target.');
+    const state = rule.states.at(-1)!.join(':') || 'self';
+    const key = `${pseudoElement}\0${state}`;
+    pseudoElementGroups.set(key, [...(pseudoElementGroups.get(key) ?? []), rule]);
+  }
+  for (const groupedRules of pseudoElementGroups.values()) {
+    const pseudoElement = groupedRules[0]!.pseudoElements.at(-1);
+    if (!pseudoElement) throw new Error('GSS invariant: pseudo-element group lost its target.');
+    const state = groupedRules[0]!.states.at(-1)!.join(':') || 'self';
+    for (const target of resolveTargetDeclarations(
+      groupedRules,
+      groupedRules.map(({ path }) => path)
+    )) {
+      const scope = ensureScopePath(roots, target.path);
+      for (const declaration of target.declarations) {
+        const identity: PureDeclarationIdentity = {
+          layer: 'unlayered',
+          condition: 'base',
+          state,
+          pseudoElement,
+          property: declaration.property,
+          value: declaration.value,
+          important: declaration.important
+        };
+        const className = createReadableAtomicName(identity);
+        scope.classNames.add(className);
+        rules.push({
+          kind: state === 'self' ? 'pure-atom' : 'contextual-atom',
+          identity,
+          className,
+          selector: `.${className}${state === 'self' ? '' : `:${state}`}::${pseudoElement}`
         });
       }
     }
@@ -676,6 +754,7 @@ function serializeIdentity(identity: PlannedDeclaration['identity']): string {
     identity.layer,
     identity.condition,
     identity.state,
+    identity.pseudoElement,
     identity.property,
     identity.value,
     identity.important

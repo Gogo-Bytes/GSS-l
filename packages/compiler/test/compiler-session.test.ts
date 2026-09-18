@@ -168,6 +168,50 @@ describe('GssCompilerSession', () => {
     );
   });
 
+  it('composes a current-element state with a pseudo-element', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/control.gss',
+      source: '.control:hover::before { color: red; }'
+    });
+
+    expect(replacement.diagnostics).toEqual([]);
+    const className = replacement.module?.scopeSchema.exports.control?.selfClassName;
+    expect(className).toContain('--state_hover--pseudo_before--');
+    expect(compiler.finalize().css).toBe(
+      `.${className}:hover::before {\n  color: red;\n}`
+    );
+  });
+
+  it.each([
+    'before',
+    'after',
+    'placeholder',
+    'marker',
+    'file-selector-button',
+    'backdrop',
+    'first-line',
+    'first-letter',
+    'selection'
+  ])('plans the supported ::%s pseudo-element', (pseudoElement) => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/control.gss',
+      source: `.control::${pseudoElement} { color: red; }`
+    });
+
+    expect(replacement.diagnostics).toEqual([]);
+    const className = replacement.module?.scopeSchema.exports.control?.selfClassName;
+    expect(className).toContain(
+      `--pseudo_${pseudoElement.replaceAll('-', '_2d_')}--property_color--`
+    );
+    expect(compiler.finalize().css).toBe(
+      `.${className}::${pseudoElement} {\n  color: red;\n}`
+    );
+  });
+
   it('preserves a pseudo state on an observed local class', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 

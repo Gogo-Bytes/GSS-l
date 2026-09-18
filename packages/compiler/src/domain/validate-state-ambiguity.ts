@@ -11,6 +11,7 @@ type RuleCandidate = {
   relations: readonly string[];
   states: readonly (readonly string[])[];
   attributes: readonly (readonly unknown[])[];
+  pseudoElements: readonly (string | null)[];
   declarations: readonly DeclarationCandidate[];
 };
 
@@ -30,9 +31,14 @@ export function validateStateAmbiguity(
       states.length > 0 &&
       rule.relations.every((relation) => relation === 'descendant') &&
       rule.states.slice(0, -1).every((entry) => entry.length === 0) &&
-      rule.attributes.every((entry) => entry.length === 0);
+      rule.attributes.every((entry) => entry.length === 0) &&
+      rule.pseudoElements.slice(0, -1).every((pseudoElement) => pseudoElement === null);
     return isCurrentStateRule
-      ? [{ pathKey: JSON.stringify(rule.path), states, declarations: rule.declarations }]
+      ? [{
+        pathKey: JSON.stringify([rule.path, rule.pseudoElements.at(-1)]),
+        states,
+        declarations: rule.declarations
+      }]
       : [];
   });
 

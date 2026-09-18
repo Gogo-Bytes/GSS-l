@@ -82,6 +82,7 @@ Completion criteria:
 - [x] Lower a leading ownership prefix before a child/sibling runtime-relation suffix.
 - [x] Plan the positive current/ancestor pseudo-state set and compose source state with runtime-relation suffixes.
 - [x] Plan current, ancestor, and runtime-source attribute/ARIA equality conditions.
+- [x] Plan the positive pseudo-element set, including current-state composition.
 - [x] Plan `:not()`, `:is()`, and `:where()` conditions with supported pseudo-state and attribute-equality branches.
 - [x] Plan local-class `:has()` observations, including selector lists, registered observed states, and all supported combinators.
 - [ ] Plan interleaved ownership/runtime chains, explicit-global functional branches, and residual tag/attribute/global `:has()` forms.
