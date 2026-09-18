@@ -10,6 +10,7 @@ export type PureDeclarationIdentity = {
 
 export type ObservedRelationIdentity = {
   moduleId: string;
+  layer?: string;
   condition?: string;
   subjectPath: readonly string[];
   relation: 'descendant' | 'child' | 'adjacent' | 'general-sibling';
@@ -20,6 +21,7 @@ export type ObservedRelationIdentity = {
 
 export type ContextualRelationIdentity = {
   moduleId: string;
+  layer?: string;
   condition?: string;
   relations: readonly ('descendant' | 'child' | 'adjacent' | 'general-sibling')[];
   sourceState?: string;
@@ -47,6 +49,9 @@ export function createReadableHasSubjectMarker(identity: ObservedRelationIdentit
   return [
     'gss-hs',
     `module_${encodeNamePart(identity.moduleId)}`,
+    identity.layer && identity.layer !== 'unlayered'
+      ? `layer_${encodeNamePart(identity.layer)}`
+      : undefined,
     identity.condition && identity.condition !== 'base'
       ? `condition_${encodeNamePart(identity.condition)}`
       : undefined,
@@ -61,6 +66,9 @@ export function createReadableObservedMarker(identity: ObservedRelationIdentity)
   return [
     'gss-ho',
     `module_${encodeNamePart(identity.moduleId)}`,
+    identity.layer && identity.layer !== 'unlayered'
+      ? `layer_${encodeNamePart(identity.layer)}`
+      : undefined,
     identity.condition && identity.condition !== 'base'
       ? `condition_${encodeNamePart(identity.condition)}`
       : undefined,
@@ -80,11 +88,15 @@ function renderObservedNamePart(identity: ObservedRelationIdentity): string {
 export function createReadableSourceMarker(
   moduleId: string,
   path: readonly string[],
-  condition?: string
+  condition?: string,
+  layer?: string
 ): string {
   return [
     'gss-s',
     `module_${encodeNamePart(moduleId)}`,
+    layer && layer !== 'unlayered'
+      ? `layer_${encodeNamePart(layer)}`
+      : undefined,
     condition && condition !== 'base'
       ? `condition_${encodeNamePart(condition)}`
       : undefined,
@@ -96,6 +108,9 @@ export function createReadableTargetMarker(identity: ContextualRelationIdentity)
   return [
     'gss-t',
     `module_${encodeNamePart(identity.moduleId)}`,
+    identity.layer && identity.layer !== 'unlayered'
+      ? `layer_${encodeNamePart(identity.layer)}`
+      : undefined,
     identity.condition && identity.condition !== 'base'
       ? `condition_${encodeNamePart(identity.condition)}`
       : undefined,
@@ -117,6 +132,9 @@ export function createReadableContextMarker(
   return [
     'gss-c',
     `module_${encodeNamePart(identity.moduleId)}`,
+    identity.layer && identity.layer !== 'unlayered'
+      ? `layer_${encodeNamePart(identity.layer)}`
+      : undefined,
     identity.condition && identity.condition !== 'base'
       ? `condition_${encodeNamePart(identity.condition)}`
       : undefined,

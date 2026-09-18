@@ -168,6 +168,27 @@ describe('GssCompilerSession', () => {
     );
   });
 
+  it('preserves a configured layer around a structural contextual atom', () => {
+    const compiler = createGssCompilerSession({
+      projectRoot: '/project',
+      layers: ['components']
+    });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/family.gss',
+      source: '@layer components { .father > .son { color: red; } }'
+    });
+
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    const fatherClass = replacement.module?.scopeSchema.exports.father?.selfClassName;
+    const sonClass = replacement.module?.scopeSchema.exports.father?.targets.son?.selfClassName;
+    expect(fatherClass).toContain('--layer_components--');
+    expect(sonClass).toContain('--layer_components--');
+    expect(compiler.finalize().css).toBe(
+      `@layer components;\n\n@layer components {\n  .${fatherClass} > .${sonClass} {\n    color: red;\n  }\n}`
+    );
+  });
+
   it('warns without rejecting an unregistered named layer', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 

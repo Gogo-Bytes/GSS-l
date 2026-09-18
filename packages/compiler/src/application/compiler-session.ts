@@ -112,21 +112,6 @@ function prepareContribution(
     return { diagnostics: parsed.diagnostics };
   }
   const conditionDiagnostics = validateRegisteredConditions(config, input.id, parsed.rules);
-  const unsupportedLayerCombination = parsed.rules.find((rule) =>
-    rule.layer !== 'unlayered' && !isPureOwnershipRule(rule)
-  );
-  if (unsupportedLayerCombination) {
-    return {
-      diagnostics: [{
-        code: 'GSS1101',
-        severity: 'error',
-        phase: 'validate',
-        message: 'Named layers currently support pure ownership declarations only.',
-        id: input.id,
-        reason: 'capability-not-registered'
-      }]
-    };
-  }
   const unsupportedConditionCombination = parsed.rules.find((rule) =>
     rule.conditions.length > 0 &&
     !isPureOwnershipRule(rule) &&
@@ -352,13 +337,14 @@ function prepareContribution(
   const stateGroups = new Map<string, typeof stateRules>();
   for (const rule of stateRules) {
     const state = rule.states.at(-1)!.join(':');
-    const key = `${canonicalCondition(rule.conditions)}\0${state}`;
+    const key = `${rule.layer}\0${canonicalCondition(rule.conditions)}\0${state}`;
     stateGroups.set(key, [...(stateGroups.get(key) ?? []), rule]);
   }
   for (const groupedRules of stateGroups.values()) {
     const state = groupedRules[0]!.states.at(-1)!.join(':');
     const wrappers = groupedRules[0]!.conditions;
     const condition = canonicalCondition(wrappers);
+    const layer = groupedRules[0]!.layer;
     for (const target of resolveTargetDeclarations(
       groupedRules,
       groupedRules.map(({ path }) => path)
@@ -366,7 +352,7 @@ function prepareContribution(
       const scope = ensureScopePath(roots, target.path);
       for (const declaration of target.declarations) {
         const identity: PureDeclarationIdentity = {
-          layer: 'unlayered',
+          layer,
           condition,
           state,
           property: declaration.property,
@@ -380,7 +366,8 @@ function prepareContribution(
           identity,
           className,
           selector: `.${className}:${state}`,
-          wrappers
+          wrappers,
+          layer
         });
       }
     }
@@ -391,7 +378,7 @@ function prepareContribution(
     const pseudoElement = rule.pseudoElements.at(-1);
     if (!pseudoElement) throw new Error('GSS invariant: pseudo-element rule lost its target.');
     const state = rule.states.at(-1)!.join(':') || 'self';
-    const key = `${canonicalCondition(rule.conditions)}\0${pseudoElement}\0${state}`;
+    const key = `${rule.layer}\0${canonicalCondition(rule.conditions)}\0${pseudoElement}\0${state}`;
     pseudoElementGroups.set(key, [...(pseudoElementGroups.get(key) ?? []), rule]);
   }
   for (const groupedRules of pseudoElementGroups.values()) {
@@ -400,6 +387,7 @@ function prepareContribution(
     const state = groupedRules[0]!.states.at(-1)!.join(':') || 'self';
     const wrappers = groupedRules[0]!.conditions;
     const condition = canonicalCondition(wrappers);
+    const layer = groupedRules[0]!.layer;
     for (const target of resolveTargetDeclarations(
       groupedRules,
       groupedRules.map(({ path }) => path)
@@ -407,7 +395,7 @@ function prepareContribution(
       const scope = ensureScopePath(roots, target.path);
       for (const declaration of target.declarations) {
         const identity: PureDeclarationIdentity = {
-          layer: 'unlayered',
+          layer,
           condition,
           state,
           pseudoElement,
@@ -422,7 +410,8 @@ function prepareContribution(
           identity,
           className,
           selector: `.${className}${state === 'self' ? '' : `:${state}`}::${pseudoElement}`,
-          wrappers
+          wrappers,
+          layer
         });
       }
     }
@@ -431,9 +420,11 @@ function prepareContribution(
   for (const rule of hasRules) {
     const wrappers = rule.conditions;
     const condition = canonicalCondition(wrappers);
+    const layer = rule.layer;
     for (const observation of rule.observations.at(-1)!) {
       const relationIdentity: ObservedRelationIdentity = {
         moduleId,
+        layer,
         condition,
         subjectPath: rule.path,
         relation: observation.relation,
@@ -467,7 +458,8 @@ function prepareContribution(
           identity,
           className: subjectMarker,
           selector,
-          wrappers
+          wrappers,
+          layer
         });
       }
     }
@@ -476,7 +468,7 @@ function prepareContribution(
   const attributeGroups = new Map<string, typeof attributeRules>();
   for (const rule of attributeRules) {
     const condition = rule.attributes.at(-1)![0]!;
-    const key = `${canonicalCondition(rule.conditions)}\0${canonicalAttributeCondition(condition)}`;
+    const key = `${rule.layer}\0${canonicalCondition(rule.conditions)}\0${canonicalAttributeCondition(condition)}`;
     attributeGroups.set(key, [...(attributeGroups.get(key) ?? []), rule]);
   }
   for (const groupedRules of attributeGroups.values()) {
@@ -484,6 +476,7 @@ function prepareContribution(
     const state = canonicalAttributeCondition(attributeCondition);
     const wrappers = groupedRules[0]!.conditions;
     const condition = canonicalCondition(wrappers);
+    const layer = groupedRules[0]!.layer;
     for (const target of resolveTargetDeclarations(
       groupedRules,
       groupedRules.map(({ path }) => path)
@@ -491,7 +484,7 @@ function prepareContribution(
       const scope = ensureScopePath(roots, target.path);
       for (const declaration of target.declarations) {
         const identity: PureDeclarationIdentity = {
-          layer: 'unlayered',
+          layer,
           condition,
           state,
           property: declaration.property,
@@ -505,7 +498,8 @@ function prepareContribution(
           identity,
           className,
           selector: `.${className}${renderAttributeCondition(attributeCondition)}`,
-          wrappers
+          wrappers,
+          layer
         });
       }
     }
@@ -514,13 +508,15 @@ function prepareContribution(
   for (const rule of ancestorAttributeRules) {
     const wrappers = rule.conditions;
     const condition = canonicalCondition(wrappers);
+    const layer = rule.layer;
     const sourceIndex = rule.attributes.findIndex((conditions) => conditions.length > 0);
     const sourceCondition = rule.attributes[sourceIndex]![0]!;
     const sourceAttribute = canonicalAttributeCondition(sourceCondition);
     const sourcePath = rule.path.slice(0, sourceIndex + 1);
-    const sourceMarker = createReadableSourceMarker(moduleId, sourcePath, condition);
+    const sourceMarker = createReadableSourceMarker(moduleId, sourcePath, condition, layer);
     const relationIdentity: ContextualRelationIdentity = {
       moduleId,
+      layer,
       condition,
       relations: rule.relations.slice(sourceIndex),
       sourceAttribute,
@@ -544,7 +540,8 @@ function prepareContribution(
         identity,
         className: targetMarker,
         selector,
-        wrappers
+        wrappers,
+        layer
       });
     }
   }
@@ -552,12 +549,14 @@ function prepareContribution(
   for (const rule of ancestorStateRules) {
     const wrappers = rule.conditions;
     const condition = canonicalCondition(wrappers);
+    const layer = rule.layer;
     const sourceIndex = rule.states.findIndex((state) => state.length > 0);
     const sourceState = rule.states[sourceIndex]!.join(':');
     const sourcePath = rule.path.slice(0, sourceIndex + 1);
-    const sourceMarker = createReadableSourceMarker(moduleId, sourcePath, condition);
+    const sourceMarker = createReadableSourceMarker(moduleId, sourcePath, condition, layer);
     const relationIdentity: ContextualRelationIdentity = {
       moduleId,
+      layer,
       condition,
       relations: rule.relations.slice(sourceIndex),
       sourceState,
@@ -581,7 +580,8 @@ function prepareContribution(
         identity,
         className: targetMarker,
         selector,
-        wrappers
+        wrappers,
+        layer
       });
     }
   }
@@ -589,6 +589,7 @@ function prepareContribution(
   for (const rule of contextualRules) {
     const wrappers = rule.conditions;
     const condition = canonicalCondition(wrappers);
+    const layer = rule.layer;
     const firstRuntimeRelation = rule.relations.findIndex(
       (relation) => relation !== 'descendant'
     );
@@ -600,9 +601,10 @@ function prepareContribution(
     const sourceAttribute = sourceAttributeCondition
       ? canonicalAttributeCondition(sourceAttributeCondition)
       : undefined;
-    const sourceMarker = createReadableSourceMarker(moduleId, sourcePath, condition);
+    const sourceMarker = createReadableSourceMarker(moduleId, sourcePath, condition, layer);
     const relationIdentity: ContextualRelationIdentity = {
       moduleId,
+      layer,
       condition,
       relations: runtimeRelations,
       ...(sourceState ? { sourceState } : {}),
@@ -641,7 +643,8 @@ function prepareContribution(
         identity,
         className: targetMarker,
         selector,
-        wrappers
+        wrappers,
+        layer
       });
     }
   }
@@ -938,6 +941,7 @@ function serializeIdentity(identity: PlannedDeclaration['identity']): string {
     return JSON.stringify([
       'observed',
       identity.moduleId,
+      identity.layer,
       identity.condition,
       identity.subjectPath,
       identity.relation,
@@ -953,6 +957,7 @@ function serializeIdentity(identity: PlannedDeclaration['identity']): string {
     return JSON.stringify([
       'contextual',
       identity.moduleId,
+      identity.layer,
       identity.condition,
       identity.relations,
       identity.sourceState,
