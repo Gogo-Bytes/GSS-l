@@ -12,6 +12,7 @@ export type ObservedRelationIdentity = {
   subjectPath: readonly string[];
   relation: 'descendant' | 'child' | 'adjacent' | 'general-sibling';
   observedClass: string;
+  observedState?: string;
 };
 
 export type ContextualRelationIdentity = {
@@ -41,8 +42,9 @@ export function createReadableHasSubjectMarker(identity: ObservedRelationIdentit
     `module_${encodeNamePart(identity.moduleId)}`,
     `subject_${encodePath(identity.subjectPath)}`,
     `relation_${encodeNamePart(identity.relation)}`,
+    identity.observedState ? `state_${encodeNamePart(identity.observedState)}` : undefined,
     `observed_${encodeNamePart(identity.observedClass)}`
-  ].join('--');
+  ].filter((part): part is string => part !== undefined).join('--');
 }
 
 export function createReadableObservedMarker(identity: ObservedRelationIdentity): string {
@@ -51,8 +53,9 @@ export function createReadableObservedMarker(identity: ObservedRelationIdentity)
     `module_${encodeNamePart(identity.moduleId)}`,
     `subject_${encodePath(identity.subjectPath)}`,
     `relation_${encodeNamePart(identity.relation)}`,
+    identity.observedState ? `state_${encodeNamePart(identity.observedState)}` : undefined,
     `observed_${encodeNamePart(identity.observedClass)}`
-  ].join('--');
+  ].filter((part): part is string => part !== undefined).join('--');
 }
 
 export function createReadableSourceMarker(

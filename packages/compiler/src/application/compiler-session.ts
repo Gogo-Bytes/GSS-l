@@ -127,7 +127,6 @@ function prepareContribution(
     );
     return observationIndexes.length > 0 && (
       observationIndexes.length !== 1 ||
-      observations[observationIndexes[0]!]!.length !== 1 ||
       observationIndexes[0] !== path.length - 1 ||
       relations.some((relation) => relation !== 'descendant') ||
       states.some((state) => state.length > 0) ||
@@ -301,33 +300,37 @@ function prepareContribution(
   }
 
   for (const rule of hasRules) {
-    const observation = rule.observations.at(-1)![0]!;
-    const relationIdentity: ObservedRelationIdentity = {
-      moduleId,
-      subjectPath: rule.path,
-      relation: observation.relation,
-      observedClass: observation.observedClass
-    };
-    const subjectMarker = createReadableHasSubjectMarker(relationIdentity);
-    const observedMarker = createReadableObservedMarker(relationIdentity);
-    ensureScopePath(roots, rule.path).classNames.add(subjectMarker);
-    ensureScopePath(roots, [observation.observedClass]).classNames.add(observedMarker);
-    const observedCombinator = renderObservedCombinator(observation.relation);
-    const selector = `.${subjectMarker}:has(${observedCombinator}.${observedMarker})`;
-
-    for (const declaration of rule.declarations) {
-      const identity: ObservedDeclarationIdentity = {
-        ...relationIdentity,
-        property: declaration.property,
-        value: declaration.value,
-        important: declaration.important
+    for (const observation of rule.observations.at(-1)!) {
+      const relationIdentity: ObservedRelationIdentity = {
+        moduleId,
+        subjectPath: rule.path,
+        relation: observation.relation,
+        observedClass: observation.observedClass,
+        ...(observation.observedState ? { observedState: observation.observedState } : {})
       };
-      rules.push({
-        kind: 'contextual-atom',
-        identity,
-        className: subjectMarker,
-        selector
-      });
+      const subjectMarker = createReadableHasSubjectMarker(relationIdentity);
+      const observedMarker = createReadableObservedMarker(relationIdentity);
+      ensureScopePath(roots, rule.path).classNames.add(subjectMarker);
+      ensureScopePath(roots, [observation.observedClass]).classNames.add(observedMarker);
+      const observedCombinator = renderObservedCombinator(observation.relation);
+      const selector = `.${subjectMarker}:has(${observedCombinator}.${observedMarker}${
+        observation.observedState ? `:${observation.observedState}` : ''
+      })`;
+
+      for (const declaration of rule.declarations) {
+        const identity: ObservedDeclarationIdentity = {
+          ...relationIdentity,
+          property: declaration.property,
+          value: declaration.value,
+          important: declaration.important
+        };
+        rules.push({
+          kind: 'contextual-atom',
+          identity,
+          className: subjectMarker,
+          selector
+        });
+      }
     }
   }
 
@@ -648,6 +651,7 @@ function serializeIdentity(identity: PlannedDeclaration['identity']): string {
       identity.subjectPath,
       identity.relation,
       identity.observedClass,
+      identity.observedState,
       identity.property,
       identity.value,
       identity.important

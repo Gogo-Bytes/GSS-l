@@ -27,6 +27,7 @@ export type ParsedAttributeCondition = {
 export type ParsedHasCondition = {
   relation: 'descendant' | 'child' | 'adjacent' | 'general-sibling';
   observedClass: string;
+  observedState?: string;
 };
 
 export type ParsedStyleRule = {
@@ -138,9 +139,9 @@ function parseClassPath(nodes: readonly Node[]): ParsedSelectorPath | undefined 
       continue;
     }
     if (!expectClass && node.type === 'pseudo' && node.value === ':has') {
-      const observation = parseHasCondition(node as Pseudo);
-      if (!observation) return undefined;
-      observations.at(-1)?.push(observation);
+      const parsedObservations = parseHasConditions(node as Pseudo);
+      if (!parsedObservations) return undefined;
+      observations.at(-1)?.push(...parsedObservations);
       continue;
     }
     if (!expectClass && node.type === 'pseudo' && node.nodes.length > 0) {
@@ -184,26 +185,45 @@ function parseClassPath(nodes: readonly Node[]): ParsedSelectorPath | undefined 
     : undefined;
 }
 
-function parseHasCondition(pseudo: Pseudo): ParsedHasCondition | undefined {
-  if (pseudo.nodes.length !== 1) return undefined;
-  const selector = pseudo.nodes[0]!;
-  if (selector.nodes.length === 1 && selector.nodes[0]?.type === 'class') {
-    return {
-      relation: 'descendant',
-      observedClass: (selector.nodes[0] as ClassName).value
-    };
+function parseHasConditions(pseudo: Pseudo): readonly ParsedHasCondition[] | undefined {
+  const conditions: ParsedHasCondition[] = [];
+  for (const selector of pseudo.nodes) {
+    const condition = parseHasSelector(selector.nodes);
+    if (!condition) return undefined;
+    conditions.push(condition);
   }
-  if (
-    selector.nodes.length !== 2 ||
-    selector.nodes[0]?.type !== 'combinator' ||
-    selector.nodes[1]?.type !== 'class'
-  ) return undefined;
+  return conditions.length > 0 ? conditions : undefined;
+}
 
-  const relation = parseRuntimeRelation((selector.nodes[0] as Combinator).value.trim());
-  if (!relation) return undefined;
+function parseHasSelector(nodes: readonly Node[]): ParsedHasCondition | undefined {
+  let index = 0;
+  let relation: ParsedHasCondition['relation'] = 'descendant';
+  if (nodes[index]?.type === 'combinator') {
+    const runtimeRelation = parseRuntimeRelation((nodes[index] as Combinator).value.trim());
+    if (!runtimeRelation) return undefined;
+    relation = runtimeRelation;
+    index += 1;
+  }
+
+  const observed = nodes[index];
+  if (observed?.type !== 'class') return undefined;
+  index += 1;
+
+  let observedState: string | undefined;
+  const stateNode = nodes[index];
+  if (stateNode) {
+    if (stateNode.type !== 'pseudo' || stateNode.nodes.length > 0) return undefined;
+    const state = stateNode.value.slice(1);
+    if (!isSupportedPseudoState(state)) return undefined;
+    observedState = state;
+    index += 1;
+  }
+  if (index !== nodes.length) return undefined;
+
   return {
     relation,
-    observedClass: (selector.nodes[1] as ClassName).value
+    observedClass: (observed as ClassName).value,
+    ...(observedState ? { observedState } : {})
   };
 }
 

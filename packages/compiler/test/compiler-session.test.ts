@@ -168,6 +168,48 @@ describe('GssCompilerSession', () => {
     );
   });
 
+  it('preserves a pseudo state on an observed local class', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/card.gss',
+      source: '.card:has(.error:hover) { color: red; }'
+    });
+
+    expect(replacement.diagnostics).toEqual([]);
+    const cardClass = replacement.module?.scopeSchema.exports.card?.selfClassName;
+    const errorClass = replacement.module?.scopeSchema.exports.error?.selfClassName;
+    expect(cardClass).toContain('--state_hover--');
+    expect(compiler.finalize().css).toBe(
+      `.${cardClass}:has(.${errorClass}:hover) {\n  color: red;\n}`
+    );
+  });
+
+  it('expands a :has() selector list into independent observed branches', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/card.gss',
+      source: '.card:has(.error, > .warning) { color: red; }'
+    });
+
+    expect(replacement.diagnostics).toEqual([]);
+    const exports = replacement.module?.scopeSchema.exports;
+    const subjectMarkers = exports?.card?.selfClassName.split(' ') ?? [];
+    const errorSubject = subjectMarkers.find((marker) => marker.endsWith('--observed_error'));
+    const warningSubject = subjectMarkers.find((marker) => marker.endsWith('--observed_warning'));
+    const errorObserved = exports?.error?.selfClassName;
+    const warningObserved = exports?.warning?.selfClassName;
+    expect(subjectMarkers).toHaveLength(2);
+    expect(compiler.finalize()).toMatchObject({ report: { modules: 1, rules: 2 } });
+    expect(compiler.finalize().css).toContain(
+      `.${errorSubject}:has(.${errorObserved}) {\n  color: red;\n}`
+    );
+    expect(compiler.finalize().css).toContain(
+      `.${warningSubject}:has(> .${warningObserved}) {\n  color: red;\n}`
+    );
+  });
+
   it.each([
     ['>', 'child'],
     ['+', 'adjacent'],
