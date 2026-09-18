@@ -9,7 +9,7 @@ export type PureDeclarationIdentity = {
 
 export type ContextualRelationIdentity = {
   moduleId: string;
-  relation: 'child';
+  relations: readonly ('descendant' | 'child' | 'adjacent' | 'general-sibling')[];
   sourcePath: readonly string[];
   targetPath: readonly string[];
 };
@@ -41,10 +41,29 @@ export function createReadableTargetMarker(identity: ContextualRelationIdentity)
   return [
     'gss-t',
     `module_${encodeNamePart(identity.moduleId)}`,
-    `relation_${identity.relation}`,
+    `relation_${encodeRelations(identity.relations)}`,
     `source_${encodePath(identity.sourcePath)}`,
     `target_${encodePath(identity.targetPath)}`
   ].join('--');
+}
+
+export function createReadableContextMarker(
+  identity: ContextualRelationIdentity,
+  position: number,
+  path: readonly string[]
+): string {
+  return [
+    'gss-c',
+    `module_${encodeNamePart(identity.moduleId)}`,
+    `relation_${encodeRelations(identity.relations)}`,
+    `position_${position}`,
+    `path_${encodePath(path)}`,
+    `target_${encodePath(identity.targetPath)}`
+  ].join('--');
+}
+
+function encodeRelations(relations: ContextualRelationIdentity['relations']): string {
+  return encodeNamePart(relations.join('/'));
 }
 
 function encodePath(path: readonly string[]): string {

@@ -1,5 +1,6 @@
 import {
   createReadableAtomicName,
+  createReadableContextMarker,
   createReadableSourceMarker,
   createReadableTargetMarker,
   type ContextualRelationIdentity,
@@ -104,21 +105,18 @@ function prepareContribution(
     relations.every((relation) => relation === 'descendant')
   );
   const contextualRules = parsed.rules.filter(({ relations }) =>
-    relations.some((relation) => relation === 'child')
+    relations.some((relation) => relation !== 'descendant')
   );
-  const unsupportedRelation = contextualRules.find(({ relations }) => {
-    const childIndexes = relations.flatMap((relation, index) =>
-      relation === 'child' ? [index] : []
-    );
-    return childIndexes.length !== 1 || childIndexes[0] !== relations.length - 1;
-  });
+  const unsupportedRelation = contextualRules.find(({ relations }) =>
+    relations.some((relation) => relation === 'descendant')
+  );
   if (unsupportedRelation) {
     return {
       diagnostics: [{
         code: 'GSS1101',
         severity: 'error',
         phase: 'validate',
-        message: 'The initial child-relation capability requires one final > combinator.',
+        message: 'Mixed ownership and runtime-relation chains are not registered yet.',
         id: input.id,
         reason: 'capability-not-registered'
       }]
@@ -146,18 +144,30 @@ function prepareContribution(
   }
 
   for (const rule of contextualRules) {
-    const sourcePath = rule.path.slice(0, -1);
+    const sourcePath = rule.path.slice(0, 1);
     const sourceMarker = createReadableSourceMarker(moduleId, sourcePath);
     const relationIdentity: ContextualRelationIdentity = {
       moduleId,
-      relation: 'child',
+      relations: rule.relations,
       sourcePath,
       targetPath: rule.path
     };
     const targetMarker = createReadableTargetMarker(relationIdentity);
-    ensureScopePath(roots, sourcePath).classNames.add(sourceMarker);
-    ensureScopePath(roots, rule.path).classNames.add(targetMarker);
-    const selector = `.${sourceMarker} > .${targetMarker}`;
+    const markers = rule.path.map((_, index) => {
+      const path = rule.path.slice(0, index + 1);
+      const marker = index === 0
+        ? sourceMarker
+        : index === rule.path.length - 1
+          ? targetMarker
+          : createReadableContextMarker(relationIdentity, index, path);
+      ensureScopePath(roots, path).classNames.add(marker);
+      return marker;
+    });
+    const selector = markers.map((marker, index) =>
+      index === 0
+        ? `.${marker}`
+        : ` ${renderRelationCombinator(rule.relations[index - 1]!)} .${marker}`
+    ).join('');
 
     for (const declaration of rule.declarations) {
       const identity: ContextualDeclarationIdentity = {
@@ -257,6 +267,15 @@ function finalizeSnapshot(
   };
 }
 
+function renderRelationCombinator(
+  relation: ContextualRelationIdentity['relations'][number]
+): '>' | '+' | '~' | '' {
+  if (relation === 'child') return '>';
+  if (relation === 'adjacent') return '+';
+  if (relation === 'general-sibling') return '~';
+  return '';
+}
+
 function renderRule(rule: PlannedDeclaration): string {
   const { property, value, important } = rule.identity;
   return `${rule.selector} {\n  ${property}: ${value}${important ? ' !important' : ''};\n}`;
@@ -302,11 +321,11 @@ function renderScopeType(scope: ScopeNodeSchema): string {
 }
 
 function serializeIdentity(identity: PlannedDeclaration['identity']): string {
-  if ('relation' in identity) {
+  if ('relations' in identity) {
     return JSON.stringify([
       'contextual',
       identity.moduleId,
-      identity.relation,
+      identity.relations,
       identity.sourcePath,
       identity.targetPath,
       identity.property,

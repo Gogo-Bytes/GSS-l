@@ -145,6 +145,83 @@ describe('GssCompilerSession', () => {
     });
   });
 
+  it('emits a general-sibling contextual atom', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/field.gss',
+      source: '.label ~ .help { color: red; }'
+    });
+
+    const sourceMarker = 'gss-s--module_src_2f_field_2e_gss--path_label';
+    const targetMarker =
+      'gss-t--module_src_2f_field_2e_gss--relation_general_2d_sibling--source_label--target_label_2f_help';
+    expect(replacement.diagnostics).toEqual([]);
+    expect(replacement.module?.scopeSchema.exports.label?.targets.help?.selfClassName).toBe(
+      targetMarker
+    );
+    expect(compiler.finalize().css).toBe(
+      `.${sourceMarker} ~ .${targetMarker} {\n  color: red;\n}`
+    );
+  });
+
+  it('emits an adjacent-sibling contextual atom', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/field.gss',
+      source: '.label + .input { color: red; }'
+    });
+
+    const sourceMarker = 'gss-s--module_src_2f_field_2e_gss--path_label';
+    const targetMarker =
+      'gss-t--module_src_2f_field_2e_gss--relation_adjacent--source_label--target_label_2f_input';
+    expect(replacement.diagnostics).toEqual([]);
+    expect(replacement.module?.scopeSchema.exports).toEqual({
+      label: {
+        selfClassName: sourceMarker,
+        targets: {
+          input: { selfClassName: targetMarker, targets: {} }
+        }
+      }
+    });
+    expect(compiler.finalize().css).toBe(
+      `.${sourceMarker} + .${targetMarker} {\n  color: red;\n}`
+    );
+  });
+
+  it('preserves every edge in a multi-level direct-child relation', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/family.gss',
+      source: '.grand > .father > .son { color: red; }'
+    });
+
+    const sourceMarker = 'gss-s--module_src_2f_family_2e_gss--path_grand';
+    const middleMarker =
+      'gss-c--module_src_2f_family_2e_gss--relation_child_2f_child--position_1--path_grand_2f_father--target_grand_2f_father_2f_son';
+    const targetMarker =
+      'gss-t--module_src_2f_family_2e_gss--relation_child_2f_child--source_grand--target_grand_2f_father_2f_son';
+    expect(replacement.diagnostics).toEqual([]);
+    expect(replacement.module?.scopeSchema.exports).toEqual({
+      grand: {
+        selfClassName: sourceMarker,
+        targets: {
+          father: {
+            selfClassName: middleMarker,
+            targets: {
+              son: { selfClassName: targetMarker, targets: {} }
+            }
+          }
+        }
+      }
+    });
+    expect(compiler.finalize().css).toBe(
+      `.${sourceMarker} > .${middleMarker} > .${targetMarker} {\n  color: red;\n}`
+    );
+  });
+
   it('emits source and target markers for a direct-child contextual atom', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 

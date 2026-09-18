@@ -9,7 +9,7 @@ export type ParsedDeclaration = {
   important: boolean;
 };
 
-export type SelectorRelation = 'descendant' | 'child';
+export type SelectorRelation = 'descendant' | 'child' | 'adjacent' | 'general-sibling';
 
 export type ParsedStyleRule = {
   path: readonly string[];
@@ -103,8 +103,16 @@ function parseClassPath(nodes: readonly Node[]): ParsedSelectorPath | undefined 
     }
     if (!expectClass && node.type === 'combinator') {
       const combinator = (node as Combinator).value.trim();
-      if (combinator !== '' && combinator !== '>') return undefined;
-      relations.push(combinator === '>' ? 'child' : 'descendant');
+      if (!['', '>', '+', '~'].includes(combinator)) return undefined;
+      relations.push(
+        combinator === '>'
+          ? 'child'
+          : combinator === '+'
+            ? 'adjacent'
+            : combinator === '~'
+              ? 'general-sibling'
+              : 'descendant'
+      );
       expectClass = true;
       continue;
     }
