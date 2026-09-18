@@ -38,6 +38,7 @@
 - CascadeResolver按 importance/layer、specificity和 condition/relation/property semantic order解析；RuleOrderPlanner只稳定排序已证明安全的 rule，hash/注册顺序不参与 winner。见 [ADR-0027](adr/0027-separate-cascade-resolution-from-render-order.md)。
 - 第一版 production生成一个覆盖 main/lazy reachable Module 的中央 CSS asset；SSR引用同一 asset，dev/HMR以 transaction replace-by-id 重建完整有序 snapshot。见 [ADR-0028](adr/0028-use-one-central-css-asset-and-snapshot-hmr.md)。
 - 第一版使用完整 canonical identity 的可逆可读名称，并以独立 NameAllocator隔离命名策略；短名/hash待真实项目稳定后评估。见 [ADR-0029](adr/0029-use-reversible-readable-names-for-the-first-version.md)。
+- 第一版提供独立 `compileGssReference()` testing API与隔离浏览器 computed-style oracle；reference renderer不经过 atomic planner，也不进入 production bundle。见 [ADR-0030](adr/0030-make-semantic-reference-css-a-testing-capability.md)。
 
 ## 1. 评估目标
 
@@ -495,9 +496,7 @@ Collision 可以稳定扩展或 fail fast，具体策略尚未决定。
 
 ## 15. 待讨论问题
 
-以下问题均未决策：
-
-1. semantic reference CSS 是否应成为 Compiler 的正式测试输出？
+当前已识别的第一版产品语义问题均已形成决策。后续实现中若发现新的语义缺口，先补 ADR 与 capability/deferred 记录，再扩展 Compiler。
 
 ## 16. 当前实施状态说明
 
