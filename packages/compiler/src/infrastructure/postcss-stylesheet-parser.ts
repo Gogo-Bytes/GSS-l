@@ -160,7 +160,14 @@ function parseClassPath(nodes: readonly Node[]): ParsedSelectorPath | undefined 
     return undefined;
   }
 
-  return path.length > 0 && !expectClass ? { path, relations, states, attributes } : undefined;
+  return path.length > 0 && !expectClass
+    ? {
+      path,
+      relations,
+      states: states.map((state) => [...new Set(state)].sort()),
+      attributes
+    }
+    : undefined;
 }
 
 function toDeclaration(declaration: Declaration): ParsedDeclaration {

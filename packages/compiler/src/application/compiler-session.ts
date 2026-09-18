@@ -8,6 +8,7 @@ import {
 } from '../domain/readable-name.js';
 import { resolveTargetDeclarations } from '../domain/resolve-target-declarations.js';
 import { validateDeclarationSequences } from '../domain/validate-declarations.js';
+import { validateStateAmbiguity } from '../domain/validate-state-ambiguity.js';
 import {
   parseStylesheet,
   type ParsedAttributeCondition
@@ -99,6 +100,10 @@ function prepareContribution(
   const declarationDiagnostics = validateDeclarationSequences(input.id, parsed.rules);
   if (declarationDiagnostics.some(({ severity }) => severity === 'error')) {
     return { diagnostics: declarationDiagnostics };
+  }
+  const stateDiagnostics = validateStateAmbiguity(input.id, parsed.rules);
+  if (stateDiagnostics.some(({ severity }) => severity === 'error')) {
+    return { diagnostics: stateDiagnostics };
   }
 
   const unsupportedAttribute = parsed.rules.find(({ path, relations, states, attributes }) => {

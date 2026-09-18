@@ -147,6 +147,70 @@ describe('GssCompilerSession', () => {
     });
   });
 
+  it('canonicalizes equivalent state intersections for global atom reuse', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    compiler.replaceStylesheet({
+      id: '/project/src/a.gss',
+      source: '.button:hover:focus { color: red; }'
+    });
+    compiler.replaceStylesheet({
+      id: '/project/src/b.gss',
+      source: '.button:focus:hover { color: red; }'
+    });
+
+    expect(compiler.finalize()).toMatchObject({
+      report: { modules: 2, rules: 1 },
+      manifest: {
+        rules: [{ sources: ['src/a.gss', 'src/b.gss'] }]
+      }
+    });
+  });
+
+  it('accepts coactive state conflicts with an explicit intersection winner', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/button.gss',
+      source: `
+        .button:hover { color: red; }
+        .button:focus { color: blue; }
+        .button:hover:focus { color: purple; }
+      `
+    });
+
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    expect(compiler.finalize().css).toContain('--state_focus_3a_hover--property_color--value_purple');
+  });
+
+  it('rejects an ambiguous coactive state conflict transactionally', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const id = '/project/src/button.gss';
+    compiler.replaceStylesheet({ id, source: '.button { display: block; }' });
+
+    const replacement = compiler.replaceStylesheet({
+      id,
+      source: `
+        .button:hover { color: red; }
+        .button:focus { color: blue; }
+      `
+    });
+
+    expect(replacement).toMatchObject({
+      committed: false,
+      generation: 1,
+      diagnostics: [{
+        code: 'GSS1205',
+        severity: 'error',
+        phase: 'resolve',
+        reason: 'ambiguous-coactive-state-conflict'
+      }]
+    });
+    expect(compiler.finalize().css).toBe(
+      `.${displayBlockClass} {\n  display: block;\n}`
+    );
+  });
+
   it('combines an ARIA condition with a sibling runtime relation', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 

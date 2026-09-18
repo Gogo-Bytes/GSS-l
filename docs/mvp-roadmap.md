@@ -65,7 +65,8 @@ Completion criteria:
 - [ ] Implement importance and authored cascade layer semantics.
 - [ ] Implement selector specificity, including `:where()` zero specificity.
 - [ ] Implement registered at-rule condition rank.
-- [ ] Implement relation implication and incomparable-condition diagnostics.
+- [x] Reject equal-precedence coactive current-state conflicts unless an explicit intersection resolves them.
+- [ ] Implement full relation implication and remaining incomparable-condition diagnostics.
 - [x] Accumulate descendant-class selectors whose paths provably match a declared target and resolve their exact-property winners.
 
 Completion criteria:
