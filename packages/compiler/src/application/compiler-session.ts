@@ -116,7 +116,11 @@ function prepareContribution(
     !isPureOwnershipRule(rule) &&
     !isCurrentStateRule(rule) &&
     !isPseudoElementRule(rule) &&
-    !isCurrentAttributeRule(rule)
+    !isCurrentAttributeRule(rule) &&
+    !isStructuralRuntimeRule(rule) &&
+    !isObservedRule(rule) &&
+    !isAncestorStateRule(rule) &&
+    !isAncestorAttributeRule(rule)
   );
   if (unsupportedConditionCombination) {
     return {
@@ -405,9 +409,12 @@ function prepareContribution(
   }
 
   for (const rule of hasRules) {
+    const wrappers = rule.conditions;
+    const condition = canonicalCondition(wrappers);
     for (const observation of rule.observations.at(-1)!) {
       const relationIdentity: ObservedRelationIdentity = {
         moduleId,
+        condition,
         subjectPath: rule.path,
         relation: observation.relation,
         ...(observation.observedClass ? { observedClass: observation.observedClass } : {}),
@@ -439,7 +446,8 @@ function prepareContribution(
           kind: 'contextual-atom',
           identity,
           className: subjectMarker,
-          selector
+          selector,
+          wrappers
         });
       }
     }
@@ -484,13 +492,16 @@ function prepareContribution(
   }
 
   for (const rule of ancestorAttributeRules) {
+    const wrappers = rule.conditions;
+    const condition = canonicalCondition(wrappers);
     const sourceIndex = rule.attributes.findIndex((conditions) => conditions.length > 0);
     const sourceCondition = rule.attributes[sourceIndex]![0]!;
     const sourceAttribute = canonicalAttributeCondition(sourceCondition);
     const sourcePath = rule.path.slice(0, sourceIndex + 1);
-    const sourceMarker = createReadableSourceMarker(moduleId, sourcePath);
+    const sourceMarker = createReadableSourceMarker(moduleId, sourcePath, condition);
     const relationIdentity: ContextualRelationIdentity = {
       moduleId,
+      condition,
       relations: rule.relations.slice(sourceIndex),
       sourceAttribute,
       sourcePath,
@@ -512,18 +523,22 @@ function prepareContribution(
         kind: 'contextual-atom',
         identity,
         className: targetMarker,
-        selector
+        selector,
+        wrappers
       });
     }
   }
 
   for (const rule of ancestorStateRules) {
+    const wrappers = rule.conditions;
+    const condition = canonicalCondition(wrappers);
     const sourceIndex = rule.states.findIndex((state) => state.length > 0);
     const sourceState = rule.states[sourceIndex]!.join(':');
     const sourcePath = rule.path.slice(0, sourceIndex + 1);
-    const sourceMarker = createReadableSourceMarker(moduleId, sourcePath);
+    const sourceMarker = createReadableSourceMarker(moduleId, sourcePath, condition);
     const relationIdentity: ContextualRelationIdentity = {
       moduleId,
+      condition,
       relations: rule.relations.slice(sourceIndex),
       sourceState,
       sourcePath,
@@ -545,12 +560,15 @@ function prepareContribution(
         kind: 'contextual-atom',
         identity,
         className: targetMarker,
-        selector
+        selector,
+        wrappers
       });
     }
   }
 
   for (const rule of contextualRules) {
+    const wrappers = rule.conditions;
+    const condition = canonicalCondition(wrappers);
     const firstRuntimeRelation = rule.relations.findIndex(
       (relation) => relation !== 'descendant'
     );
@@ -562,9 +580,10 @@ function prepareContribution(
     const sourceAttribute = sourceAttributeCondition
       ? canonicalAttributeCondition(sourceAttributeCondition)
       : undefined;
-    const sourceMarker = createReadableSourceMarker(moduleId, sourcePath);
+    const sourceMarker = createReadableSourceMarker(moduleId, sourcePath, condition);
     const relationIdentity: ContextualRelationIdentity = {
       moduleId,
+      condition,
       relations: runtimeRelations,
       ...(sourceState ? { sourceState } : {}),
       ...(sourceAttribute ? { sourceAttribute } : {}),
@@ -601,7 +620,8 @@ function prepareContribution(
         kind: 'contextual-atom',
         identity,
         className: targetMarker,
-        selector
+        selector,
+        wrappers
       });
     }
   }
@@ -620,6 +640,26 @@ function prepareContribution(
   };
 
   return { artifact, rules, diagnostics: conditionDiagnostics };
+}
+
+function isAncestorStateRule(rule: ParsedStyleRule): boolean {
+  return rule.relations.every((relation) => relation === 'descendant') &&
+    rule.states.slice(0, -1).some((state) => state.length > 0);
+}
+
+function isAncestorAttributeRule(rule: ParsedStyleRule): boolean {
+  return rule.relations.every((relation) => relation === 'descendant') &&
+    rule.attributes.slice(0, -1).some((conditions) => conditions.length > 0);
+}
+
+function isObservedRule(rule: ParsedStyleRule): boolean {
+  return rule.observations.at(-1)!.length > 0;
+}
+
+function isStructuralRuntimeRule(rule: ParsedStyleRule): boolean {
+  return rule.relations.some((relation) => relation !== 'descendant') &&
+    rule.observations.every((conditions) => conditions.length === 0) &&
+    rule.pseudoElements.every((pseudoElement) => pseudoElement === null);
 }
 
 function isCurrentAttributeRule(rule: ParsedStyleRule): boolean {
@@ -852,6 +892,7 @@ function serializeIdentity(identity: PlannedDeclaration['identity']): string {
     return JSON.stringify([
       'observed',
       identity.moduleId,
+      identity.condition,
       identity.subjectPath,
       identity.relation,
       identity.observedClass,
@@ -866,6 +907,7 @@ function serializeIdentity(identity: PlannedDeclaration['identity']): string {
     return JSON.stringify([
       'contextual',
       identity.moduleId,
+      identity.condition,
       identity.relations,
       identity.sourceState,
       identity.sourceAttribute,

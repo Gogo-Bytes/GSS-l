@@ -168,6 +168,69 @@ describe('GssCompilerSession', () => {
     );
   });
 
+  it('preserves a registered condition around an ancestor-state atom', () => {
+    const compiler = createGssCompilerSession({
+      projectRoot: '/project',
+      conditions: { media: ['(hover: hover)'] }
+    });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/family.gss',
+      source: '@media (hover: hover) { .father:hover .son { color: red; } }'
+    });
+
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    const fatherClass = replacement.module?.scopeSchema.exports.father?.selfClassName;
+    const sonClass = replacement.module?.scopeSchema.exports.father?.targets.son?.selfClassName;
+    expect(fatherClass).toContain('--condition_media_3a__28_hover');
+    expect(sonClass).toContain('--condition_media_3a__28_hover');
+    expect(compiler.finalize().css).toBe(
+      `@media (hover: hover) {\n  .${fatherClass}:hover .${sonClass} {\n    color: red;\n  }\n}`
+    );
+  });
+
+  it('preserves a registered condition around an observed contextual atom', () => {
+    const compiler = createGssCompilerSession({
+      projectRoot: '/project',
+      conditions: { supports: ['selector(:has(*))'] }
+    });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/card.gss',
+      source: '@supports selector(:has(*)) { .card:has(.error) { color: red; } }'
+    });
+
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    const cardClass = replacement.module?.scopeSchema.exports.card?.selfClassName;
+    const errorClass = replacement.module?.scopeSchema.exports.error?.selfClassName;
+    expect(cardClass).toContain('--condition_supports_3a_selector');
+    expect(errorClass).toContain('--condition_supports_3a_selector');
+    expect(compiler.finalize().css).toBe(
+      `@supports selector(:has(*)) {\n  .${cardClass}:has(.${errorClass}) {\n    color: red;\n  }\n}`
+    );
+  });
+
+  it('preserves a registered condition around a structural contextual atom', () => {
+    const compiler = createGssCompilerSession({
+      projectRoot: '/project',
+      conditions: { media: ['(min-width: 40rem)'] }
+    });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/family.gss',
+      source: '@media (min-width: 40rem) { .father > .son { color: red; } }'
+    });
+
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    const fatherClass = replacement.module?.scopeSchema.exports.father?.selfClassName;
+    const sonClass = replacement.module?.scopeSchema.exports.father?.targets.son?.selfClassName;
+    expect(fatherClass).toContain('--condition_media_3a__28_min_2d_width');
+    expect(sonClass).toContain('--condition_media_3a__28_min_2d_width');
+    expect(compiler.finalize().css).toBe(
+      `@media (min-width: 40rem) {\n  .${fatherClass} > .${sonClass} {\n    color: red;\n  }\n}`
+    );
+  });
+
   it('preserves a registered condition around an attribute atom', () => {
     const compiler = createGssCompilerSession({
       projectRoot: '/project',
