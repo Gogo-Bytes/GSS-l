@@ -1,4 +1,5 @@
 import { createReadableAtomicName, type PureDeclarationIdentity } from '../domain/readable-name.js';
+import { resolveTargetDeclarations } from '../domain/resolve-target-declarations.js';
 import { validateDeclarationSequences } from '../domain/validate-declarations.js';
 import { parseStylesheet } from '../infrastructure/postcss-stylesheet-parser.js';
 import type {
@@ -85,9 +86,9 @@ function prepareContribution(
   const roots = new Map<string, MutableScopeNode>();
   const rules: PlannedDeclaration[] = [];
 
-  for (const rule of parsed.rules) {
-    const scope = ensureScopePath(roots, rule.path);
-    for (const declaration of rule.declarations) {
+  for (const target of resolveTargetDeclarations(parsed.rules)) {
+    const scope = ensureScopePath(roots, target.path);
+    for (const declaration of target.declarations) {
       const identity: PureDeclarationIdentity = {
         layer: 'unlayered',
         condition: 'base',

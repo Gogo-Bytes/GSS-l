@@ -45,7 +45,8 @@ Use test-first vertical slices.
 
 - [ ] Define value objects for logical Module id, selector path, declaration, condition, layer, relation, specificity, semantic identity, and diagnostics.
 - [ ] Implement standard CSS parsing behind `CssParserPort`.
-- [ ] Normalize CSS nesting and selector lists while preserving source ranges.
+- [x] Normalize selector lists into independent semantic branches.
+- [ ] Normalize standard CSS nesting while preserving source ranges.
 - [ ] Build `ScopeTree` and positive capability validation.
 - [ ] Parse attributes, pseudo states, functional pseudo conditions, pseudo-elements, combinators, residual selectors, and explicit globals in the accepted set.
 - [ ] Return stable diagnostics for unsupported or unsafe input.
@@ -65,7 +66,7 @@ Completion criteria:
 - [ ] Implement selector specificity, including `:where()` zero specificity.
 - [ ] Implement registered at-rule condition rank.
 - [ ] Implement relation implication and incomparable-condition diagnostics.
-- [ ] Accumulate all provably matching general selectors for declared target paths.
+- [x] Accumulate descendant-class selectors whose paths provably match a declared target and resolve their exact-property winners.
 
 Completion criteria:
 

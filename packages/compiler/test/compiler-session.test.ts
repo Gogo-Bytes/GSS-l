@@ -5,8 +5,14 @@ const colorRedClass =
   'gss-a--layer_unlayered--condition_base--state_self--property_color--value_red--importance_normal';
 const colorBlueClass =
   'gss-a--layer_unlayered--condition_base--state_self--property_color--value_blue--importance_normal';
+const colorGreenClass =
+  'gss-a--layer_unlayered--condition_base--state_self--property_color--value_green--importance_normal';
 const displayBlockClass =
   'gss-a--layer_unlayered--condition_base--state_self--property_display--value_block--importance_normal';
+const displayInlineBlockClass =
+  'gss-a--layer_unlayered--condition_base--state_self--property_display--value_inline_2d_block--importance_normal';
+const fontSize16Class =
+  'gss-a--layer_unlayered--condition_base--state_self--property_font_2d_size--value_16px--importance_normal';
 
 describe('GssCompilerSession', () => {
   it('replaces one stylesheet and finalizes one readable pure atom', () => {
@@ -135,6 +141,50 @@ describe('GssCompilerSession', () => {
           important: false,
           sources: ['src/a.gss', 'src/b.gss']
         }]
+      }
+    });
+  });
+
+  it('accumulates general path declarations and keeps only the target winner', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/family.gss',
+      source: `
+        .icon { display: inline-block; color: green; }
+        .father .icon { color: red; }
+        .father .son .icon { color: blue; font-size: 16px; }
+      `
+    });
+
+    const exports = replacement.module?.scopeSchema.exports;
+    if (!exports) throw new Error('Expected compiled scope exports.');
+    expect(exports.icon?.selfClassName).toBe(`${colorGreenClass} ${displayInlineBlockClass}`);
+    expect(exports.father?.targets.icon?.selfClassName).toBe(
+      `${colorRedClass} ${displayInlineBlockClass}`
+    );
+    expect(exports.father?.targets.son?.targets.icon?.selfClassName).toBe(
+      `${colorBlueClass} ${displayInlineBlockClass} ${fontSize16Class}`
+    );
+  });
+
+  it('normalizes a selector list into independent scope branches', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/actions.gss',
+      source: '.button, .link { color: red; }'
+    });
+
+    expect(replacement.diagnostics).toEqual([]);
+    expect(replacement.module?.scopeSchema.exports).toEqual({
+      button: { selfClassName: colorRedClass, targets: {} },
+      link: { selfClassName: colorRedClass, targets: {} }
+    });
+    expect(compiler.finalize()).toMatchObject({
+      report: { modules: 1, rules: 1 },
+      manifest: {
+        rules: [{ sources: ['src/actions.gss'] }]
       }
     });
   });

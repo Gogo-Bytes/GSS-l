@@ -1,5 +1,5 @@
 import postcss, { type Declaration } from 'postcss';
-import selectorParser, { type ClassName, type Combinator } from 'postcss-selector-parser';
+import selectorParser, { type ClassName, type Combinator, type Node } from 'postcss-selector-parser';
 import type { GssDiagnostic } from '../public-types.js';
 
 export type ParsedDeclaration = {
@@ -11,6 +11,7 @@ export type ParsedDeclaration = {
 export type ParsedStyleRule = {
   path: readonly string[];
   declarations: readonly ParsedDeclaration[];
+  sourceOrdinal: number;
 };
 
 export type ParsedStylesheet = {
@@ -39,14 +40,14 @@ export function parseStylesheet(id: string, source: string): ParsedStylesheet {
   const diagnostics: GssDiagnostic[] = [];
   const rules: ParsedStyleRule[] = [];
 
-  for (const node of root.nodes) {
+  for (const [sourceOrdinal, node] of root.nodes.entries()) {
     if (node.type !== 'rule') {
       diagnostics.push(unsupportedDiagnostic(id, `Unsupported top-level ${node.type}.`));
       continue;
     }
 
-    const path = parseDescendantClassPath(node.selector);
-    if (!path) {
+    const paths = parseDescendantClassPaths(node.selector);
+    if (!paths) {
       diagnostics.push(unsupportedDiagnostic(id, `Unsupported selector: ${node.selector}`));
       continue;
     }
@@ -62,17 +63,26 @@ export function parseStylesheet(id: string, source: string): ParsedStylesheet {
       declarations.push(toDeclaration(child));
     }
 
-    if (valid) rules.push({ path, declarations });
+    if (valid) {
+      for (const path of paths) rules.push({ path, declarations, sourceOrdinal });
+    }
   }
 
   return { rules, diagnostics };
 }
 
-function parseDescendantClassPath(selector: string): readonly string[] | undefined {
+function parseDescendantClassPaths(selector: string): readonly (readonly string[])[] | undefined {
   const root = selectorParser().astSync(selector);
-  if (root.nodes.length !== 1) return undefined;
+  const paths: (readonly string[])[] = [];
+  for (const branch of root.nodes) {
+    const path = parseDescendantClassPath(branch.nodes);
+    if (!path) return undefined;
+    paths.push(path);
+  }
+  return paths.length > 0 ? paths : undefined;
+}
 
-  const nodes = root.nodes[0]?.nodes ?? [];
+function parseDescendantClassPath(nodes: readonly Node[]): readonly string[] | undefined {
   const path: string[] = [];
   let expectClass = true;
   for (const node of nodes) {
