@@ -49,6 +49,7 @@ export type FinalizedGssSnapshot = {
       property: string;
       value: string;
       important: boolean;
+      sources: readonly string[];
     }[];
   };
   report: {

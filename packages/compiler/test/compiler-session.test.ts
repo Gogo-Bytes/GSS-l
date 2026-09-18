@@ -3,6 +3,10 @@ import { createGssCompilerSession } from '../src/index.js';
 
 const colorRedClass =
   'gss-a--layer_unlayered--condition_base--state_self--property_color--value_red--importance_normal';
+const colorBlueClass =
+  'gss-a--layer_unlayered--condition_base--state_self--property_color--value_blue--importance_normal';
+const displayBlockClass =
+  'gss-a--layer_unlayered--condition_base--state_self--property_display--value_block--importance_normal';
 
 describe('GssCompilerSession', () => {
   it('replaces one stylesheet and finalizes one readable pure atom', () => {
@@ -36,5 +40,146 @@ describe('GssCompilerSession', () => {
       generation: 1,
       css: `.${colorRedClass} {\n  color: red;\n}`
     });
+  });
+
+  it('keeps the last good contribution, replaces it, and invalidates it by Module id', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const id = '/project/src/button.gss';
+
+    expect(compiler.replaceStylesheet({ id, source: '.button { color: red; }' }).generation).toBe(1);
+    expect(compiler.replaceStylesheet({
+      id,
+      source: '.button { color: red; color: blue; }'
+    })).toMatchObject({ committed: false, generation: 1 });
+    expect(compiler.finalize().css).toContain(`.${colorRedClass}`);
+
+    expect(compiler.replaceStylesheet({ id, source: '.button { color: blue; }' })).toMatchObject({
+      committed: true,
+      generation: 2
+    });
+    expect(compiler.finalize().css).toBe(`.${colorBlueClass} {\n  color: blue;\n}`);
+
+    expect(compiler.invalidate(id)).toEqual({ id, changed: true, generation: 3 });
+    expect(compiler.finalize()).toMatchObject({
+      generation: 3,
+      css: '',
+      report: { modules: 0, rules: 0 }
+    });
+  });
+
+  it('returns a structured diagnostic for malformed selector syntax', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/broken.gss',
+      source: '.button:is( { color: red; }'
+    });
+
+    expect(replacement).toMatchObject({
+      committed: false,
+      generation: 0,
+      diagnostics: [{
+        code: 'GSS1001',
+        severity: 'error',
+        phase: 'parse'
+      }]
+    });
+  });
+
+  it('rejects an authored duplicate exact-property sequence transactionally', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/button.gss',
+      source: '.button { color: red; color: blue; }'
+    });
+
+    expect(replacement).toMatchObject({
+      committed: false,
+      generation: 0,
+      diagnostics: [{
+        code: 'GSS1204',
+        severity: 'error',
+        phase: 'resolve',
+        reason: 'duplicate-exact-property'
+      }]
+    });
+    expect(compiler.finalize()).toMatchObject({
+      generation: 0,
+      css: '',
+      report: { modules: 0, rules: 0 }
+    });
+  });
+
+  it('reuses one semantic atom across Modules and retains every source', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    compiler.replaceStylesheet({
+      id: '/project/src/a.gss',
+      source: '.a { color: red; }'
+    });
+    compiler.replaceStylesheet({
+      id: '/project/src/b.gss',
+      source: '.b { color: red; }'
+    });
+
+    expect(compiler.finalize()).toMatchObject({
+      generation: 2,
+      report: { modules: 2, rules: 1 },
+      manifest: {
+        modules: ['/project/src/a.gss', '/project/src/b.gss'],
+        rules: [{
+          className: colorRedClass,
+          property: 'color',
+          value: 'red',
+          important: false,
+          sources: ['src/a.gss', 'src/b.gss']
+        }]
+      }
+    });
+  });
+
+  it('builds a nested scope for an owned descendant target', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/family.gss',
+      source: '.father { display: block; } .father .son { color: red; }'
+    });
+
+    expect(replacement.diagnostics).toEqual([]);
+    expect(replacement.module?.scopeSchema.exports).toEqual({
+      father: {
+        selfClassName: displayBlockClass,
+        targets: {
+          son: {
+            selfClassName: colorRedClass,
+            targets: {}
+          }
+        }
+      }
+    });
+    expect(replacement.module?.moduleCode).toBe(
+      `const father = { self: "${displayBlockClass}", "son": { self: "${colorRedClass}" } };\n` +
+      'export default { father };\n'
+    );
+  });
+
+  it('merges separate rules that contribute different declarations to one scope', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/button.gss',
+      source: '.button { color: red; } .button { display: block; }'
+    });
+
+    expect(replacement.module?.scopeSchema.exports.button).toEqual({
+      selfClassName: `${colorRedClass} ${displayBlockClass}`,
+      targets: {}
+    });
+    expect(compiler.finalize().css).toBe(
+      `.${colorRedClass} {\n  color: red;\n}\n\n` +
+      `.${displayBlockClass} {\n  display: block;\n}`
+    );
   });
 });
