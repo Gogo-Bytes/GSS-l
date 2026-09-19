@@ -96,7 +96,7 @@ Completion criteria:
 - [x] Plan configured named layers across pure and contextual atoms, emit the global order prelude, and warn on unregistered layer names.
 - [ ] Implement full registered condition precedence and remaining cascade-order planning.
 - [ ] Keep compatibility declaration sequences indivisible after browserslist transformation.
-- [x] Replan unregistered property-effect failures as one whole preserved Module while retaining ScopeSchema, resources, authored order, and transactional replacement.
+- [x] Replan unregistered property-effect failures as one whole preserved Module while retaining ScopeSchema, resources, authored order, conditions/layers, and transactional replacement.
 - [ ] Extend whole-Module preserved fallback to indivisible compatibility declaration sequences.
 
 Completion criteria:

@@ -417,6 +417,35 @@ describe('GssCompilerSession', () => {
     });
   });
 
+  it('preserves conditions, layers, states, and importance in fallback CSS', () => {
+    const compiler = createGssCompilerSession({
+      projectRoot: '/project',
+      layers: ['components'],
+      conditions: { media: ['(min-width: 40rem)'] }
+    });
+
+    compiler.replaceStylesheet({
+      id: '/project/src/structured-fallback.gss',
+      source: `
+        @layer components {
+          @media (min-width: 40rem) {
+            .card:hover { all: unset !important; }
+          }
+        }
+      `
+    });
+
+    expect(compiler.finalize().css).toContain(
+      '@layer components {\n' +
+      '  @media (min-width: 40rem) {\n' +
+      '    .gss-s--module_src_2f_structured_2d_fallback_2e_gss--path_card:hover {\n' +
+      '      all: unset !important;\n' +
+      '    }\n' +
+      '  }\n' +
+      '}'
+    );
+  });
+
   it('preserves observed local class markers in a fallback selector', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 
