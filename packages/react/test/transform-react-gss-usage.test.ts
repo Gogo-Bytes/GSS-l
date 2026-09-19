@@ -71,6 +71,38 @@ describe('transformReactGssUsage', () => {
     expect(result.diagnostics).toEqual([]);
   });
 
+  it('lowers a direct immutable local scope alias in className', () => {
+    const result = transformReactGssUsage({
+      id: '/project/src/Card.tsx',
+      source: `import styles from './Card.gss';\n` +
+        `export const Card = () => { const card = styles.card; ` +
+        `return <div className={card} />; };`,
+      resolveScopeSchema() { return cardScope; }
+    });
+
+    expect(result.code).toContain('className={card.self}');
+    expect(result.code).toContain('const card = styles.card;');
+    expect(result.diagnostics).toEqual([]);
+  });
+
+  it('rejects a mutable local alias derived from a GSS scope', () => {
+    const source = `import styles from './Card.gss';\n` +
+      `export const Card = () => { let card = styles.card; ` +
+      `return <div className={card} />; };`;
+    const result = transformReactGssUsage({
+      id: '/project/src/Card.tsx',
+      source,
+      resolveScopeSchema() { return cardScope; }
+    });
+
+    expect(result.code).toBe(source);
+    expect(result.diagnostics).toMatchObject([{
+      code: 'GSS2103',
+      phase: 'transform',
+      reason: 'mutable-scope-alias'
+    }]);
+  });
+
   it('does not rewrite a local binding that shadows a GSS import', () => {
     const source = `import styles from './Card.gss';\n` +
       `export const Inner = (styles) => <div className={styles.card} />;`;

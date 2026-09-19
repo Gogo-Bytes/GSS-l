@@ -129,7 +129,8 @@ Completion criteria:
 - [x] Resolve direct static scope paths against `ScopeSchema`.
 - [x] Lower direct references inside JSX `className` to `.self` with source maps.
 - [x] Lower nested static GSS references anywhere inside `className` expressions without interpreting `cx(...)` or other non-GSS code.
-- [ ] Propagate accepted local immutable direct, conditional, and property aliases.
+- [x] Propagate direct immutable local scope aliases and diagnose mutable aliases.
+- [ ] Propagate accepted conditional and property-destructured scope aliases.
 - [ ] Emit path and scope-escape diagnostics with `.self` suggestions.
 - [x] Preserve non-GSS expressions and produce high-resolution source maps for direct and nested reference lowering.
 

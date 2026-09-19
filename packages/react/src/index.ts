@@ -1,5 +1,5 @@
 import { parse } from '@babel/parser';
-import traverseModule, { type TraverseOptions } from '@babel/traverse';
+import traverseModule, { type Binding, type TraverseOptions } from '@babel/traverse';
 import * as t from '@babel/types';
 import MagicString, { type SourceMap } from 'magic-string';
 
@@ -52,6 +52,7 @@ export function transformReactGssUsage(
   });
   const bindings = collectGssBindings(ast.program, input.resolveScopeSchema);
   const verifiedBindings = resolveReferenceBindings(ast, bindings);
+  const aliasReferences = resolveDirectAliasReferences(ast, verifiedBindings);
   const output = new MagicString(input.source);
   const diagnostics: ReactGssDiagnostic[] = [];
 
@@ -63,6 +64,24 @@ export function transformReactGssUsage(
     ) return;
 
     visitWithParent(node.value.expression, undefined, (expression, parent) => {
+      if (t.isIdentifier(expression)) {
+        if (t.isMemberExpression(parent) && parent.object === expression) return;
+        const aliasKind = aliasReferences.get(expression);
+        if (aliasKind === 'scope' && expression.end != null) {
+          output.appendLeft(expression.end, '.self');
+        } else if (aliasKind === 'mutable') {
+          diagnostics.push({
+            code: 'GSS2103',
+            severity: 'error',
+            phase: 'transform',
+            message: `Mutable GSS scope alias ${expression.name} cannot be lowered safely.`,
+            id: input.id,
+            reason: 'mutable-scope-alias',
+            suggestion: 'Use a const scope alias or pass an explicit .self string.'
+          });
+        }
+        return;
+      }
       if (!t.isMemberExpression(expression)) return;
       if (t.isMemberExpression(parent) && parent.object === expression) return;
 
@@ -144,6 +163,36 @@ function resolveReferenceBindings(
     }
   });
   return resolved;
+}
+
+function resolveDirectAliasReferences(
+  ast: t.File,
+  verifiedBindings: WeakMap<t.MemberExpression, GssBinding>
+): WeakMap<t.Identifier, 'scope' | 'mutable'> {
+  const aliases = new Map<Binding, 'scope' | 'mutable'>();
+  traverse(ast, {
+    VariableDeclarator(path) {
+      if (!t.isIdentifier(path.node.id) || !t.isMemberExpression(path.node.init)) return;
+      const imported = verifiedBindings.get(path.node.init);
+      const reference = readStaticReference(path.node.init);
+      if (!imported || !reference || reference.path.at(-1) === 'self') return;
+      if (!resolveScopePath(imported.schema, reference.path)) return;
+      const binding = path.scope.getBinding(path.node.id.name);
+      if (!binding) return;
+      aliases.set(binding, binding.kind === 'const' && binding.constant ? 'scope' : 'mutable');
+    }
+  });
+
+  const references = new WeakMap<t.Identifier, 'scope' | 'mutable'>();
+  traverse(ast, {
+    Identifier(path) {
+      if (!path.isReferencedIdentifier()) return;
+      const binding = path.scope.getBinding(path.node.name);
+      const kind = binding ? aliases.get(binding) : undefined;
+      if (kind) references.set(path.node, kind);
+    }
+  });
+  return references;
 }
 
 function readStaticReference(
