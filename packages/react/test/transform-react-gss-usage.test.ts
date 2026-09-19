@@ -164,6 +164,35 @@ describe('transformReactGssUsage', () => {
     expect(result.diagnostics).toEqual([]);
   });
 
+  it('lowers a destructured scope prop with an inline type annotation', () => {
+    const result = transformReactGssUsage({
+      id: '/project/src/CardBody.tsx',
+      source: `import type styles from './Card.gss';\n` +
+        `export const CardBody = ({ scope, title }: { ` +
+        `scope: typeof styles.card; title: string }) => ` +
+        `<div className={scope}>{title}</div>;`,
+      resolveScopeSchema() { return cardScope; }
+    });
+
+    expect(result.code).toContain('className={scope.self}');
+    expect(result.diagnostics).toEqual([]);
+  });
+
+  it('lowers a scope property read from a typed props object', () => {
+    const result = transformReactGssUsage({
+      id: '/project/src/CardBody.tsx',
+      source: `import type styles from './Card.gss';\n` +
+        `type Props = { scope: typeof styles.card; title: string };\n` +
+        `export const CardBody = (props: Props) => ` +
+        `<div className={props.scope}>{props.title}</div>;`,
+      resolveScopeSchema() { return cardScope; }
+    });
+
+    expect(result.code).toContain('className={props.scope.self}');
+    expect(result.code).toContain('{props.title}');
+    expect(result.diagnostics).toEqual([]);
+  });
+
   it('does not rewrite a local binding that shadows a GSS import', () => {
     const source = `import styles from './Card.gss';\n` +
       `export const Inner = (styles) => <div className={styles.card} />;`;

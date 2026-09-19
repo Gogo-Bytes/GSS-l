@@ -132,7 +132,8 @@ Completion criteria:
 - [x] Propagate direct immutable local scope aliases and diagnose mutable aliases.
 - [x] Propagate all-scope conditional aliases and property-destructured scope aliases; diagnose mixed scope/string branches.
 - [x] Lower destructured component props explicitly typed as `typeof styles.<scope>` through a local type alias.
-- [ ] Extend typed scope props to inline annotations, direct props objects, and constrained cross-file forwarding.
+- [x] Extend typed scope props to inline annotations and direct `props.scope` reads.
+- [ ] Extend typed scope props to constrained cross-file forwarding.
 - [ ] Emit path and scope-escape diagnostics with `.self` suggestions.
 - [x] Preserve non-GSS expressions and produce high-resolution source maps for direct and nested reference lowering.
 

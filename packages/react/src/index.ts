@@ -53,6 +53,7 @@ export function transformReactGssUsage(
   const bindings = collectGssBindings(ast.program, input.resolveScopeSchema);
   const verifiedBindings = resolveReferenceBindings(ast, bindings);
   const aliasReferences = resolveAliasReferences(ast, bindings, verifiedBindings);
+  const typedPropReferences = resolveTypedPropMemberReferences(ast, bindings);
   const output = new MagicString(input.source);
   const diagnostics: ReactGssDiagnostic[] = [];
 
@@ -94,6 +95,24 @@ export function transformReactGssUsage(
       }
       if (!t.isMemberExpression(expression)) return;
       if (t.isMemberExpression(parent) && parent.object === expression) return;
+
+      const typedPropKind = typedPropReferences.get(expression);
+      if (typedPropKind === 'scope' && expression.end != null) {
+        output.appendLeft(expression.end, '.self');
+        return;
+      }
+      if (typedPropKind === 'mutable') {
+        diagnostics.push({
+          code: 'GSS2103',
+          severity: 'error',
+          phase: 'transform',
+          message: 'A mutable typed GSS scope prop cannot be lowered safely.',
+          id: input.id,
+          reason: 'mutable-scope-alias',
+          suggestion: 'Do not reassign the props binding before className use.'
+        });
+        return;
+      }
 
       const binding = verifiedBindings.get(expression);
       if (!binding) return;
@@ -179,6 +198,49 @@ type AliasKind = 'scope' | 'mutable' | 'ambiguous';
 
 type ScopeExpressionKind = 'scope' | 'non-scope' | 'ambiguous';
 
+function resolveTypedPropMemberReferences(
+  ast: t.File,
+  gssBindings: ReadonlyMap<string, GssBinding>
+): WeakMap<t.MemberExpression, 'scope' | 'mutable'> {
+  const typedProperties = collectTypedScopeProperties(ast, gssBindings);
+  const propsBindings = new Map<Binding, {
+    kind: 'scope' | 'mutable';
+    properties: ReadonlySet<string>;
+  }>();
+  traverse(ast, {
+    Function(path) {
+      for (const parameter of path.node.params) {
+        if (!t.isIdentifier(parameter)) continue;
+        const properties = resolveTypedScopeProperties(
+          parameter.typeAnnotation,
+          typedProperties,
+          gssBindings
+        );
+        if (!properties || properties.size === 0) continue;
+        const binding = path.scope.getBinding(parameter.name);
+        if (binding) {
+          propsBindings.set(binding, {
+            kind: binding.constant ? 'scope' : 'mutable',
+            properties
+          });
+        }
+      }
+    }
+  });
+
+  const references = new WeakMap<t.MemberExpression, 'scope' | 'mutable'>();
+  traverse(ast, {
+    MemberExpression(path) {
+      const { object, property, computed } = path.node;
+      if (computed || !t.isIdentifier(object) || !t.isIdentifier(property)) return;
+      const binding = path.scope.getBinding(object.name);
+      const props = binding ? propsBindings.get(binding) : undefined;
+      if (props?.properties.has(property.name)) references.set(path.node, props.kind);
+    }
+  });
+  return references;
+}
+
 function resolveAliasReferences(
   ast: t.File,
   gssBindings: ReadonlyMap<string, GssBinding>,
@@ -223,8 +285,11 @@ function resolveAliasReferences(
     Function(path) {
       for (const parameter of path.node.params) {
         if (!t.isObjectPattern(parameter)) continue;
-        const typeName = readReferencedTypeName(parameter.typeAnnotation);
-        const scopeProperties = typeName ? typedProperties.get(typeName) : undefined;
+        const scopeProperties = resolveTypedScopeProperties(
+          parameter.typeAnnotation,
+          typedProperties,
+          gssBindings
+        );
         if (!scopeProperties) continue;
         for (const property of parameter.properties) {
           if (!t.isObjectProperty(property) || property.computed || !t.isIdentifier(property.value)) {
@@ -263,33 +328,49 @@ function collectTypedScopeProperties(
   traverse(ast, {
     TSTypeAliasDeclaration(path) {
       if (!t.isTSTypeLiteral(path.node.typeAnnotation)) return;
-      const properties = new Set<string>();
-      for (const member of path.node.typeAnnotation.members) {
-        if (!t.isTSPropertySignature(member) || member.computed || !member.typeAnnotation) continue;
-        const propertyName = t.isIdentifier(member.key)
-          ? member.key.name
-          : t.isStringLiteral(member.key)
-            ? member.key.value
-            : undefined;
-        if (
-          propertyName &&
-          isGssScopeTypeQuery(member.typeAnnotation.typeAnnotation, gssBindings)
-        ) properties.add(propertyName);
-      }
+      const properties = readScopePropertiesFromLiteral(
+        path.node.typeAnnotation,
+        gssBindings
+      );
       if (properties.size > 0) aliases.set(path.node.id.name, properties);
     }
   });
   return aliases;
 }
 
-function readReferencedTypeName(
-  annotation: t.Noop | t.TypeAnnotation | t.TSTypeAnnotation | null | undefined
-): string | undefined {
+function resolveTypedScopeProperties(
+  annotation: t.Noop | t.TypeAnnotation | t.TSTypeAnnotation | null | undefined,
+  aliases: ReadonlyMap<string, ReadonlySet<string>>,
+  gssBindings: ReadonlyMap<string, GssBinding>
+): ReadonlySet<string> | undefined {
   if (!annotation || !t.isTSTypeAnnotation(annotation)) return undefined;
   const type = annotation.typeAnnotation;
-  return t.isTSTypeReference(type) && t.isIdentifier(type.typeName)
-    ? type.typeName.name
+  if (t.isTSTypeReference(type) && t.isIdentifier(type.typeName)) {
+    return aliases.get(type.typeName.name);
+  }
+  return t.isTSTypeLiteral(type)
+    ? readScopePropertiesFromLiteral(type, gssBindings)
     : undefined;
+}
+
+function readScopePropertiesFromLiteral(
+  literal: t.TSTypeLiteral,
+  gssBindings: ReadonlyMap<string, GssBinding>
+): ReadonlySet<string> {
+  const properties = new Set<string>();
+  for (const member of literal.members) {
+    if (!t.isTSPropertySignature(member) || member.computed || !member.typeAnnotation) continue;
+    const propertyName = t.isIdentifier(member.key)
+      ? member.key.name
+      : t.isStringLiteral(member.key)
+        ? member.key.value
+        : undefined;
+    if (
+      propertyName &&
+      isGssScopeTypeQuery(member.typeAnnotation.typeAnnotation, gssBindings)
+    ) properties.add(propertyName);
+  }
+  return properties;
 }
 
 function isGssScopeTypeQuery(
