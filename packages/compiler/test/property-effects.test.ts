@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   PROPERTY_EFFECT_REGISTRY_VERSION,
   comparePropertyRenderOrder,
-  effectsOfProperty
+  effectsOfProperty,
+  isRegisteredPropertyEffect
 } from '../src/domain/property-effects.js';
 
 describe('PropertyEffectRegistry', () => {
@@ -30,6 +31,13 @@ describe('PropertyEffectRegistry', () => {
   it('orders a containing shorthand before its longhand override', () => {
     expect(comparePropertyRenderOrder('border', 'border-top-color')).toBeLessThan(0);
     expect(comparePropertyRenderOrder('border-top-color', 'border')).toBeGreaterThan(0);
+  });
+
+  it('distinguishes registered effects from an unsafe unknown shorthand', () => {
+    expect(isRegisteredPropertyEffect('color')).toBe(true);
+    expect(isRegisteredPropertyEffect('border')).toBe(true);
+    expect(isRegisteredPropertyEffect('--brand')).toBe(true);
+    expect(isRegisteredPropertyEffect('all')).toBe(false);
   });
 
   it('treats unknown properties as independent singleton effects', () => {

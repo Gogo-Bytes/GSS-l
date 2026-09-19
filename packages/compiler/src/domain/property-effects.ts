@@ -149,6 +149,29 @@ function createPropertyEffects(): Readonly<Record<string, readonly string[]>> {
 
 const propertyEffects = createPropertyEffects();
 
+const independentProperties = new Set([
+  'color',
+  'content',
+  'cursor',
+  'display',
+  'height',
+  'min-height',
+  'max-height',
+  'width',
+  'min-width',
+  'max-width',
+  'opacity',
+  'position',
+  'transform',
+  'transform-origin',
+  'visibility',
+  'z-index'
+]);
+
+export function isRegisteredPropertyEffect(property: string): boolean {
+  return property.startsWith('--') || property in propertyEffects || independentProperties.has(property);
+}
+
 export function effectsOfProperty(property: string): readonly string[] {
   return propertyEffects[property] ?? [property];
 }

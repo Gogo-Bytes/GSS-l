@@ -18,12 +18,19 @@ export type ScopeSchema = {
   exports: Readonly<Record<string, ScopeNodeSchema>>;
 };
 
+export type GssFallbackReason = {
+  property: string;
+  reason: 'property-effect-not-registered';
+};
+
 export type StyleModuleArtifact = {
   id: string;
   scopeSchema: ScopeSchema;
   moduleCode: string;
   declarationCode: string;
   dependencies: readonly string[];
+  compilationMode: 'atomic' | 'preserved';
+  fallbackReasons: readonly GssFallbackReason[];
 };
 
 export type ReplaceStylesheetInput = {
@@ -44,6 +51,11 @@ export type FinalizedGssSnapshot = {
   css: string;
   manifest: {
     modules: readonly string[];
+    moduleDetails: readonly {
+      id: string;
+      compilationMode: 'atomic' | 'preserved';
+      fallbackReasons: readonly GssFallbackReason[];
+    }[];
     resources: readonly {
       kind: 'property' | 'keyframes' | 'font-face';
       name: string;
@@ -63,12 +75,16 @@ export type FinalizedGssSnapshot = {
     modules: number;
     rules: number;
     resources: number;
+    atomicModules: number;
+    preservedModules: number;
+    atomicCoverage: number;
   };
 };
 
 export type GssCompilerConfig = {
   projectRoot: string;
   layers?: readonly string[];
+  atomizationFallback?: 'preserve-module' | 'error';
   conditions?: {
     media?: readonly string[];
     supports?: readonly string[];

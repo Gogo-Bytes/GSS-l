@@ -30,6 +30,14 @@ export type ContextualRelationIdentity = {
   targetPath: readonly string[];
 };
 
+export function createReadableScopeMarker(moduleId: string, path: readonly string[]): string {
+  return [
+    'gss-s',
+    `module_${encodeNamePart(moduleId)}`,
+    `path_${path.map(encodeNamePart).join('_2e_')}`
+  ].join('--');
+}
+
 export function createReadableKeyframesName(moduleId: string, authoredName: string): string {
   return [
     'gss-k',

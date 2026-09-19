@@ -1,3 +1,4 @@
+import selectorParser from 'postcss-selector-parser';
 import valueParser from 'postcss-value-parser';
 import {
   createReadableAtomicName,
@@ -6,11 +7,13 @@ import {
   createReadableKeyframesName,
   createReadableObservedMarker,
   createReadableSourceMarker,
+  createReadableScopeMarker,
   createReadableTargetMarker,
   type ContextualRelationIdentity,
   type ObservedRelationIdentity,
   type PureDeclarationIdentity
 } from '../domain/readable-name.js';
+import { isRegisteredPropertyEffect } from '../domain/property-effects.js';
 import { resolveTargetDeclarations } from '../domain/resolve-target-declarations.js';
 import { compareRuleOrder } from '../domain/rule-order-planner.js';
 import { validateDeclarationSequences } from '../domain/validate-declarations.js';
@@ -66,9 +69,15 @@ type PlannedResource = {
   css: string;
 };
 
+type PlannedPreservedBlock = {
+  moduleId: string;
+  css: string;
+};
+
 type ModuleContribution = {
   artifact: StyleModuleArtifact;
   rules: readonly PlannedDeclaration[];
+  preservedBlocks: readonly PlannedPreservedBlock[];
   resources: readonly PlannedResource[];
   diagnostics: readonly GssDiagnostic[];
 };
@@ -348,6 +357,33 @@ function prepareContribution(
         reason: 'capability-not-registered'
       }]
     };
+  }
+
+  const unsupportedProperty = semanticRules
+    .flatMap(({ declarations }) => declarations)
+    .find(({ property }) => !isRegisteredPropertyEffect(property));
+  if (unsupportedProperty) {
+    if (config.atomizationFallback === 'error') {
+      return {
+        diagnostics: [{
+          code: 'GSS1101',
+          severity: 'error',
+          phase: 'validate',
+          message: `Property effect ${unsupportedProperty.property} is not registered.`,
+          id: input.id,
+          reason: 'capability-not-registered',
+          suggestion: 'Register its effects or enable whole-Module preserved fallback.'
+        }]
+      };
+    }
+    return preparePreservedContribution({
+      input,
+      moduleId,
+      parsed,
+      rules: semanticRules,
+      conditionDiagnostics,
+      fallbackProperty: unsupportedProperty.property
+    });
   }
 
   const ownershipGroups = groupRulesByCondition(ownershipRules);
@@ -710,11 +746,116 @@ function prepareContribution(
     scopeSchema,
     moduleCode: renderModuleCode(exports),
     declarationCode: renderDeclarationCode(exports),
-    dependencies: collectAssetDependencies(parsed)
+    dependencies: collectAssetDependencies(parsed),
+    compilationMode: 'atomic',
+    fallbackReasons: []
   };
 
   const resources = parsed.resources.map((resource) => planResource(resource, moduleId));
-  return { artifact, rules, resources, diagnostics: conditionDiagnostics };
+  return {
+    artifact,
+    rules,
+    preservedBlocks: [],
+    resources,
+    diagnostics: conditionDiagnostics
+  };
+}
+
+function preparePreservedContribution(input: {
+  input: ReplaceStylesheetInput;
+  moduleId: string;
+  parsed: ParsedStylesheet;
+  rules: readonly ParsedStyleRule[];
+  conditionDiagnostics: readonly GssDiagnostic[];
+  fallbackProperty: string;
+}): ModuleContribution {
+  const roots = new Map<string, MutableScopeNode>();
+  for (const rule of input.rules) {
+    for (let index = 0; index < rule.path.length; index += 1) {
+      const path = rule.path.slice(0, index + 1);
+      ensureScopePath(roots, path).classNames.add(createReadableScopeMarker(input.moduleId, path));
+    }
+    for (const observation of rule.observations.flat()) {
+      if (!observation.observedClass) continue;
+      const path = [observation.observedClass];
+      ensureScopePath(roots, path).classNames.add(createReadableScopeMarker(input.moduleId, path));
+    }
+  }
+
+  const exports = Object.fromEntries(
+    [...roots.entries()].map(([name, scope]) => [name, toScopeSchema(scope)])
+  );
+  const css = [...input.rules]
+    .sort((left, right) => left.sourceOrdinal - right.sourceOrdinal)
+    .map((rule) => renderPreservedRule(rule, input.moduleId))
+    .join('\n\n');
+  const fallbackReason = {
+    property: input.fallbackProperty,
+    reason: 'property-effect-not-registered' as const
+  };
+  const scopeSchema = { moduleId: input.moduleId, exports };
+  const artifact: StyleModuleArtifact = {
+    id: input.input.id,
+    scopeSchema,
+    moduleCode: renderModuleCode(exports),
+    declarationCode: renderDeclarationCode(exports),
+    dependencies: collectAssetDependencies(input.parsed),
+    compilationMode: 'preserved',
+    fallbackReasons: [fallbackReason]
+  };
+  const resources = input.parsed.resources.map((resource) =>
+    planResource(resource, input.moduleId)
+  );
+  return {
+    artifact,
+    rules: [],
+    preservedBlocks: [{ moduleId: input.moduleId, css }],
+    resources,
+    diagnostics: [
+      ...input.conditionDiagnostics,
+      {
+        code: 'GSS1104',
+        severity: 'warning',
+        phase: 'plan',
+        message: `Module was preserved because property effect ${input.fallbackProperty} is not registered.`,
+        id: input.input.id,
+        reason: 'module-preserved-fallback',
+        suggestion: 'Verify the property name or register its complete effect family.'
+      }
+    ]
+  };
+}
+
+function renderPreservedRule(rule: ParsedStyleRule, moduleId: string): string {
+  const selector = selectorParser((root) => {
+    for (const branch of root.nodes) {
+      let pathIndex = 0;
+      for (const node of branch.nodes) {
+        if (node.type === 'class') {
+          pathIndex += 1;
+          node.value = createReadableScopeMarker(moduleId, rule.path.slice(0, pathIndex));
+          continue;
+        }
+        if (node.type !== 'pseudo' || node.value !== ':has') continue;
+        node.walkClasses((observed) => {
+          observed.value = createReadableScopeMarker(moduleId, [observed.value]);
+        });
+      }
+    }
+  }).processSync(rule.selector);
+  const declarations = rule.declarations
+    .map(({ property, value, important }) =>
+      `  ${property}: ${value}${important ? ' !important' : ''};`
+    )
+    .join('\n');
+  let css = `${selector} {\n${declarations}\n}`;
+  for (const condition of [...rule.conditions].reverse()) {
+    css = `@${condition.kind} ${condition.query} {\n${indentCss(css)}\n}`;
+  }
+  if (rule.layer !== 'unlayered') {
+    css = `@layer ${rule.layer} {\n${indentCss(css)}\n}`;
+  }
+  return css;
 }
 
 function rewriteKeyframeReferences(
@@ -1060,14 +1201,29 @@ function finalizeSnapshot(
     compareRuleOrder(left.rule, right.rule, config)
   );
   const renderedRules = orderedRules.map(({ rule }) => renderRule(rule)).join('\n\n');
+  const orderedPreservedBlocks = [...modules.values()]
+    .flatMap(({ preservedBlocks }) => preservedBlocks)
+    .sort((left, right) => left.moduleId.localeCompare(right.moduleId));
+  const renderedPreservedBlocks = orderedPreservedBlocks
+    .map(({ css }) => css)
+    .join('\n\n');
   const layerPrelude = config.layers?.length
     ? `@layer ${config.layers.join(', ')};`
     : '';
   return {
     generation,
-    css: [layerPrelude, renderedResources, renderedRules].filter(Boolean).join('\n\n'),
+    css: [layerPrelude, renderedResources, renderedPreservedBlocks, renderedRules]
+      .filter(Boolean)
+      .join('\n\n'),
     manifest: {
       modules: [...modules.keys()].sort(),
+      moduleDetails: [...modules.values()]
+        .map(({ artifact }) => ({
+          id: artifact.scopeSchema.moduleId,
+          compilationMode: artifact.compilationMode,
+          fallbackReasons: artifact.fallbackReasons
+        }))
+        .sort((left, right) => left.id.localeCompare(right.id)),
       resources: orderedResources.map(({ resource, sources }) => ({
         kind: resource.kind,
         name: resource.name,
@@ -1086,7 +1242,16 @@ function finalizeSnapshot(
     report: {
       modules: modules.size,
       rules: orderedRules.length,
-      resources: orderedResources.length
+      resources: orderedResources.length,
+      atomicModules: [...modules.values()].filter(({ artifact }) =>
+        artifact.compilationMode === 'atomic'
+      ).length,
+      preservedModules: orderedPreservedBlocks.length,
+      atomicCoverage: modules.size === 0
+        ? 1
+        : [...modules.values()].filter(({ artifact }) =>
+            artifact.compilationMode === 'atomic'
+          ).length / modules.size
     }
   };
 }
