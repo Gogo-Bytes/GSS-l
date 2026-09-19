@@ -150,6 +150,20 @@ describe('transformReactGssUsage', () => {
     }]);
   });
 
+  it('lowers a destructured prop explicitly typed as a GSS scope', () => {
+    const result = transformReactGssUsage({
+      id: '/project/src/CardBody.tsx',
+      source: `import type styles from './Card.gss';\n` +
+        `type Props = { scope: typeof styles.card; className?: string };\n` +
+        `export const CardBody = ({ scope, className }: Props) => ` +
+        `<div className={cx(scope, className)} />;`,
+      resolveScopeSchema() { return cardScope; }
+    });
+
+    expect(result.code).toContain('className={cx(scope.self, className)}');
+    expect(result.diagnostics).toEqual([]);
+  });
+
   it('does not rewrite a local binding that shadows a GSS import', () => {
     const source = `import styles from './Card.gss';\n` +
       `export const Inner = (styles) => <div className={styles.card} />;`;

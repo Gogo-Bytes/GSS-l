@@ -52,7 +52,7 @@ export function transformReactGssUsage(
   });
   const bindings = collectGssBindings(ast.program, input.resolveScopeSchema);
   const verifiedBindings = resolveReferenceBindings(ast, bindings);
-  const aliasReferences = resolveAliasReferences(ast, verifiedBindings);
+  const aliasReferences = resolveAliasReferences(ast, bindings, verifiedBindings);
   const output = new MagicString(input.source);
   const diagnostics: ReactGssDiagnostic[] = [];
 
@@ -181,6 +181,7 @@ type ScopeExpressionKind = 'scope' | 'non-scope' | 'ambiguous';
 
 function resolveAliasReferences(
   ast: t.File,
+  gssBindings: ReadonlyMap<string, GssBinding>,
   verifiedBindings: WeakMap<t.MemberExpression, GssBinding>
 ): WeakMap<t.Identifier, AliasKind> {
   const aliases = new Map<Binding, AliasKind>();
@@ -217,6 +218,31 @@ function resolveAliasReferences(
     }
   });
 
+  const typedProperties = collectTypedScopeProperties(ast, gssBindings);
+  traverse(ast, {
+    Function(path) {
+      for (const parameter of path.node.params) {
+        if (!t.isObjectPattern(parameter)) continue;
+        const typeName = readReferencedTypeName(parameter.typeAnnotation);
+        const scopeProperties = typeName ? typedProperties.get(typeName) : undefined;
+        if (!scopeProperties) continue;
+        for (const property of parameter.properties) {
+          if (!t.isObjectProperty(property) || property.computed || !t.isIdentifier(property.value)) {
+            continue;
+          }
+          const propName = t.isIdentifier(property.key)
+            ? property.key.name
+            : t.isStringLiteral(property.key)
+              ? property.key.value
+              : undefined;
+          if (!propName || !scopeProperties.has(propName)) continue;
+          const binding = path.scope.getBinding(property.value.name);
+          if (binding) aliases.set(binding, binding.constant ? 'scope' : 'mutable');
+        }
+      }
+    }
+  });
+
   const references = new WeakMap<t.Identifier, AliasKind>();
   traverse(ast, {
     Identifier(path) {
@@ -227,6 +253,63 @@ function resolveAliasReferences(
     }
   });
   return references;
+}
+
+function collectTypedScopeProperties(
+  ast: t.File,
+  gssBindings: ReadonlyMap<string, GssBinding>
+): ReadonlyMap<string, ReadonlySet<string>> {
+  const aliases = new Map<string, ReadonlySet<string>>();
+  traverse(ast, {
+    TSTypeAliasDeclaration(path) {
+      if (!t.isTSTypeLiteral(path.node.typeAnnotation)) return;
+      const properties = new Set<string>();
+      for (const member of path.node.typeAnnotation.members) {
+        if (!t.isTSPropertySignature(member) || member.computed || !member.typeAnnotation) continue;
+        const propertyName = t.isIdentifier(member.key)
+          ? member.key.name
+          : t.isStringLiteral(member.key)
+            ? member.key.value
+            : undefined;
+        if (
+          propertyName &&
+          isGssScopeTypeQuery(member.typeAnnotation.typeAnnotation, gssBindings)
+        ) properties.add(propertyName);
+      }
+      if (properties.size > 0) aliases.set(path.node.id.name, properties);
+    }
+  });
+  return aliases;
+}
+
+function readReferencedTypeName(
+  annotation: t.Noop | t.TypeAnnotation | t.TSTypeAnnotation | null | undefined
+): string | undefined {
+  if (!annotation || !t.isTSTypeAnnotation(annotation)) return undefined;
+  const type = annotation.typeAnnotation;
+  return t.isTSTypeReference(type) && t.isIdentifier(type.typeName)
+    ? type.typeName.name
+    : undefined;
+}
+
+function isGssScopeTypeQuery(
+  type: t.TSType,
+  gssBindings: ReadonlyMap<string, GssBinding>
+): boolean {
+  if (!t.isTSTypeQuery(type)) return false;
+  if (!t.isIdentifier(type.exprName) && !t.isTSQualifiedName(type.exprName)) return false;
+  const path = readTypeEntityPath(type.exprName);
+  if (!path) return false;
+  const [bindingName, ...scopePath] = path;
+  const binding = bindingName ? gssBindings.get(bindingName) : undefined;
+  return Boolean(binding && resolveScopePath(binding.schema, scopePath));
+}
+
+function readTypeEntityPath(entity: t.TSEntityName): readonly string[] | undefined {
+  if (t.isIdentifier(entity)) return [entity.name];
+  if (!t.isTSQualifiedName(entity)) return undefined;
+  const left = readTypeEntityPath(entity.left);
+  return left ? [...left, entity.right.name] : undefined;
 }
 
 function aliasKindForBinding(
