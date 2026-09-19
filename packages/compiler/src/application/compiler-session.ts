@@ -1322,8 +1322,7 @@ function renderDeclarationCode(exports: Readonly<Record<string, ScopeNodeSchema>
     `  readonly ${JSON.stringify(name)}: ${renderScopeType(exports[name]!)};`
   );
   return [
-    'declare const GSS_SCOPE: unique symbol;',
-    'type GssScope<T> = string & T & { readonly self: string; readonly [GSS_SCOPE]: true };',
+    "import type { GssScope } from '@gss-l/types';",
     'declare const styles: {',
     ...fields,
     '};',
@@ -1336,7 +1335,9 @@ function renderScopeType(scope: ScopeNodeSchema): string {
   const targets = Object.keys(scope.targets).sort().map((name) =>
     `readonly ${JSON.stringify(name)}: ${renderScopeType(scope.targets[name]!)}`
   );
-  return `GssScope<{ ${targets.join('; ')}${targets.length > 0 ? ';' : ''} }>`;
+  return targets.length === 0
+    ? 'GssScope<{}>'
+    : `GssScope<{ ${targets.join('; ')}; }>`;
 }
 
 function serializeIdentity(identity: PlannedDeclaration['identity']): string {

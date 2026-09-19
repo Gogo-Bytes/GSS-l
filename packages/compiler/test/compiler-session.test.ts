@@ -50,6 +50,24 @@ describe('GssCompilerSession', () => {
     });
   });
 
+  it('emits declarations using the public branded scope object type', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/card.gss',
+      source: '.card { color: red; } .card .icon { opacity: 0.5; }'
+    });
+
+    expect(replacement.module?.declarationCode).toBe(
+      `import type { GssScope } from '@gss-l/types';\n` +
+      `declare const styles: {\n` +
+      `  readonly "card": GssScope<{ readonly "icon": GssScope<{}>; }>;\n` +
+      `};\n` +
+      `export default styles;\n`
+    );
+    expect(replacement.module?.declarationCode).not.toContain('string &');
+  });
+
   it('keeps the last good contribution, replaces it, and invalidates it by Module id', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
     const id = '/project/src/button.gss';

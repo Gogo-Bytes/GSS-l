@@ -1,5 +1,5 @@
 {
-  "name": "@gss-l/compiler",
+  "name": "@gss-l/types",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -14,14 +14,6 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
-  },
-  "dependencies": {
-    "@gss-l/types": "workspace:*",
-    "postcss": "^8.4.49",
-    "postcss-nesting": "^13.0.0",
-    "postcss-selector-parser": "^7.0.0",
-    "postcss-value-parser": "^4.2.0"
   }
 }

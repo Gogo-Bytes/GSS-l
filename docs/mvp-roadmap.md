@@ -113,7 +113,7 @@ Completion criteria:
 - [ ] Implement full-census `finalize()`.
 - [x] Implement `RuleOrderPlanner` separately from `CascadeResolver`.
 - [ ] Implement reversible readable names behind `NameAllocatorPort`.
-- [ ] Emit nested static scope objects and branded TypeScript declarations.
+- [x] Emit nested static scope objects and branded object-based TypeScript declarations through `@gss-l/types`.
 - [ ] Emit central CSS, source map, manifest, and report, including Module compilation mode, fallback reasons, and atomic coverage.
 
 Completion criteria:
