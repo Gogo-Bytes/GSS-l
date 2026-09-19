@@ -125,9 +125,9 @@ Completion criteria:
 
 ## Stage 6 — React style-usage Adapter
 
-- [ ] Detect `.gss` imports in React/TypeScript source.
-- [ ] Resolve longest static scope path.
-- [ ] Lower direct references inside JSX `className` to `.self`.
+- [x] Detect default `.gss` imports in React/TypeScript source through the React Adapter port.
+- [x] Resolve direct static scope paths against `ScopeSchema`.
+- [x] Lower direct references inside JSX `className` to `.self` with source maps.
 - [ ] Lower nested GSS references inside `className` expressions such as `cx(...)`.
 - [ ] Propagate accepted local immutable direct, conditional, and property aliases.
 - [ ] Emit path and scope-escape diagnostics with `.self` suggestions.
