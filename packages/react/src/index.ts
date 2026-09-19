@@ -1,6 +1,11 @@
 import { parse } from '@babel/parser';
+import traverseModule, { type TraverseOptions } from '@babel/traverse';
 import * as t from '@babel/types';
 import MagicString, { type SourceMap } from 'magic-string';
+
+const traverse = (
+  typeof traverseModule === 'function' ? traverseModule : traverseModule.default
+) as unknown as (node: t.Node, options?: TraverseOptions) => void;
 
 export type ReactScopeSchema = {
   exports: Readonly<Record<string, ReactScopeNodeSchema>>;
@@ -34,6 +39,7 @@ export type TransformReactGssUsageResult = {
 
 type GssBinding = {
   schema: ReactScopeSchema;
+  importNode: t.ImportDefaultSpecifier;
 };
 
 export function transformReactGssUsage(
@@ -45,6 +51,7 @@ export function transformReactGssUsage(
     plugins: ['typescript', 'jsx']
   });
   const bindings = collectGssBindings(ast.program, input.resolveScopeSchema);
+  const verifiedBindings = resolveReferenceBindings(ast, bindings);
   const output = new MagicString(input.source);
   const diagnostics: ReactGssDiagnostic[] = [];
 
@@ -52,32 +59,49 @@ export function transformReactGssUsage(
     if (
       !t.isJSXAttribute(node) ||
       !t.isJSXIdentifier(node.name, { name: 'className' }) ||
-      !t.isJSXExpressionContainer(node.value) ||
-      !t.isMemberExpression(node.value.expression)
+      !t.isJSXExpressionContainer(node.value)
     ) return;
 
-    const reference = readStaticReference(node.value.expression);
-    if (!reference) return;
-    const binding = bindings.get(reference.binding);
-    if (!binding) return;
+    visitWithParent(node.value.expression, undefined, (expression, parent) => {
+      if (!t.isMemberExpression(expression)) return;
+      if (t.isMemberExpression(parent) && parent.object === expression) return;
 
-    const hasExplicitSelf = reference.path.at(-1) === 'self';
-    const scopePath = hasExplicitSelf ? reference.path.slice(0, -1) : reference.path;
-    if (!resolveScopePath(binding.schema, scopePath)) {
-      diagnostics.push({
-        code: 'GSS2102',
-        severity: 'error',
-        phase: 'transform',
-        message: `Unknown GSS scope path: ${[reference.binding, ...scopePath].join('.')}.`,
-        id: input.id,
-        reason: 'unknown-scope-path',
-        suggestion: 'Use a path declared by the imported .gss Module.'
-      });
-      return;
-    }
-    if (!hasExplicitSelf && node.value.expression.end != null) {
-      output.appendLeft(node.value.expression.end, '.self');
-    }
+      const binding = verifiedBindings.get(expression);
+      if (!binding) return;
+      const reference = readStaticReference(expression);
+      if (!reference) {
+        const bindingName = readReferenceRoot(expression);
+        if (bindingName) {
+          diagnostics.push({
+            code: 'GSS2101',
+            severity: 'error',
+            phase: 'transform',
+            message: `Unsupported dynamic GSS scope expression rooted at ${bindingName}.`,
+            id: input.id,
+            reason: 'unsupported-scope-expression',
+            suggestion: 'Use a static GSS scope path.'
+          });
+        }
+        return;
+      }
+      const hasExplicitSelf = reference.path.at(-1) === 'self';
+      const scopePath = hasExplicitSelf ? reference.path.slice(0, -1) : reference.path;
+      if (!resolveScopePath(binding.schema, scopePath)) {
+        diagnostics.push({
+          code: 'GSS2102',
+          severity: 'error',
+          phase: 'transform',
+          message: `Unknown GSS scope path: ${[reference.binding, ...scopePath].join('.')}.`,
+          id: input.id,
+          reason: 'unknown-scope-path',
+          suggestion: 'Use a path declared by the imported .gss Module.'
+        });
+        return;
+      }
+      if (!hasExplicitSelf && expression.end != null) {
+        output.appendLeft(expression.end, '.self');
+      }
+    });
   });
 
   return {
@@ -96,9 +120,30 @@ function collectGssBindings(
     if (!t.isImportDeclaration(statement) || !statement.source.value.endsWith('.gss')) continue;
     const defaultImport = statement.specifiers.find(t.isImportDefaultSpecifier);
     const schema = resolveScopeSchema(statement.source.value);
-    if (defaultImport && schema) bindings.set(defaultImport.local.name, { schema });
+    if (defaultImport && schema) {
+      bindings.set(defaultImport.local.name, { schema, importNode: defaultImport });
+    }
   }
   return bindings;
+}
+
+function resolveReferenceBindings(
+  ast: t.File,
+  bindings: ReadonlyMap<string, GssBinding>
+): WeakMap<t.MemberExpression, GssBinding> {
+  const resolved = new WeakMap<t.MemberExpression, GssBinding>();
+  traverse(ast, {
+    MemberExpression(path) {
+      const bindingName = readReferenceRoot(path.node);
+      if (!bindingName) return;
+      const candidate = bindings.get(bindingName);
+      const lexicalBinding = path.scope.getBinding(bindingName);
+      if (candidate && lexicalBinding?.path.node === candidate.importNode) {
+        resolved.set(path.node, candidate);
+      }
+    }
+  });
+  return resolved;
 }
 
 function readStaticReference(
@@ -116,6 +161,12 @@ function readStaticReference(
     : undefined;
 }
 
+function readReferenceRoot(expression: t.MemberExpression): string | undefined {
+  let current: t.Expression | t.Super = expression;
+  while (t.isMemberExpression(current)) current = current.object;
+  return t.isIdentifier(current) ? current.name : undefined;
+}
+
 function resolveScopePath(
   schema: ReactScopeSchema,
   path: readonly string[]
@@ -125,6 +176,23 @@ function resolveScopePath(
   let scope = schema.exports[root];
   for (const target of targets) scope = scope?.targets[target];
   return scope;
+}
+
+function visitWithParent(
+  node: t.Node,
+  parent: t.Node | undefined,
+  callback: (node: t.Node, parent: t.Node | undefined) => void
+): void {
+  callback(node, parent);
+  const keys = t.VISITOR_KEYS[node.type] ?? [];
+  for (const key of keys) {
+    const child = node[key as keyof t.Node] as unknown;
+    if (Array.isArray(child)) {
+      for (const item of child) if (t.isNode(item)) visitWithParent(item, node, callback);
+    } else if (t.isNode(child)) {
+      visitWithParent(child, node, callback);
+    }
+  }
 }
 
 function visit(node: t.Node, callback: (node: t.Node) => void): void {

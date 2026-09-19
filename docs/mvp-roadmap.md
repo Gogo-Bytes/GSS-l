@@ -128,10 +128,10 @@ Completion criteria:
 - [x] Detect default `.gss` imports in React/TypeScript source through the React Adapter port.
 - [x] Resolve direct static scope paths against `ScopeSchema`.
 - [x] Lower direct references inside JSX `className` to `.self` with source maps.
-- [ ] Lower nested GSS references inside `className` expressions such as `cx(...)`.
+- [x] Lower nested static GSS references anywhere inside `className` expressions without interpreting `cx(...)` or other non-GSS code.
 - [ ] Propagate accepted local immutable direct, conditional, and property aliases.
 - [ ] Emit path and scope-escape diagnostics with `.self` suggestions.
-- [ ] Preserve non-GSS expressions and produce source maps.
+- [x] Preserve non-GSS expressions and produce high-resolution source maps for direct and nested reference lowering.
 
 Completion criteria:
 
