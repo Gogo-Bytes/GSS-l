@@ -168,8 +168,26 @@ const independentProperties = new Set([
   'z-index'
 ]);
 
+export type PropertyEffectClassification =
+  | { kind: 'custom-property'; effects: readonly string[] }
+  | { kind: 'shorthand'; effects: readonly string[] }
+  | { kind: 'longhand'; effects: readonly string[] }
+  | { kind: 'unknown'; effects: readonly [] };
+
+export function classifyPropertyEffect(property: string): PropertyEffectClassification {
+  if (property.startsWith('--')) {
+    return { kind: 'custom-property', effects: [property] };
+  }
+  const effects = propertyEffects[property];
+  if (effects && effects.length > 1) return { kind: 'shorthand', effects };
+  if (effects || independentProperties.has(property)) {
+    return { kind: 'longhand', effects: effects ?? [property] };
+  }
+  return { kind: 'unknown', effects: [] };
+}
+
 export function isRegisteredPropertyEffect(property: string): boolean {
-  return property.startsWith('--') || property in propertyEffects || independentProperties.has(property);
+  return classifyPropertyEffect(property).kind !== 'unknown';
 }
 
 export function effectsOfProperty(property: string): readonly string[] {

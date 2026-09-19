@@ -359,17 +359,19 @@ function prepareContribution(
     };
   }
 
-  const unsupportedProperty = semanticRules
-    .flatMap(({ declarations }) => declarations)
-    .find(({ property }) => !isRegisteredPropertyEffect(property));
-  if (unsupportedProperty) {
+  const unsupportedProperties = [...new Set(
+    semanticRules
+      .flatMap(({ declarations }) => declarations.map(({ property }) => property))
+      .filter((property) => !isRegisteredPropertyEffect(property))
+  )].sort();
+  if (unsupportedProperties.length > 0) {
     if (config.atomizationFallback === 'error') {
       return {
         diagnostics: [{
           code: 'GSS1101',
           severity: 'error',
           phase: 'validate',
-          message: `Property effect ${unsupportedProperty.property} is not registered.`,
+          message: `Property effects are not registered: ${unsupportedProperties.join(', ')}.`,
           id: input.id,
           reason: 'capability-not-registered',
           suggestion: 'Register its effects or enable whole-Module preserved fallback.'
@@ -382,7 +384,7 @@ function prepareContribution(
       parsed,
       rules: semanticRules,
       conditionDiagnostics,
-      fallbackProperty: unsupportedProperty.property
+      fallbackProperties: unsupportedProperties
     });
   }
 
@@ -767,7 +769,7 @@ function preparePreservedContribution(input: {
   parsed: ParsedStylesheet;
   rules: readonly ParsedStyleRule[];
   conditionDiagnostics: readonly GssDiagnostic[];
-  fallbackProperty: string;
+  fallbackProperties: readonly string[];
 }): ModuleContribution {
   const roots = new Map<string, MutableScopeNode>();
   for (const rule of input.rules) {
@@ -789,10 +791,10 @@ function preparePreservedContribution(input: {
     .sort((left, right) => left.sourceOrdinal - right.sourceOrdinal)
     .map((rule) => renderPreservedRule(rule, input.moduleId))
     .join('\n\n');
-  const fallbackReason = {
-    property: input.fallbackProperty,
+  const fallbackReasons = input.fallbackProperties.map((property) => ({
+    property,
     reason: 'property-effect-not-registered' as const
-  };
+  }));
   const scopeSchema = { moduleId: input.moduleId, exports };
   const artifact: StyleModuleArtifact = {
     id: input.input.id,
@@ -801,7 +803,7 @@ function preparePreservedContribution(input: {
     declarationCode: renderDeclarationCode(exports),
     dependencies: collectAssetDependencies(input.parsed),
     compilationMode: 'preserved',
-    fallbackReasons: [fallbackReason]
+    fallbackReasons
   };
   const resources = input.parsed.resources.map((resource) =>
     planResource(resource, input.moduleId)
@@ -817,7 +819,7 @@ function preparePreservedContribution(input: {
         code: 'GSS1104',
         severity: 'warning',
         phase: 'plan',
-        message: `Module was preserved because property effect ${input.fallbackProperty} is not registered.`,
+        message: `Module was preserved because property effects are not registered: ${input.fallbackProperties.join(', ')}.`,
         id: input.input.id,
         reason: 'module-preserved-fallback',
         suggestion: 'Verify the property name or register its complete effect family.'

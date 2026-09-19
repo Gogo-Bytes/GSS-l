@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   PROPERTY_EFFECT_REGISTRY_VERSION,
+  classifyPropertyEffect,
   comparePropertyRenderOrder,
   effectsOfProperty,
   isRegisteredPropertyEffect
@@ -31,6 +32,13 @@ describe('PropertyEffectRegistry', () => {
   it('orders a containing shorthand before its longhand override', () => {
     expect(comparePropertyRenderOrder('border', 'border-top-color')).toBeLessThan(0);
     expect(comparePropertyRenderOrder('border-top-color', 'border')).toBeGreaterThan(0);
+  });
+
+  it('classifies custom properties, longhands, shorthands, and unknowns', () => {
+    expect(classifyPropertyEffect('--brand')).toMatchObject({ kind: 'custom-property' });
+    expect(classifyPropertyEffect('color')).toMatchObject({ kind: 'longhand' });
+    expect(classifyPropertyEffect('border')).toMatchObject({ kind: 'shorthand' });
+    expect(classifyPropertyEffect('all')).toMatchObject({ kind: 'unknown' });
   });
 
   it('distinguishes registered effects from an unsafe unknown shorthand', () => {

@@ -490,14 +490,17 @@ describe('GssCompilerSession', () => {
 
     const replacement = compiler.replaceStylesheet({
       id: '/project/src/fallback.gss',
-      source: '.card { color: red; all: unset; opacity: 0.5; }'
+      source: '.card { color: red; all: unset; unknown-prop: value; opacity: 0.5; }'
     });
 
     expect(replacement).toMatchObject({
       committed: true,
       module: {
         compilationMode: 'preserved',
-        fallbackReasons: [{ property: 'all', reason: 'property-effect-not-registered' }]
+        fallbackReasons: [
+          { property: 'all', reason: 'property-effect-not-registered' },
+          { property: 'unknown-prop', reason: 'property-effect-not-registered' }
+        ]
       },
       diagnostics: [{
         code: 'GSS1104',
@@ -520,6 +523,7 @@ describe('GssCompilerSession', () => {
       '.gss-s--module_src_2f_fallback_2e_gss--path_card {\n' +
       '  color: red;\n' +
       '  all: unset;\n' +
+      '  unknown-prop: value;\n' +
       '  opacity: 0.5;\n' +
       '}'
     );
