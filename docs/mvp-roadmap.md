@@ -59,12 +59,14 @@ Completion criteria:
 
 ## Stage 3 — Declaration and cascade resolution
 
-- [ ] Implement the versioned data-driven `PropertyEffectRegistry`.
-- [ ] Resolve exact-property and shorthand/longhand winners per closed target candidate set.
-- [ ] Detect logical/physical property conflicts.
+- [x] Establish the data-driven `PropertyEffectRegistry` seam with margin/padding effect families.
+- [x] Resolve exact-property and registered shorthand/longhand winners per closed target candidate set.
+- [x] Version the property-effect registry and expand its first dataset across box, border, background, typography, layout, transition, animation, and mask families.
+- [ ] Complete shorthand classification for the full positive property set; unclassified effects must not enter atomic output.
+- [x] Detect registered logical/physical property conflicts, including conflicts introduced by ownership target accumulation.
 - [ ] Implement importance and authored cascade layer semantics.
 - [ ] Implement selector specificity, including `:where()` zero specificity.
-- [ ] Implement registered at-rule condition rank.
+- [x] Implement registered at-rule condition rank for deterministic rule planning.
 - [x] Reject equal-precedence coactive current-state conflicts unless an explicit intersection resolves them.
 - [ ] Implement full relation implication and remaining incomparable-condition diagnostics.
 - [x] Accumulate descendant-class selectors whose paths provably match a declared target and resolve their exact-property winners.
@@ -82,15 +84,19 @@ Completion criteria:
 - [x] Lower a leading ownership prefix before a child/sibling runtime-relation suffix.
 - [x] Plan the positive current/ancestor pseudo-state set and compose source state with runtime-relation suffixes.
 - [x] Plan current, ancestor, and runtime-source attribute/ARIA equality conditions.
+- [x] Plan the positive pseudo-element set, including current-state composition.
 - [x] Plan `:not()`, `:is()`, and `:where()` conditions with supported pseudo-state and attribute-equality branches.
-- [x] Plan simple local-class `:has()` observations for descendant, child, adjacent, and general-sibling relations.
-- [ ] Plan interleaved ownership/runtime chains, explicit-global functional branches, and remaining constrained `:has()` forms.
+- [x] Plan local-class and residual tag/attribute/pseudo `:has()` observations, including selector lists and supported combinators.
+- [ ] Plan interleaved ownership/runtime chains and explicit-global functional/`:has()` branches.
 - [ ] Plan residual and explicit-global selectors.
-- [ ] Implement custom property provider and `@property` resource semantics.
-- [ ] Implement module-local keyframes and static animation reference rewriting.
-- [ ] Implement global `@font-face` resources and asset dependencies.
-- [ ] Implement named layer and condition resources.
+- [x] Implement custom property provider and global `@property` resource semantics with transactional conflict detection and reference-counted output.
+- [x] Implement module-local keyframes, condition/layer-aware resource output, and static `animation-name`/`animation` reference rewriting.
+- [x] Implement global `@font-face` resources, face-signature conflict detection, reference counting, and URL dependency extraction.
+- [x] Plan registered `@media`, `@supports`, and `@container` wrappers across all currently supported pure and contextual atom forms; warn on unregistered queries.
+- [x] Plan configured named layers across pure and contextual atoms, emit the global order prelude, and warn on unregistered layer names.
+- [ ] Implement full registered condition precedence and remaining cascade-order planning.
 - [ ] Keep compatibility declaration sequences indivisible after browserslist transformation.
+- [ ] Replan recoverable atomization failures as one whole preserved Module while retaining ScopeSchema, resources, authored order, and transactional replacement.
 
 Completion criteria:
 
@@ -104,10 +110,10 @@ Completion criteria:
 - [ ] Implement transactional `replaceStylesheet(id, source)`.
 - [ ] Implement `invalidate(id)` and reference-count cleanup.
 - [ ] Implement full-census `finalize()`.
-- [ ] Implement `RuleOrderPlanner` separately from `CascadeResolver`.
+- [x] Implement `RuleOrderPlanner` separately from `CascadeResolver`.
 - [ ] Implement reversible readable names behind `NameAllocatorPort`.
 - [ ] Emit nested static scope objects and branded TypeScript declarations.
-- [ ] Emit central CSS, source map, manifest, and report.
+- [ ] Emit central CSS, source map, manifest, and report, including Module compilation mode, fallback reasons, and atomic coverage.
 
 Completion criteria:
 
@@ -189,4 +195,4 @@ Pilot gates:
 
 ## After the MVP
 
-Use pilot evidence—not assumptions—to prioritize deferred work in [`deferred-capabilities.md`](deferred-capabilities.md), including additional framework Adapters, CSS code splitting, editor integration, explicit preserve capabilities, and short/hash naming.
+Use pilot evidence—not assumptions—to prioritize deferred work in [`deferred-capabilities.md`](deferred-capabilities.md), including additional framework Adapters, CSS code splitting, editor integration, broader raw escape capabilities, and short/hash naming.

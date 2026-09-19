@@ -45,10 +45,11 @@
 
 - 标准 property/value syntax，value 默认 opaque。
 - `!important`。
-- Data-driven shorthand/longhand property effects。
+- Versioned、data-driven shorthand/longhand property effects；v1覆盖 box、border、background、typography、flex/alignment、transition、animation和mask family。
 - Custom property provider、inheritance 与 `var(...)` consumer。
 - `@property` 全局 registration。
 - Browserslist transformer生成的兼容 declaration sequence。
+- 对selector/scope可证明安全、但property effect或compatibility sequence无法安全atomize的输入，自动整Module preserved；不得逐rule/declaration混合fallback。
 
 ## Global resources
 
@@ -65,6 +66,7 @@
 - Semantic source-order vector：registered condition、relation implication、property effect。
 - Cascade resolution 与 deterministic render order分离；registry registration order和 canonical hash不参与 winner。
 - Production 全局 census/finalize并输出一个中央 CSS asset；SSR引用同一 build manifest asset。
+- Artifact、manifest和report记录`atomic`/`preserved` mode、fallback reason与atomic coverage；fallback产生warning且可由项目升级为error。
 - Dev replace-by-id transaction、last-known-good rollback、ref-count回收与完整 ordered snapshot HMR。
 - 独立 NameAllocator生成由完整 canonical identity 可逆编码的可读名称。
 

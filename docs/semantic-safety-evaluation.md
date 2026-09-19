@@ -242,7 +242,7 @@ the earlier longhand is a known loser and does not enter the export.
 
 Values remain opaque. In particular, `var(...)` is not assumed to substitute one component.
 
-Potential logical/physical overlap and unknown property effects fail closed because their winner can depend on runtime writing mode or unmodelled shorthand semantics.
+Potential logical/physical overlap still fails closed because its winner can depend on runtime writing mode. An otherwise valid Module with unknown property effects cannot emit atoms; it may instead pass the independent preserved-scoping proof and retain browser-evaluated authored order as one whole preserved Module.
 
 ## 11. Duplicate property and compatibility sequences
 
@@ -286,9 +286,9 @@ The first version uses reversible readable names generated from canonical identi
 
 ## 15. Fail-closed policy
 
-A successful build means every input is inside a documented capability or warning exception.
+A successful build means every input either passed atomic proof or passed the documented whole-Module preserved proof. Preserved output is visible through a diagnostic, artifact mode, manifest entry, report coverage, and optional strict-policy failure.
 
-The Compiler does not silently convert unknown or dangerous input into a generic preserved/scoped block. Contextual atoms and residual/global selectors are explicit language features, not fallback guesses.
+The Compiler never converts parse, selector ownership/scoping, global ordering, or resource-conflict errors into generic preserved output. Contextual atoms, residual/global selectors, and constrained preserved Modules are explicit language features, not fallback guesses.
 
 Explicitly discussed future capabilities and non-goals are tracked in [`deferred-capabilities.md`](deferred-capabilities.md).
 

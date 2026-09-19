@@ -44,6 +44,11 @@ export type FinalizedGssSnapshot = {
   css: string;
   manifest: {
     modules: readonly string[];
+    resources: readonly {
+      kind: 'property' | 'keyframes' | 'font-face';
+      name: string;
+      sources: readonly string[];
+    }[];
     rules: readonly {
       kind: 'pure-atom' | 'contextual-atom';
       className: string;
@@ -57,11 +62,18 @@ export type FinalizedGssSnapshot = {
   report: {
     modules: number;
     rules: number;
+    resources: number;
   };
 };
 
 export type GssCompilerConfig = {
   projectRoot: string;
+  layers?: readonly string[];
+  conditions?: {
+    media?: readonly string[];
+    supports?: readonly string[];
+    container?: readonly string[];
+  };
 };
 
 export type GssCompilerSession = {

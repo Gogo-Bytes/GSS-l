@@ -168,6 +168,630 @@ describe('GssCompilerSession', () => {
     );
   });
 
+  it('rejects conflicting @font-face definitions for one selection signature', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    compiler.replaceStylesheet({
+      id: '/project/src/a.gss',
+      source: `@font-face {
+        font-family: "Inter";
+        src: url("./a.woff2");
+        font-weight: 400;
+      }`
+    });
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/b.gss',
+      source: `@font-face {
+        font-family: "Inter";
+        src: url("./b.woff2");
+        font-weight: 400;
+      }`
+    });
+
+    expect(replacement).toMatchObject({
+      committed: false,
+      generation: 1,
+      diagnostics: [{
+        code: 'GSS1301',
+        reason: 'conflicting-global-resource'
+      }]
+    });
+    expect(compiler.finalize().css).toContain('./a.woff2');
+    expect(compiler.finalize().css).not.toContain('./b.woff2');
+  });
+
+  it('emits @font-face intact and reports its URL dependencies', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/typography.gss',
+      source: `
+        @font-face {
+          font-family: "Inter";
+          src: url("./inter.woff2") format("woff2"), url('./inter.woff') format('woff');
+          font-style: normal;
+          font-weight: 400;
+        }
+        .text { font-family: "Inter"; }
+      `
+    });
+
+    expect(replacement).toMatchObject({
+      committed: true,
+      diagnostics: [],
+      module: {
+        dependencies: ['./inter.woff2', './inter.woff']
+      }
+    });
+    expect(compiler.finalize().css).toContain(
+      `@font-face {\n` +
+      `  font-family: "Inter";\n` +
+      `  src: url("./inter.woff2") format("woff2"), url('./inter.woff') format('woff');\n` +
+      `  font-style: normal;\n` +
+      `  font-weight: 400;\n}`
+    );
+  });
+
+  it('rewrites static local names in animation shorthand without touching var()', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/motion.gss',
+      source: `
+        @keyframes fade { to { opacity: 1; } }
+        @keyframes spin { to { transform: rotate(1turn); } }
+        .motion {
+          animation: 1s ease fade, 2s linear spin, 3s external, var(--animation);
+        }
+      `
+    });
+
+    const fade = 'gss-k--module_src_2f_motion_2e_gss--name_fade';
+    const spin = 'gss-k--module_src_2f_motion_2e_gss--name_spin';
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    expect(compiler.finalize().css).toContain(
+      `animation: 1s ease ${fade}, 2s linear ${spin}, 3s external, var(--animation);`
+    );
+  });
+
+  it('renames module-local keyframes and rewrites a static animation-name reference', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/spinner.gss',
+      source: `
+        @keyframes fade {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        .spinner { animation-name: fade; }
+      `
+    });
+
+    const generatedName = 'gss-k--module_src_2f_spinner_2e_gss--name_fade';
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    const className = replacement.module?.scopeSchema.exports.spinner?.selfClassName;
+    expect(className).toContain('--property_animation_2d_name--value_gss_2d_k');
+    expect(compiler.finalize().css).toBe(
+      `@keyframes ${generatedName} {\n` +
+      `  from {\n    opacity: 0;\n  }\n` +
+      `  to {\n    opacity: 1;\n  }\n` +
+      `}\n\n.${className} {\n  animation-name: ${generatedName};\n}`
+    );
+  });
+
+  it('rejects conflicting global @property registrations transactionally', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    compiler.replaceStylesheet({
+      id: '/project/src/a.gss',
+      source: '@property --brand { syntax: "<color>"; inherits: true; initial-value: red; }'
+    });
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/b.gss',
+      source: '@property --brand { syntax: "<length>"; inherits: false; initial-value: 0px; }'
+    });
+
+    expect(replacement).toMatchObject({
+      committed: false,
+      generation: 1,
+      diagnostics: [{
+        code: 'GSS1301',
+        phase: 'registry',
+        reason: 'conflicting-global-resource'
+      }]
+    });
+    expect(compiler.finalize()).toMatchObject({ report: { modules: 1 } });
+    expect(compiler.finalize().css).toContain('syntax: "<color>";');
+    expect(compiler.finalize().css).not.toContain('syntax: "<length>";');
+  });
+
+  it('emits an @property registration as an indivisible global resource', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/theme.gss',
+      source: `
+        @property --brand {
+          syntax: "<color>";
+          inherits: true;
+          initial-value: red;
+        }
+        .theme { --brand: blue; }
+      `
+    });
+
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    const className = replacement.module?.scopeSchema.exports.theme?.selfClassName;
+    expect(compiler.finalize().css).toBe(
+      `@property --brand {\n  syntax: "<color>";\n  inherits: true;\n  initial-value: red;\n}\n\n` +
+      `.${className} {\n  --brand: blue;\n}`
+    );
+  });
+
+  it('rejects logical and physical conflicts introduced by target accumulation', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/family.gss',
+      source: `
+        .son { margin-inline-start: 1rem; }
+        .father .son { margin-left: 2rem; }
+      `
+    });
+
+    expect(replacement).toMatchObject({
+      committed: false,
+      diagnostics: [{
+        code: 'GSS1206',
+        reason: 'logical-physical-property-conflict'
+      }]
+    });
+  });
+
+  it('rejects direction-dependent logical and physical property conflicts', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/box.gss',
+      source: '.box { margin-inline-start: 1rem; margin-left: 2rem; }'
+    });
+
+    expect(replacement).toMatchObject({
+      committed: false,
+      generation: 0,
+      diagnostics: [{
+        code: 'GSS1206',
+        severity: 'error',
+        phase: 'resolve',
+        reason: 'logical-physical-property-conflict'
+      }]
+    });
+    expect(compiler.finalize()).toMatchObject({
+      css: '',
+      report: { modules: 0, rules: 0 }
+    });
+  });
+
+  it('resolves border family shorthand and longhand effects', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    compiler.replaceStylesheet({
+      id: '/project/src/border.gss',
+      source: '.box { border-top-color: red; border: 1px solid blue; }'
+    });
+
+    expect(compiler.finalize()).toMatchObject({ report: { modules: 1, rules: 1 } });
+    expect(compiler.finalize().css).toContain('border: 1px solid blue;');
+    expect(compiler.finalize().css).not.toContain('border-top-color: red;');
+  });
+
+  it('removes a longhand fully shadowed by a later shorthand', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/box.gss',
+      source: '.box { margin-left: 10px; margin: 0; }'
+    });
+
+    expect(replacement.diagnostics).toEqual([]);
+    expect(replacement.module?.scopeSchema.exports.box?.selfClassName).not.toContain(
+      '--property_margin_2d_left--'
+    );
+    expect(compiler.finalize()).toMatchObject({ report: { modules: 1, rules: 1 } });
+    expect(compiler.finalize().css).toContain('margin: 0;');
+  });
+
+  it('orders a surviving shorthand before its later longhand override', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    compiler.replaceStylesheet({
+      id: '/project/src/box.gss',
+      source: '.box { margin: 0; margin-left: 10px; }'
+    });
+
+    const css = compiler.finalize().css;
+    expect(compiler.finalize()).toMatchObject({ report: { modules: 1, rules: 2 } });
+    expect(css.indexOf('margin: 0;')).toBeLessThan(css.indexOf('margin-left: 10px;'));
+  });
+
+  it('orders coactive condition rules by registered project order', () => {
+    const compiler = createGssCompilerSession({
+      projectRoot: '/project',
+      conditions: {
+        media: ['(min-width: 80rem)', '(min-width: 40rem)']
+      }
+    });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/layout.gss',
+      source: `
+        @media (min-width: 40rem) { .layout { color: blue; } }
+        @media (min-width: 80rem) { .layout { color: red; } }
+      `
+    });
+
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    const css = compiler.finalize().css;
+    expect(css.indexOf('@media (min-width: 80rem)')).toBeLessThan(
+      css.indexOf('@media (min-width: 40rem)')
+    );
+  });
+
+  it('preserves a configured layer around a structural contextual atom', () => {
+    const compiler = createGssCompilerSession({
+      projectRoot: '/project',
+      layers: ['components']
+    });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/family.gss',
+      source: '@layer components { .father > .son { color: red; } }'
+    });
+
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    const fatherClass = replacement.module?.scopeSchema.exports.father?.selfClassName;
+    const sonClass = replacement.module?.scopeSchema.exports.father?.targets.son?.selfClassName;
+    expect(fatherClass).toContain('--layer_components--');
+    expect(sonClass).toContain('--layer_components--');
+    expect(compiler.finalize().css).toBe(
+      `@layer components;\n\n@layer components {\n  .${fatherClass} > .${sonClass} {\n    color: red;\n  }\n}`
+    );
+  });
+
+  it('warns without rejecting an unregistered named layer', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/button.gss',
+      source: '@layer components { .button { color: red; } }'
+    });
+
+    expect(replacement).toMatchObject({
+      committed: true,
+      diagnostics: [{
+        code: 'GSS1103',
+        severity: 'warning',
+        reason: 'layer-not-registered'
+      }]
+    });
+    expect(compiler.finalize().css).toContain('@layer components {');
+  });
+
+  it('plans a configured named cascade layer and emits its order prelude', () => {
+    const compiler = createGssCompilerSession({
+      projectRoot: '/project',
+      layers: ['reset', 'components']
+    });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/button.gss',
+      source: '@layer components { .button { color: red; } }'
+    });
+
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    const className = replacement.module?.scopeSchema.exports.button?.selfClassName;
+    expect(className).toContain('--layer_components--condition_base--');
+    expect(compiler.finalize().css).toBe(
+      `@layer reset, components;\n\n@layer components {\n  .${className} {\n    color: red;\n  }\n}`
+    );
+  });
+
+  it('preserves a registered condition around an ancestor-state atom', () => {
+    const compiler = createGssCompilerSession({
+      projectRoot: '/project',
+      conditions: { media: ['(hover: hover)'] }
+    });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/family.gss',
+      source: '@media (hover: hover) { .father:hover .son { color: red; } }'
+    });
+
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    const fatherClass = replacement.module?.scopeSchema.exports.father?.selfClassName;
+    const sonClass = replacement.module?.scopeSchema.exports.father?.targets.son?.selfClassName;
+    expect(fatherClass).toContain('--condition_media_3a__28_hover');
+    expect(sonClass).toContain('--condition_media_3a__28_hover');
+    expect(compiler.finalize().css).toBe(
+      `@media (hover: hover) {\n  .${fatherClass}:hover .${sonClass} {\n    color: red;\n  }\n}`
+    );
+  });
+
+  it('preserves a registered condition around an observed contextual atom', () => {
+    const compiler = createGssCompilerSession({
+      projectRoot: '/project',
+      conditions: { supports: ['selector(:has(*))'] }
+    });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/card.gss',
+      source: '@supports selector(:has(*)) { .card:has(.error) { color: red; } }'
+    });
+
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    const cardClass = replacement.module?.scopeSchema.exports.card?.selfClassName;
+    const errorClass = replacement.module?.scopeSchema.exports.error?.selfClassName;
+    expect(cardClass).toContain('--condition_supports_3a_selector');
+    expect(errorClass).toContain('--condition_supports_3a_selector');
+    expect(compiler.finalize().css).toBe(
+      `@supports selector(:has(*)) {\n  .${cardClass}:has(.${errorClass}) {\n    color: red;\n  }\n}`
+    );
+  });
+
+  it('preserves a registered condition around a structural contextual atom', () => {
+    const compiler = createGssCompilerSession({
+      projectRoot: '/project',
+      conditions: { media: ['(min-width: 40rem)'] }
+    });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/family.gss',
+      source: '@media (min-width: 40rem) { .father > .son { color: red; } }'
+    });
+
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    const fatherClass = replacement.module?.scopeSchema.exports.father?.selfClassName;
+    const sonClass = replacement.module?.scopeSchema.exports.father?.targets.son?.selfClassName;
+    expect(fatherClass).toContain('--condition_media_3a__28_min_2d_width');
+    expect(sonClass).toContain('--condition_media_3a__28_min_2d_width');
+    expect(compiler.finalize().css).toBe(
+      `@media (min-width: 40rem) {\n  .${fatherClass} > .${sonClass} {\n    color: red;\n  }\n}`
+    );
+  });
+
+  it('preserves a registered condition around an attribute atom', () => {
+    const compiler = createGssCompilerSession({
+      projectRoot: '/project',
+      conditions: { supports: ['selector(:has(*))'] }
+    });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/tab.gss',
+      source: `
+        @supports selector(:has(*)) {
+          .tab[aria-selected="true"] { color: red; }
+        }
+      `
+    });
+
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    const className = replacement.module?.scopeSchema.exports.tab?.selfClassName;
+    expect(className).toContain('--condition_supports_3a_selector_28__3a_has_28__2a__29__29_--');
+    expect(compiler.finalize().css).toContain(
+      `.${className}[aria-selected="true"] {\n    color: red;\n  }`
+    );
+  });
+
+  it('preserves a registered condition around a pseudo-element atom', () => {
+    const compiler = createGssCompilerSession({
+      projectRoot: '/project',
+      conditions: { media: ['print'] }
+    });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/article.gss',
+      source: '@media print { .article::first-letter { color: red; } }'
+    });
+
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    const className = replacement.module?.scopeSchema.exports.article?.selfClassName;
+    expect(className).toContain('--condition_media_3a_print--state_self--pseudo_first_2d_letter--');
+    expect(compiler.finalize().css).toBe(
+      `@media print {\n  .${className}::first-letter {\n    color: red;\n  }\n}`
+    );
+  });
+
+  it('preserves a registered condition around a state atom', () => {
+    const compiler = createGssCompilerSession({
+      projectRoot: '/project',
+      conditions: { media: ['(hover: hover)'] }
+    });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/button.gss',
+      source: '@media (hover: hover) { .button:hover { color: red; } }'
+    });
+
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    const className = replacement.module?.scopeSchema.exports.button?.selfClassName;
+    expect(className).toContain('--condition_media_3a__28_hover_3a__20_hover_29_--state_hover--');
+    expect(compiler.finalize().css).toBe(
+      `@media (hover: hover) {\n  .${className}:hover {\n    color: red;\n  }\n}`
+    );
+  });
+
+  it.each([
+    ['supports', '(display: grid)'],
+    ['container', 'sidebar (min-width: 30rem)']
+  ])('plans a registered @%s condition', (kind, query) => {
+    const compiler = createGssCompilerSession({
+      projectRoot: '/project',
+      conditions: { [kind]: [query] }
+    });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/layout.gss',
+      source: `@${kind} ${query} { .layout { display: block; } }`
+    });
+
+    expect(replacement.diagnostics).toEqual([]);
+    const className = replacement.module?.scopeSchema.exports.layout?.selfClassName;
+    expect(compiler.finalize().css).toBe(
+      `@${kind} ${query} {\n  .${className} {\n    display: block;\n  }\n}`
+    );
+  });
+
+  it('warns without rejecting an unregistered @media condition', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/layout.gss',
+      source: '@media (orientation: landscape) { .layout { display: block; } }'
+    });
+
+    expect(replacement).toMatchObject({
+      committed: true,
+      generation: 1,
+      diagnostics: [{
+        code: 'GSS1102',
+        severity: 'warning',
+        phase: 'validate',
+        reason: 'condition-not-registered'
+      }]
+    });
+    expect(compiler.finalize().css).toContain('@media (orientation: landscape)');
+  });
+
+  it('plans a registered @media condition around a pure atom', () => {
+    const compiler = createGssCompilerSession({
+      projectRoot: '/project',
+      conditions: { media: ['(min-width: 40rem)'] }
+    });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/layout.gss',
+      source: '@media (min-width: 40rem) { .layout { display: block; } }'
+    });
+
+    expect(replacement.diagnostics).toEqual([]);
+    const className = replacement.module?.scopeSchema.exports.layout?.selfClassName;
+    expect(className).toContain('--condition_media_3a__28_min_2d_width_3a__20_40rem_29_--');
+    expect(compiler.finalize().css).toBe(
+      `@media (min-width: 40rem) {\n  .${className} {\n    display: block;\n  }\n}`
+    );
+  });
+
+  it.each([
+    ['[aria-invalid="true"]', '[aria-invalid="true"]'],
+    ['> img', '> img'],
+    [':focus', ':focus']
+  ])('plans the residual :has(%s) observation without a local export', (
+    authoredObservation,
+    normalizedObservation
+  ) => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/card.gss',
+      source: `.card:has(${authoredObservation}) { color: red; }`
+    });
+
+    expect(replacement.diagnostics).toEqual([]);
+    expect(Object.keys(replacement.module?.scopeSchema.exports ?? {})).toEqual(['card']);
+    const cardClass = replacement.module?.scopeSchema.exports.card?.selfClassName;
+    expect(cardClass).toContain('--residual_');
+    expect(compiler.finalize().css).toBe(
+      `.${cardClass}:has(${normalizedObservation}) {\n  color: red;\n}`
+    );
+  });
+
+  it('composes a current-element state with a pseudo-element', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/control.gss',
+      source: '.control:hover::before { color: red; }'
+    });
+
+    expect(replacement.diagnostics).toEqual([]);
+    const className = replacement.module?.scopeSchema.exports.control?.selfClassName;
+    expect(className).toContain('--state_hover--pseudo_before--');
+    expect(compiler.finalize().css).toBe(
+      `.${className}:hover::before {\n  color: red;\n}`
+    );
+  });
+
+  it.each([
+    'before',
+    'after',
+    'placeholder',
+    'marker',
+    'file-selector-button',
+    'backdrop',
+    'first-line',
+    'first-letter',
+    'selection'
+  ])('plans the supported ::%s pseudo-element', (pseudoElement) => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/control.gss',
+      source: `.control::${pseudoElement} { color: red; }`
+    });
+
+    expect(replacement.diagnostics).toEqual([]);
+    const className = replacement.module?.scopeSchema.exports.control?.selfClassName;
+    expect(className).toContain(
+      `--pseudo_${pseudoElement.replaceAll('-', '_2d_')}--property_color--`
+    );
+    expect(compiler.finalize().css).toBe(
+      `.${className}::${pseudoElement} {\n  color: red;\n}`
+    );
+  });
+
+  it('preserves a pseudo state on an observed local class', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/card.gss',
+      source: '.card:has(.error:hover) { color: red; }'
+    });
+
+    expect(replacement.diagnostics).toEqual([]);
+    const cardClass = replacement.module?.scopeSchema.exports.card?.selfClassName;
+    const errorClass = replacement.module?.scopeSchema.exports.error?.selfClassName;
+    expect(cardClass).toContain('--state_hover--');
+    expect(compiler.finalize().css).toBe(
+      `.${cardClass}:has(.${errorClass}:hover) {\n  color: red;\n}`
+    );
+  });
+
+  it('expands a :has() selector list into independent observed branches', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/card.gss',
+      source: '.card:has(.error, > .warning) { color: red; }'
+    });
+
+    expect(replacement.diagnostics).toEqual([]);
+    const exports = replacement.module?.scopeSchema.exports;
+    const subjectMarkers = exports?.card?.selfClassName.split(' ') ?? [];
+    const errorSubject = subjectMarkers.find((marker) => marker.endsWith('--observed_error'));
+    const warningSubject = subjectMarkers.find((marker) => marker.endsWith('--observed_warning'));
+    const errorObserved = exports?.error?.selfClassName;
+    const warningObserved = exports?.warning?.selfClassName;
+    expect(subjectMarkers).toHaveLength(2);
+    expect(compiler.finalize()).toMatchObject({ report: { modules: 1, rules: 2 } });
+    expect(compiler.finalize().css).toContain(
+      `.${errorSubject}:has(.${errorObserved}) {\n  color: red;\n}`
+    );
+    expect(compiler.finalize().css).toContain(
+      `.${warningSubject}:has(> .${warningObserved}) {\n  color: red;\n}`
+    );
+  });
+
   it.each([
     ['>', 'child'],
     ['+', 'adjacent'],

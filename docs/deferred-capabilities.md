@@ -102,12 +102,12 @@
 - **重新评估**：React Adapter diagnostic code稳定后。
 - **依据**：[ADR-0017](adr/0017-use-self-as-the-explicit-class-string-escape.md)。
 
-### D014 — Generic preserved/raw CSS escape hatch
+### D014 — Generic raw/validation-bypass escape hatch
 
-- **当前行为**：没有自动或显式 `preserve`、`raw`、`ignore` 整块 fallback；无法证明安全的输入直接失败。
-- **原因**：通用 escape 会让构建成功不再代表语义安全，并容易成为绕过语言约束的默认路径。
-- **重新评估**：真实项目出现无法通过 supported contextual/residual/global 能力改写的必要案例后；未来设计必须显式 opt-in、限制 scope、进入 manifest/report 并记录原因。
-- **依据**：[ADR-0019](adr/0019-fail-closed-when-safety-cannot-be-proved.md)。
+- **当前行为**：ADR-0031只允许已通过parse、selector和scope proof的Module因可恢复atomization limitation自动整Module preserved；没有跳过validation的`raw`、`ignore`或任意CSS passthrough。
+- **原因**：通用escape会让构建成功不再代表语义安全，并容易成为绕过语言约束的默认路径。
+- **重新评估**：真实项目证明受约束preserved Module仍无法表达必要案例后；任何扩展仍必须限制scope、进入manifest/report并记录原因。
+- **依据**：[ADR-0031](adr/0031-fallback-recoverable-atomization-failures-to-preserved-modules.md)。
 
 ### D015 — Production CSS code splitting
 

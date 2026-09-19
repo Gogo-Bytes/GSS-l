@@ -76,8 +76,11 @@ export type GssCompilerConfig = {
   layers: RegisteredLayerConfig;
   naming: NameAllocatorConfig;
   compatibility: CompatibilityTargetConfig;
+  atomizationFallback?: "preserve-module" | "error";
 };
 ```
+
+`atomizationFallback` defaults to `"preserve-module"`. It applies only when selectors and scope semantics are valid but property effects or compatibility sequences cannot be safely atomized. It never converts parse, scoping, selector-safety, ordering, or resource-conflict errors into successful output.
 
 `projectRoot` is used to derive stable logical Module ids. Absolute paths never enter semantic identity or emitted output.
 
@@ -97,8 +100,9 @@ export type ReplaceStylesheetInput = {
 3. build framework-agnostic IR;
 4. resolve selector paths, cascade winners, and property effects;
 5. plan pure/contextual atoms, markers, and resources;
-6. prepare the complete Module contribution;
-7. commit only if no error diagnostic exists.
+6. if atomic proof fails for a recoverable reason, discard that plan and prepare one whole-Module preserved contribution;
+7. prepare the complete Module contribution, mode, fallback reasons, and resources;
+8. commit only if no error diagnostic exists.
 
 A failed replacement leaves the previous successful contribution active.
 
@@ -119,6 +123,8 @@ export type StyleModuleArtifact = {
   moduleCode: string;
   declarationCode: string;
   dependencies: readonly GssDependency[];
+  compilationMode: "atomic" | "preserved";
+  fallbackReasons: readonly GssFallbackReason[];
   sourceMap?: SourceMapArtifact;
 };
 ```

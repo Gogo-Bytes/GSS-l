@@ -1,7 +1,8 @@
 export type PureDeclarationIdentity = {
-  layer: 'unlayered';
-  condition: 'base';
+  layer: string;
+  condition: string;
   state: string;
+  pseudoElement?: string;
   property: string;
   value: string;
   important: boolean;
@@ -9,13 +10,19 @@ export type PureDeclarationIdentity = {
 
 export type ObservedRelationIdentity = {
   moduleId: string;
+  layer?: string;
+  condition?: string;
   subjectPath: readonly string[];
   relation: 'descendant' | 'child' | 'adjacent' | 'general-sibling';
-  observedClass: string;
+  observedClass?: string;
+  observedState?: string;
+  observedResidual?: string;
 };
 
 export type ContextualRelationIdentity = {
   moduleId: string;
+  layer?: string;
+  condition?: string;
   relations: readonly ('descendant' | 'child' | 'adjacent' | 'general-sibling')[];
   sourceState?: string;
   sourceAttribute?: string;
@@ -23,53 +30,98 @@ export type ContextualRelationIdentity = {
   targetPath: readonly string[];
 };
 
+export function createReadableKeyframesName(moduleId: string, authoredName: string): string {
+  return [
+    'gss-k',
+    `module_${encodeNamePart(moduleId)}`,
+    `name_${encodeNamePart(authoredName)}`
+  ].join('--');
+}
+
 export function createReadableAtomicName(identity: PureDeclarationIdentity): string {
   return [
     'gss-a',
     `layer_${encodeNamePart(identity.layer)}`,
     `condition_${encodeNamePart(identity.condition)}`,
     `state_${encodeNamePart(identity.state)}`,
+    identity.pseudoElement
+      ? `pseudo_${encodeNamePart(identity.pseudoElement)}`
+      : undefined,
     `property_${encodeNamePart(identity.property)}`,
     `value_${encodeNamePart(identity.value)}`,
     `importance_${identity.important ? 'important' : 'normal'}`
-  ].join('--');
+  ].filter((part): part is string => part !== undefined).join('--');
 }
 
 export function createReadableHasSubjectMarker(identity: ObservedRelationIdentity): string {
   return [
     'gss-hs',
     `module_${encodeNamePart(identity.moduleId)}`,
+    identity.layer && identity.layer !== 'unlayered'
+      ? `layer_${encodeNamePart(identity.layer)}`
+      : undefined,
+    identity.condition && identity.condition !== 'base'
+      ? `condition_${encodeNamePart(identity.condition)}`
+      : undefined,
     `subject_${encodePath(identity.subjectPath)}`,
     `relation_${encodeNamePart(identity.relation)}`,
-    `observed_${encodeNamePart(identity.observedClass)}`
-  ].join('--');
+    identity.observedState ? `state_${encodeNamePart(identity.observedState)}` : undefined,
+    renderObservedNamePart(identity)
+  ].filter((part): part is string => part !== undefined).join('--');
 }
 
 export function createReadableObservedMarker(identity: ObservedRelationIdentity): string {
   return [
     'gss-ho',
     `module_${encodeNamePart(identity.moduleId)}`,
+    identity.layer && identity.layer !== 'unlayered'
+      ? `layer_${encodeNamePart(identity.layer)}`
+      : undefined,
+    identity.condition && identity.condition !== 'base'
+      ? `condition_${encodeNamePart(identity.condition)}`
+      : undefined,
     `subject_${encodePath(identity.subjectPath)}`,
     `relation_${encodeNamePart(identity.relation)}`,
-    `observed_${encodeNamePart(identity.observedClass)}`
-  ].join('--');
+    identity.observedState ? `state_${encodeNamePart(identity.observedState)}` : undefined,
+    renderObservedNamePart(identity)
+  ].filter((part): part is string => part !== undefined).join('--');
+}
+
+function renderObservedNamePart(identity: ObservedRelationIdentity): string {
+  return identity.observedClass
+    ? `observed_${encodeNamePart(identity.observedClass)}`
+    : `residual_${encodeNamePart(identity.observedResidual ?? '')}`;
 }
 
 export function createReadableSourceMarker(
   moduleId: string,
-  path: readonly string[]
+  path: readonly string[],
+  condition?: string,
+  layer?: string
 ): string {
   return [
     'gss-s',
     `module_${encodeNamePart(moduleId)}`,
+    layer && layer !== 'unlayered'
+      ? `layer_${encodeNamePart(layer)}`
+      : undefined,
+    condition && condition !== 'base'
+      ? `condition_${encodeNamePart(condition)}`
+      : undefined,
     `path_${encodePath(path)}`
-  ].join('--');
+  ].filter((part): part is string => part !== undefined).join('--');
 }
 
 export function createReadableTargetMarker(identity: ContextualRelationIdentity): string {
   return [
     'gss-t',
     `module_${encodeNamePart(identity.moduleId)}`,
+    identity.layer && identity.layer !== 'unlayered'
+      ? `layer_${encodeNamePart(identity.layer)}`
+      : undefined,
+    identity.condition && identity.condition !== 'base'
+      ? `condition_${encodeNamePart(identity.condition)}`
+      : undefined,
     `relation_${encodeRelations(identity.relations)}`,
     identity.sourceState ? `state_${encodeNamePart(identity.sourceState)}` : undefined,
     identity.sourceAttribute
@@ -88,6 +140,12 @@ export function createReadableContextMarker(
   return [
     'gss-c',
     `module_${encodeNamePart(identity.moduleId)}`,
+    identity.layer && identity.layer !== 'unlayered'
+      ? `layer_${encodeNamePart(identity.layer)}`
+      : undefined,
+    identity.condition && identity.condition !== 'base'
+      ? `condition_${encodeNamePart(identity.condition)}`
+      : undefined,
     `relation_${encodeRelations(identity.relations)}`,
     identity.sourceState ? `state_${encodeNamePart(identity.sourceState)}` : undefined,
     identity.sourceAttribute

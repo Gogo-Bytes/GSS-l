@@ -158,16 +158,17 @@ Authored order is used only inside a closed candidate set known to match the sam
 ```text
 PureAtomicRule
 ContextualAtomicRule
+PreservedModuleBlock
 GlobalResource
 ```
 
-Each CSS rule represents one semantic declaration. A compatibility transformer may expand that declaration into an indivisible physical fallback sequence.
+Each atomic CSS rule represents one semantic declaration. A compatibility transformer may expand that declaration into an indivisible physical fallback sequence.
 
-The first version does not silently choose a preserved/scoped fallback when proof fails; validation fails closed.
+Compilation has two proof gates. An atomic proof failure caused by an otherwise valid unknown property effect or indivisible compatibility sequence replans the complete Module as preserved scoped CSS. A preserved Module keeps authored rule/declaration order and never mixes its rules with per-declaration atoms. Failure to parse, scope, or preserve semantics still fails closed.
 
 ### Registry and finalization
 
-The registry deduplicates complete semantic identities and reference-counts Module contributions. It stores meaning, not first-seen CSS text.
+The registry deduplicates complete atomic/resource semantic identities and reference-counts every Module contribution. A preserved block remains Module-owned and indivisible rather than participating in cross-Module atom reuse.
 
 `RuleOrderPlanner` receives only rules already proven safe and creates deterministic physical order. Canonical identity breaks harmless ties but never chooses semantic winners.
 

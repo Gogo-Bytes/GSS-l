@@ -263,11 +263,17 @@ importance and cascade layer
 
 Canonical identity and emitted names provide deterministic output only; they never choose a winner. A result that depends on Module registration, worker completion, or name sorting is a compiler invariant failure.
 
+## Atomic and preserved Module modes
+
+Every committed Module has one compilation mode. An `atomic` Module emits proven pure/contextual atoms. If otherwise-valid input can be safely scoped but an unknown property effect or indivisible compatibility sequence prevents safe atomization, the Compiler automatically replans the complete Module as `preserved`; it retains authored rule/declaration order, condition/layer structure, resources, URL dependencies, and the same `ScopeSchema` contract behind stable Module-local markers.
+
+Fallback is never declaration- or rule-local. Mixing preserved declarations with atoms from the same Module would allow an unknown effect to compete across the boundary. Fallback emits a warning and is recorded in the artifact, manifest, and report; projects may configure it as an error or enforce a preserved-Module budget.
+
 ## Safety policy
 
-GSS-l is fail-closed. Inputs that cannot be proven safe return structured diagnostics rather than silently becoming scoped or preserved CSS.
+GSS-l is fail-closed at two proof gates. Failure of atomic proof prohibits atomic output but may enter whole-Module preserved mode. Parse errors, selectors or scope escapes that cannot be safely scoped, unsafe global ordering, resource conflicts, and any failure of preserved proof return structured error diagnostics and retain the last-known-good contribution.
 
-Contextual relations, residual selectors, explicit globals, registered resources, and transformer-generated compatibility declarations are formal capabilities—not fallback bundles.
+Contextual relations, residual selectors, explicit globals, registered resources, transformer-generated compatibility declarations, and constrained preserved Modules are formal capabilities—not silent fallback guesses.
 
 The first version emits one central production CSS asset for all reachable main and lazy Modules. Dev/HMR replaces Module contributions transactionally and regenerates a complete ordered snapshot.
 
