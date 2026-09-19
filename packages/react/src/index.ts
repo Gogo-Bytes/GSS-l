@@ -52,7 +52,7 @@ export function transformReactGssUsage(
   });
   const bindings = collectGssBindings(ast.program, input.resolveScopeSchema);
   const verifiedBindings = resolveReferenceBindings(ast, bindings);
-  const aliasReferences = resolveDirectAliasReferences(ast, verifiedBindings);
+  const aliasReferences = resolveAliasReferences(ast, verifiedBindings);
   const output = new MagicString(input.source);
   const diagnostics: ReactGssDiagnostic[] = [];
 
@@ -78,6 +78,16 @@ export function transformReactGssUsage(
             id: input.id,
             reason: 'mutable-scope-alias',
             suggestion: 'Use a const scope alias or pass an explicit .self string.'
+          });
+        } else if (aliasKind === 'ambiguous') {
+          diagnostics.push({
+            code: 'GSS2104',
+            severity: 'error',
+            phase: 'transform',
+            message: `Alias ${expression.name} mixes a GSS scope with a non-scope value.`,
+            id: input.id,
+            reason: 'ambiguous-scope-alias',
+            suggestion: 'Make every branch a GSS scope or pass explicit class strings.'
           });
         }
         return;
@@ -165,25 +175,49 @@ function resolveReferenceBindings(
   return resolved;
 }
 
-function resolveDirectAliasReferences(
+type AliasKind = 'scope' | 'mutable' | 'ambiguous';
+
+type ScopeExpressionKind = 'scope' | 'non-scope' | 'ambiguous';
+
+function resolveAliasReferences(
   ast: t.File,
   verifiedBindings: WeakMap<t.MemberExpression, GssBinding>
-): WeakMap<t.Identifier, 'scope' | 'mutable'> {
-  const aliases = new Map<Binding, 'scope' | 'mutable'>();
+): WeakMap<t.Identifier, AliasKind> {
+  const aliases = new Map<Binding, AliasKind>();
   traverse(ast, {
     VariableDeclarator(path) {
-      if (!t.isIdentifier(path.node.id) || !t.isMemberExpression(path.node.init)) return;
-      const imported = verifiedBindings.get(path.node.init);
-      const reference = readStaticReference(path.node.init);
-      if (!imported || !reference || reference.path.at(-1) === 'self') return;
-      if (!resolveScopePath(imported.schema, reference.path)) return;
-      const binding = path.scope.getBinding(path.node.id.name);
-      if (!binding) return;
-      aliases.set(binding, binding.kind === 'const' && binding.constant ? 'scope' : 'mutable');
+      const { id, init } = path.node;
+      if (!init) return;
+      if (t.isIdentifier(id)) {
+        const expressionKind = classifyScopeExpression(init, verifiedBindings);
+        if (expressionKind === 'non-scope') return;
+        const binding = path.scope.getBinding(id.name);
+        if (!binding) return;
+        aliases.set(binding, aliasKindForBinding(binding, expressionKind));
+        return;
+      }
+      if (!t.isObjectPattern(id) || !t.isMemberExpression(init)) return;
+      const base = readVerifiedScopeExpression(init, verifiedBindings);
+      if (!base) return;
+      for (const property of id.properties) {
+        if (!t.isObjectProperty(property) || property.computed || !t.isIdentifier(property.value)) {
+          continue;
+        }
+        const targetName = t.isIdentifier(property.key)
+          ? property.key.name
+          : t.isStringLiteral(property.key)
+            ? property.key.value
+            : undefined;
+        if (!targetName) continue;
+        const targetPath = [...base.path, targetName];
+        if (!resolveScopePath(base.binding.schema, targetPath)) continue;
+        const binding = path.scope.getBinding(property.value.name);
+        if (binding) aliases.set(binding, aliasKindForBinding(binding, 'scope'));
+      }
     }
   });
 
-  const references = new WeakMap<t.Identifier, 'scope' | 'mutable'>();
+  const references = new WeakMap<t.Identifier, AliasKind>();
   traverse(ast, {
     Identifier(path) {
       if (!path.isReferencedIdentifier()) return;
@@ -193,6 +227,45 @@ function resolveDirectAliasReferences(
     }
   });
   return references;
+}
+
+function aliasKindForBinding(
+  binding: Binding,
+  expressionKind: Exclude<ScopeExpressionKind, 'non-scope'>
+): AliasKind {
+  return binding.kind === 'const' && binding.constant ? expressionKind : 'mutable';
+}
+
+function classifyScopeExpression(
+  expression: t.Expression,
+  verifiedBindings: WeakMap<t.MemberExpression, GssBinding>
+): ScopeExpressionKind {
+  if (t.isMemberExpression(expression)) {
+    return readVerifiedScopeExpression(expression, verifiedBindings) ? 'scope' :
+      verifiedBindings.has(expression) ? 'ambiguous' : 'non-scope';
+  }
+  if (t.isConditionalExpression(expression)) {
+    const consequent = classifyScopeExpression(expression.consequent, verifiedBindings);
+    const alternate = classifyScopeExpression(expression.alternate, verifiedBindings);
+    if (consequent === 'scope' && alternate === 'scope') return 'scope';
+    if (consequent !== 'non-scope' || alternate !== 'non-scope') return 'ambiguous';
+  }
+  return 'non-scope';
+}
+
+function readVerifiedScopeExpression(
+  expression: t.MemberExpression,
+  verifiedBindings: WeakMap<t.MemberExpression, GssBinding>
+): { binding: GssBinding; path: readonly string[] } | undefined {
+  const binding = verifiedBindings.get(expression);
+  const reference = readStaticReference(expression);
+  if (
+    !binding ||
+    !reference ||
+    reference.path.at(-1) === 'self' ||
+    !resolveScopePath(binding.schema, reference.path)
+  ) return undefined;
+  return { binding, path: reference.path };
 }
 
 function readStaticReference(

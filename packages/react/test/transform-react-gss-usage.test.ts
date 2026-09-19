@@ -10,7 +10,8 @@ const cardScope: ScopeSchema = {
       targets: {
         icon: { selfClassName: 'icon-class', targets: {} }
       }
-    }
+    },
+    panel: { selfClassName: 'panel-class', targets: {} }
   }
 };
 
@@ -83,6 +84,52 @@ describe('transformReactGssUsage', () => {
     expect(result.code).toContain('className={card.self}');
     expect(result.code).toContain('const card = styles.card;');
     expect(result.diagnostics).toEqual([]);
+  });
+
+  it('lowers an immutable conditional alias when every branch is a GSS scope', () => {
+    const result = transformReactGssUsage({
+      id: '/project/src/Card.tsx',
+      source: `import styles from './Card.gss';\n` +
+        `export const Card = ({ active }) => { ` +
+        `const branch = active ? styles.card : styles.panel; ` +
+        `return <div className={branch} />; };`,
+      resolveScopeSchema() { return cardScope; }
+    });
+
+    expect(result.code).toContain('className={branch.self}');
+    expect(result.diagnostics).toEqual([]);
+  });
+
+  it('lowers a renamed property-destructured scope alias', () => {
+    const result = transformReactGssUsage({
+      id: '/project/src/Card.tsx',
+      source: `import styles from './Card.gss';\n` +
+        `export const Card = () => { const { icon: glyph } = styles.card; ` +
+        `return <i className={glyph} />; };`,
+      resolveScopeSchema() { return cardScope; }
+    });
+
+    expect(result.code).toContain('className={glyph.self}');
+    expect(result.diagnostics).toEqual([]);
+  });
+
+  it('rejects a conditional alias that mixes a GSS scope and a string', () => {
+    const source = `import styles from './Card.gss';\n` +
+      `export const Card = ({ active, fallback }) => { ` +
+      `const branch = active ? styles.card : fallback; ` +
+      `return <div className={branch} />; };`;
+    const result = transformReactGssUsage({
+      id: '/project/src/Card.tsx',
+      source,
+      resolveScopeSchema() { return cardScope; }
+    });
+
+    expect(result.code).toBe(source);
+    expect(result.diagnostics).toMatchObject([{
+      code: 'GSS2104',
+      phase: 'transform',
+      reason: 'ambiguous-scope-alias'
+    }]);
   });
 
   it('rejects a mutable local alias derived from a GSS scope', () => {
