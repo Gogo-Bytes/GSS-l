@@ -70,6 +70,29 @@ const families: readonly PropertyFamily[] = [
   ['overflow', ['overflow-x', 'overflow-y']],
   ['overscroll-behavior', ['overscroll-behavior-x', 'overscroll-behavior-y']],
   ['gap', ['row-gap', 'column-gap']],
+  ['grid-gap', ['grid-row-gap', 'grid-column-gap']],
+  ['grid', [
+    'grid-template-rows',
+    'grid-template-columns',
+    'grid-template-areas',
+    'grid-auto-rows',
+    'grid-auto-columns',
+    'grid-auto-flow'
+  ]],
+  ['grid-template', [
+    'grid-template-rows',
+    'grid-template-columns',
+    'grid-template-areas'
+  ]],
+  ['grid-area', [
+    'grid-row-start',
+    'grid-column-start',
+    'grid-row-end',
+    'grid-column-end'
+  ]],
+  ['grid-row', ['grid-row-start', 'grid-row-end']],
+  ['grid-column', ['grid-column-start', 'grid-column-end']],
+  ['grid-auto-flow', ['grid-auto-flow']],
   ['place-content', ['align-content', 'justify-content']],
   ['place-items', ['align-items', 'justify-items']],
   ['place-self', ['align-self', 'justify-self']],
@@ -164,6 +187,15 @@ const independentProperties = new Set([
   'position',
   'transform',
   'transform-origin',
+  'object-fit',
+  'object-position',
+  'table-layout',
+  'vertical-align',
+  'white-space',
+  'word-break',
+  'overflow-wrap',
+  'text-align',
+  'text-overflow',
   'visibility',
   'z-index'
 ]);

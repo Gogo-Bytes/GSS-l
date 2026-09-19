@@ -529,6 +529,19 @@ describe('GssCompilerSession', () => {
     );
   });
 
+  it('resolves grid family shorthand and longhand effects', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    compiler.replaceStylesheet({
+      id: '/project/src/grid.gss',
+      source: '.grid { grid-template-columns: 1fr; grid: auto / 2fr 1fr; }'
+    });
+
+    expect(compiler.finalize()).toMatchObject({ report: { modules: 1, rules: 1 } });
+    expect(compiler.finalize().css).toContain('grid: auto / 2fr 1fr;');
+    expect(compiler.finalize().css).not.toContain('grid-template-columns: 1fr;');
+  });
+
   it('resolves border family shorthand and longhand effects', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 

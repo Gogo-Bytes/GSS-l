@@ -24,7 +24,10 @@ describe('PropertyEffectRegistry', () => {
     ['animation', 'animation-name'],
     ['transition', 'transition-duration'],
     ['flex', 'flex-basis'],
-    ['grid-gap', 'grid-gap']
+    ['grid', 'grid-template-columns'],
+    ['grid-area', 'grid-column-end'],
+    ['grid-gap', 'grid-row-gap'],
+    ['grid-gap', 'grid-row-gap']
   ])('%s exposes the effect of %s', (property, effect) => {
     expect(effectsOfProperty(property)).toContain(effect);
   });
@@ -38,6 +41,7 @@ describe('PropertyEffectRegistry', () => {
     expect(classifyPropertyEffect('--brand')).toMatchObject({ kind: 'custom-property' });
     expect(classifyPropertyEffect('color')).toMatchObject({ kind: 'longhand' });
     expect(classifyPropertyEffect('border')).toMatchObject({ kind: 'shorthand' });
+    expect(classifyPropertyEffect('grid')).toMatchObject({ kind: 'shorthand' });
     expect(classifyPropertyEffect('all')).toMatchObject({ kind: 'unknown' });
   });
 
