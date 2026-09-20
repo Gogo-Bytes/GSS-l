@@ -110,7 +110,17 @@ Vite 在 React transform 前按需编译 `.gss`，再复用同步 ScopeSchema va
 
 开发集成依赖 Vite 原生 HMR 通道，请保持 HMR 开启。文件访问遵守 Vite 的 `server.fs` 配置；root 外文件或显式 symlink root 的 canonical target 必须可被 Vite 访问，插件不会扩大允许列表。
 
-**Production central asset、manifest/report 输出和 CSS/font URL dependency 接线尚未实现，当前不是 production-ready 集成。**
+生产构建在完整 Rollup Module census 后输出一个中央 GSS CSS asset；main/lazy Modules 共用它，所有 Vite-managed HTML 入口自动引用同一文件。CSS 的 asset name 为 `gss.css`，最终文件名遵循 Vite/Rollup `assetFileNames`；支持 absolute、relative 和 CDN base。
+
+同时输出 `gss-manifest.json` 和 `gss-report.json`：
+
+```ts
+{ version: 1, cssAsset: 'assets/gss-<hash>.css', compiler: /* 对应的 Compiler manifest 或 report */ }
+```
+
+`cssAsset` 是相对输出目录的文件路径，不包含部署 base；manifest 使用 logical Module ids。没有 reachable `.gss` 时，不输出这些文件或注入 link。Watch rebuild 从当前 census 的编译快照重建，既移除旧贡献，也刷新 JS 未变化的 preserved CSS。
+
+**CSS/font URL dependency 接线及完整 MVP 验收仍未完成，当前不是 production-ready 集成。**
 
 验证使用 `corepack pnpm verify`：先 lint 和按依赖顺序 build，再运行测试和 typecheck，以验证真实 workspace package exports，不依赖残留 `dist`。
 

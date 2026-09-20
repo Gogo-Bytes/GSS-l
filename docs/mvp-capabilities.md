@@ -68,6 +68,7 @@
 - Semantic source-order vector：registered condition、relation implication、property effect。
 - Cascade resolution 与 deterministic render order分离；registry registration order和 canonical hash不参与 winner。
 - Production 全局 census/finalize并输出一个中央 CSS asset；SSR引用同一 build manifest asset。
+- Production `gss-manifest.json` / `gss-report.json` version-1 envelope，包含 output-relative `cssAsset` 与 Compiler snapshot；空 GSS census 不输出文件，MPA HTML 共享同一 asset 并支持 absolute/relative/CDN base。
 - Artifact、manifest和report记录`atomic`/`preserved` mode、fallback reason与atomic coverage；fallback产生warning且可由项目升级为error。
 - Dev replace-by-id transaction、last-known-good rollback、ref-count回收与完整 ordered snapshot HMR。
 - Dev `/@gss-l/central.css` virtual CSS；Vite-managed SPA/MPA HTML 自动注入一个 base-aware stylesheet link，使用原生 Vite CSS HMR，并同步晚发现的 Module 与晚连接的 client。

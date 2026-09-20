@@ -153,7 +153,7 @@ describe('GssCompilerSession', () => {
       generation: 2,
       report: { modules: 2, rules: 1 },
       manifest: {
-        modules: ['/project/src/a.gss', '/project/src/b.gss'],
+        modules: ['src/a.gss', 'src/b.gss'],
         rules: [{
           className: colorRedClass,
           property: 'color',

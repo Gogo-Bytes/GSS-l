@@ -143,8 +143,10 @@ it('builds static GSS JavaScript without adding a GSS runtime or per-file declar
     build: { write: false, minify: false, rollupOptions: { input: `${root}/entry.ts` } }
   });
   if (Array.isArray(result) || !('output' in result)) throw new Error('Expected one bundle.');
-  expect(result.output).toHaveLength(1);
-  const chunk = result.output[0];
+  const chunks = result.output.filter((entry) => entry.type === 'chunk');
+  expect(chunks).toHaveLength(1);
+  expect(result.output.some((entry) => entry.fileName.endsWith('.d.ts'))).toBe(false);
+  const chunk = chunks[0];
   if (chunk?.type !== 'chunk') throw new Error('Expected a JavaScript chunk.');
   expect(chunk.code).toContain('value_red');
   expect(chunk.code).not.toMatch(/gss-l:|\.gss|Proxy|import /);

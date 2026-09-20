@@ -154,8 +154,9 @@ Completion criteria:
 - [x] Implement explicit `gss({ adapter })` composition and compile-on-demand before synchronous source transformation.
 - [x] Fail virtual load/source transform on hard diagnostics while retaining last-known-good; return preserved fallback JavaScript with warnings.
 - [x] Connect dev physical file change/delete/recreate to Compiler replace/invalidate and source/virtual Module cache invalidation.
-- [ ] Emit one central production CSS asset for all reachable main/lazy Modules.
-- [ ] Emit the build manifest needed by SSR.
+- [x] Emit one central production CSS asset from the full main/lazy Rollup Module census and inject the shared asset into every emitted HTML entry.
+- [x] Emit `gss-manifest.json` and `gss-report.json` version-1 envelopes with output-relative CSS linkage and current Compiler snapshots.
+- [x] Rebuild production registry state from current source snapshots, including cached preserved Modules whose JS does not change.
 - [x] Implement one dev stylesheet owner per HTML document, base-aware MPA injection, and full ordered snapshot replacement through Vite CSS HMR.
 - [x] Implement last-known-good rollback and generation ordering for asynchronous reads, including deletion and late HMR connection synchronization.
 - [ ] Handle CSS and font URL dependencies through the Adapter.

@@ -10,19 +10,26 @@ import { isFileServingAllowed, normalizePath, type Plugin, type Rollup, type Vit
 import { CENTRAL_CSS_URL, fromVirtualGssId, resolveCentralCssId, toVirtualGssId } from './virtual-id.js';
 import { hasCentralStylesheet } from './central-html.js';
 import { createDevCssOwner } from './dev-css.js';
+import { emitProductionSnapshot } from './production-output.js';
+import { reachableModuleIds } from './production-census.js';
 
 export type GssOptions = { adapter: GssSourceAdapter };
+
+const STYLESHEET_META = 'gss-l:stylesheet';
 
 export function gss({ adapter }: GssOptions): Plugin {
   if (!adapter) throw new Error('gss({ adapter }) requires an explicit framework Adapter.');
   let session: GssCompilerSession;
+  let projectRoot = '';
   let development = false;
   let devServer: ViteDevServer | undefined;
   let centralCssHref = CENTRAL_CSS_URL;
+  let base = '/';
   let cssOwner: ReturnType<typeof createDevCssOwner> | undefined;
   const trackedStylesheets = new Set<string>();
   const sourceDependencies = new Map<string, Set<string>>();
-  type Replacement = { result: Promise<ReplaceStylesheetResult | undefined> };
+  const cachedStylesheets = new Set<string>();
+  type Replacement = { result: Promise<(ReplaceStylesheetResult & { source: string }) | undefined> };
   const latest = new Map<string, Replacement>();
 
   function startReplacement(physicalId: string, read: () => string | Promise<string>): Replacement {
@@ -44,7 +51,7 @@ export function gss({ adapter }: GssOptions): Plugin {
       if (latest.get(physicalId) !== task) return undefined;
       const result = session.replaceStylesheet({ id: physicalId, source });
       if (result.committed) cssOwner?.publish();
-      return result;
+      return { ...result, source };
     })();
     return task;
   }
@@ -60,9 +67,9 @@ export function gss({ adapter }: GssOptions): Plugin {
       result = await task.result;
     }
     if (!result) context.error(`GSS stylesheet was invalidated: ${physicalId}`);
-    reportDiagnostics(context, result.diagnostics);
+    reportDiagnostics(context, result.diagnostics.filter(({ severity }) => development || severity === 'error'));
     if (!result.committed || !result.module) context.error('GSS compilation failed.');
-    return result.module;
+    return { artifact: result.module, source: result.source };
   }
 
   return {
@@ -70,14 +77,55 @@ export function gss({ adapter }: GssOptions): Plugin {
     enforce: 'pre',
     async configResolved(config) {
       development = config.command === 'serve';
-      centralCssHref = `${config.base}${CENTRAL_CSS_URL.slice(1)}`;
-      session = createGssCompilerSession({ projectRoot: normalizePath(await realpath(config.root)) });
+      base = config.base;
+      centralCssHref = `${base}${CENTRAL_CSS_URL.slice(1)}`;
+      projectRoot = normalizePath(await realpath(config.root));
+      session = createGssCompilerSession({ projectRoot });
       trackedStylesheets.clear();
       sourceDependencies.clear();
       latest.clear();
+      cachedStylesheets.clear();
       cssOwner?.dispose();
       cssOwner = undefined;
       devServer = undefined;
+    },
+    buildStart() {
+      if (development) return;
+      session = createGssCompilerSession({ projectRoot });
+      latest.clear();
+      trackedStylesheets.clear();
+      sourceDependencies.clear();
+      cachedStylesheets.clear();
+    },
+    shouldTransformCachedModule({ id }) {
+      if (!development && fromVirtualGssId(id)) {
+        cachedStylesheets.add(id);
+        return true;
+      }
+    },
+    generateBundle: {
+      order: 'post',
+      handler(_options, bundle) {
+        if (development) return;
+        // Replay only the final graph's source snapshots, including Rollup-cached Modules.
+        // Do not read files here: CSS must match the JavaScript generated for this build.
+        session = createGssCompilerSession({ projectRoot });
+        let count = 0;
+        for (const id of reachableModuleIds(this)) {
+          const physicalId = fromVirtualGssId(id);
+          const info = this.getModuleInfo(id);
+          if (!physicalId || info?.isExternal) continue;
+          const metadata: unknown = info?.meta[STYLESHEET_META];
+          if (!metadata || typeof metadata !== 'object' || !('source' in metadata) ||
+              typeof metadata.source !== 'string') this.error(`Missing GSS source snapshot for ${physicalId}.`);
+          const result = session.replaceStylesheet({ id: physicalId, source: metadata.source });
+          reportDiagnostics(this, result.diagnostics);
+          if (!result.committed) this.error('GSS census compilation failed.');
+          count += 1;
+        }
+        if (count === 0) return;
+        emitProductionSnapshot(this, bundle, session.finalize(), base);
+      }
     },
     configureServer(server) {
       devServer = server;
@@ -88,6 +136,7 @@ export function gss({ adapter }: GssOptions): Plugin {
       latest.clear();
       trackedStylesheets.clear();
       sourceDependencies.clear();
+      cachedStylesheets.clear();
     },
     async hotUpdate(context) {
       if (this.environment.name !== 'client') return;
@@ -139,9 +188,22 @@ export function gss({ adapter }: GssOptions): Plugin {
       const physicalId = fromVirtualGssId(id);
       if (!physicalId) return null;
       this.addWatchFile(physicalId);
-      return (await compile(this, physicalId)).moduleCode;
+      const { artifact, source } = await compile(this, physicalId);
+      return development ? artifact.moduleCode : {
+        code: artifact.moduleCode,
+        meta: { [STYLESHEET_META]: { source } }
+      };
     },
     async transform(source, id) {
+      const physicalId = fromVirtualGssId(id);
+      if (physicalId && cachedStylesheets.delete(id)) {
+        this.addWatchFile(physicalId);
+        const compiled = await compile(this, physicalId);
+        return {
+          code: compiled.artifact.moduleCode,
+          meta: { [STYLESHEET_META]: { source: compiled.source } }
+        };
+      }
       if (!adapter.supports(id)) return null;
       const imports = adapter.discoverImports({ id, source });
       if (imports.length === 0) {

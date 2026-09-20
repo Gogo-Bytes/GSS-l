@@ -250,7 +250,7 @@ Current implementation covers virtual JS, source composition, and dev central CS
 
 Initial discovery refreshes any already-served snapshot; an HMR connection established after compilation is resynchronized through Vite's native CSS update protocol. No custom browser runtime or public HMR API is introduced. Dev file reads honor Vite `server.fs`, including denies and canonical root-external targets.
 
-Production central assets and asset URL processing are not yet implemented. The broader configuration/Compiler port sketches elsewhere in this document remain architecture targets rather than additional `gss()` options.
+Production central assets and versioned build metadata are implemented as described below. Asset URL processing is not yet implemented. The broader configuration/Compiler port sketches elsewhere in this document remain architecture targets rather than additional `gss()` options.
 
 ## React style-usage Adapter
 
@@ -310,6 +310,20 @@ export type FinalizedGssSnapshot = {
 7. returns byte-stable output for an unchanged semantic snapshot.
 
 Production emits the finalized CSS as one asset. Development replaces the single style owner's complete text with the new generation.
+
+## Production build files (implemented)
+
+[ADR-0048](adr/0048-emit-versioned-production-css-manifest-and-report.md) defines three outputs for a non-empty reachable GSS census:
+
+- One CSS asset emitted with `name: 'gss.css'`; Rollup/Vite `assetFileNames` determines its final path/hash.
+- `gss-manifest.json`: `{ version: 1, cssAsset, compiler: snapshot.manifest }`.
+- `gss-report.json`: `{ version: 1, cssAsset, compiler: snapshot.report }`.
+
+`cssAsset` is an output-directory-relative filename without deployment base or URL encoding. Each emitted HTML entry gets one stylesheet link; absolute/CDN base and HTML-relative base are resolved independently of the JSON value. Existing matching links are not duplicated, and pre-existing assets with either reserved JSON filename cause a build error.
+
+At `generateBundle`, the Adapter enumerates the complete Rollup Module graph, including lazy dependencies, rather than relying on early CSS loads or only on rendered chunk contents. The census follows static, dynamic and implicit dependency edges from entries, excluding speculative loads without an entry path. Only GSS Modules in that census contribute. Private Rollup metadata retains the source snapshot that produced each Module's JavaScript; finalization replays those snapshots into clean registry state, without rereading files after graph construction. Cached preserved Modules are explicitly refreshed because their CSS can change without changing generated JavaScript.
+
+An empty census emits none of these files and adds no link. A reachable empty stylesheet still has a manifest entry and an empty central CSS asset. Manifest Module ids and rule/resource sources are logical ids, not physical session keys. The JSON payloads reuse the current `FinalizedGssSnapshot` structures; the broader manifest/report sketches below describe remaining architecture targets, not extra fields already emitted by version 1.
 
 ## Module invalidation
 

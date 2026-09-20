@@ -19,7 +19,7 @@ it.each([
   expect(compiler.getScopeSchema(id)).toEqual(result.module?.scopeSchema);
 });
 
-it('keeps root-external module-owned CSS and JS identical after relocating the workspace', () => {
+it('keeps root-external CSS, JS and manifest identical after relocating the workspace', () => {
   const outputs = ['/checkout/one', '/another/checkout/two'].map((workspace) => {
     const compiler = createGssCompilerSession({ projectRoot: `${workspace}/app` });
     const result = compiler.replaceStylesheet({
@@ -27,7 +27,9 @@ it('keeps root-external module-owned CSS and JS identical after relocating the w
       source: '.card { future-paint: red; animation: spin 1s; } @keyframes spin { to { opacity: 0; } }'
     });
     expect(result.committed).toBe(true);
-    return { code: result.module?.moduleCode, css: compiler.finalize().css };
+    const snapshot = compiler.finalize();
+    expect(snapshot.manifest.modules).toEqual(['../shared/Card.gss']);
+    return { code: result.module?.moduleCode, css: snapshot.css, manifest: snapshot.manifest };
   });
   expect(outputs[0]).toEqual(outputs[1]);
 });

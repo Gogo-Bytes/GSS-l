@@ -1230,7 +1230,7 @@ function finalizeSnapshot(
       .filter(Boolean)
       .join('\n\n'),
     manifest: {
-      modules: [...modules.keys()].sort(),
+      modules: [...modules.values()].map(({ artifact }) => artifact.scopeSchema.moduleId).sort(),
       moduleDetails: [...modules.values()]
         .map(({ artifact }) => ({
           id: artifact.scopeSchema.moduleId,

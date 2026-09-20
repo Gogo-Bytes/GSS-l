@@ -225,9 +225,11 @@ report
 source maps
 ```
 
-SSR reads the build manifest and links the same CSS asset used by client hydration. The browser does not create or reorder GSS rules at runtime.
+The implemented Vite build emits an asset named `gss.css` through Rollup naming rules, plus `gss-manifest.json` and `gss-report.json`. The JSON envelopes contain `version: 1`, output-relative `cssAsset`, and the corresponding Compiler snapshot data. All emitted HTML entries share the CSS asset; deployment base is applied only when creating their links. An empty GSS census emits no GSS asset or metadata.
 
-The first version includes lazy-route CSS in the central asset so network completion cannot alter the cascade.
+SSR integrations can read `gss-manifest.json` and link the same CSS asset used by client hydration; no generic SSR response helper is provided. The browser does not create or reorder GSS rules at runtime.
+
+The first version includes lazy-route CSS in the central asset so network completion cannot alter the cascade. The final Rollup Module census, not precompiled scope lookups or emitted chunk contents, determines production contributions. Source snapshots retained with virtual Modules keep final CSS aligned with generated JS. Watch builds replay the current census into clean registry state and refresh preserved snapshots even when generated JS is byte-identical.
 
 ## Development and HMR
 

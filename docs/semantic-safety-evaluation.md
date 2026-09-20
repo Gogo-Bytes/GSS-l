@@ -278,7 +278,7 @@ Resources are reference-counted and removed when no committed Module references 
 
 Registration collects semantic contributions; it does not append final CSS.
 
-Production performs a complete reachable-Module census and emits one central ordered asset. Lazy-route CSS is included so network order cannot change the cascade.
+Production performs a complete reachable-Module census and emits one central ordered asset. Lazy-route CSS is included so network order cannot change the cascade. Versioned `gss-manifest.json` and `gss-report.json` link the same asset using an output-relative filename; every emitted HTML entry resolves it against its deployment base. Physical source snapshots retained with virtual Modules align CSS with generated JS, while clean final registry state prevents removed or merely precompiled Modules from leaking into the output. Cached preserved Modules are refreshed even when their JavaScript is unchanged.
 
 Development uses one stylesheet link per Vite-managed HTML document and replaces the complete ordered snapshot through Vite's native CSS HMR after a successful transaction. Failed compilation retains the last-known-good snapshot; invalidation removes zero-reference output. Per-file generation tokens suppress stale reads after replacement/deletion, and recorded source importers are invalidated for fresh ScopeSchema validation. Late discovery and late HMR connections refresh earlier snapshots rather than depending on network order.
 
@@ -335,9 +335,10 @@ The reference renderer does not call the atomic winner/pruning/planning path. A 
 - Naming and verification: [ADR-0029](adr/0029-use-reversible-readable-names-for-the-first-version.md), [ADR-0030](adr/0030-make-semantic-reference-css-a-testing-capability.md)
 - Source Adapter discovery and synchronous transformation: [ADR-0046](adr/0046-discover-source-imports-before-synchronous-transform.md)
 - Root-external Module identity: [ADR-0047](adr/0047-use-project-relative-identities-for-root-external-stylesheets.md)
+- Production CSS and versioned build metadata: [ADR-0048](adr/0048-emit-versioned-production-css-manifest-and-report.md)
 
 ## 18. Implementation status
 
 The semantic design stage is complete. The recipe-oriented exploratory implementation has been discarded without modifying the read-only legacy project.
 
-Stage 1 of [`mvp-roadmap.md`](mvp-roadmap.md) established the new Compiler workspace and verification commands. Implementation now proceeds in test-first vertical slices through the accepted `GssCompilerSession` seam. The Vite virtual-JavaScript, explicit source-Adapter composition, and dev central CSS/HTML/HMR slices are implemented with real Vite integration tests, including HTTP/WebSocket coverage. Browser smoke verification covered red → blue → invalid source (blue retained with overlay) → green recovery, with one stylesheet link, no appended style elements, and no page reload in a self-accepting fixture. Production central CSS delivery and resource URL integration remain unimplemented.
+Stage 1 of [`mvp-roadmap.md`](mvp-roadmap.md) established the new Compiler workspace and verification commands. Implementation now proceeds in test-first vertical slices through the accepted `GssCompilerSession` seam. The Vite virtual-JavaScript, explicit source-Adapter composition, and dev central CSS/HTML/HMR slices are implemented with real Vite integration tests, including HTTP/WebSocket coverage. Browser smoke verification covered red → blue → invalid source (blue retained with overlay) → green recovery, with one stylesheet link, no appended style elements, and no page reload in a self-accepting fixture. Production central CSS and JSON delivery are now covered by real build/watch tests: lazy census, MPA/base handling, empty census, preserved fallback reporting, source-snapshot consistency, and relocation stability. Production preview browser checks confirmed lazy rules are present before lazy JS loads, lazy rendering adds no stylesheet, and both HTML entries share the same asset. Resource URL integration and the broader semantic-oracle/Pilot gates remain incomplete.
