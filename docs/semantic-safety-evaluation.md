@@ -280,7 +280,7 @@ Registration collects semantic contributions; it does not append final CSS.
 
 Production performs a complete reachable-Module census and emits one central ordered asset. Lazy-route CSS is included so network order cannot change the cascade.
 
-Development uses one style owner and replaces the complete ordered snapshot after a successful transaction. Failed compilation retains the last-known-good snapshot; invalidation removes zero-reference output.
+Development uses one stylesheet link per Vite-managed HTML document and replaces the complete ordered snapshot through Vite's native CSS HMR after a successful transaction. Failed compilation retains the last-known-good snapshot; invalidation removes zero-reference output. Per-file generation tokens suppress stale reads after replacement/deletion, and recorded source importers are invalidated for fresh ScopeSchema validation. Late discovery and late HMR connections refresh earlier snapshots rather than depending on network order.
 
 The first version uses reversible readable names generated from canonical identity. Naming is isolated behind `NameAllocator` and does not affect semantics. Root-external stylesheets use project-relative logical ids such as `../shared/Card.gss`; canonical physical ids remain transaction/lookup keys. Moving the workspace without changing its relative layout cannot change Module-owned names. If no project-relative identity can be expressed, compilation fails closed rather than encoding an absolute path.
 
@@ -340,4 +340,4 @@ The reference renderer does not call the atomic winner/pruning/planning path. A 
 
 The semantic design stage is complete. The recipe-oriented exploratory implementation has been discarded without modifying the read-only legacy project.
 
-Stage 1 of [`mvp-roadmap.md`](mvp-roadmap.md) established the new Compiler workspace and verification commands. Implementation now proceeds in test-first vertical slices through the accepted `GssCompilerSession` seam. The Vite virtual-JavaScript and explicit source-Adapter composition slices are implemented with real Vite integration tests; central CSS delivery and HMR are not yet implemented.
+Stage 1 of [`mvp-roadmap.md`](mvp-roadmap.md) established the new Compiler workspace and verification commands. Implementation now proceeds in test-first vertical slices through the accepted `GssCompilerSession` seam. The Vite virtual-JavaScript, explicit source-Adapter composition, and dev central CSS/HTML/HMR slices are implemented with real Vite integration tests, including HTTP/WebSocket coverage. Browser smoke verification covered red → blue → invalid source (blue retained with overlay) → green recovery, with one stylesheet link, no appended style elements, and no page reload in a self-accepting fixture. Production central CSS delivery and resource URL integration remain unimplemented.

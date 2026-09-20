@@ -153,11 +153,11 @@ Completion criteria:
 - [x] Implement stable `.gss` virtual JavaScript Modules and the global `@gss-l/vite/client` type entry (no per-file declarations).
 - [x] Implement explicit `gss({ adapter })` composition and compile-on-demand before synchronous source transformation.
 - [x] Fail virtual load/source transform on hard diagnostics while retaining last-known-good; return preserved fallback JavaScript with warnings.
-- [ ] Connect Vite module lifecycle to Compiler replace/invalidate.
+- [x] Connect dev physical file change/delete/recreate to Compiler replace/invalidate and source/virtual Module cache invalidation.
 - [ ] Emit one central production CSS asset for all reachable main/lazy Modules.
 - [ ] Emit the build manifest needed by SSR.
-- [ ] Implement one dev style owner and full ordered snapshot replacement.
-- [ ] Implement last-known-good rollback and generation ordering.
+- [x] Implement one dev stylesheet owner per HTML document, base-aware MPA injection, and full ordered snapshot replacement through Vite CSS HMR.
+- [x] Implement last-known-good rollback and generation ordering for asynchronous reads, including deletion and late HMR connection synchronization.
 - [ ] Handle CSS and font URL dependencies through the Adapter.
 
 Completion criteria:

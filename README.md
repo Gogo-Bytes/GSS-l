@@ -106,7 +106,11 @@ Vite 在 React transform 前按需编译 `.gss`，再复用同步 ScopeSchema va
 
 可以通过相对 import、alias 或 symlink 引用 root 外的 `.gss`。其 logical id 相对 canonical project root，例如 `../shared/Card.gss`；保持相对布局的工作区迁移不会改变生成名称。无法表达相对 identity 的跨 drive/share 输入会报错，不会输出 absolute-path names。
 
-**尚未实现 central CSS、HTML 注入和 HMR；当前切片不是可交付页面样式的完整集成。** 不需要也不应添加手动 central CSS import。
+开发环境已实现 `/@gss-l/central.css` virtual CSS、Vite-managed HTML 自动注入和完整快照 HMR：每个 HTML 入口只有一个中央 stylesheet link，支持 Vite base；成功更新替换完整 CSS，删除回收贡献，编译失败保留 last-known-good 并显示诊断。首次 CSS 请求早于 GSS discovery、HMR 连接晚于编译时也会同步当前快照。不需要也不应添加手动 central CSS import。
+
+开发集成依赖 Vite 原生 HMR 通道，请保持 HMR 开启。文件访问遵守 Vite 的 `server.fs` 配置；root 外文件或显式 symlink root 的 canonical target 必须可被 Vite 访问，插件不会扩大允许列表。
+
+**Production central asset、manifest/report 输出和 CSS/font URL dependency 接线尚未实现，当前不是 production-ready 集成。**
 
 验证使用 `corepack pnpm verify`：先 lint 和按依赖顺序 build，再运行测试和 typecheck，以验证真实 workspace package exports，不依赖残留 `dist`。
 

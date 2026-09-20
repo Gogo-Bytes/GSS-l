@@ -12,15 +12,19 @@
       "types": "./client.d.ts"
     }
   },
-  "files": ["client.d.ts", "dist"],
+  "files": [
+    "client.d.ts",
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p test/consumer/tsconfig.json --noEmit && tsc -p test/without-client/tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@gss-l/compiler": "workspace:*",
     "@gss-l/types": "workspace:*",
-    "@gss-l/compiler": "workspace:*"
+    "parse5": "^7.3.0"
   },
   "peerDependencies": {
     "vite": "^7.0.0"
@@ -28,6 +32,8 @@
   "devDependencies": {
     "@gss-l/react": "workspace:*",
     "@types/node": "^22.20.4",
-    "vite": "^7.3.6"
+    "@types/ws": "^8.18.1",
+    "vite": "^7.3.6",
+    "ws": "^8.18.3"
   }
 }

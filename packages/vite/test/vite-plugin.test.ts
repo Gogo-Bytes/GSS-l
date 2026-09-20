@@ -159,7 +159,7 @@ it('keeps module-owned names project-relative when the Vite root is a symlink', 
   roots.push(linkedRoot);
   const server = await createServer({
     root: linkedRoot, configFile: false, plugins: [gss({ adapter: react() })],
-    server: { middlewareMode: true, watch: null }, logLevel: 'silent',
+    server: { middlewareMode: true, watch: null, fs: { allow: [root] } }, logLevel: 'silent',
     optimizeDeps: { noDiscovery: true, include: [] }
   });
   servers.push(server);
@@ -188,7 +188,7 @@ it('compiles root-external imports, aliases and symlinks with one relative logic
         return framework.transform(input);
       }
     } })],
-    server: { middlewareMode: true, watch: null, preTransformRequests: false },
+    server: { middlewareMode: true, watch: null, preTransformRequests: false, fs: { allow: [workspace] } },
     logLevel: 'silent', optimizeDeps: { noDiscovery: true, include: [] }
   });
   servers.push(server);

@@ -70,6 +70,7 @@
 - Production 全局 census/finalize并输出一个中央 CSS asset；SSR引用同一 build manifest asset。
 - Artifact、manifest和report记录`atomic`/`preserved` mode、fallback reason与atomic coverage；fallback产生warning且可由项目升级为error。
 - Dev replace-by-id transaction、last-known-good rollback、ref-count回收与完整 ordered snapshot HMR。
+- Dev `/@gss-l/central.css` virtual CSS；Vite-managed SPA/MPA HTML 自动注入一个 base-aware stylesheet link，使用原生 Vite CSS HMR，并同步晚发现的 Module 与晚连接的 client。
 - 独立 NameAllocator生成由完整 canonical identity 可逆编码的可读名称。
 - Root 外的 `.gss` 使用 `../shared/Card.gss` 形式的 project-relative logical identity；支持相对 import、alias 和 symlink canonicalization，不将绝对路径写入 Module-owned names。
 

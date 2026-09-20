@@ -231,16 +231,18 @@ The first version includes lazy-route CSS in the central asset so network comple
 
 ## Development and HMR
 
-The dev Adapter owns one `<style data-gss-dev>` element.
+The dev Adapter injects one `<link rel="stylesheet" data-gss-dev>` per Vite-managed HTML document, pointing to the base-aware `/@gss-l/central.css` virtual CSS endpoint. Vite serves direct CSS and owns native stylesheet-link replacement; GSS adds no custom browser runtime or per-Module CSS imports.
 
 ```text
 source update
+→ newest physical-file read wins
 → transactional replace by Module id
 → finalize complete generation
-→ replace style text
+→ invalidate virtual CSS cache
+→ native Vite CSS HMR replaces the stylesheet link
 ```
 
-It never appends newly discovered atoms to the current stylesheet tail.
+It never appends newly discovered atoms to the current stylesheet tail. Later source discovery invalidates an earlier empty snapshot. A newly connected HMR client receives a snapshot refresh so discovery before socket connection cannot leave stale CSS. Each MPA document uses the same URL without duplicate links; this development flow relies on Vite HMR being enabled.
 
 On compile failure:
 
@@ -250,7 +252,7 @@ rollback transaction
 → present diagnostic
 ```
 
-Module invalidation removes its references; zero-reference atoms, markers, and resources disappear from the next snapshot. Generation numbers prevent stale async work from replacing newer output.
+Module invalidation removes its references; zero-reference atoms, markers, and resources disappear from the next snapshot. Per-physical-file generation tokens prevent stale async reads from committing after a newer replacement or deletion. Physical change events also invalidate virtual JS and recorded source importers, ensuring fresh ScopeSchema validation. Virtual loads respect Vite's filesystem access policy.
 
 ## Naming architecture
 

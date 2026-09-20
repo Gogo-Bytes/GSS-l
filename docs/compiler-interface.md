@@ -246,7 +246,11 @@ const plugin = gss({ adapter: react() });
 
 `gss()` returns a Vite plugin and requires an explicit Adapter. Its session is owned by that integration instance. Stable virtual IDs are encoded/decoded in one Vite-owned module; resolution does not compile. Both virtual JS load and source precompilation use the physical id and the same session. `react()` reuses the existing React transform, including source maps and unknown-path diagnostics.
 
-Current implementation covers virtual JS and source composition, not central CSS delivery, asset URL processing, or HMR. The broader configuration/Compiler port sketches elsewhere in this document remain architecture targets rather than additional `gss()` options.
+Current implementation covers virtual JS, source composition, and dev central CSS/HTML/HMR. Development serves the entire `finalize().css` snapshot at `/@gss-l/central.css`; each Vite-managed HTML entry receives one base-aware stylesheet link. File replacement/deletion/recreation invalidates CSS, virtual JS, and recorded source importers. Failed compilation preserves committed CSS while reporting an error. Superseded reads cannot commit; concurrently awaiting consumers follow the newest compilation result, never a stale successful fallback.
+
+Initial discovery refreshes any already-served snapshot; an HMR connection established after compilation is resynchronized through Vite's native CSS update protocol. No custom browser runtime or public HMR API is introduced. Dev file reads honor Vite `server.fs`, including denies and canonical root-external targets.
+
+Production central assets and asset URL processing are not yet implemented. The broader configuration/Compiler port sketches elsewhere in this document remain architecture targets rather than additional `gss()` options.
 
 ## React style-usage Adapter
 
