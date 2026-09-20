@@ -1,4 +1,5 @@
 import selectorParser from 'postcss-selector-parser';
+import { toLogicalModuleId } from './module-identity.js';
 import valueParser from 'postcss-value-parser';
 import {
   createReadableAtomicName,
@@ -157,6 +158,17 @@ function prepareContribution(
     return { diagnostics: parsed.diagnostics };
   }
   const moduleId = toLogicalModuleId(config.projectRoot, input.id);
+  if (moduleId === undefined) {
+    return { diagnostics: [{
+      code: 'GSS1401',
+      severity: 'error',
+      phase: 'validate',
+      id: input.id,
+      message: 'Cannot derive a project-relative GSS Module id.',
+      reason: 'non-relative-module-identity',
+      suggestion: 'Use an absolute projectRoot and a source on the same filesystem root.'
+    }] };
+  }
   const keyframeNames = new Map(
     parsed.resources
       .filter((resource): resource is ParsedKeyframesRegistration => resource.kind === 'keyframes')
@@ -1383,15 +1395,4 @@ function serializeIdentity(identity: PlannedDeclaration['identity']): string {
     identity.value,
     identity.important
   ]);
-}
-
-function toLogicalModuleId(projectRoot: string, id: string): string {
-  const root = normalizePath(projectRoot).replace(/\/$/, '');
-  const normalizedId = normalizePath(id);
-  const prefix = `${root}/`;
-  return normalizedId.startsWith(prefix) ? normalizedId.slice(prefix.length) : normalizedId;
-}
-
-function normalizePath(value: string): string {
-  return value.replaceAll('\\', '/');
 }

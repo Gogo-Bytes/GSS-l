@@ -1,3 +1,4 @@
+import type { GssSourceAdapter } from '@gss-l/compiler';
 import { parse } from '@babel/parser';
 import traverseModule, {
   type Binding,
@@ -46,6 +47,23 @@ type GssBinding = {
   importNode: t.ImportDefaultSpecifier;
 };
 
+export function react(): GssSourceAdapter {
+  return {
+    supports: (id) => /\.[cm]?[jt]sx?$/.test(id),
+    discoverImports({ id, source }) {
+      const ast = parse(source, {
+        sourceType: 'module',
+        sourceFilename: id,
+        plugins: ['typescript', 'jsx']
+      });
+      return [...new Set(ast.program.body
+        .filter((node) => t.isImportDeclaration(node) && node.source.value.endsWith('.gss'))
+        .map((node) => (node as t.ImportDeclaration).source.value))];
+    },
+    transform: transformReactGssUsage
+  };
+}
+
 export function transformReactGssUsage(
   input: TransformReactGssUsageInput
 ): TransformReactGssUsageResult {
@@ -54,12 +72,12 @@ export function transformReactGssUsage(
     sourceFilename: input.id,
     plugins: ['typescript', 'jsx']
   });
-  const bindings = collectGssBindings(ast.program, input.resolveScopeSchema);
+  const diagnostics: ReactGssDiagnostic[] = [];
+  const bindings = collectGssBindings(ast.program, input, diagnostics);
   const verifiedBindings = resolveReferenceBindings(ast, bindings);
   const aliasReferences = resolveAliasReferences(ast, bindings, verifiedBindings);
   const typedPropReferences = resolveTypedPropMemberReferences(ast, bindings);
   const output = new MagicString(input.source);
-  const diagnostics: ReactGssDiagnostic[] = [];
 
   visit(ast.program, (node) => {
     if (
@@ -172,13 +190,25 @@ export function transformReactGssUsage(
 
 function collectGssBindings(
   program: t.Program,
-  resolveScopeSchema: TransformReactGssUsageInput['resolveScopeSchema']
+  input: TransformReactGssUsageInput,
+  diagnostics: ReactGssDiagnostic[]
 ): ReadonlyMap<string, GssBinding> {
   const bindings = new Map<string, GssBinding>();
   for (const statement of program.body) {
     if (!t.isImportDeclaration(statement) || !statement.source.value.endsWith('.gss')) continue;
     const defaultImport = statement.specifiers.find(t.isImportDefaultSpecifier);
-    const schema = resolveScopeSchema(statement.source.value);
+    const schema = input.resolveScopeSchema(statement.source.value);
+    if (!schema) {
+      diagnostics.push({
+        code: 'GSS2106',
+        severity: 'error',
+        phase: 'transform',
+        message: `Missing GSS ScopeSchema for ${statement.source.value}.`,
+        id: input.id,
+        reason: 'missing-scope-schema',
+        suggestion: 'Compile the imported stylesheet successfully before source transformation.'
+      });
+    }
     if (defaultImport && schema) {
       bindings.set(defaultImport.local.name, { schema, importNode: defaultImport });
     }

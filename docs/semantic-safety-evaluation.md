@@ -42,7 +42,7 @@ GSS-l does not resolve:
 - unregistered condition/layer precedence;
 - syntax outside the positive capability matrix.
 
-The React Adapter lowers known GSS references but does not inspect external class semantics.
+The React Adapter lowers known GSS references but does not inspect external class semantics. A framework-independent source Adapter first discovers original GSS import specifiers. The host resolves and successfully compiles them before calling the synchronous transform, so dependency load order cannot silently bypass ScopeSchema validation. A failed current input blocks transformation even when the Compiler retains a last-known-good contribution.
 
 ## 3. Authored and consumer model
 
@@ -282,7 +282,7 @@ Production performs a complete reachable-Module census and emits one central ord
 
 Development uses one style owner and replaces the complete ordered snapshot after a successful transaction. Failed compilation retains the last-known-good snapshot; invalidation removes zero-reference output.
 
-The first version uses reversible readable names generated from canonical identity. Naming is isolated behind `NameAllocator` and does not affect semantics.
+The first version uses reversible readable names generated from canonical identity. Naming is isolated behind `NameAllocator` and does not affect semantics. Root-external stylesheets use project-relative logical ids such as `../shared/Card.gss`; canonical physical ids remain transaction/lookup keys. Moving the workspace without changing its relative layout cannot change Module-owned names. If no project-relative identity can be expressed, compilation fails closed rather than encoding an absolute path.
 
 ## 15. Fail-closed policy
 
@@ -333,9 +333,11 @@ The reference renderer does not call the atomic winner/pruning/planning path. A 
 - Resources and layers: [ADR-0024](adr/0024-support-module-local-keyframes.md), [ADR-0025](adr/0025-support-font-face-as-a-global-resource.md), [ADR-0026](adr/0026-support-configured-named-cascade-layers.md)
 - Cascade and delivery: [ADR-0027](adr/0027-separate-cascade-resolution-from-render-order.md), [ADR-0028](adr/0028-use-one-central-css-asset-and-snapshot-hmr.md)
 - Naming and verification: [ADR-0029](adr/0029-use-reversible-readable-names-for-the-first-version.md), [ADR-0030](adr/0030-make-semantic-reference-css-a-testing-capability.md)
+- Source Adapter discovery and synchronous transformation: [ADR-0046](adr/0046-discover-source-imports-before-synchronous-transform.md)
+- Root-external Module identity: [ADR-0047](adr/0047-use-project-relative-identities-for-root-external-stylesheets.md)
 
 ## 18. Implementation status
 
 The semantic design stage is complete. The recipe-oriented exploratory implementation has been discarded without modifying the read-only legacy project.
 
-Stage 1 of [`mvp-roadmap.md`](mvp-roadmap.md) established the new Compiler workspace and verification commands. Implementation now proceeds in test-first vertical slices through the accepted `GssCompilerSession` seam.
+Stage 1 of [`mvp-roadmap.md`](mvp-roadmap.md) established the new Compiler workspace and verification commands. Implementation now proceeds in test-first vertical slices through the accepted `GssCompilerSession` seam. The Vite virtual-JavaScript and explicit source-Adapter composition slices are implemented with real Vite integration tests; central CSS delivery and HMR are not yet implemented.

@@ -178,13 +178,16 @@ Finalization produces one ordered stylesheet for every reachable main and lazy M
 
 ```text
 React/TSX source
-→ locate .gss imports
-→ resolve ScopeSchema
+→ framework Adapter discovers .gss imports (no file reads)
+→ host resolves and compiles dependencies asynchronously
+→ synchronous transform resolves ScopeSchema
 → track supported local immutable aliases
 → lower GSS references inside JSX className to `.self`
 → diagnose unknown paths and unsupported escape
 → emit transformed source + source map
 ```
+
+The shared `GssSourceAdapter` application port is exported by `@gss-l/compiler`. `@gss-l/react` implements it through `react()`; `@gss-l/vite` explicitly receives it through `gss({ adapter })`. Vite owns physical/virtual ids, file reads, diagnostics presentation and the session, not React lowering. A current compilation error blocks transformation rather than falling back to an old ScopeSchema.
 
 The React Adapter may inspect syntax and binding provenance, but it does not:
 
@@ -207,7 +210,7 @@ getScopeSchema(id)
 finalize()
 ```
 
-Module ids are stable project-relative logical ids. Absolute cwd, timestamps, random values, worker order, and hash-map iteration order never enter output identity.
+Output Module identities are stable project-relative logical ids, including root-external paths such as `../shared/Card.gss`. Canonical physical ids remain session transaction/ScopeSchema lookup keys; the host owns filesystem canonicalization. Absolute cwd, timestamps, random values, worker order, and hash-map iteration order never enter output identity.
 
 ## Production architecture
 

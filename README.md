@@ -86,7 +86,29 @@ const className = styles.father.self;
 
 它提供全局 `*.gss` 声明，不需要 per-file `.gss.d.ts`。`styles.card` 是 branded scope object，`styles.card.self` 才是 string。宽泛递归类型不保证路径存在；真实路径由 React Adapter 根据 Compiler ScopeSchema 验证。
 
-启用 `noUncheckedIndexedAccess` 时，未知 scope key 与普通 index signature 一样包含 `undefined`，需要检查或非空断言。当前 `@gss-l/vite` 仅实现 client 类型入口，Vite plugin 和 CSS 生命周期尚未实现。
+启用 `noUncheckedIndexedAccess` 时，未知 scope key 与普通 index signature 一样包含 `undefined`，需要检查或非空断言。
+
+## Vite 集成进度
+
+当前实现 Vite 7 的 virtual JavaScript 和显式 framework Adapter 组合：
+
+```ts
+import { defineConfig } from 'vite';
+import { gss } from '@gss-l/vite';
+import { react } from '@gss-l/react';
+
+export default defineConfig({
+  plugins: [gss({ adapter: react() })]
+});
+```
+
+Vite 在 React transform 前按需编译 `.gss`，再复用同步 ScopeSchema validation/lowering；hard diagnostic 阻止当前 load/transform，preserved fallback 返回 JavaScript 并报告 warning。
+
+可以通过相对 import、alias 或 symlink 引用 root 外的 `.gss`。其 logical id 相对 canonical project root，例如 `../shared/Card.gss`；保持相对布局的工作区迁移不会改变生成名称。无法表达相对 identity 的跨 drive/share 输入会报错，不会输出 absolute-path names。
+
+**尚未实现 central CSS、HTML 注入和 HMR；当前切片不是可交付页面样式的完整集成。** 不需要也不应添加手动 central CSS import。
+
+验证使用 `corepack pnpm verify`：先 lint 和按依赖顺序 build，再运行测试和 typecheck，以验证真实 workspace package exports，不依赖残留 `dist`。
 
 ## 文档
 

@@ -3,6 +3,8 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@gss-l/react": "workspace:*",
+    "vite": "^7.3.6",
     "@gss-l/types": "workspace:*",
     "@gss-l/vite": "workspace:*"
   }

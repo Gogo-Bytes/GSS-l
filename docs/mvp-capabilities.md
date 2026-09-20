@@ -8,6 +8,8 @@
 - `styles.<scope>` 与 `styles.<scope>.<target-path>`。
 - JSX `className` 内隐式 `.self`；其他 string context 显式 `.self`。
 - 局部不可变 direct、conditional 和 property alias。
+- 通过 `gss({ adapter: react() })` 显式组合 Vite 和 React Adapter；先 discovery/按需编译，再同步 ScopeSchema validation/lowering。
+- 项目级 `@gss-l/vite/client` reference 提供宽泛 branded recursive `*.gss` 类型，不生成 per-file declaration。
 
 ## Selectors and relations
 
@@ -69,6 +71,7 @@
 - Artifact、manifest和report记录`atomic`/`preserved` mode、fallback reason与atomic coverage；fallback产生warning且可由项目升级为error。
 - Dev replace-by-id transaction、last-known-good rollback、ref-count回收与完整 ordered snapshot HMR。
 - 独立 NameAllocator生成由完整 canonical identity 可逆编码的可读名称。
+- Root 外的 `.gss` 使用 `../shared/Card.gss` 形式的 project-relative logical identity；支持相对 import、alias 和 symlink canonicalization，不将绝对路径写入 Module-owned names。
 
 ## Verification
 

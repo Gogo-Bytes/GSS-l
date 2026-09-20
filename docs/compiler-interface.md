@@ -82,7 +82,7 @@ export type GssCompilerConfig = {
 
 `atomizationFallback` defaults to `"preserve-module"`. It applies only when selectors and scope semantics are valid but property effects or compatibility sequences cannot be safely atomized. It never converts parse, scoping, selector-safety, ordering, or resource-conflict errors into successful output.
 
-`projectRoot` is used to derive stable logical Module ids. Absolute paths never enter semantic identity or emitted output.
+`projectRoot` is used to derive stable logical Module ids. Absolute paths never enter semantic identity or emitted names. Root-external stylesheets use relative ids such as `../shared/Card.gss` ([ADR-0047](adr/0047-use-project-relative-identities-for-root-external-stylesheets.md)); the host canonicalizes physical root/source paths. Physical ids remain session transaction/lookup keys. Sources on another Windows drive or UNC share fail closed because no project-relative identity can be expressed. The Compiler performs lexical path conversion only and does not read the filesystem.
 
 ### Replace input
 
@@ -210,6 +210,43 @@ declare module '*.gss' {
 ```
 
 `GssScope<TTargets>` models a runtime scope object and exposes only `self: string` as the concrete class string. The wildcard declaration intentionally does not promise that a particular `styles.<path>` exists; the React Adapter validates actual paths against `ScopeSchema` and reports unknown paths during transformation. Precise IDE completion and per-Module declaration generation are deferred to a future IDE integration.
+
+## Shared source Adapter port
+
+Accepted in [ADR-0046](adr/0046-discover-source-imports-before-synchronous-transform.md), exported from `@gss-l/compiler` as an application port:
+
+```ts
+export type GssSourceAdapter = {
+  supports(id: string): boolean;
+  discoverImports(input: { id: string; source: string }): readonly string[];
+  transform(input: {
+    id: string;
+    source: string;
+    resolveScopeSchema(importId: string): ScopeSchema | undefined;
+  }): {
+    code: string;
+    map?: SourceMapArtifact;
+    diagnostics: readonly SourceAdapterDiagnostic[];
+  };
+};
+```
+
+`SourceMapArtifact` is source-map v3 data without a third-party editor type. `SourceAdapterDiagnostic` carries `code`, `severity`, `phase`, `message`, `id`, and optional `reason`/`suggestion`; it contains no framework AST or host objects.
+
+`discoverImports()` returns original import specifiers synchronously and does not read files. The host asynchronously resolves and compiles those dependencies before invoking the synchronous transform with a ScopeSchema resolver keyed by original specifier. Errors stop the current transformation; warnings continue. A failed replacement retains the Compiler's last-known-good contribution, but that old schema must not mask the current error.
+
+The implemented composition is:
+
+```ts
+import { gss } from '@gss-l/vite';
+import { react } from '@gss-l/react';
+
+const plugin = gss({ adapter: react() });
+```
+
+`gss()` returns a Vite plugin and requires an explicit Adapter. Its session is owned by that integration instance. Stable virtual IDs are encoded/decoded in one Vite-owned module; resolution does not compile. Both virtual JS load and source precompilation use the physical id and the same session. `react()` reuses the existing React transform, including source maps and unknown-path diagnostics.
+
+Current implementation covers virtual JS and source composition, not central CSS delivery, asset URL processing, or HMR. The broader configuration/Compiler port sketches elsewhere in this document remain architecture targets rather than additional `gss()` options.
 
 ## React style-usage Adapter
 
