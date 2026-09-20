@@ -1,5 +1,9 @@
 import { parse } from '@babel/parser';
-import traverseModule, { type Binding, type TraverseOptions } from '@babel/traverse';
+import traverseModule, {
+  type Binding,
+  type NodePath,
+  type TraverseOptions
+} from '@babel/traverse';
 import * as t from '@babel/types';
 import MagicString, { type SourceMap } from 'magic-string';
 
@@ -151,6 +155,13 @@ export function transformReactGssUsage(
       }
     });
   });
+  diagnoseScopeStringCoercions(
+    ast,
+    input.id,
+    verifiedBindings,
+    aliasReferences,
+    diagnostics
+  );
 
   return {
     code: output.toString(),
@@ -197,6 +208,64 @@ function resolveReferenceBindings(
 type AliasKind = 'scope' | 'mutable' | 'ambiguous';
 
 type ScopeExpressionKind = 'scope' | 'non-scope' | 'ambiguous';
+
+function diagnoseScopeStringCoercions(
+  ast: t.File,
+  id: string,
+  verifiedBindings: WeakMap<t.MemberExpression, GssBinding>,
+  aliasReferences: WeakMap<t.Identifier, AliasKind>,
+  diagnostics: ReactGssDiagnostic[]
+): void {
+  const reported = new Set<number>();
+  const report = (node: t.Node): void => {
+    if (node.start == null || reported.has(node.start)) return;
+    reported.add(node.start);
+    diagnostics.push({
+      code: 'GSS2105',
+      severity: 'error',
+      phase: 'transform',
+      message: 'A GSS scope object is being coerced to a string.',
+      id,
+      reason: 'scope-string-coercion',
+      suggestion: 'Use the explicit .self class string.'
+    });
+  };
+  traverse(ast, {
+    MemberExpression(path) {
+      if (t.isMemberExpression(path.parent) && path.parent.object === path.node) return;
+      const reference = readStaticReference(path.node);
+      const binding = verifiedBindings.get(path.node);
+      if (
+        !binding ||
+        !reference ||
+        reference.path.at(-1) === 'self' ||
+        !isStringCoercionPath(path)
+      ) return;
+      report(path.node);
+    },
+    Identifier(path) {
+      if (!path.isReferencedIdentifier()) return;
+      if (t.isMemberExpression(path.parent) && path.parent.object === path.node) return;
+      if (aliasReferences.get(path.node) === 'scope' && isStringCoercionPath(path)) {
+        report(path.node);
+      }
+    }
+  });
+}
+
+function isStringCoercionPath(path: NodePath): boolean {
+  let current = path.parentPath;
+  while (current) {
+    if (
+      t.isJSXAttribute(current.node) &&
+      t.isJSXIdentifier(current.node.name, { name: 'className' })
+    ) return false;
+    if (t.isTemplateLiteral(current.node)) return true;
+    if (t.isBinaryExpression(current.node, { operator: '+' })) return true;
+    current = current.parentPath;
+  }
+  return false;
+}
 
 function resolveTypedPropMemberReferences(
   ast: t.File,

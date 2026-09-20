@@ -134,7 +134,8 @@ Completion criteria:
 - [x] Lower destructured component props explicitly typed as `typeof styles.<scope>` through a local type alias.
 - [x] Extend typed scope props to inline annotations and direct `props.scope` reads.
 - [ ] Extend typed scope props to constrained cross-file forwarding.
-- [ ] Emit path and scope-escape diagnostics with `.self` suggestions.
+- [x] Emit static path and implicit scope-string escape diagnostics with `.self` suggestions.
+- [ ] Extend scope-escape diagnostics to all proven typed cross-file contexts.
 - [x] Preserve non-GSS expressions and produce high-resolution source maps for direct and nested reference lowering.
 
 Completion criteria:

@@ -223,6 +223,52 @@ describe('transformReactGssUsage', () => {
     }]);
   });
 
+  it('diagnoses implicit string coercion of a GSS scope outside className', () => {
+    const source = `import styles from './Card.gss';\n` +
+      `export const className = \`prefix \${styles.card}\`;`;
+    const result = transformReactGssUsage({
+      id: '/project/src/Card.tsx',
+      source,
+      resolveScopeSchema() { return cardScope; }
+    });
+
+    expect(result.code).toBe(source);
+    expect(result.diagnostics).toMatchObject([{
+      code: 'GSS2105',
+      phase: 'transform',
+      reason: 'scope-string-coercion',
+      suggestion: expect.stringContaining('.self')
+    }]);
+  });
+
+  it('diagnoses implicit string coercion of a local GSS scope alias', () => {
+    const source = `import styles from './Card.gss';\n` +
+      `const card = styles.card; export const className = 'prefix ' + card;`;
+    const result = transformReactGssUsage({
+      id: '/project/src/Card.tsx',
+      source,
+      resolveScopeSchema() { return cardScope; }
+    });
+
+    expect(result.diagnostics).toMatchObject([{
+      code: 'GSS2105',
+      reason: 'scope-string-coercion'
+    }]);
+  });
+
+  it('allows explicit self in a non-className string context', () => {
+    const source = `import styles from './Card.gss';\n` +
+      `export const className = \`prefix \${styles.card.self}\`;`;
+    const result = transformReactGssUsage({
+      id: '/project/src/Card.tsx',
+      source,
+      resolveScopeSchema() { return cardScope; }
+    });
+
+    expect(result.code).toBe(source);
+    expect(result.diagnostics).toEqual([]);
+  });
+
   it('keeps an explicit self reference unchanged', () => {
     const source = `import styles from './Card.gss';\nexport const Card = () => <div className={styles.card.self} />;`;
     const result = transformReactGssUsage({
