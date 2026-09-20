@@ -178,6 +178,31 @@ describe('transformReactGssUsage', () => {
     expect(result.diagnostics).toEqual([]);
   });
 
+  it('supports a typed scope passed from a parent component to a child', () => {
+    const parentSource = `import styles from './Card.gss';\n` +
+      `import { CardBody } from './CardBody';\n` +
+      `export const Card = () => <CardBody scope={styles.card} />;`;
+    const childSource = `import type styles from './Card.gss';\n` +
+      `type Props = { scope: typeof styles.card };\n` +
+      `export const CardBody = ({ scope }: Props) => <div className={scope} />;`;
+
+    const parent = transformReactGssUsage({
+      id: '/project/src/Card.tsx',
+      source: parentSource,
+      resolveScopeSchema() { return cardScope; }
+    });
+    const child = transformReactGssUsage({
+      id: '/project/src/CardBody.tsx',
+      source: childSource,
+      resolveScopeSchema() { return cardScope; }
+    });
+
+    expect(parent.code).toBe(parentSource);
+    expect(parent.diagnostics).toEqual([]);
+    expect(child.code).toContain('className={scope.self}');
+    expect(child.diagnostics).toEqual([]);
+  });
+
   it('lowers a scope property read from a typed props object', () => {
     const result = transformReactGssUsage({
       id: '/project/src/CardBody.tsx',

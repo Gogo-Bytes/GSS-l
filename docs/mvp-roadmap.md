@@ -133,7 +133,8 @@ Completion criteria:
 - [x] Propagate all-scope conditional aliases and property-destructured scope aliases; diagnose mixed scope/string branches.
 - [x] Lower destructured component props explicitly typed as `typeof styles.<scope>` through a local type alias.
 - [x] Extend typed scope props to inline annotations and direct `props.scope` reads.
-- [ ] Extend typed scope props to constrained cross-file forwarding.
+- [x] Support direct parent-to-child scope passing when the child explicitly imports `typeof styles.<scope>`.
+- [ ] Extend typed scope props to multi-hop forwarding, shared type aliases, and constrained cross-file provenance.
 - [x] Emit static path and implicit scope-string escape diagnostics with `.self` suggestions.
 - [ ] Extend scope-escape diagnostics to all proven typed cross-file contexts.
 - [x] Preserve non-GSS expressions and produce high-resolution source maps for direct and nested reference lowering.
