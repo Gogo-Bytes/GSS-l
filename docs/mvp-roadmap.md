@@ -113,7 +113,8 @@ Completion criteria:
 - [ ] Implement full-census `finalize()`.
 - [x] Implement `RuleOrderPlanner` separately from `CascadeResolver`.
 - [ ] Implement reversible readable names behind `NameAllocatorPort`.
-- [x] Emit nested static scope objects and branded object-based TypeScript declarations through `@gss-l/types`.
+- [x] Emit nested static scope objects and branded object-based consumer types through `@gss-l/types`.
+- [x] Provide a global wildcard `.gss` declaration without per-Module declaration files.
 - [ ] Emit central CSS, source map, manifest, and report, including Module compilation mode, fallback reasons, and atomic coverage.
 
 Completion criteria:
@@ -144,7 +145,7 @@ Completion criteria:
 - transformed code contains no scope object where React receives a class string;
 - arbitrary `cx()` and external class semantics remain untouched;
 - unsupported escape fails explicitly rather than producing runtime object coercion;
-- TypeScript fixture projects pass with generated declarations.
+- TypeScript fixture projects pass with the global `.gss` declaration and branded consumer types.
 
 ## Stage 7 — Vite integration, production asset, and HMR
 

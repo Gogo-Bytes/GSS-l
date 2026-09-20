@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded by ADR-0042
 ---
 
 # 优先使用推导的 GSS scope prop 类型

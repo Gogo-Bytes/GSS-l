@@ -196,37 +196,20 @@ export default { father };
 
 `targets` is an internal schema namespace, not part of the authored JavaScript interface.
 
-## Generated TypeScript declarations
+## TypeScript declaration strategy
 
-Generated declarations use a branded phantom intersection so React `className` accepts a scope reference while target properties remain visible:
-
-```ts
-declare const GSS_SCOPE: unique symbol;
-
-export type GssScope<TTargets> =
-  string &
-  TTargets & {
-    /** Concrete class string. Use outside JSX className. */
-    readonly self: string;
-    readonly [GSS_SCOPE]: true;
-  };
-```
-
-Example:
+The first version does not generate or require a per-Module `.gss.d.ts` file. The integration provides one global wildcard declaration backed by the branded recursive types from `@gss-l/types`:
 
 ```ts
-declare const styles: {
-  readonly father: GssScope<{
-    readonly son: GssScope<{
-      readonly icon: GssScope<{}>;
-    }>;
-  }>;
-};
+import type { GssStyles } from '@gss-l/types';
 
-export default styles;
+declare module '*.gss' {
+  const styles: GssStyles;
+  export default styles;
+}
 ```
 
-The type is a compile-time interface. The runtime value is the static object shown above; the React Adapter guarantees contextual lowering and reports unsupported escape.
+`GssScope<TTargets>` models a runtime scope object and exposes only `self: string` as the concrete class string. The wildcard declaration intentionally does not promise that a particular `styles.<path>` exists; the React Adapter validates actual paths against `ScopeSchema` and reports unknown paths during transformation. Precise IDE completion and per-Module declaration generation are deferred to a future IDE integration.
 
 ## React style-usage Adapter
 
