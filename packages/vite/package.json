@@ -1,0 +1,18 @@
+{
+  "name": "@gss-l/vite",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./client": {
+      "types": "./client.d.ts"
+    }
+  },
+  "files": ["client.d.ts"],
+  "scripts": {
+    "typecheck": "tsc -p test/consumer/tsconfig.json --noEmit && tsc -p test/without-client/tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@gss-l/types": "workspace:*"
+  }
+}

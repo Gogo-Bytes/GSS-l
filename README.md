@@ -76,6 +76,18 @@ const className = styles.father.self;
 
 项目尚未达到 production-ready 状态，也未发布 package。
 
+## TypeScript consumer types
+
+在项目的 `vite-env.d.ts` 中添加一次：
+
+```ts
+/// <reference types="@gss-l/vite/client" />
+```
+
+它提供全局 `*.gss` 声明，不需要 per-file `.gss.d.ts`。`styles.card` 是 branded scope object，`styles.card.self` 才是 string。宽泛递归类型不保证路径存在；真实路径由 React Adapter 根据 Compiler ScopeSchema 验证。
+
+启用 `noUncheckedIndexedAccess` 时，未知 scope key 与普通 index signature 一样包含 `undefined`，需要检查或非空断言。当前 `@gss-l/vite` 仅实现 client 类型入口，Vite plugin 和 CSS 生命周期尚未实现。
+
 ## 文档
 
 - [Language design](docs/language-design.md)

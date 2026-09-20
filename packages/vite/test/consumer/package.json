@@ -1,0 +1,9 @@
+{
+  "name": "@gss-l/test-vite-consumer",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@gss-l/types": "workspace:*",
+    "@gss-l/vite": "workspace:*"
+  }
+}

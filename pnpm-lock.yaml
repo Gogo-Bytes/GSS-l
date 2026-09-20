@@ -69,6 +69,21 @@ importers:
 
   packages/types: {}
 
+  packages/vite:
+    dependencies:
+      '@gss-l/types':
+        specifier: workspace:*
+        version: link:../types
+
+  packages/vite/test/consumer:
+    dependencies:
+      '@gss-l/types':
+        specifier: workspace:*
+        version: link:../../../types
+      '@gss-l/vite':
+        specifier: workspace:*
+        version: link:../..
+
 packages:
 
   /@babel/code-frame@7.29.7:
