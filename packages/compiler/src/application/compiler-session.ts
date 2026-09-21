@@ -1,4 +1,6 @@
 import selectorParser from 'postcss-selector-parser';
+import { bindCssAssets, identifyAssetValue, renderAssetValue, type AssetBindings, type AssetUrlResolver } from './asset-values.js';
+import { collectAssetDependencies } from './stylesheet-assets.js';
 import { toLogicalModuleId } from './module-identity.js';
 import valueParser from 'postcss-value-parser';
 import {
@@ -33,6 +35,7 @@ import {
 } from '../infrastructure/postcss-stylesheet-parser.js';
 import type {
   FinalizedGssSnapshot,
+  FinalizeGssOptions,
   GssCompilerConfig,
   GssCompilerSession,
   GssDiagnostic,
@@ -44,12 +47,14 @@ import type {
 type ContextualDeclarationIdentity = ContextualRelationIdentity & {
   property: string;
   value: string;
+  assetValue?: true;
   important: boolean;
 };
 
 type ObservedDeclarationIdentity = ObservedRelationIdentity & {
   property: string;
   value: string;
+  assetValue?: true;
   important: boolean;
 };
 
@@ -68,11 +73,13 @@ type PlannedResource = {
   conflictKey?: string;
   identity: string;
   css: string;
+  renderCss?: (resolve: AssetUrlResolver) => string;
 };
 
 type PlannedPreservedBlock = {
   moduleId: string;
   css: string;
+  renderCss?: (resolve: AssetUrlResolver) => string;
 };
 
 type ModuleContribution = {
@@ -143,8 +150,8 @@ export function createGssCompilerSession(config: GssCompilerConfig): GssCompiler
       return modules.get(moduleId)?.artifact.scopeSchema;
     },
 
-    finalize() {
-      return finalizeSnapshot(modules, generation, config);
+    finalize(options) {
+      return finalizeSnapshot(modules, generation, config, options);
     }
   };
 }
@@ -156,6 +163,20 @@ function prepareContribution(
   const parsed = parseStylesheet(input.id, input.source);
   if (parsed.diagnostics.some(({ severity }) => severity === 'error')) {
     return { diagnostics: parsed.diagnostics };
+  }
+  const bindings = new Map<string, string>();
+  const urls = new Set(collectAssetDependencies(parsed));
+  for (const { url, identity } of input.assetReferences ?? []) {
+    if (typeof url !== 'string' || typeof identity !== 'string' || !url || !identity ||
+        !urls.has(url) || (bindings.has(url) && bindings.get(url) !== identity)) {
+      return { diagnostics: [{
+        code: 'GSS1501', severity: 'error', phase: 'validate', id: input.id,
+        message: `Invalid or conflicting Asset reference for ${url}.`,
+        reason: 'invalid-asset-reference',
+        suggestion: 'Bind discovered URLs to non-empty, unambiguous logical identities.'
+      }] };
+    }
+    bindings.set(url, identity);
   }
   const moduleId = toLogicalModuleId(config.projectRoot, input.id);
   if (moduleId === undefined) {
@@ -418,7 +439,7 @@ function prepareContribution(
           condition,
           state: 'self',
           property: declaration.property,
-          value: declaration.value,
+          ...identifyAssetValue(declaration.value, bindings),
           important: declaration.important
         };
         const className = createReadableAtomicName(identity);
@@ -457,7 +478,7 @@ function prepareContribution(
           condition,
           state,
           property: declaration.property,
-          value: declaration.value,
+          ...identifyAssetValue(declaration.value, bindings),
           important: declaration.important
         };
         const className = createReadableAtomicName(identity);
@@ -501,7 +522,7 @@ function prepareContribution(
           state,
           pseudoElement,
           property: declaration.property,
-          value: declaration.value,
+          ...identifyAssetValue(declaration.value, bindings),
           important: declaration.important
         };
         const className = createReadableAtomicName(identity);
@@ -551,7 +572,7 @@ function prepareContribution(
         const identity: ObservedDeclarationIdentity = {
           ...relationIdentity,
           property: declaration.property,
-          value: declaration.value,
+          ...identifyAssetValue(declaration.value, bindings),
           important: declaration.important
         };
         rules.push({
@@ -589,7 +610,7 @@ function prepareContribution(
           condition,
           state,
           property: declaration.property,
-          value: declaration.value,
+          ...identifyAssetValue(declaration.value, bindings),
           important: declaration.important
         };
         const className = createReadableAtomicName(identity);
@@ -633,7 +654,7 @@ function prepareContribution(
       const identity: ContextualDeclarationIdentity = {
         ...relationIdentity,
         property: declaration.property,
-        value: declaration.value,
+        ...identifyAssetValue(declaration.value, bindings),
         important: declaration.important
       };
       rules.push({
@@ -673,7 +694,7 @@ function prepareContribution(
       const identity: ContextualDeclarationIdentity = {
         ...relationIdentity,
         property: declaration.property,
-        value: declaration.value,
+        ...identifyAssetValue(declaration.value, bindings),
         important: declaration.important
       };
       rules.push({
@@ -736,7 +757,7 @@ function prepareContribution(
       const identity: ContextualDeclarationIdentity = {
         ...relationIdentity,
         property: declaration.property,
-        value: declaration.value,
+        ...identifyAssetValue(declaration.value, bindings),
         important: declaration.important
       };
       rules.push({
@@ -765,7 +786,7 @@ function prepareContribution(
     fallbackReasons: []
   };
 
-  const resources = parsed.resources.map((resource) => planResource(resource, moduleId));
+  const resources = parsed.resources.map((resource) => planResource(resource, moduleId, bindings));
   return {
     artifact,
     rules,
@@ -817,13 +838,14 @@ function preparePreservedContribution(input: {
     compilationMode: 'preserved',
     fallbackReasons
   };
+  const bindings = new Map((input.input.assetReferences ?? []).map(({ url, identity }) => [url, identity]));
   const resources = input.parsed.resources.map((resource) =>
-    planResource(resource, input.moduleId)
+    planResource(resource, input.moduleId, bindings)
   );
   return {
     artifact,
     rules: [],
-    preservedBlocks: [{ moduleId: input.moduleId, css }],
+    preservedBlocks: [{ moduleId: input.moduleId, css, ...bindCssAssets(css, bindings) }],
     resources,
     diagnostics: [
       ...input.conditionDiagnostics,
@@ -893,10 +915,14 @@ function rewriteKeyframeReferences(
   }));
 }
 
-function planResource(resource: ParsedGlobalResource, moduleId: string): PlannedResource {
-  if (resource.kind === 'property') return planPropertyRegistration(resource);
-  if (resource.kind === 'keyframes') return planKeyframesRegistration(resource, moduleId);
-  return planFontFaceResource(resource);
+function planResource(resource: ParsedGlobalResource, moduleId: string, bindings: AssetBindings): PlannedResource {
+  const planned = resource.kind === 'property' ? planPropertyRegistration(resource)
+    : resource.kind === 'keyframes' ? planKeyframesRegistration(resource, moduleId)
+    : planFontFaceResource(resource);
+  const assets = bindCssAssets(planned.css, bindings);
+  return assets.assetIdentity && assets.renderCss
+    ? { ...planned, identity: assets.assetIdentity, renderCss: assets.renderCss }
+    : planned;
 }
 
 function planPropertyRegistration(resource: ParsedPropertyRegistration): PlannedResource {
@@ -939,29 +965,6 @@ function planFontFaceResource(resource: ParsedFontFaceResource): PlannedResource
     ]),
     css: `@font-face {\n${declarations}\n}`
   };
-}
-
-function collectAssetDependencies(parsed: ParsedStylesheet): readonly string[] {
-  const values = [
-    ...parsed.rules.flatMap((rule) => rule.declarations.map(({ value }) => value)),
-    ...parsed.resources.flatMap((resource) => {
-      if (resource.kind === 'keyframes') {
-        return resource.frames.flatMap((frame) =>
-          frame.declarations.map(({ value }) => value)
-        );
-      }
-      return resource.declarations.map(({ value }) => value);
-    })
-  ];
-  const dependencies = new Set<string>();
-  for (const value of values) {
-    valueParser(value).walk((node) => {
-      if (node.type !== 'function' || node.value.toLowerCase() !== 'url') return;
-      const url = valueParser.stringify(node.nodes).trim().replace(/^(['"])(.*)\1$/, '$2');
-      if (url) dependencies.add(url);
-    });
-  }
-  return [...dependencies];
 }
 
 function planKeyframesRegistration(
@@ -1176,8 +1179,17 @@ function toScopeSchema(scope: MutableScopeNode): ScopeNodeSchema {
 function finalizeSnapshot(
   modules: ReadonlyMap<string, ModuleContribution>,
   generation: number,
-  config: GssCompilerConfig
+  config: GssCompilerConfig,
+  options?: FinalizeGssOptions
 ): FinalizedGssSnapshot {
+  const urls = new Map<string, string>();
+  const resolve: AssetUrlResolver = (identity) => {
+    if (urls.has(identity)) return urls.get(identity)!;
+    const url = options?.resolveAssetUrl?.(identity);
+    if (typeof url !== 'string' || url.length === 0) throw new Error(`Missing output URL for GSS Asset ${identity}.`);
+    urls.set(identity, url);
+    return url;
+  };
   const uniqueResources = new Map<string, {
     resource: PlannedResource;
     sources: Set<string>;
@@ -1195,7 +1207,7 @@ function finalizeSnapshot(
   const orderedResources = [...uniqueResources.values()]
     .sort((left, right) => left.resource.identity.localeCompare(right.resource.identity));
   const renderedResources = orderedResources
-    .map(({ resource }) => resource.css)
+    .map(({ resource }) => resource.renderCss?.(resolve) ?? resource.css)
     .join('\n\n');
 
   const uniqueRules = new Map<string, {
@@ -1214,12 +1226,12 @@ function finalizeSnapshot(
   const orderedRules = [...uniqueRules.values()].sort((left, right) =>
     compareRuleOrder(left.rule, right.rule, config)
   );
-  const renderedRules = orderedRules.map(({ rule }) => renderRule(rule)).join('\n\n');
+  const renderedRules = orderedRules.map(({ rule }) => renderRule(rule, resolve)).join('\n\n');
   const orderedPreservedBlocks = [...modules.values()]
     .flatMap(({ preservedBlocks }) => preservedBlocks)
     .sort((left, right) => left.moduleId.localeCompare(right.moduleId));
   const renderedPreservedBlocks = orderedPreservedBlocks
-    .map(({ css }) => css)
+    .map(({ css, renderCss }) => renderCss?.(resolve) ?? css)
     .join('\n\n');
   const layerPrelude = config.layers?.length
     ? `@layer ${config.layers.join(', ')};`
@@ -1248,7 +1260,7 @@ function finalizeSnapshot(
         className,
         selector,
         property: identity.property,
-        value: identity.value,
+        value: renderAssetValue(identity, resolve),
         important: identity.important,
         sources: [...sources].sort()
       }))
@@ -1296,8 +1308,9 @@ function renderRelationCombinator(
   return '';
 }
 
-function renderRule(rule: PlannedDeclaration): string {
-  const { property, value, important } = rule.identity;
+function renderRule(rule: PlannedDeclaration, resolve: AssetUrlResolver): string {
+  const { property, important } = rule.identity;
+  const value = renderAssetValue(rule.identity, resolve);
   let css = `${rule.selector} {\n  ${property}: ${value}${important ? ' !important' : ''};\n}`;
   for (const wrapper of [...(rule.wrappers ?? [])].reverse()) {
     css = `@${wrapper.kind} ${wrapper.query} {\n${indentCss(css)}\n}`;
@@ -1353,6 +1366,11 @@ function renderScopeType(scope: ScopeNodeSchema): string {
 }
 
 function serializeIdentity(identity: PlannedDeclaration['identity']): string {
+  if (identity.assetValue) {
+    const plain = { ...identity };
+    delete plain.assetValue;
+    return JSON.stringify(['asset-identity', serializeIdentity(plain)]);
+  }
   if ('subjectPath' in identity) {
     return JSON.stringify([
       'observed',

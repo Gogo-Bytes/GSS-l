@@ -13,6 +13,6 @@ CSS/font URL 的解析与输出由 Vite Adapter 负责。相对 URL 以所属 `.
 - 根路径 URL 按 Vite `publicDir` 处理；query/fragment 保留。
 - 缺失本地资源使当前操作失败。Dev 保留 last-known-good CSS，production 构建失败，不静默留下失效 URL。
 - 资源解析必须在提交相应 Module contribution 前成功；不得先提交错误的 URL identity，再异步修补已发布的 CSS。
-- 不新增 `gss()` 配置项，不改变 React Adapter 接口。Compiler 与 host 之间的具体 Asset reference 协议需单独确认，不能将文档中的 `AssetResolverPort` 占位视为已冻结的接口。
+- 不新增 `gss()` 配置项，不改变 React Adapter 接口。Compiler 与 host 之间的具体协议后续由 [ADR-0050](0050-discover-bind-and-render-asset-references.md) 确认；文档中的 `AssetResolverPort` 配置占位不应被当作另一套已实现接口。
 
 本 ADR 冻结产品语义，不表示 URL 接线已经实现。

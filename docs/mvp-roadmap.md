@@ -159,6 +159,7 @@ Completion criteria:
 - [x] Rebuild production registry state from current source snapshots, including cached preserved Modules whose JS does not change.
 - [x] Implement one dev stylesheet owner per HTML document, base-aware MPA injection, and full ordered snapshot replacement through Vite CSS HMR.
 - [x] Implement last-known-good rollback and generation ordering for asynchronous reads, including deletion and late HMR connection synchronization.
+- [x] Implement the Compiler discovery/binding/rendering protocol for stable Asset references, transactional validation and late URL resolution.
 - [ ] Handle CSS and font URL dependencies through the Adapter.
 
 Completion criteria:

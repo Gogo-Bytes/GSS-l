@@ -65,7 +65,7 @@
 - Existing data/remote/fragment URLs and query/fragment preservation.
 - Missing local assets fail the current operation while preserving last-known-good dev CSS.
 
-See [ADR-0049](adr/0049-separate-asset-identity-from-delivery-urls.md). The concrete Compiler/host protocol is not yet frozen.
+The Compiler protocol is implemented: pure URL discovery, transactional `assetReferences`, stable bound identities, and render-time `resolveAssetUrl` for atoms/preserved CSS/resources. See [ADR-0049](adr/0049-separate-asset-identity-from-delivery-urls.md) and [ADR-0050](adr/0050-discover-bind-and-render-asset-references.md). Vite resource lifecycle wiring remains pending.
 
 ## Output planning
 

@@ -56,7 +56,7 @@ export type GssCompilerSession = {
   replaceStylesheet(input: ReplaceStylesheetInput): ReplaceStylesheetResult;
   invalidate(moduleId: string): InvalidateResult;
   getScopeSchema(moduleId: string): ScopeSchema | undefined;
-  finalize(): FinalizedGssSnapshot;
+  finalize(options?: FinalizeGssOptions): FinalizedGssSnapshot;
 };
 
 export function createGssCompilerSession(
@@ -90,6 +90,7 @@ export type GssCompilerConfig = {
 export type ReplaceStylesheetInput = {
   id: string;
   source: string;
+  assetReferences?: readonly GssAssetReference[];
 };
 ```
 
@@ -381,7 +382,29 @@ export type GssCompilerPorts = {
 };
 ```
 
-The `AssetResolverPort` above is still an architecture placeholder, not an implemented or frozen public interface. [ADR-0049](adr/0049-separate-asset-identity-from-delivery-urls.md) accepts the separation of stable logical Asset identity from rendered deployment URLs and assigns asynchronous resource handling to the host. The concrete reference/discovery/rendering protocol must be confirmed before implementation; existing `StyleModuleArtifact.dependencies` contains only URL strings and is not sufficient to represent that separation.
+The `AssetResolverPort` configuration slot above remains an architecture sketch, not an additional constructor argument implemented today. The concrete protocol accepted in [ADR-0050](adr/0050-discover-bind-and-render-asset-references.md) is implemented through discovery, replacement input bindings and finalization options:
+
+```ts
+export function discoverStylesheetAssets(input: { id: string; source: string }): {
+  urls: readonly string[];
+  diagnostics: readonly GssDiagnostic[];
+};
+
+export type GssAssetReference = {
+  url: string;      // CSS-decoded authored URL, not URI-decoded
+  identity: string; // stable logical reference identity, including query/fragment semantics
+};
+
+export type FinalizeGssOptions = {
+  resolveAssetUrl?: (identity: string) => string;
+};
+```
+
+The host stops on discovery errors, resolves resources asynchronously without modifying committed state, then calls `replaceStylesheet({ id, source, assetReferences })`. Invalid or conflicting bindings fail transactionally with `GSS1501`. Bindings affect atom identity and resource conflict detection before contribution commit; different authored URL spellings can share a resolved identity, while equal text from different source directories need not share one.
+
+`finalize({ resolveAssetUrl })` renders bound references in atoms, contextual declarations, preserved CSS and resources. Missing/empty output URLs throw without changing the session. Results are cached by identity within that finalization, CSS strings are escaped, and manifest declaration values reflect the rendered CSS value rather than private identity encoding. A change to output URL does not change ScopeSchema or class names.
+
+Without bindings, the original standalone Compiler behavior is retained: dependency extraction and authored URL values, with no filesystem checks or automatic deployment rebasing. The Vite asset lifecycle is still pending; this Compiler protocol alone does not make local resources deployable.
 
 The ports keep infrastructure replaceable:
 

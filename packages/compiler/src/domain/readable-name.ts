@@ -5,6 +5,7 @@ export type PureDeclarationIdentity = {
   pseudoElement?: string;
   property: string;
   value: string;
+  assetValue?: true;
   important: boolean;
 };
 
@@ -56,7 +57,7 @@ export function createReadableAtomicName(identity: PureDeclarationIdentity): str
       ? `pseudo_${encodeNamePart(identity.pseudoElement)}`
       : undefined,
     `property_${encodeNamePart(identity.property)}`,
-    `value_${encodeNamePart(identity.value)}`,
+    `${identity.assetValue ? 'asset-value' : 'value'}_${encodeNamePart(identity.value)}`,
     `importance_${identity.important ? 'important' : 'normal'}`
   ].filter((part): part is string => part !== undefined).join('--');
 }
