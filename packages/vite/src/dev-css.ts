@@ -34,9 +34,10 @@ export function createDevCssOwner(server: ViteDevServer, readCss: () => string) 
   server.ws.on('connection', synchronize);
 
   return {
-    publish() {
+    publish(recovered = false) {
       const next = readCss();
-      if (next === css) return;
+      // A native update also clears Vite's error overlay after an identical-byte recovery.
+      if (next === css && !recovered) return;
       css = next;
       const payload = refresh();
       if (payload) hot.send(payload);

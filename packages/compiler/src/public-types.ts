@@ -33,9 +33,21 @@ export type StyleModuleArtifact = {
   fallbackReasons: readonly GssFallbackReason[];
 };
 
+export type GssAssetReference = {
+  /** CSS-decoded authored URL, including query/fragment. */
+  url: string;
+  /** Host-resolved stable logical reference identity, including query/fragment semantics. */
+  identity: string;
+};
+
+export type FinalizeGssOptions = {
+  resolveAssetUrl?: (identity: string) => string;
+};
+
 export type ReplaceStylesheetInput = {
   id: string;
   source: string;
+  assetReferences?: readonly GssAssetReference[];
 };
 
 export type ReplaceStylesheetResult = {
@@ -96,5 +108,5 @@ export type GssCompilerSession = {
   replaceStylesheet(input: ReplaceStylesheetInput): ReplaceStylesheetResult;
   invalidate(moduleId: string): { id: string; changed: boolean; generation: number };
   getScopeSchema(moduleId: string): ScopeSchema | undefined;
-  finalize(): FinalizedGssSnapshot;
+  finalize(options?: FinalizeGssOptions): FinalizedGssSnapshot;
 };

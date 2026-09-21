@@ -893,6 +893,262 @@ describe('GssCompilerSession', () => {
     );
   });
 
+  it.each(['before', 'after'])('retains the declared scope of an empty standalone ::%s rule', (pseudo) => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const result = compiler.replaceStylesheet({ id: 'EmptyPseudo.gss', source: `.card::${pseudo} {}` });
+    expect(result).toMatchObject({ committed: true, diagnostics: [] });
+    expect(result.module!.scopeSchema.exports).toEqual({ card: { selfClassName: '', targets: {} } });
+    expect(compiler.getScopeSchema('EmptyPseudo.gss')).toEqual(result.module!.scopeSchema);
+    expect(compiler.finalize().css).toBe('');
+  });
+
+  it.each(['before', 'after'])('retains declared descendant scopes and prefixes of an empty ::%s rule', (pseudo) => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const result = compiler.replaceStylesheet({ id: 'EmptyDescendantPseudo.gss', source: `.outer .icon::${pseudo} {}` });
+    expect(result).toMatchObject({ committed: true, diagnostics: [] });
+    expect(result.module!.scopeSchema.exports).toEqual({
+      outer: { selfClassName: '', targets: { icon: { selfClassName: '', targets: {} } } }
+    });
+    expect(compiler.finalize().css).toBe('');
+  });
+
+  it('retains empty pseudo paths beside populated pseudo paths without manufacturing declarations', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const result = compiler.replaceStylesheet({ id: 'MixedPseudo.gss', source: [
+      '.card::before { color: red; }',
+      '.empty::after {}',
+      '.outer .icon::before {}',
+      '.outer .middle .leaf:disabled::after {}'
+    ].join('\n') });
+    expect(result).toMatchObject({ committed: true, diagnostics: [] });
+    const card = result.module!.scopeSchema.exports.card!;
+    expect(card.selfClassName).toContain('--pseudo_before--property_color--value_red--');
+    expect(result.module!.scopeSchema.exports).toEqual({
+      card,
+      empty: { selfClassName: '', targets: {} },
+      outer: { selfClassName: '', targets: {
+        icon: { selfClassName: '', targets: {} },
+        middle: { selfClassName: '', targets: { leaf: { selfClassName: '', targets: {} } } }
+      } }
+    });
+    expect(compiler.finalize().css).toBe(`.${card.selfClassName}::before {\n  color: red;\n}`);
+    expect(compiler.finalize().manifest.rules).toHaveLength(1);
+  });
+
+  it('accumulates terminal pseudo declarations into declared descendant targets and structural prefixes', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const replacement = compiler.replaceStylesheet({ id: 'PseudoTree.gss', source: [
+      '.icon::before { content: "before"; color: red; }',
+      '.icon:disabled::after { content: "after"; }',
+      '.outer .icon .leaf { color: black; }'
+    ].join('\n') });
+    expect(replacement.committed).toBe(true);
+    expect(replacement.diagnostics).toEqual([]);
+    const scopes = replacement.module!.scopeSchema.exports;
+    expect(scopes.outer!.targets.icon!.selfClassName.split(' ')).toEqual(
+      expect.arrayContaining(scopes.icon!.selfClassName.split(' '))
+    );
+    expect(Object.keys(scopes.outer!.targets.icon!.targets)).toEqual(['leaf']);
+    expect(compiler.finalize().css).toContain('::before');
+    expect(compiler.finalize().css).toContain(':disabled::after');
+  });
+
+  it('does not infer pseudo ownership ancestry across runtime sibling paths or wrong-order names', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const replacement = compiler.replaceStylesheet({ id: 'PseudoProof.gss', source: [
+      '.icon::after { content: "terminal"; }',
+      '.outer .middle .icon::before { content: "owned"; }',
+      '.middle .outer .icon { color: black; }',
+      '.unrelated .icon { color: black; }',
+      '.outer .middle .extra .icon { color: black; }'
+    ].join('\n') });
+    expect(replacement.committed).toBe(true);
+    const scopes = replacement.module!.scopeSchema.exports;
+    const terminal = scopes.icon!.selfClassName;
+    for (const scope of [scopes.middle!.targets.outer!.targets.icon!, scopes.unrelated!.targets.icon!]) {
+      expect(scope.selfClassName).toContain(terminal);
+      expect(scope.selfClassName).not.toContain('--pseudo_before--');
+    }
+    // A separate sibling-only target must not borrow the authored ownership ancestry.
+    const isolated = compiler.replaceStylesheet({ id: 'SiblingOnly.gss', source:
+      '.icon::after { content: "terminal"; } .outer .icon::before { content: "owned"; } .outer .middle + .icon { color: black; }'
+    });
+    expect(isolated.committed).toBe(true);
+    const siblingIcon = isolated.module!.scopeSchema.exports.outer!.targets.middle!.targets.icon!;
+    expect(siblingIcon.selfClassName).toContain('--pseudo_after--');
+    expect(siblingIcon.selfClassName).not.toContain('--pseudo_before--');
+    expect(scopes.outer!.targets.middle!.targets.extra!.targets.icon!.selfClassName).toContain('--pseudo_before--');
+  });
+
+  it.each(['checked', 'disabled', 'checked:disabled'])('preserves current :%s on distinct before/after atoms at one base scope', (state) => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const replacement = compiler.replaceStylesheet({ id: 'CurrentPseudo.gss', source:
+      `.control:${state}::before { content: "before"; } .control:${state}::after { content: "after"; }`
+    });
+    expect(replacement.committed).toBe(true);
+    expect(replacement.diagnostics).toEqual([]);
+    const scopes = replacement.module!.scopeSchema.exports;
+    expect(Object.keys(scopes)).toEqual(['control']);
+    expect(scopes.control!.targets).toEqual({});
+    const classes = scopes.control!.selfClassName.split(' ');
+    expect(classes).toHaveLength(2);
+    const css = compiler.finalize().css;
+    for (const pseudo of ['before', 'after']) {
+      const token = classes.find((name) => name.includes(`--pseudo_${pseudo}--`));
+      expect(token).toBeTruthy();
+      expect(css).toContain(`.${token}:${state}::${pseudo} {\n  content: "${pseudo}";\n}`);
+    }
+  });
+
+  it('resolves pseudo effects only within a closed target and keeps host/before/after separate', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const replacement = compiler.replaceStylesheet({ id: 'PseudoCascade.gss', source: [
+      '.icon { color: black; }',
+      '.icon::before { color: red !important; margin: 1px 2px 3px 4px; }',
+      '.outer .icon::before { color: blue; margin-left: 9px; }',
+      '.outer .icon::before { margin-left: 11px; }',
+      '.icon::after { color: green; }',
+      '.outer .middle .icon {}'
+    ].join('\n') });
+    expect(replacement.committed).toBe(true);
+    const target = replacement.module!.scopeSchema.exports.outer!.targets.middle!.targets.icon!;
+    expect(target.targets).toEqual({});
+    const css = compiler.finalize().css;
+    const tokens = target.selfClassName.split(' ');
+    const selectedRules = tokens.map((token) => css.split('\n\n').filter((rule) => rule.startsWith(`.${token}`))).flat();
+    expect(selectedRules.some((rule) => rule.includes('::before') && rule.includes('color: red !important;'))).toBe(true);
+    expect(selectedRules.some((rule) => rule.includes('::before') && rule.includes('margin-left: 11px;'))).toBe(true);
+    expect(selectedRules.some((rule) => rule.includes('::after') && rule.includes('color: green;'))).toBe(true);
+    expect(target.selfClassName).toContain(colorRedClass.replace('--property_', '--pseudo_before--property_').replace('--importance_normal', '--importance_important'));
+    expect(target.selfClassName).not.toContain('--value_blue--');
+    expect(target.selfClassName).toContain('--state_self--property_color--value_black--');
+  });
+
+  it.each([false, true])('retains authored pseudo specificity without strengthening reusable atoms (reverse=%s)', (reverse) => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const priority = [
+      '.icon:disabled::before { color: blue; }',
+      '.outer .middle .icon::before { content: "x"; color: red; }'
+    ];
+    const replacement = compiler.replaceStylesheet({ id: 'PseudoPriority.gss', source: [
+      ...(reverse ? priority.reverse() : priority),
+      '.icon::after { content: "after"; color: green; }',
+      '.outer .middle .icon:disabled::after { color: purple !important; }',
+      '.unrelated .icon { color: black; }'
+    ].join('\n') });
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    const scopes = replacement.module!.scopeSchema.exports;
+    const target = scopes.outer!.targets.middle!.targets.icon!;
+    const selected = compiler.finalize().manifest.rules.filter(({ className }) => target.selfClassName.split(' ').includes(className));
+    const red = selected.find(({ property, value }) => property === 'color' && value === 'red')!;
+    expect(red.selector).toBe(`${`.${red.className}`.repeat(3)}::before`);
+    const blue = selected.find(({ property, value }) => property === 'color' && value === 'blue')!;
+    expect(blue.selector).toBe(`.${blue.className}:disabled::before`);
+    const purple = selected.find(({ value }) => value === 'purple')!;
+    expect(purple).toMatchObject({ important: true, selector: `${`.${purple.className}`.repeat(3)}:disabled::after` });
+    expect(scopes.unrelated!.targets.icon!.selfClassName.split(' ')).toContain(blue.className);
+    expect(scopes.unrelated!.targets.icon!.selfClassName.split(' ')).not.toContain(red.className);
+    expect(scopes.icon!.selfClassName.split(' ')).not.toContain(red.className);
+  });
+
+  it.each([false, true])('resolves authored order only inside a closed pseudo predicate (reverse=%s)', (reverse) => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const rules = ['.a .icon:disabled::before { color: red; }', '.b .icon:disabled::before { color: blue; }'];
+    const result = compiler.replaceStylesheet({ id: 'ClosedPseudo.gss', source: [
+      ...(reverse ? rules.reverse() : rules), '.a .b .icon { content: "x"; }'
+    ].join('\n') });
+    expect(result).toMatchObject({ committed: true, diagnostics: [] });
+    const tokens = result.module!.scopeSchema.exports.a!.targets.b!.targets.icon!.selfClassName.split(' ');
+    const colors = compiler.finalize().manifest.rules.filter(({ className, property }) => property === 'color' && tokens.includes(className));
+    expect(colors.map(({ value }) => value)).toEqual([reverse ? 'red' : 'blue']);
+    expect(colors[0]!.selector).toBe(`${`.${colors[0]!.className}`.repeat(2)}:disabled::before`);
+  });
+
+  it.each([false, true])('isolates identical pseudo values at distinct authored priorities across registration order (reverse=%s)', (reverse) => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const modules = [
+      { id: 'StrongPseudo.gss', source: '.outer .middle .icon::before { color: red; }' },
+      { id: 'WeakPseudo.gss', source: '.icon::before { color: red; } .icon:disabled::before { color: blue; }' }
+    ];
+    for (const module of reverse ? modules.reverse() : modules) expect(compiler.replaceStylesheet(module).committed).toBe(true);
+    const strong = compiler.getScopeSchema('StrongPseudo.gss')!.exports.outer!.targets.middle!.targets.icon!.selfClassName;
+    const weak = compiler.getScopeSchema('WeakPseudo.gss')!.exports.icon!.selfClassName.split(' ');
+    expect(weak).not.toContain(strong);
+    const red = compiler.finalize().manifest.rules.filter(({ value }) => value === 'red');
+    expect(red).toHaveLength(2);
+    for (const rule of red) expect(rule.selector).toBe(`${`.${rule.className}`.repeat(rule.className === strong ? 3 : 1)}::before`);
+  });
+
+  it.each([false, true])('rejects accumulated pseudo coactivity transactionally before fallback (reverse=%s)', (reverse) => {
+    for (const fallback of [false, true]) {
+      const compiler = createGssCompilerSession({ projectRoot: '/project' });
+      const id = 'PseudoAmbiguity.gss';
+      compiler.replaceStylesheet({ id, source: '.safe { color: green; }' });
+      const snapshot = compiler.finalize();
+      const schema = compiler.getScopeSchema(id);
+      const conflicts = ['.a .icon:checked::before { color: red; }', '.b .icon:disabled::before { color: blue; }'];
+      const replacement = compiler.replaceStylesheet({ id, source: [
+        ...(reverse ? conflicts.reverse() : conflicts),
+        '.a .b .icon { content: "x"; }',
+        ...(fallback ? ['.fallback { unknown-effect: 1; }'] : [])
+      ].join('\n') });
+      expect(replacement).toMatchObject({ committed: false, generation: 1, diagnostics: [
+        { code: 'GSS1205', reason: 'ambiguous-coactive-state-conflict' }
+      ] });
+      expect(replacement.module).toBeUndefined();
+      expect(compiler.finalize()).toEqual(snapshot);
+      expect(compiler.getScopeSchema(id)).toEqual(schema);
+    }
+  });
+
+  it.each(['', ' !important'])('accepts a dominating accumulated pseudo intersection (%s)', (importance) => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const replacement = compiler.replaceStylesheet({ id: 'PseudoIntersection.gss', source: [
+      `.a .icon:checked::before { color: red${importance}; }`,
+      `.b .icon:disabled::before { color: blue${importance}; }`,
+      `.a .b .icon:checked:disabled::before { color: green${importance}; }`,
+      '.a .b .icon { content: "x"; }'
+    ].join('\n') });
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    const target = replacement.module!.scopeSchema.exports.a!.targets.b!.targets.icon!;
+    const green = compiler.finalize().manifest.rules.find(({ className, value }) => value === 'green' && target.selfClassName.split(' ').includes(className))!;
+    expect(green.selector).toBe(`${`.${green.className}`.repeat(3)}:checked:disabled::before`);
+    expect(green.important).toBe(Boolean(importance));
+  });
+
+  it('accepts an accumulated explicit intersection that dominates by importance', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    expect(compiler.replaceStylesheet({ id: 'ImportantIntersection.gss', source: [
+      '.a .b .icon:checked::before { color: red; }',
+      '.a .b .icon:disabled::before { color: blue; }',
+      '.icon:checked:disabled::before { color: green !important; }'
+    ].join('\n') })).toMatchObject({ committed: true, diagnostics: [] });
+  });
+
+  it.each([
+    '.a .b .icon:checked:disabled::after { color: green !important; }',
+    '.a .b .icon:checked:disabled::before { color: green; }',
+    '.icon:checked:disabled::before { color: green !important; }'
+  ])('does not accept a non-dominating or different-subject intersection: %s', (intersection) => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const result = compiler.replaceStylesheet({ id: 'InvalidIntersection.gss', source: [
+      '.a .b .icon:checked::before { color: red !important; }',
+      '.a .b .icon:disabled::before { color: blue !important; }',
+      intersection
+    ].join('\n') });
+    expect(result).toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1205' }] });
+    expect(compiler.finalize().css).toBe('');
+  });
+
+  it('keeps element/before/after accumulated coactivity independent', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    expect(compiler.replaceStylesheet({ id: 'PseudoSubjects.gss', source: [
+      '.a .icon:checked::before { color: red; }',
+      '.b .icon:disabled::after { color: blue; }',
+      '.a .b .icon:disabled { color: green; }'
+    ].join('\n') })).toMatchObject({ committed: true, diagnostics: [] });
+  });
+
   it('composes a current-element state with a pseudo-element', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 
@@ -1321,7 +1577,7 @@ describe('GssCompilerSession', () => {
       }
     });
     expect(compiler.finalize().css).toBe(
-      `.${sourceMarker} > .${targetMarker} {\n  color: red;\n}`
+      `.${sourceMarker}.${sourceMarker} > .${targetMarker} {\n  color: red;\n}`
     );
   });
 

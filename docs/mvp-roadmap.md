@@ -159,7 +159,9 @@ Completion criteria:
 - [x] Rebuild production registry state from current source snapshots, including cached preserved Modules whose JS does not change.
 - [x] Implement one dev stylesheet owner per HTML document, base-aware MPA injection, and full ordered snapshot replacement through Vite CSS HMR.
 - [x] Implement last-known-good rollback and generation ordering for asynchronous reads, including deletion and late HMR connection synchronization.
-- [ ] Handle CSS and font URL dependencies through the Adapter.
+- [x] Implement the Compiler discovery/binding/rendering protocol for stable Asset references, transactional validation and late URL resolution.
+- [x] Handle production CSS/font URLs through the Vite Adapter: asynchronous preparation, canonical identities, final-census resource emission, relative/public/CDN URL handling and asset watch rebuilds.
+- [x] Handle dev CSS/font resource URLs, asset HMR and last-known-good recovery through the Adapter, including identical-byte restoration, source-generation ordering and unchanged file-access policy.
 
 Completion criteria:
 
@@ -170,12 +172,20 @@ Completion criteria:
 
 ## Stage 8 — Independent semantic oracle
 
-- [ ] Implement `compileGssReference()` outside the atomic planner.
-- [ ] Generate reference style mappings for the same React fixtures.
-- [ ] Run reference and atomic output in isolated browser documents.
-- [ ] Compare touched properties and property-effect longhands.
+- [x] Implement the first bounded `@gss-l/testing` `compileGssReference()` slice outside the atomic compiler: plain local classes/descendants, basic color/display/size and physical margin/padding declarations; no partial output and explicit unsupported syntax/config failures.
+- [x] Generate reference `ScopeSchema` mappings for identical framework-independent DOM fixtures (per-Module authored class namespace; browser-native accumulation).
+- [x] Run the bounded ownership/Module isolation, ADR-0011 descendant, and shorthand/longhand corpus in isolated browser documents; native `agent_browser` acceptance passed with zero differences and a detected atomic-CSS corruption negative control.
+- [x] Compare explicitly touched properties and all four physical margin/padding longhands, including order/importance variations and literal expected values in that bounded corpus.
+- [x] Implement bounded reference native checked/disabled and single data-/ARIA equality syntax on current/ancestor ownership paths; preserve class-looking comment/attribute text and unchanged public testing API.
+- [x] Accept bounded native state/attribute and descendant-cascade phases: parent native browser passed nineteen fixtures / 213 comparisons (eight compiled-reference fixtures plus eleven hand-authored contextual goldens) with literal expectations on both sides and effective corruption control. Original `9px` ancestor regression and checkbox `1px` margin probe pass; repeated-source bindings, forward/reversed specificity, important physical effects and simultaneous conditions are covered. Compiler repair preserves embedding/provenance and resolves only safe closed-predicate winners.
+- [x] Add bounded terminal before/after reference syntax and opaque content, retaining the public API and base ScopeSchema paths. Parent native browser passed 21 fixtures / 395 comparisons, preserving the prior 19 / 213; new host/before/after literal readings cover Module isolation, importance, absent content, descendant/subsequence/structural prefixes and native button disabled entry/exit. Page success requires both element and pseudo-only corruption controls. Checked + pseudo is API-only. The red prefix regression was restored with same-layer/condition declared-path ownership proof, not inferred sibling ancestry.
+- [x] Repair the two pseudo expansion P1 review regressions: preserve declaration provenance/native specificity on target-qualified atoms; validate accumulated coactivity separately per pseudo subject before commit/fallback, retaining LKG on ambiguity. Public red/green tests cover reverse order, importance, valid/invalid intersections and isolation. Expanded parent native gate passed 25 fixtures / 575 comparisons with four additional button priority cases and both corruption controls; the original 21 / 395 alone did not cover these counterexamples.
+- [ ] Expand reference syntax/config coverage and mappings to the representative React fixture corpus.
 - [ ] Cover pseudo-elements, browser states, attributes, relations, media/supports/container, layers, custom properties, keyframes metadata, and resources.
-- [ ] Produce actionable difference diagnostics.
+- [x] Report Module/path/node/property, phase/actual native state, and both computed values for the bounded browser harness.
+- [ ] Extend difference diagnostics across the full oracle corpus and source ranges.
+
+The bounded reference slices and twenty-five-fixture native browser acceptance are not the complete oracle or Pilot gate. The targeted production descendant-condition repair is implemented; contextual source/observed subject emission now preserves the same ownership-prefix specificity without changing marker placement/matching, at-rule semantics or resources. `packages/testing/README.md` documents its exact input limits, reproducible startup and machine-readable browser result. `resolveAssetUrl` is an approved port shape but resource support is not implemented here; nonempty asset bindings and registered condition/layer order fail explicitly.
 
 Completion criteria:
 

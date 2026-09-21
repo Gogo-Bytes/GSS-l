@@ -56,7 +56,7 @@ export type GssCompilerSession = {
   replaceStylesheet(input: ReplaceStylesheetInput): ReplaceStylesheetResult;
   invalidate(moduleId: string): InvalidateResult;
   getScopeSchema(moduleId: string): ScopeSchema | undefined;
-  finalize(): FinalizedGssSnapshot;
+  finalize(options?: FinalizeGssOptions): FinalizedGssSnapshot;
 };
 
 export function createGssCompilerSession(
@@ -90,6 +90,7 @@ export type GssCompilerConfig = {
 export type ReplaceStylesheetInput = {
   id: string;
   source: string;
+  assetReferences?: readonly GssAssetReference[];
 };
 ```
 
@@ -250,7 +251,7 @@ Current implementation covers virtual JS, source composition, and dev central CS
 
 Initial discovery refreshes any already-served snapshot; an HMR connection established after compilation is resynchronized through Vite's native CSS update protocol. No custom browser runtime or public HMR API is introduced. Dev file reads honor Vite `server.fs`, including denies and canonical root-external targets.
 
-Production central assets and versioned build metadata are implemented as described below. Asset URL processing is not yet implemented. The broader configuration/Compiler port sketches elsewhere in this document remain architecture targets rather than additional `gss()` options.
+Production central assets and versioned build metadata are implemented as described below. Production Asset URL processing and dev versioned resource delivery/HMR are implemented. Dev byte snapshots are served through Vite with existing file-access policy, last-known-good recovery and no new browser runtime; their URLs are internal delivery details, not Compiler identity. The broader configuration/Compiler port sketches elsewhere in this document remain architecture targets rather than additional `gss()` options.
 
 ## React style-usage Adapter
 
@@ -381,6 +382,40 @@ export type GssCompilerPorts = {
 };
 ```
 
+The `AssetResolverPort` configuration slot above remains an architecture sketch, not an additional constructor argument implemented today. The concrete protocol accepted in [ADR-0050](adr/0050-discover-bind-and-render-asset-references.md) is implemented through discovery, replacement input bindings and finalization options:
+
+```ts
+export function discoverStylesheetAssets(input: { id: string; source: string }): {
+  urls: readonly string[];
+  diagnostics: readonly GssDiagnostic[];
+};
+
+export type GssAssetReference = {
+  url: string;      // CSS-decoded authored URL, not URI-decoded
+  identity: string; // stable logical reference identity, including query/fragment semantics
+};
+
+export type FinalizeGssOptions = {
+  resolveAssetUrl?: (identity: string) => string;
+};
+```
+
+The host stops on discovery errors, resolves resources asynchronously without modifying committed state, then calls `replaceStylesheet({ id, source, assetReferences })`. Invalid or conflicting bindings fail transactionally with `GSS1501`. Bindings affect atom identity and resource conflict detection before contribution commit; different authored URL spellings can share a resolved identity, while equal text from different source directories need not share one.
+
+`finalize({ resolveAssetUrl })` renders bound references in atoms, contextual declarations, preserved CSS and resources. Missing/empty output URLs throw without changing the session. Results are cached by identity within that finalization, CSS strings are escaped, and manifest declaration values reflect the rendered CSS value rather than private identity encoding. A change to output URL does not change ScopeSchema or class names.
+
+Without bindings, the original standalone Compiler behavior is retained: dependency extraction and authored URL values, with no filesystem checks or automatic deployment rebasing. Vite now uses this protocol for production builds; dev resource integration is still pending.
+
+### Vite production asset lifecycle (implemented)
+
+The Adapter discovers URLs and finishes local resource reads before committing the corresponding contribution. Relative references resolve from the physical `.gss`; canonical file identities use project-relative paths plus query/fragment semantics. Root-path references resolve under `publicDir` and retain a public-route identity. Existing scheme URLs, protocol-relative URLs and fragments pass through without IO. Missing files, disabled `publicDir` for root references and invalid paths fail the build.
+
+Private Rollup Module metadata carries source, bindings and resource byte snapshots. Only final-census Modules contribute emitted assets; speculative loads cannot leak outputs. Files with inconsistent byte snapshots fail rather than selecting a registration-order winner. Resource reads are watched, including missing requested paths, and cached GSS Modules refresh those snapshots even when scope JavaScript is unchanged. Neither byte payloads nor deployment URLs enter generated GSS JavaScript.
+
+Local files are emitted independently through Rollup naming rules, without automatic inlining. Public resources retain Vite's normal public-directory copying behavior rather than being re-emitted under hashes. Referenced public paths cannot collide with GSS metadata, CSS or emitted resource outputs. Query/fragment are preserved and filename path segments are URL-encoded.
+
+For relative base, URLs are relative to the emitted CSS file, not the source Module or HTML entry. CSS naming and URL rendering are checked for a stable result so the final CSS hash describes the final bytes; only owned temporary candidates are discarded. Non-converging custom naming fails explicitly. This does not add another CSS file or a runtime URL resolver.
+
 The ports keep infrastructure replaceable:
 
 - parser implementation can change without changing domain IR;
@@ -456,18 +491,33 @@ The first readable naming strategy is measured through this report before any sh
 
 ## Reference testing interface
 
-The testing package owns a separate seam:
+Implemented as a bounded first slice in the separate `@gss-l/testing` package ([ADR-0030](adr/0030-make-semantic-reference-css-a-testing-capability.md)); production packages do not depend on it:
 
 ```ts
+export type CompileGssReferenceInput = {
+  config: GssCompilerConfig;
+  modules: readonly ReplaceStylesheetInput[];
+};
+export type ReferenceCompilerPorts = {
+  resolveAssetUrl?: (identity: string) => string;
+};
+export type ReferenceCompileResult =
+  | { success: true; css: string; scopeSchemas: Readonly<Record<string, ScopeSchema>>; diagnostics: readonly GssDiagnostic[] }
+  | { success: false; diagnostics: readonly GssDiagnostic[] };
+
 export function compileGssReference(
   input: CompileGssReferenceInput,
-  ports: ReferenceCompilerPorts,
+  ports?: ReferenceCompilerPorts,
 ): ReferenceCompileResult;
 ```
 
-The reference renderer shares syntax and source infrastructure but does not call `CascadeResolver`, `RulePlanner`, `RuleOrderPlanner`, or `NameAllocator` from the atomic path.
+This synchronous, stateless API has no IO, framework or browser dependencies. Mappings are keyed by input Module id, and each schema retains that id. Reference class names encode project-relative Module identity and authored local class independently; the same local class is reused across its declared paths so the browser—not target winner resolution—performs accumulation. Input Modules are isolated and sorted by logical identity; authored selector structure, rule order, declaration grouping/order and importance are preserved. Failure returns no partial output, including when an earlier Module was valid.
 
-Browser oracle fixtures render reference and atomic mappings in isolated documents and compare touched computed properties under the same state and condition matrix.
+Current coverage: plain ASCII local classes (`[A-Za-z_][A-Za-z0-9_-]*`), whitespace descendant paths, `color`, `background-color`, `display`, `width`, `height`, and physical `margin`/`padding` shorthands/four longhands. Functions and escapes in values are rejected; values otherwise remain opaque. Equal-importance exact-property duplicate declarations fail. Lists, nesting, states, runtime relations, conditions/layers/resources and other properties fail explicitly. Nonempty registered condition/layer configuration and asset bindings also fail rather than silently using a different cascade. Empty registrations and either atomic fallback policy are accepted. The optional asset resolver is reserved and never called by this slice.
+
+The reference uses PostCSS but no atomic compiler implementation, winner/pruning logic, atom identity, `RulePlanner`, `RuleOrderPlanner`, or `NameAllocator`. The public production API is used only on the atomic side of the browser harness.
+
+The bounded harness renders the same DOM with substituted mappings in isolated documents and compares touched properties/physical longhands for ownership, descendant accumulation and shorthand order/importance, with literal expectations and a corrupted-atomic negative control. See [`packages/testing/README.md`](../packages/testing/README.md) for startup and machine-readable acceptance. The broader state/condition/resource corpus, browser CI and Pilot remain incomplete.
 
 ## Determinism and invariants
 

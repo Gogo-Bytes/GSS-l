@@ -1,4 +1,6 @@
 import selectorParser from 'postcss-selector-parser';
+import { bindCssAssets, identifyAssetValue, renderAssetValue, type AssetBindings, type AssetUrlResolver } from './asset-values.js';
+import { collectAssetDependencies } from './stylesheet-assets.js';
 import { toLogicalModuleId } from './module-identity.js';
 import valueParser from 'postcss-value-parser';
 import {
@@ -15,11 +17,12 @@ import {
   type PureDeclarationIdentity
 } from '../domain/readable-name.js';
 import { isRegisteredPropertyEffect } from '../domain/property-effects.js';
+import { planDescendantConditions } from '../domain/plan-descendant-conditions.js';
 import { resolveTargetDeclarations } from '../domain/resolve-target-declarations.js';
 import { compareRuleOrder } from '../domain/rule-order-planner.js';
 import { validateDeclarationSequences } from '../domain/validate-declarations.js';
 import { validateLogicalPhysicalConflicts } from '../domain/validate-logical-physical-conflicts.js';
-import { validateStateAmbiguity } from '../domain/validate-state-ambiguity.js';
+import { planPseudoElementConditions } from '../domain/plan-pseudo-element-conditions.js';
 import {
   parseStylesheet,
   type ParsedAttributeCondition,
@@ -33,6 +36,7 @@ import {
 } from '../infrastructure/postcss-stylesheet-parser.js';
 import type {
   FinalizedGssSnapshot,
+  FinalizeGssOptions,
   GssCompilerConfig,
   GssCompilerSession,
   GssDiagnostic,
@@ -44,12 +48,14 @@ import type {
 type ContextualDeclarationIdentity = ContextualRelationIdentity & {
   property: string;
   value: string;
+  assetValue?: true;
   important: boolean;
 };
 
 type ObservedDeclarationIdentity = ObservedRelationIdentity & {
   property: string;
   value: string;
+  assetValue?: true;
   important: boolean;
 };
 
@@ -60,6 +66,7 @@ type PlannedDeclaration = {
   selector: string;
   wrappers?: readonly ParsedCondition[];
   layer?: string;
+  relationRank?: number;
 };
 
 type PlannedResource = {
@@ -68,11 +75,13 @@ type PlannedResource = {
   conflictKey?: string;
   identity: string;
   css: string;
+  renderCss?: (resolve: AssetUrlResolver) => string;
 };
 
 type PlannedPreservedBlock = {
   moduleId: string;
   css: string;
+  renderCss?: (resolve: AssetUrlResolver) => string;
 };
 
 type ModuleContribution = {
@@ -143,8 +152,8 @@ export function createGssCompilerSession(config: GssCompilerConfig): GssCompiler
       return modules.get(moduleId)?.artifact.scopeSchema;
     },
 
-    finalize() {
-      return finalizeSnapshot(modules, generation, config);
+    finalize(options) {
+      return finalizeSnapshot(modules, generation, config, options);
     }
   };
 }
@@ -156,6 +165,20 @@ function prepareContribution(
   const parsed = parseStylesheet(input.id, input.source);
   if (parsed.diagnostics.some(({ severity }) => severity === 'error')) {
     return { diagnostics: parsed.diagnostics };
+  }
+  const bindings = new Map<string, string>();
+  const urls = new Set(collectAssetDependencies(parsed));
+  for (const { url, identity } of input.assetReferences ?? []) {
+    if (typeof url !== 'string' || typeof identity !== 'string' || !url || !identity ||
+        !urls.has(url) || (bindings.has(url) && bindings.get(url) !== identity)) {
+      return { diagnostics: [{
+        code: 'GSS1501', severity: 'error', phase: 'validate', id: input.id,
+        message: `Invalid or conflicting Asset reference for ${url}.`,
+        reason: 'invalid-asset-reference',
+        suggestion: 'Bind discovered URLs to non-empty, unambiguous logical identities.'
+      }] };
+    }
+    bindings.set(url, identity);
   }
   const moduleId = toLogicalModuleId(config.projectRoot, input.id);
   if (moduleId === undefined) {
@@ -211,10 +234,6 @@ function prepareContribution(
   const logicalPhysicalDiagnostics = validateLogicalPhysicalConflicts(input.id, parsed.rules);
   if (logicalPhysicalDiagnostics.some(({ severity }) => severity === 'error')) {
     return { diagnostics: logicalPhysicalDiagnostics };
-  }
-  const stateDiagnostics = validateStateAmbiguity(input.id, parsed.rules);
-  if (stateDiagnostics.some(({ severity }) => severity === 'error')) {
-    return { diagnostics: stateDiagnostics };
   }
 
   const unsupportedPseudoElement = parsed.rules.find(({
@@ -332,24 +351,8 @@ function prepareContribution(
   const roots = new Map<string, MutableScopeNode>();
   const rules: PlannedDeclaration[] = [];
   const ownershipRules = semanticRules.filter(isPureOwnershipRule);
-  const stateRules = semanticRules.filter(isCurrentStateRule);
-  const ancestorStateRules = semanticRules.filter(({ relations, states }) =>
-    relations.every((relation) => relation === 'descendant') &&
-    states.slice(0, -1).some((state) => state.length > 0)
-  );
-  const attributeRules = semanticRules.filter(({ relations, attributes }) =>
-    relations.every((relation) => relation === 'descendant') &&
-    attributes.at(-1)?.length
-  );
-  const ancestorAttributeRules = semanticRules.filter(({ relations, attributes }) =>
-    relations.every((relation) => relation === 'descendant') &&
-    attributes.slice(0, -1).some((conditions) => conditions.length > 0)
-  );
   const hasRules = semanticRules.filter(({ observations }) =>
     observations.at(-1)?.length
-  );
-  const pseudoElementRules = semanticRules.filter(({ pseudoElements }) =>
-    pseudoElements.at(-1)
   );
   const contextualRules = semanticRules.filter(({ relations }) =>
     relations.some((relation) => relation !== 'descendant')
@@ -370,6 +373,24 @@ function prepareContribution(
       }]
     };
   }
+
+  const descendantRules = semanticRules.filter((rule) =>
+    isPureOwnershipRule(rule) || isCurrentStateRule(rule) || isCurrentAttributeRule(rule) ||
+    isAncestorStateRule(rule) || isAncestorAttributeRule(rule)
+  );
+  const hasDescendantConditions = descendantRules.some((rule) => !isPureOwnershipRule(rule));
+  const declaredPaths = semanticRules.flatMap(({ path }) => path.map((_, index) => path.slice(0, index + 1)));
+  const plannedDescendants = hasDescendantConditions ? planDescendantConditions(descendantRules, declaredPaths) : undefined;
+  if (plannedDescendants?.ambiguity) return { diagnostics: [{
+      code: 'GSS1205', severity: 'error', phase: 'resolve', id: input.id,
+      reason: 'ambiguous-coactive-state-conflict', message: plannedDescendants.ambiguity
+    }] };
+
+  const plannedPseudos = planPseudoElementConditions(semanticRules);
+  if (plannedPseudos.ambiguity) return { diagnostics: [{
+    code: 'GSS1205', severity: 'error', phase: 'resolve', id: input.id,
+    reason: 'ambiguous-coactive-state-conflict', message: plannedPseudos.ambiguity
+  }] };
 
   const unsupportedProperties = [...new Set(
     semanticRules
@@ -400,7 +421,53 @@ function prepareContribution(
     });
   }
 
-  const ownershipGroups = groupRulesByCondition(ownershipRules);
+  if (plannedDescendants) {
+    for (const rule of semanticRules) ensureScopePath(roots, rule.path);
+    for (const instance of plannedDescendants.instances) {
+      const { rule, targetPath, sourcePath, sourceIndex, relationRank } = instance;
+      const wrappers = rule.conditions;
+      const condition = canonicalCondition(wrappers);
+      const layer = rule.layer;
+      const states = sourceIndex < 0 ? [] : rule.states[sourceIndex]!;
+      const attribute = sourceIndex < 0 ? undefined : rule.attributes[sourceIndex]![0];
+      const suffix = attribute ? renderAttributeCondition(attribute) : states.map((state) => `:${state}`).join('');
+      const ancestor = sourcePath !== undefined && sourcePath.length < targetPath.length;
+      const scope = ensureScopePath(roots, targetPath);
+      if (ancestor) {
+        const sourceMarker = createReadableSourceMarker(moduleId, sourcePath, condition, layer);
+        const relationIdentity: ContextualRelationIdentity = {
+          moduleId, layer, condition, sourcePath, targetPath,
+          relations: rule.relations.slice(sourceIndex),
+          ...(attribute ? { sourceAttribute: canonicalAttributeCondition(attribute) } : { sourceState: states.join(':') }),
+          ...(JSON.stringify(rule.path) !== JSON.stringify(targetPath) ? { authoredPath: rule.path } : {})
+        };
+        const targetMarker = createReadableTargetMarker(relationIdentity);
+        ensureScopePath(roots, sourcePath).classNames.add(sourceMarker);
+        scope.classNames.add(targetMarker);
+        // Repeat an existing marker, rather than inventing ancestors, to retain authored specificity.
+        const selector = `.${sourceMarker}${suffix} ${`.${targetMarker}`.repeat(rule.path.length - 1)}`;
+        for (const declaration of instance.declarations) rules.push({
+          kind: 'contextual-atom', className: targetMarker, selector, wrappers, layer, relationRank,
+          identity: { ...relationIdentity, property: declaration.property,
+            ...identifyAssetValue(declaration.value, bindings), important: declaration.important }
+        });
+      } else {
+        for (const declaration of instance.declarations) {
+          const identity: PureDeclarationIdentity = {
+            layer, condition, state: attribute ? canonicalAttributeCondition(attribute) : states.join(':') || 'self',
+            property: declaration.property, ...identifyAssetValue(declaration.value, bindings), important: declaration.important,
+            ...(rule.path.length > 1 ? { ownership: { moduleId, path: targetPath, specificity: rule.path.length } } : {})
+          };
+          const className = createReadableAtomicName(identity);
+          scope.classNames.add(className);
+          rules.push({ kind: sourceIndex < 0 ? 'pure-atom' : 'contextual-atom', identity, className,
+            selector: `${`.${className}`.repeat(rule.path.length)}${suffix}`, wrappers, layer, relationRank });
+        }
+      }
+    }
+  }
+
+  const ownershipGroups = groupRulesByCondition(hasDescendantConditions ? [] : ownershipRules);
   for (const groupedRules of ownershipGroups.values()) {
     const wrappers = groupedRules[0]!.conditions;
     const condition = canonicalCondition(wrappers);
@@ -409,7 +476,7 @@ function prepareContribution(
       .filter((rule) =>
         rule.layer === layer && canonicalCondition(rule.conditions) === condition
       )
-      .map(({ path }) => path);
+      .flatMap(({ path }) => path.map((_, index) => path.slice(0, index + 1)));
     for (const target of resolveTargetDeclarations(groupedRules, declaredPaths)) {
       const scope = ensureScopePath(roots, target.path);
       for (const declaration of target.declarations) {
@@ -418,7 +485,7 @@ function prepareContribution(
           condition,
           state: 'self',
           property: declaration.property,
-          value: declaration.value,
+          ...identifyAssetValue(declaration.value, bindings),
           important: declaration.important
         };
         const className = createReadableAtomicName(identity);
@@ -435,86 +502,34 @@ function prepareContribution(
     }
   }
 
-  const stateGroups = new Map<string, typeof stateRules>();
-  for (const rule of stateRules) {
-    const state = rule.states.at(-1)!.join(':');
-    const key = `${rule.layer}\0${canonicalCondition(rule.conditions)}\0${state}`;
-    stateGroups.set(key, [...(stateGroups.get(key) ?? []), rule]);
+  // Declared pseudo paths remain public scopes even when no declarations survive planning.
+  for (const rule of semanticRules) {
+    if (isPseudoElementRule(rule)) ensureScopePath(roots, rule.path);
   }
-  for (const groupedRules of stateGroups.values()) {
-    const state = groupedRules[0]!.states.at(-1)!.join(':');
-    const wrappers = groupedRules[0]!.conditions;
-    const condition = canonicalCondition(wrappers);
-    const layer = groupedRules[0]!.layer;
-    for (const target of resolveTargetDeclarations(
-      groupedRules,
-      groupedRules.map(({ path }) => path)
-    )) {
-      const scope = ensureScopePath(roots, target.path);
-      for (const declaration of target.declarations) {
-        const identity: PureDeclarationIdentity = {
-          layer,
-          condition,
-          state,
-          property: declaration.property,
-          value: declaration.value,
-          important: declaration.important
-        };
-        const className = createReadableAtomicName(identity);
-        scope.classNames.add(className);
-        rules.push({
-          kind: 'contextual-atom',
-          identity,
-          className,
-          selector: `.${className}:${state}`,
-          wrappers,
-          layer
-        });
-      }
-    }
-  }
-
-  const pseudoElementGroups = new Map<string, typeof pseudoElementRules>();
-  for (const rule of pseudoElementRules) {
-    const pseudoElement = rule.pseudoElements.at(-1);
-    if (!pseudoElement) throw new Error('GSS invariant: pseudo-element rule lost its target.');
+  for (const { rule, targetPath, declarations, relationRank } of plannedPseudos.instances) {
+    const pseudoElement = rule.pseudoElements.at(-1)!;
     const state = rule.states.at(-1)!.join(':') || 'self';
-    const key = `${rule.layer}\0${canonicalCondition(rule.conditions)}\0${pseudoElement}\0${state}`;
-    pseudoElementGroups.set(key, [...(pseudoElementGroups.get(key) ?? []), rule]);
-  }
-  for (const groupedRules of pseudoElementGroups.values()) {
-    const pseudoElement = groupedRules[0]!.pseudoElements.at(-1);
-    if (!pseudoElement) throw new Error('GSS invariant: pseudo-element group lost its target.');
-    const state = groupedRules[0]!.states.at(-1)!.join(':') || 'self';
-    const wrappers = groupedRules[0]!.conditions;
+    const wrappers = rule.conditions;
     const condition = canonicalCondition(wrappers);
-    const layer = groupedRules[0]!.layer;
-    for (const target of resolveTargetDeclarations(
-      groupedRules,
-      groupedRules.map(({ path }) => path)
-    )) {
-      const scope = ensureScopePath(roots, target.path);
-      for (const declaration of target.declarations) {
-        const identity: PureDeclarationIdentity = {
-          layer,
-          condition,
-          state,
-          pseudoElement,
-          property: declaration.property,
-          value: declaration.value,
-          important: declaration.important
-        };
-        const className = createReadableAtomicName(identity);
-        scope.classNames.add(className);
-        rules.push({
-          kind: state === 'self' ? 'pure-atom' : 'contextual-atom',
-          identity,
-          className,
-          selector: `.${className}${state === 'self' ? '' : `:${state}`}::${pseudoElement}`,
-          wrappers,
-          layer
-        });
-      }
+    const layer = rule.layer;
+    const scope = ensureScopePath(roots, targetPath);
+    for (const declaration of declarations) {
+      const identity: PureDeclarationIdentity = {
+        layer, condition, state, pseudoElement,
+        property: declaration.property,
+        ...identifyAssetValue(declaration.value, bindings),
+        important: declaration.important,
+        ...(rule.path.length > 1 ? { ownership: { moduleId, path: targetPath, specificity: rule.path.length } } : {})
+      };
+      const className = createReadableAtomicName(identity);
+      scope.classNames.add(className);
+      rules.push({
+        kind: state === 'self' ? 'pure-atom' : 'contextual-atom',
+        identity, className,
+        // Keep authored class specificity on this target-qualified atom, not a shared weaker atom.
+        selector: `${`.${className}`.repeat(rule.path.length)}${state === 'self' ? '' : `:${state}`}::${pseudoElement}`,
+        wrappers, layer, relationRank
+      });
     }
   }
 
@@ -545,13 +560,14 @@ function prepareContribution(
         })()
         : observation.observedResidual!;
       const observedCombinator = renderObservedCombinator(observation.relation);
-      const selector = `.${subjectMarker}:has(${observedCombinator}${observedSelector})`;
+      // Preserve the subject path's classes; :has() keeps the argument's native specificity.
+      const selector = `${`.${subjectMarker}`.repeat(rule.path.length)}:has(${observedCombinator}${observedSelector})`;
 
       for (const declaration of rule.declarations) {
         const identity: ObservedDeclarationIdentity = {
           ...relationIdentity,
           property: declaration.property,
-          value: declaration.value,
+          ...identifyAssetValue(declaration.value, bindings),
           important: declaration.important
         };
         rules.push({
@@ -563,127 +579,6 @@ function prepareContribution(
           layer
         });
       }
-    }
-  }
-
-  const attributeGroups = new Map<string, typeof attributeRules>();
-  for (const rule of attributeRules) {
-    const condition = rule.attributes.at(-1)![0]!;
-    const key = `${rule.layer}\0${canonicalCondition(rule.conditions)}\0${canonicalAttributeCondition(condition)}`;
-    attributeGroups.set(key, [...(attributeGroups.get(key) ?? []), rule]);
-  }
-  for (const groupedRules of attributeGroups.values()) {
-    const attributeCondition = groupedRules[0]!.attributes.at(-1)![0]!;
-    const state = canonicalAttributeCondition(attributeCondition);
-    const wrappers = groupedRules[0]!.conditions;
-    const condition = canonicalCondition(wrappers);
-    const layer = groupedRules[0]!.layer;
-    for (const target of resolveTargetDeclarations(
-      groupedRules,
-      groupedRules.map(({ path }) => path)
-    )) {
-      const scope = ensureScopePath(roots, target.path);
-      for (const declaration of target.declarations) {
-        const identity: PureDeclarationIdentity = {
-          layer,
-          condition,
-          state,
-          property: declaration.property,
-          value: declaration.value,
-          important: declaration.important
-        };
-        const className = createReadableAtomicName(identity);
-        scope.classNames.add(className);
-        rules.push({
-          kind: 'contextual-atom',
-          identity,
-          className,
-          selector: `.${className}${renderAttributeCondition(attributeCondition)}`,
-          wrappers,
-          layer
-        });
-      }
-    }
-  }
-
-  for (const rule of ancestorAttributeRules) {
-    const wrappers = rule.conditions;
-    const condition = canonicalCondition(wrappers);
-    const layer = rule.layer;
-    const sourceIndex = rule.attributes.findIndex((conditions) => conditions.length > 0);
-    const sourceCondition = rule.attributes[sourceIndex]![0]!;
-    const sourceAttribute = canonicalAttributeCondition(sourceCondition);
-    const sourcePath = rule.path.slice(0, sourceIndex + 1);
-    const sourceMarker = createReadableSourceMarker(moduleId, sourcePath, condition, layer);
-    const relationIdentity: ContextualRelationIdentity = {
-      moduleId,
-      layer,
-      condition,
-      relations: rule.relations.slice(sourceIndex),
-      sourceAttribute,
-      sourcePath,
-      targetPath: rule.path
-    };
-    const targetMarker = createReadableTargetMarker(relationIdentity);
-    ensureScopePath(roots, sourcePath).classNames.add(sourceMarker);
-    ensureScopePath(roots, rule.path).classNames.add(targetMarker);
-    const selector = `.${sourceMarker}${renderAttributeCondition(sourceCondition)} .${targetMarker}`;
-
-    for (const declaration of rule.declarations) {
-      const identity: ContextualDeclarationIdentity = {
-        ...relationIdentity,
-        property: declaration.property,
-        value: declaration.value,
-        important: declaration.important
-      };
-      rules.push({
-        kind: 'contextual-atom',
-        identity,
-        className: targetMarker,
-        selector,
-        wrappers,
-        layer
-      });
-    }
-  }
-
-  for (const rule of ancestorStateRules) {
-    const wrappers = rule.conditions;
-    const condition = canonicalCondition(wrappers);
-    const layer = rule.layer;
-    const sourceIndex = rule.states.findIndex((state) => state.length > 0);
-    const sourceState = rule.states[sourceIndex]!.join(':');
-    const sourcePath = rule.path.slice(0, sourceIndex + 1);
-    const sourceMarker = createReadableSourceMarker(moduleId, sourcePath, condition, layer);
-    const relationIdentity: ContextualRelationIdentity = {
-      moduleId,
-      layer,
-      condition,
-      relations: rule.relations.slice(sourceIndex),
-      sourceState,
-      sourcePath,
-      targetPath: rule.path
-    };
-    const targetMarker = createReadableTargetMarker(relationIdentity);
-    ensureScopePath(roots, sourcePath).classNames.add(sourceMarker);
-    ensureScopePath(roots, rule.path).classNames.add(targetMarker);
-    const selector = `.${sourceMarker}:${sourceState} .${targetMarker}`;
-
-    for (const declaration of rule.declarations) {
-      const identity: ContextualDeclarationIdentity = {
-        ...relationIdentity,
-        property: declaration.property,
-        value: declaration.value,
-        important: declaration.important
-      };
-      rules.push({
-        kind: 'contextual-atom',
-        identity,
-        className: targetMarker,
-        selector,
-        wrappers,
-        layer
-      });
     }
   }
 
@@ -726,7 +621,8 @@ function prepareContribution(
     });
     const selector = markers.map((marker, index) =>
       index === 0
-        ? `.${marker}${sourceState ? `:${sourceState}` : ''}${
+        // The source marker represents the whole ownership prefix, not one authored class.
+        ? `${`.${marker}`.repeat(sourcePath.length)}${sourceState ? `:${sourceState}` : ''}${
           sourceAttributeCondition ? renderAttributeCondition(sourceAttributeCondition) : ''
         }`
         : ` ${renderRelationCombinator(runtimeRelations[index - 1]!)} .${marker}`
@@ -736,7 +632,7 @@ function prepareContribution(
       const identity: ContextualDeclarationIdentity = {
         ...relationIdentity,
         property: declaration.property,
-        value: declaration.value,
+        ...identifyAssetValue(declaration.value, bindings),
         important: declaration.important
       };
       rules.push({
@@ -745,7 +641,9 @@ function prepareContribution(
         className: targetMarker,
         selector,
         wrappers,
-        layer
+        layer,
+        // A runtime edge refines ownership; retain its priority above the same source predicate.
+        relationRank: runtimeRelations.length + rule.states[firstRuntimeRelation]!.length + Number(Boolean(sourceAttributeCondition))
       });
     }
   }
@@ -765,7 +663,7 @@ function prepareContribution(
     fallbackReasons: []
   };
 
-  const resources = parsed.resources.map((resource) => planResource(resource, moduleId));
+  const resources = parsed.resources.map((resource) => planResource(resource, moduleId, bindings));
   return {
     artifact,
     rules,
@@ -817,13 +715,14 @@ function preparePreservedContribution(input: {
     compilationMode: 'preserved',
     fallbackReasons
   };
+  const bindings = new Map((input.input.assetReferences ?? []).map(({ url, identity }) => [url, identity]));
   const resources = input.parsed.resources.map((resource) =>
-    planResource(resource, input.moduleId)
+    planResource(resource, input.moduleId, bindings)
   );
   return {
     artifact,
     rules: [],
-    preservedBlocks: [{ moduleId: input.moduleId, css }],
+    preservedBlocks: [{ moduleId: input.moduleId, css, ...bindCssAssets(css, bindings) }],
     resources,
     diagnostics: [
       ...input.conditionDiagnostics,
@@ -893,10 +792,14 @@ function rewriteKeyframeReferences(
   }));
 }
 
-function planResource(resource: ParsedGlobalResource, moduleId: string): PlannedResource {
-  if (resource.kind === 'property') return planPropertyRegistration(resource);
-  if (resource.kind === 'keyframes') return planKeyframesRegistration(resource, moduleId);
-  return planFontFaceResource(resource);
+function planResource(resource: ParsedGlobalResource, moduleId: string, bindings: AssetBindings): PlannedResource {
+  const planned = resource.kind === 'property' ? planPropertyRegistration(resource)
+    : resource.kind === 'keyframes' ? planKeyframesRegistration(resource, moduleId)
+    : planFontFaceResource(resource);
+  const assets = bindCssAssets(planned.css, bindings);
+  return assets.assetIdentity && assets.renderCss
+    ? { ...planned, identity: assets.assetIdentity, renderCss: assets.renderCss }
+    : planned;
 }
 
 function planPropertyRegistration(resource: ParsedPropertyRegistration): PlannedResource {
@@ -939,29 +842,6 @@ function planFontFaceResource(resource: ParsedFontFaceResource): PlannedResource
     ]),
     css: `@font-face {\n${declarations}\n}`
   };
-}
-
-function collectAssetDependencies(parsed: ParsedStylesheet): readonly string[] {
-  const values = [
-    ...parsed.rules.flatMap((rule) => rule.declarations.map(({ value }) => value)),
-    ...parsed.resources.flatMap((resource) => {
-      if (resource.kind === 'keyframes') {
-        return resource.frames.flatMap((frame) =>
-          frame.declarations.map(({ value }) => value)
-        );
-      }
-      return resource.declarations.map(({ value }) => value);
-    })
-  ];
-  const dependencies = new Set<string>();
-  for (const value of values) {
-    valueParser(value).walk((node) => {
-      if (node.type !== 'function' || node.value.toLowerCase() !== 'url') return;
-      const url = valueParser.stringify(node.nodes).trim().replace(/^(['"])(.*)\1$/, '$2');
-      if (url) dependencies.add(url);
-    });
-  }
-  return [...dependencies];
 }
 
 function planKeyframesRegistration(
@@ -1176,8 +1056,17 @@ function toScopeSchema(scope: MutableScopeNode): ScopeNodeSchema {
 function finalizeSnapshot(
   modules: ReadonlyMap<string, ModuleContribution>,
   generation: number,
-  config: GssCompilerConfig
+  config: GssCompilerConfig,
+  options?: FinalizeGssOptions
 ): FinalizedGssSnapshot {
+  const urls = new Map<string, string>();
+  const resolve: AssetUrlResolver = (identity) => {
+    if (urls.has(identity)) return urls.get(identity)!;
+    const url = options?.resolveAssetUrl?.(identity);
+    if (typeof url !== 'string' || url.length === 0) throw new Error(`Missing output URL for GSS Asset ${identity}.`);
+    urls.set(identity, url);
+    return url;
+  };
   const uniqueResources = new Map<string, {
     resource: PlannedResource;
     sources: Set<string>;
@@ -1195,7 +1084,7 @@ function finalizeSnapshot(
   const orderedResources = [...uniqueResources.values()]
     .sort((left, right) => left.resource.identity.localeCompare(right.resource.identity));
   const renderedResources = orderedResources
-    .map(({ resource }) => resource.css)
+    .map(({ resource }) => resource.renderCss?.(resolve) ?? resource.css)
     .join('\n\n');
 
   const uniqueRules = new Map<string, {
@@ -1214,12 +1103,12 @@ function finalizeSnapshot(
   const orderedRules = [...uniqueRules.values()].sort((left, right) =>
     compareRuleOrder(left.rule, right.rule, config)
   );
-  const renderedRules = orderedRules.map(({ rule }) => renderRule(rule)).join('\n\n');
+  const renderedRules = orderedRules.map(({ rule }) => renderRule(rule, resolve)).join('\n\n');
   const orderedPreservedBlocks = [...modules.values()]
     .flatMap(({ preservedBlocks }) => preservedBlocks)
     .sort((left, right) => left.moduleId.localeCompare(right.moduleId));
   const renderedPreservedBlocks = orderedPreservedBlocks
-    .map(({ css }) => css)
+    .map(({ css, renderCss }) => renderCss?.(resolve) ?? css)
     .join('\n\n');
   const layerPrelude = config.layers?.length
     ? `@layer ${config.layers.join(', ')};`
@@ -1248,7 +1137,7 @@ function finalizeSnapshot(
         className,
         selector,
         property: identity.property,
-        value: identity.value,
+        value: renderAssetValue(identity, resolve),
         important: identity.important,
         sources: [...sources].sort()
       }))
@@ -1296,8 +1185,9 @@ function renderRelationCombinator(
   return '';
 }
 
-function renderRule(rule: PlannedDeclaration): string {
-  const { property, value, important } = rule.identity;
+function renderRule(rule: PlannedDeclaration, resolve: AssetUrlResolver): string {
+  const { property, important } = rule.identity;
+  const value = renderAssetValue(rule.identity, resolve);
   let css = `${rule.selector} {\n  ${property}: ${value}${important ? ' !important' : ''};\n}`;
   for (const wrapper of [...(rule.wrappers ?? [])].reverse()) {
     css = `@${wrapper.kind} ${wrapper.query} {\n${indentCss(css)}\n}`;
@@ -1353,6 +1243,11 @@ function renderScopeType(scope: ScopeNodeSchema): string {
 }
 
 function serializeIdentity(identity: PlannedDeclaration['identity']): string {
+  if (identity.assetValue) {
+    const plain = { ...identity };
+    delete plain.assetValue;
+    return JSON.stringify(['asset-identity', serializeIdentity(plain)]);
+  }
   if ('subjectPath' in identity) {
     return JSON.stringify([
       'observed',
@@ -1380,6 +1275,7 @@ function serializeIdentity(identity: PlannedDeclaration['identity']): string {
       identity.sourceAttribute,
       identity.sourcePath,
       identity.targetPath,
+      identity.authoredPath,
       identity.property,
       identity.value,
       identity.important
@@ -1391,6 +1287,7 @@ function serializeIdentity(identity: PlannedDeclaration['identity']): string {
     identity.condition,
     identity.state,
     identity.pseudoElement,
+    identity.ownership,
     identity.property,
     identity.value,
     identity.important

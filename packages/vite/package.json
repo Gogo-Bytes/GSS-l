@@ -24,6 +24,7 @@
   "dependencies": {
     "@gss-l/compiler": "workspace:*",
     "@gss-l/types": "workspace:*",
+    "mrmime": "^2.0.1",
     "parse5": "^7.3.0"
   },
   "peerDependencies": {

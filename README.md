@@ -120,7 +120,11 @@ Vite 在 React transform 前按需编译 `.gss`，再复用同步 ScopeSchema va
 
 `cssAsset` 是相对输出目录的文件路径，不包含部署 base；manifest 使用 logical Module ids。没有 reachable `.gss` 时，不输出这些文件或注入 link。Watch rebuild 从当前 census 的编译快照重建，既移除旧贡献，也刷新 JS 未变化的 preserved CSS。
 
-**CSS/font URL dependency 接线及完整 MVP 验收仍未完成，当前不是 production-ready 集成。**
+Production 现已接入 CSS/font `url(...)`：相对引用从所属 `.gss` 解析，使用稳定 logical identity，在最终 census 后独立 emit（不自动 inline）；根路径引用使用 Vite `publicDir`。支持 query/fragment、relative/CDN base 与自定义 asset naming。缺失资源使构建失败；watch build 可响应资源修改、删除和恢复，即使 scope JS 未变化。
+
+Dev 同样解析 CSS/font 资源，在 Vite 的 HTTP 服务中提供内部版本化字节 snapshot；遵守现有 `server.fs` 权限，不自动 inline。资源字节更新走中央 CSS HMR，identity 变化会重新验证 JS consumers；缺失资源保留已提交 CSS 和可用字节，重建文件后自动恢复（相同字节也能清除错误浮层）。根路径仍从 `publicDir` 读取，query/fragment 保持，资源 URL 不是稳定公共 API。
+
+**资源交付已接通，但完整语义 oracle/Pilot 与 MVP 验收仍未完成，当前不是 production-ready 集成。**
 
 验证使用 `corepack pnpm verify`：先 lint 和按依赖顺序 build，再运行测试和 typecheck，以验证真实 workspace package exports，不依赖残留 `dist`。
 

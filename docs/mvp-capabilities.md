@@ -58,6 +58,15 @@
 - Module-local `@keyframes`，支持静态 `animation-name`/`animation` reference重写、条件上下文、稳定命名与引用计数。
 - `@font-face` 不可拆全局资源、descriptor/src 顺序保持、URL dependency tracking与引用计数。
 
+## Asset delivery (production and dev implemented)
+
+- Relative CSS/font URLs resolve against their owning `.gss`, with stable logical Asset identities separate from base and output hash.
+- Vite-owned asset reads, watch, rebasing and independent local asset emission; root URLs use `publicDir`.
+- Existing data/remote/fragment URLs and query/fragment preservation.
+- Missing local assets fail the current operation while preserving last-known-good dev CSS.
+
+The Compiler protocol is implemented: pure URL discovery, transactional `assetReferences`, stable bound identities, and render-time `resolveAssetUrl` for atoms/preserved CSS/resources. See [ADR-0049](adr/0049-separate-asset-identity-from-delivery-urls.md) and [ADR-0050](adr/0050-discover-bind-and-render-asset-references.md). Vite production reads/watches canonical local files, retains byte snapshots with cached Modules, and emits only final-census resources. It supports relative/CDN base, custom asset naming, missing-file failure and watch recovery. Dev serves base-aware versioned byte snapshots behind Vite host/CORS/file-access checks, without automatic inlining or a new browser runtime. Asset add/change/delete/recreation uses native central CSS HMR; byte-only changes preserve scope JS, identity changes invalidate consumers, and missing resources retain committed CSS and bytes. Identical-byte recovery still clears the native error overlay. Tests cover public/font resources, encoded filenames, shared ownership, symlink identity changes, external-path denial/explicit allowance and stale-read suppression.
+
 ## Output planning
 
 - Pure declaration atom。
@@ -77,6 +86,12 @@
 
 ## Verification
 
-- 独立 `compileGssReference()` testing API生成非原子化 reference CSS/style mapping。
-- 隔离浏览器 computed-style oracle比较 reference 与 atomic touched properties。
-- 快速 snapshot、浏览器 corpus与真实 Pilot零未解释差异门禁。
+- 独立 `@gss-l/testing` 的同步 `compileGssReference({ config, modules }, { resolveAssetUrl? })` 已实现有界 reference slices；成功返回 CSS/ScopeSchema mappings/diagnostics，失败仅返回 diagnostics，无 partial output，production 不依赖 testing。
+- 当前 reference 正向覆盖：ASCII local class、whitespace descendant path；current/ancestor `:checked`、`:disabled` 和同节点 intersection（仅一个 state-bearing path node），或一个 current/ancestor data-/ARIA equality attribute（不混用 pseudo）；attribute name `(data|aria)-[a-z][a-z0-9_-]*`，仅 `=`，值为无 escape 的单/双引号文本（排除对应 quote、NUL/LF/CR/FF）或 unquoted `[A-Za-z_][A-Za-z0-9_-]*`，允许空 quoted 值和 name/operator/value 周围 CSS whitespace，不接受 namespace/flag/其他 operator/attribute string 外 comment；`color`、`background-color`、`display`、`width`、`height`；physical `margin`/`padding` shorthand 与四个 longhand、authored grouping/order 和 `!important`。Browser 原生完成 selector accumulation/cascade，不调用 atomic winner/planner/allocator。
+- Reference pseudo slice 正向覆盖 terminal `::before` / `::after` 和可选 current checked/disabled intersection；pseudo 不创建 ScopeSchema path node；`content` 沿用 opaque/no-function/no-escape policy，不自动补 content，不模拟 applicability。祖先 state/attribute + pseudo-element 不在此 reference slice。
+- 当前 reference 对上述范围外的 syntax、value functions/escapes、非空 registered condition/layer config 与 asset bindings 显式报错；resolver port 暂不调用。这是 reference coverage 边界，不改变上文 GSS product capabilities；reference 不是完整 GSS validator，也不解析 state ambiguity。
+- 有界隔离浏览器 harness 已通过 native `agent_browser` 验证：ownership/Module isolation、ADR-0011 descendant ordered-subsequence accumulation、shorthand/longhand order/importance；无 computed-style/字面 expected-value 差异，故意损坏 atomic CSS 的 negative control 被检测。使用方法见 [`packages/testing/README.md`](../packages/testing/README.md)。
+- 新增 native state/attribute 与 descendant cascade browser gate 已通过 parent native `agent_browser`：19 fixtures / 213 comparisons（8 compiled-reference fixtures + 11 handwritten contextual goldens），双方独立满足 literal expectations、零 differences/expectedFailures，negative control 仍检测 `9px` / corrupted `123px`。原 ancestor `1px → 9px → 1px → 1px` counterexample 与 checkbox 全五阶段 `margin-left: 1px` 均通过。Compiler 以 target/source-prefix embedding 绑定重复类路径，保留 base/current/ancestor specificity、封闭 predicate 内 winner 与 coactive ambiguity diagnostic；覆盖正反 authored order、四边 shorthand/longhand、important 和 simultaneous conditions；额外 child/`:has()` golden 验证 unrelated-condition toggle 不改变 winner，保留 source/subject prefix specificity、child tie precedence 与 observed match/no-match/restoration，未扩展 reference API 语法。
+- 后续 pseudo slice parent native `agent_browser` 通过 **21 fixtures / 395 comparisons**（保留原 19 / 213，新增两组）；host/before/after 独立 literal expectations、Module isolation、importance、无 content、descendant/subsequence/structural prefix 与非 replaced button disabled enter/exit。新增 pseudo-only corruption 检测 before color red → `rgb(1, 2, 3)`，host/after 不变，页面通过必须同时检测两个 control。Checked + pseudo 仅 API coverage。Public red prefix regression 触发有界 Compiler restoration：同 layer/condition 内既有 pseudo/state group 扩展到有 descendant ownership proof 的 declared path/prefix；单 terminal class 可匹配 runtime-derived target，不从 sibling path 名推断祖先；闭合 target winner 沿用 ADR-0027。
+- Pseudo review follow-up：原 21 / 395 未覆盖 specificity inversion / cross-path coactivity 两个 P1。Public-session red/green tests 现验证 expanded target 的 authored provenance/specificity（target/priority-qualified identity，不加强共享弱 atom），以及按 pseudo subject 分离的 accumulated coactivity validation（commit / preserved fallback 前检查；歧义保留 LKG；仅 dominating explicit intersection 可消解）。新增四组真实 disabled button 正反顺序/importance/isolation/restoration oracle，parent native gate 通过 **25 fixtures / 575 comparisons**，零 difference/literal failure，两个 corruption control 均有效；full oracle / browser CI / Pilot 仍未完成。
+- 完整 state/condition/resource oracle corpus、独立 browser CI 与真实 Pilot 零未解释差异门禁仍未完成。

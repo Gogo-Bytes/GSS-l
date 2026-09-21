@@ -9,6 +9,7 @@ export type OrderableRule = {
   className: string;
   identity: { property: string };
   layer?: string;
+  relationRank?: number;
   wrappers?: readonly OrderableCondition[];
 };
 
@@ -36,6 +37,9 @@ export function compareRuleOrder(
 
   const conditions = compareConditions(left.wrappers ?? [], right.wrappers ?? [], config);
   if (conditions !== 0) return conditions;
+
+  const relation = (left.relationRank ?? 0) - (right.relationRank ?? 0);
+  if (relation !== 0) return relation;
 
   const property = comparePropertyRenderOrder(left.identity.property, right.identity.property);
   if (property !== 0) return property;
