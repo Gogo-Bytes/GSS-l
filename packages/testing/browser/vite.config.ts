@@ -14,7 +14,7 @@ export default defineConfig({
     load(id) {
       if (id !== '\0virtual:reference-fixtures') return;
       const compile = (fixture: ReferenceFixture, nativeReference?: CompiledReferenceFixture['reference']): CompiledReferenceFixture => {
-        const config = { projectRoot: '/reference-fixture', atomizationFallback: 'error' as const };
+        const config = { projectRoot: '/reference-fixture', atomizationFallback: 'error' as const, ...fixture.config };
         const reference = nativeReference ?? (() => {
           const result = compileGssReference({ config, modules: fixture.modules });
           if (!result.success) throw new Error(JSON.stringify(result.diagnostics));

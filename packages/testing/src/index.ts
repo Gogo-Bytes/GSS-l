@@ -24,13 +24,11 @@ export function compileGssReference(
 ): ReferenceCompileResult {
   // Reserved public seam: this slice rejects assets before any resolver is called.
   void ports;
-  if ((input.config.layers?.length ?? 0) > 0 ||
-    Object.values(input.config.conditions ?? {}).some((queries) => queries.length > 0)) {
-    return failure('<config>', 'unsupported-reference-config',
-      'Reference coverage does not yet include configured layer or condition ordering.');
-  }
+  const ordering = referenceOrdering(input.config);
+  if (!ordering) return failure('<config>', 'unsupported-reference-config',
+    'Reference ordering requires one bounded condition kind and unique simple named layers.');
   const scopeSchemas: Record<string, ScopeSchema> = Object.create(null);
-  const css: string[] = [];
+  const css: { rank: number; css: string }[] = [];
   const modules = new Map<string, ReplaceStylesheetInput>();
   for (const module of input.modules) {
     const logicalId = toLogicalModuleId(input.config.projectRoot, module.id);
@@ -53,10 +51,25 @@ export function compileGssReference(
       return failure(module.id, 'invalid-reference-css', 'Unable to parse reference CSS.', 'parse');
     }
     const selectors = new Map<postcss.Rule, selectorParser.Root>();
-    for (const node of root.nodes) {
-      if (node.type === 'comment') continue;
-      const selector = node.type === 'rule' ? parseReferenceSelector(node.raws.selector?.raw ?? node.selector) : undefined;
-      if (node.type !== 'rule' || !selector) {
+    const rules: postcss.Rule[] = [];
+    const validate = (container: postcss.Root | postcss.AtRule, inLayer = false, inCondition = false): boolean => {
+      for (const node of container.nodes ?? []) {
+        if (node.type === 'comment') continue;
+        if (node.type === 'rule') { rules.push(node); continue; }
+        if (node.type !== 'atrule' || !node.nodes) return false;
+        if (node.name === 'layer') {
+          if (inLayer || inCondition || !ordering.layers.includes(node.params) || !validate(node, true, false)) return false;
+        } else {
+          if (inCondition || node.name !== ordering.kind || !ordering.queries.includes(node.params) || !validate(node, inLayer, true)) return false;
+        }
+      }
+      return true;
+    };
+    if (!validate(root)) return failure(module.id, 'unsupported-reference-syntax',
+      'Reference wrappers require registered flat conditions, optionally inside one configured named layer.');
+    for (const node of rules) {
+      const selector = parseReferenceSelector(node.raws.selector?.raw ?? node.selector);
+      if (!selector) {
         return failure(module.id, 'unsupported-reference-syntax',
           'Reference rules require local descendant paths with bounded native states and terminal before/after pseudo-elements.');
       }
@@ -91,9 +104,56 @@ export function compileGssReference(
       rule.selector = selector.toString();
     });
     scopeSchemas[module.id] = { moduleId: module.id, exports };
-    css.push(root.toString());
+    for (const [rank, group] of partitionByCondition(root, ordering.queries)) css.push({ rank, css: group.toString() });
   }
-  return { success: true, css: css.join('\n'), scopeSchemas, diagnostics: [] };
+  // Stable sort moves whole authored groups, never declarations or specificity. Native CSS
+  // resolves importance/layers/selectors; only registered condition appearance is synthesized.
+  css.sort((left, right) => left.rank - right.rank);
+  const prelude = ordering.layers.length ? `@layer ${ordering.layers.join(', ')};\n` : '';
+  return { success: true, css: prelude + css.map((group) => group.css).join('\n'), scopeSchemas, diagnostics: [] };
+}
+
+function referenceOrdering(config: GssCompilerConfig) {
+  const layers = config.layers ?? [];
+  if (layers.some((name) => !simpleName.test(name) || reservedNames.has(name.toLowerCase())) || new Set(layers).size !== layers.length) return undefined;
+  const entries = Object.entries(config.conditions ?? {});
+  if (entries.some(([kind]) => !['media', 'supports', 'container'].includes(kind))) return undefined;
+  const active = entries.filter(([, queries]) => queries.length);
+  if (active.length > 1) return undefined;
+  const [kind, queries] = active[0] ?? ['', []];
+  if (new Set(queries).size !== queries.length || queries.some((query) => !boundedQuery(kind, query))) return undefined;
+  return { layers, kind, queries };
+}
+const reservedNames = new Set(['initial', 'inherit', 'unset', 'revert', 'revert-layer', 'default', 'none']);
+const containerOperators = new Set(['not', 'and', 'or']);
+const simpleName = /^[A-Za-z_][A-Za-z0-9_-]*$/;
+function boundedQuery(kind: string, query: string): boolean {
+  if (kind === 'supports') return /^\(display: (?:block|grid|gss-unsupported)\)$/.test(query);
+  const width = /^\((?:min|max)-width: (?:0|[1-9][0-9]*)px\)$/;
+  if (kind === 'media') return width.test(query);
+  if (kind === 'container') {
+    const name = query.split(' ')[0]!.toLowerCase();
+    return width.test(query) || !reservedNames.has(name) && !containerOperators.has(name) &&
+      /^[A-Za-z_][A-Za-z0-9_-]* \((?:min|max)-width: (?:0|[1-9][0-9]*)px\)$/.test(query);
+  }
+  return false;
+}
+
+/** Partition complete rule groups by registered rank, retaining outer native layers. */
+function partitionByCondition<T extends postcss.Root | postcss.AtRule>(container: T, queries: readonly string[]): Map<number, T> {
+  const groups = new Map<number, T>();
+  const append = (rank: number, node: postcss.ChildNode) => {
+    let group = groups.get(rank);
+    if (!group) { group = container.clone({ nodes: [] }) as T; groups.set(rank, group); }
+    group.append(node.clone());
+  };
+  for (const node of container.nodes ?? []) {
+    if (node.type === 'atrule' && node.name === 'layer') {
+      for (const [rank, layer] of partitionByCondition(node, queries)) append(rank, layer);
+    } else append(node.type === 'atrule' ? queries.indexOf(node.params) + 1 : 0, node);
+  }
+  if (!groups.size) groups.set(0, container.clone() as T);
+  return groups;
 }
 
 function encode(value: string): string {

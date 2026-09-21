@@ -10,7 +10,7 @@ type Reading = {
   subject: 'element' | '::before' | '::after'; property: string; value: string; expected: string;
 };
 
-async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo'): Promise<Reading[]> {
+async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer'): Promise<Reading[]> {
   const frame = document.createElement('iframe');
   frame.title = `${fixture.name}: ${side}${corrupt ? ' negative control' : ''}`;
   frame.width = '640';
@@ -23,10 +23,20 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
   document.querySelector('#documents')!.append(frame);
   await loaded;
   const doc = frame.contentDocument!;
+  const setup = doc.createElement('style');
+  setup.dataset.role = 'identical-fixture-setup';
+  setup.textContent = fixture.setupCss ?? '';
+  doc.head.append(setup);
   const style = doc.createElement('style');
   style.textContent = fixture[side].css;
   if (corrupt === 'element') style.textContent += '\n#forward { margin-left: 123px !important; }';
   if (corrupt === 'pseudo') style.textContent += '\n#pseudo-a::before { color: rgb(1, 2, 3) !important; }';
+  if (corrupt === 'condition') style.textContent += '\n@media (min-width: 400px) { #target { padding-left: 123px !important; } }';
+  if (corrupt === 'layer') {
+    const changed = style.textContent.replace(/@layer early,\s*late;/, '@layer late, early;');
+    if (changed === style.textContent) throw new Error('Layer corruption did not change the prelude');
+    style.textContent = changed;
+  }
   doc.head.append(style);
   for (const node of fixture.nodes) {
     let targets = fixture[side].scopeSchemas[node.moduleId]!.exports;
@@ -46,12 +56,22 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
     parent.append(element);
   }
   const readings: Reading[] = [];
-  const phases = [
+  const phases: NonNullable<Fixture['phases']> = [
     { name: 'baseline', changes: [], expected: Object.fromEntries(fixture.nodes.map((node) => [node.id, node.expected])),
       pseudoExpected: Object.fromEntries(fixture.nodes.map((node) => [node.id, node.pseudoExpected ?? {}])) },
     ...fixture.phases ?? []
   ];
   for (const phase of phases) {
+    if (phase.viewportWidth !== undefined) frame.width = String(phase.viewportWidth);
+    if (phase.containerWidth !== undefined) {
+      const provider = doc.getElementById(fixture.conditionProbes?.container ?? '');
+      if (!provider) throw new Error('Missing size query provider');
+      provider.style.width = `${phase.containerWidth}px`;
+    }
+    // Viewport/container query changes settle in the native frame before sampling.
+    await new Promise<void>((resolve) => frame.contentWindow!.requestAnimationFrame(() =>
+      frame.contentWindow!.requestAnimationFrame(() => resolve())));
+
     for (const change of phase.changes) {
       const element = doc.getElementById(change.node);
       if (!element) throw new Error(`Missing phase node: ${change.node}`);
@@ -70,12 +90,24 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
       }
     }
     // Include ancestor conditions and actual native pseudo matches in every difference report.
-    const state = JSON.stringify(fixture.nodes.map((node) => {
+    const win = frame.contentWindow as Window & typeof globalThis;
+    const conditionState = {
+      viewportWidth: win.innerWidth,
+      media: Object.fromEntries((fixture.conditionProbes?.media ?? []).map((query) => [query, win.matchMedia(query).matches])),
+      supports: Object.fromEntries((fixture.conditionProbes?.supports ?? []).map((query) => [query, win.CSS.supports(query)])),
+      containerWidth: fixture.conditionProbes?.container
+        ? win.getComputedStyle(doc.getElementById(fixture.conditionProbes.container)!).width : null
+    };
+    if (fixture.conditionProbes?.supports && (conditionState.supports['(display: block)'] !== true ||
+      conditionState.supports['(display: grid)'] !== true || conditionState.supports['(display: gss-unsupported)'] !== false)) {
+      throw new Error('Native CSS.supports probes differ from fixture requirements');
+    }
+    const state = JSON.stringify({ conditions: conditionState, nodes: fixture.nodes.map((node) => {
       const element = doc.getElementById(node.id)!;
       return { node: node.id, checked: element.matches(':checked'), disabled: element.matches(':disabled'),
         attributes: Object.fromEntries([...element.attributes].filter((attribute) => /^(data|aria)-/.test(attribute.name))
           .map((attribute) => [attribute.name, attribute.value])) };
-    }));
+    }) });
     for (const node of fixture.nodes) {
       for (const subject of ['element', '::before', '::after'] as const) {
         const expected = (subject === 'element' ? phase.expected[node.id] : phase.pseudoExpected?.[node.id]?.[subject]) ?? {};
@@ -143,11 +175,31 @@ async function run() {
   const pseudoDetected = controlsUnchanged && pseudoDifferences.length === 1 && pseudoDifferences.some((difference) =>
     difference.node === 'pseudo-a' && difference.subject === '::before' && difference.property === 'color' &&
     difference.reference === 'rgb(255, 0, 0)' && difference.atomic === 'rgb(1, 2, 3)');
+  const conditionFixture = fixtures.find((fixture) => fixture.name === 'registered-media-forward-source-forward-config')!;
+  const conditionReference = await readDocument(conditionFixture, 'reference');
+  const conditionAtomic = await readDocument(conditionFixture, 'atomic');
+  const conditionCorrupted = await readDocument(conditionFixture, 'atomic', 'condition');
+  const conditionDifferences = compare(conditionReference, conditionCorrupted);
+  const conditionDetected = conditionDifferences.length === 2 && conditionDifferences.every((difference) =>
+    ['baseline', 'restored-both'].includes(difference.phase) && difference.node === 'target' &&
+    difference.property === 'padding-left' && difference.reference === '7px' && difference.atomic === '123px') &&
+    compare(conditionAtomic, conditionCorrupted).length === 2;
+  const layerFixture = fixtures.find((fixture) => fixture.name === 'native-layers-forward-source-forward-config')!;
+  const layerReference = await readDocument(layerFixture, 'reference');
+  const layerCorrupted = await readDocument(layerFixture, 'atomic', 'layer');
+  const layerDifferences = compare(layerReference, layerCorrupted);
+  const layerDetected = layerDifferences.length === 3 && layerDifferences.every((difference) =>
+    difference.property === 'color' && (difference.node === 'layer-normal'
+      ? difference.reference === 'rgb(0, 0, 255)' && difference.atomic === 'rgb(255, 0, 0)'
+      : ['layer-important', 'unlayered-important'].includes(difference.node) &&
+        difference.reference === 'rgb(255, 0, 0)' && difference.atomic === 'rgb(0, 0, 255)'));
   publish({
-    status: results.every((result) => result.comparisons > 0 && !result.differences.length && !result.expectedFailures.length) && detected && pseudoDetected
+    status: results.every((result) => result.comparisons > 0 && !result.differences.length && !result.expectedFailures.length) && detected && pseudoDetected && conditionDetected && layerDetected
       ? 'passed' : 'failed',
     results,
     negativeControl: { detected, differences },
+    conditionNegativeControl: { detected: conditionDetected, differences: conditionDifferences },
+    layerNegativeControl: { detected: layerDetected, differences: layerDifferences },
     pseudoNegativeControl: { detected: pseudoDetected, controlsUnchanged, differences: pseudoDifferences }
   });
 }

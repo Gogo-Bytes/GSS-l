@@ -1,4 +1,5 @@
-import type { ReplaceStylesheetInput, ScopeSchema } from '@gss-l/compiler';
+import type { GssCompilerConfig, ReplaceStylesheetInput, ScopeSchema } from '@gss-l/compiler';
+import { conditionLayerFixtures } from './condition-layer-fixtures.js';
 import { pseudoElementFixtures } from './pseudo-element-fixtures.js';
 
 export type PseudoExpectations = Partial<Record<'::before' | '::after', Readonly<Record<string, string>>>>;
@@ -6,6 +7,10 @@ export type PseudoExpectations = Partial<Record<'::before' | '::after', Readonly
 export type ReferenceFixture = {
   name: string;
   modules: readonly ReplaceStylesheetInput[];
+  config?: Pick<GssCompilerConfig, 'conditions' | 'layers'>;
+  setupCss?: string;
+  conditionProbes?: { media?: readonly string[]; supports?: readonly string[]; container?: string };
+
   nodes: readonly {
     id: string;
     moduleId: string;
@@ -17,6 +22,8 @@ export type ReferenceFixture = {
   }[];
   phases?: readonly {
     name: string;
+    viewportWidth?: number;
+    containerWidth?: number;
     changes: readonly {
       node: string;
       checked?: boolean;
@@ -36,6 +43,7 @@ export type CompiledReferenceFixture = ReferenceFixture & {
 // Literal longhand expectations are a second guard against an empty/common-mode pass.
 export const fixtures: readonly ReferenceFixture[] = [
   ...pseudoElementFixtures,
+  ...conditionLayerFixtures,
   {
     name: 'ownership-module-isolation',
     modules: [
