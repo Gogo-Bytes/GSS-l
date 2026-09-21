@@ -38,6 +38,7 @@ export type ParsedCondition = {
 };
 
 export type ParsedStyleRule = {
+  selector: string;
   path: readonly string[];
   relations: readonly SelectorRelation[];
   states: readonly (readonly string[])[];
@@ -287,13 +288,15 @@ function isSupportedConditionKind(
   return name === 'media' || name === 'supports' || name === 'container';
 }
 
-function parseDescendantClassPaths(selector: string): readonly ParsedSelectorPath[] | undefined {
+function parseDescendantClassPaths(
+  selector: string
+): readonly (ParsedSelectorPath & { selector: string })[] | undefined {
   const root = selectorParser().astSync(selector);
-  const paths: ParsedSelectorPath[] = [];
+  const paths: (ParsedSelectorPath & { selector: string })[] = [];
   for (const branch of root.nodes) {
     const path = parseClassPath(branch.nodes);
     if (!path) return undefined;
-    paths.push(path);
+    paths.push({ ...path, selector: branch.toString() });
   }
   return paths.length > 0 ? paths : undefined;
 }

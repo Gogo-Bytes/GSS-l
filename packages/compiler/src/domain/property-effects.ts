@@ -70,6 +70,29 @@ const families: readonly PropertyFamily[] = [
   ['overflow', ['overflow-x', 'overflow-y']],
   ['overscroll-behavior', ['overscroll-behavior-x', 'overscroll-behavior-y']],
   ['gap', ['row-gap', 'column-gap']],
+  ['grid-gap', ['grid-row-gap', 'grid-column-gap']],
+  ['grid', [
+    'grid-template-rows',
+    'grid-template-columns',
+    'grid-template-areas',
+    'grid-auto-rows',
+    'grid-auto-columns',
+    'grid-auto-flow'
+  ]],
+  ['grid-template', [
+    'grid-template-rows',
+    'grid-template-columns',
+    'grid-template-areas'
+  ]],
+  ['grid-area', [
+    'grid-row-start',
+    'grid-column-start',
+    'grid-row-end',
+    'grid-column-end'
+  ]],
+  ['grid-row', ['grid-row-start', 'grid-row-end']],
+  ['grid-column', ['grid-column-start', 'grid-column-end']],
+  ['grid-auto-flow', ['grid-auto-flow']],
   ['place-content', ['align-content', 'justify-content']],
   ['place-items', ['align-items', 'justify-items']],
   ['place-self', ['align-self', 'justify-self']],
@@ -148,6 +171,56 @@ function createPropertyEffects(): Readonly<Record<string, readonly string[]>> {
 }
 
 const propertyEffects = createPropertyEffects();
+
+const independentProperties = new Set([
+  'color',
+  'content',
+  'cursor',
+  'display',
+  'height',
+  'min-height',
+  'max-height',
+  'width',
+  'min-width',
+  'max-width',
+  'opacity',
+  'position',
+  'transform',
+  'transform-origin',
+  'object-fit',
+  'object-position',
+  'table-layout',
+  'vertical-align',
+  'white-space',
+  'word-break',
+  'overflow-wrap',
+  'text-align',
+  'text-overflow',
+  'visibility',
+  'z-index'
+]);
+
+export type PropertyEffectClassification =
+  | { kind: 'custom-property'; effects: readonly string[] }
+  | { kind: 'shorthand'; effects: readonly string[] }
+  | { kind: 'longhand'; effects: readonly string[] }
+  | { kind: 'unknown'; effects: readonly [] };
+
+export function classifyPropertyEffect(property: string): PropertyEffectClassification {
+  if (property.startsWith('--')) {
+    return { kind: 'custom-property', effects: [property] };
+  }
+  const effects = propertyEffects[property];
+  if (effects && effects.length > 1) return { kind: 'shorthand', effects };
+  if (effects || independentProperties.has(property)) {
+    return { kind: 'longhand', effects: effects ?? [property] };
+  }
+  return { kind: 'unknown', effects: [] };
+}
+
+export function isRegisteredPropertyEffect(property: string): boolean {
+  return classifyPropertyEffect(property).kind !== 'unknown';
+}
 
 export function effectsOfProperty(property: string): readonly string[] {
   return propertyEffects[property] ?? [property];

@@ -42,7 +42,7 @@ GSS-l does not resolve:
 - unregistered condition/layer precedence;
 - syntax outside the positive capability matrix.
 
-The React Adapter lowers known GSS references but does not inspect external class semantics.
+The React Adapter lowers known GSS references but does not inspect external class semantics. A framework-independent source Adapter first discovers original GSS import specifiers. The host resolves and successfully compiles them before calling the synchronous transform, so dependency load order cannot silently bypass ScopeSchema validation. A failed current input blocks transformation even when the Compiler retains a last-known-good contribution.
 
 ## 3. Authored and consumer model
 
@@ -278,11 +278,11 @@ Resources are reference-counted and removed when no committed Module references 
 
 Registration collects semantic contributions; it does not append final CSS.
 
-Production performs a complete reachable-Module census and emits one central ordered asset. Lazy-route CSS is included so network order cannot change the cascade.
+Production performs a complete reachable-Module census and emits one central ordered asset. Lazy-route CSS is included so network order cannot change the cascade. Versioned `gss-manifest.json` and `gss-report.json` link the same asset using an output-relative filename; every emitted HTML entry resolves it against its deployment base. Physical source snapshots retained with virtual Modules align CSS with generated JS, while clean final registry state prevents removed or merely precompiled Modules from leaking into the output. Cached preserved Modules are refreshed even when their JavaScript is unchanged.
 
-Development uses one style owner and replaces the complete ordered snapshot after a successful transaction. Failed compilation retains the last-known-good snapshot; invalidation removes zero-reference output.
+Development uses one stylesheet link per Vite-managed HTML document and replaces the complete ordered snapshot through Vite's native CSS HMR after a successful transaction. Failed compilation retains the last-known-good snapshot; invalidation removes zero-reference output. Per-file generation tokens suppress stale reads after replacement/deletion, and recorded source importers are invalidated for fresh ScopeSchema validation. Late discovery and late HMR connections refresh earlier snapshots rather than depending on network order.
 
-The first version uses reversible readable names generated from canonical identity. Naming is isolated behind `NameAllocator` and does not affect semantics.
+The first version uses reversible readable names generated from canonical identity. Naming is isolated behind `NameAllocator` and does not affect semantics. Root-external stylesheets use project-relative logical ids such as `../shared/Card.gss`; canonical physical ids remain transaction/lookup keys. Moving the workspace without changing its relative layout cannot change Module-owned names. If no project-relative identity can be expressed, compilation fails closed rather than encoding an absolute path.
 
 ## 15. Fail-closed policy
 
@@ -333,9 +333,12 @@ The reference renderer does not call the atomic winner/pruning/planning path. A 
 - Resources and layers: [ADR-0024](adr/0024-support-module-local-keyframes.md), [ADR-0025](adr/0025-support-font-face-as-a-global-resource.md), [ADR-0026](adr/0026-support-configured-named-cascade-layers.md)
 - Cascade and delivery: [ADR-0027](adr/0027-separate-cascade-resolution-from-render-order.md), [ADR-0028](adr/0028-use-one-central-css-asset-and-snapshot-hmr.md)
 - Naming and verification: [ADR-0029](adr/0029-use-reversible-readable-names-for-the-first-version.md), [ADR-0030](adr/0030-make-semantic-reference-css-a-testing-capability.md)
+- Source Adapter discovery and synchronous transformation: [ADR-0046](adr/0046-discover-source-imports-before-synchronous-transform.md)
+- Root-external Module identity: [ADR-0047](adr/0047-use-project-relative-identities-for-root-external-stylesheets.md)
+- Production CSS and versioned build metadata: [ADR-0048](adr/0048-emit-versioned-production-css-manifest-and-report.md)
 
 ## 18. Implementation status
 
 The semantic design stage is complete. The recipe-oriented exploratory implementation has been discarded without modifying the read-only legacy project.
 
-Stage 1 of [`mvp-roadmap.md`](mvp-roadmap.md) established the new Compiler workspace and verification commands. Implementation now proceeds in test-first vertical slices through the accepted `GssCompilerSession` seam.
+Stage 1 of [`mvp-roadmap.md`](mvp-roadmap.md) established the new Compiler workspace and verification commands. Implementation now proceeds in test-first vertical slices through the accepted `GssCompilerSession` seam. The Vite virtual-JavaScript, explicit source-Adapter composition, and dev central CSS/HTML/HMR slices are implemented with real Vite integration tests, including HTTP/WebSocket coverage. Browser smoke verification covered red → blue → invalid source (blue retained with overlay) → green recovery, with one stylesheet link, no appended style elements, and no page reload in a self-accepting fixture. Production central CSS and JSON delivery are now covered by real build/watch tests: lazy census, MPA/base handling, empty census, preserved fallback reporting, source-snapshot consistency, and relocation stability. Production preview browser checks confirmed lazy rules are present before lazy JS loads, lazy rendering adds no stylesheet, and both HTML entries share the same asset. Resource URL integration and the broader semantic-oracle/Pilot gates remain incomplete.

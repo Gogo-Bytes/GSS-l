@@ -61,8 +61,8 @@ Completion criteria:
 
 - [x] Establish the data-driven `PropertyEffectRegistry` seam with margin/padding effect families.
 - [x] Resolve exact-property and registered shorthand/longhand winners per closed target candidate set.
-- [x] Version the property-effect registry and expand its first dataset across box, border, background, typography, layout, transition, animation, and mask families.
-- [ ] Complete shorthand classification for the full positive property set; unclassified effects must not enter atomic output.
+- [x] Version the property-effect registry and expand its first dataset across box, border, background, typography, flex/grid layout, transition, animation, and mask families.
+- [ ] Complete shorthand classification for the full positive property set; unclassified effects must not enter atomic output and must be classified as unknown rather than singleton longhands.
 - [x] Detect registered logical/physical property conflicts, including conflicts introduced by ownership target accumulation.
 - [ ] Implement importance and authored cascade layer semantics.
 - [ ] Implement selector specificity, including `:where()` zero specificity.
@@ -96,7 +96,8 @@ Completion criteria:
 - [x] Plan configured named layers across pure and contextual atoms, emit the global order prelude, and warn on unregistered layer names.
 - [ ] Implement full registered condition precedence and remaining cascade-order planning.
 - [ ] Keep compatibility declaration sequences indivisible after browserslist transformation.
-- [ ] Replan recoverable atomization failures as one whole preserved Module while retaining ScopeSchema, resources, authored order, and transactional replacement.
+- [x] Replan unregistered property-effect failures as one whole preserved Module while retaining ScopeSchema, resources, authored order, conditions/layers, and transactional replacement.
+- [ ] Extend whole-Module preserved fallback to indivisible compatibility declaration sequences.
 
 Completion criteria:
 
@@ -112,7 +113,8 @@ Completion criteria:
 - [ ] Implement full-census `finalize()`.
 - [x] Implement `RuleOrderPlanner` separately from `CascadeResolver`.
 - [ ] Implement reversible readable names behind `NameAllocatorPort`.
-- [ ] Emit nested static scope objects and branded TypeScript declarations.
+- [x] Emit nested static scope objects and branded object-based consumer types through `@gss-l/types`.
+- [x] Provide a global wildcard `.gss` declaration without per-Module declaration files.
 - [ ] Emit central CSS, source map, manifest, and report, including Module compilation mode, fallback reasons, and atomic coverage.
 
 Completion criteria:
@@ -124,29 +126,39 @@ Completion criteria:
 
 ## Stage 6 — React style-usage Adapter
 
-- [ ] Detect `.gss` imports in React/TypeScript source.
-- [ ] Resolve longest static scope path.
-- [ ] Lower direct references inside JSX `className` to `.self`.
-- [ ] Lower nested GSS references inside `className` expressions such as `cx(...)`.
-- [ ] Propagate accepted local immutable direct, conditional, and property aliases.
-- [ ] Emit path and scope-escape diagnostics with `.self` suggestions.
-- [ ] Preserve non-GSS expressions and produce source maps.
+- [x] Detect default `.gss` imports in React/TypeScript source through the React Adapter port.
+- [x] Expose `react()` through the shared `GssSourceAdapter` port with import discovery followed by synchronous lowering.
+- [x] Resolve direct static scope paths against `ScopeSchema`.
+- [x] Lower direct references inside JSX `className` to `.self` with source maps.
+- [x] Lower nested static GSS references anywhere inside `className` expressions without interpreting `cx(...)` or other non-GSS code.
+- [x] Propagate direct immutable local scope aliases and diagnose mutable aliases.
+- [x] Propagate all-scope conditional aliases and property-destructured scope aliases; diagnose mixed scope/string branches.
+- [x] Lower destructured component props explicitly typed as `typeof styles.<scope>` through a local type alias.
+- [x] Extend typed scope props to inline annotations and direct `props.scope` reads.
+- [x] Support direct parent-to-child scope passing when the child explicitly imports `typeof styles.<scope>`.
+- [ ] Extend typed scope props to multi-hop forwarding, shared type aliases, and constrained cross-file provenance.
+- [x] Emit static path and implicit scope-string escape diagnostics with `.self` suggestions.
+- [ ] Extend scope-escape diagnostics to all proven typed cross-file contexts.
+- [x] Preserve non-GSS expressions and produce high-resolution source maps for direct and nested reference lowering.
 
 Completion criteria:
 
 - transformed code contains no scope object where React receives a class string;
 - arbitrary `cx()` and external class semantics remain untouched;
 - unsupported escape fails explicitly rather than producing runtime object coercion;
-- TypeScript fixture projects pass with generated declarations.
+- TypeScript fixture projects pass with the global `.gss` declaration and branded consumer types.
 
 ## Stage 7 — Vite integration, production asset, and HMR
 
-- [ ] Implement `.gss` virtual JavaScript/declaration Modules.
-- [ ] Connect Vite module lifecycle to Compiler replace/invalidate.
-- [ ] Emit one central production CSS asset for all reachable main/lazy Modules.
-- [ ] Emit the build manifest needed by SSR.
-- [ ] Implement one dev style owner and full ordered snapshot replacement.
-- [ ] Implement last-known-good rollback and generation ordering.
+- [x] Implement stable `.gss` virtual JavaScript Modules and the global `@gss-l/vite/client` type entry (no per-file declarations).
+- [x] Implement explicit `gss({ adapter })` composition and compile-on-demand before synchronous source transformation.
+- [x] Fail virtual load/source transform on hard diagnostics while retaining last-known-good; return preserved fallback JavaScript with warnings.
+- [x] Connect dev physical file change/delete/recreate to Compiler replace/invalidate and source/virtual Module cache invalidation.
+- [x] Emit one central production CSS asset from the full main/lazy Rollup Module census and inject the shared asset into every emitted HTML entry.
+- [x] Emit `gss-manifest.json` and `gss-report.json` version-1 envelopes with output-relative CSS linkage and current Compiler snapshots.
+- [x] Rebuild production registry state from current source snapshots, including cached preserved Modules whose JS does not change.
+- [x] Implement one dev stylesheet owner per HTML document, base-aware MPA injection, and full ordered snapshot replacement through Vite CSS HMR.
+- [x] Implement last-known-good rollback and generation ordering for asynchronous reads, including deletion and late HMR connection synchronization.
 - [ ] Handle CSS and font URL dependencies through the Adapter.
 
 Completion criteria:

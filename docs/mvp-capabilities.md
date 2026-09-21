@@ -8,6 +8,8 @@
 - `styles.<scope>` 与 `styles.<scope>.<target-path>`。
 - JSX `className` 内隐式 `.self`；其他 string context 显式 `.self`。
 - 局部不可变 direct、conditional 和 property alias。
+- 通过 `gss({ adapter: react() })` 显式组合 Vite 和 React Adapter；先 discovery/按需编译，再同步 ScopeSchema validation/lowering。
+- 项目级 `@gss-l/vite/client` reference 提供宽泛 branded recursive `*.gss` 类型，不生成 per-file declaration。
 
 ## Selectors and relations
 
@@ -45,7 +47,7 @@
 
 - 标准 property/value syntax，value 默认 opaque。
 - `!important`。
-- Versioned、data-driven shorthand/longhand property effects；v1覆盖 box、border、background、typography、flex/alignment、transition、animation和mask family。
+- Versioned、data-driven shorthand/longhand property effects；v1覆盖 box、border、background、typography、flex/grid layout、alignment、transition、animation和mask family；unknown property不会被假定为singleton longhand。
 - Custom property provider、inheritance 与 `var(...)` consumer。
 - `@property` 全局 registration。
 - Browserslist transformer生成的兼容 declaration sequence。
@@ -66,9 +68,12 @@
 - Semantic source-order vector：registered condition、relation implication、property effect。
 - Cascade resolution 与 deterministic render order分离；registry registration order和 canonical hash不参与 winner。
 - Production 全局 census/finalize并输出一个中央 CSS asset；SSR引用同一 build manifest asset。
+- Production `gss-manifest.json` / `gss-report.json` version-1 envelope，包含 output-relative `cssAsset` 与 Compiler snapshot；空 GSS census 不输出文件，MPA HTML 共享同一 asset 并支持 absolute/relative/CDN base。
 - Artifact、manifest和report记录`atomic`/`preserved` mode、fallback reason与atomic coverage；fallback产生warning且可由项目升级为error。
 - Dev replace-by-id transaction、last-known-good rollback、ref-count回收与完整 ordered snapshot HMR。
+- Dev `/@gss-l/central.css` virtual CSS；Vite-managed SPA/MPA HTML 自动注入一个 base-aware stylesheet link，使用原生 Vite CSS HMR，并同步晚发现的 Module 与晚连接的 client。
 - 独立 NameAllocator生成由完整 canonical identity 可逆编码的可读名称。
+- Root 外的 `.gss` 使用 `../shared/Card.gss` 形式的 project-relative logical identity；支持相对 import、alias 和 symlink canonicalization，不将绝对路径写入 Module-owned names。
 
 ## Verification
 

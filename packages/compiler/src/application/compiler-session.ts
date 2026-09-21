@@ -1,3 +1,5 @@
+import selectorParser from 'postcss-selector-parser';
+import { toLogicalModuleId } from './module-identity.js';
 import valueParser from 'postcss-value-parser';
 import {
   createReadableAtomicName,
@@ -6,11 +8,13 @@ import {
   createReadableKeyframesName,
   createReadableObservedMarker,
   createReadableSourceMarker,
+  createReadableScopeMarker,
   createReadableTargetMarker,
   type ContextualRelationIdentity,
   type ObservedRelationIdentity,
   type PureDeclarationIdentity
 } from '../domain/readable-name.js';
+import { isRegisteredPropertyEffect } from '../domain/property-effects.js';
 import { resolveTargetDeclarations } from '../domain/resolve-target-declarations.js';
 import { compareRuleOrder } from '../domain/rule-order-planner.js';
 import { validateDeclarationSequences } from '../domain/validate-declarations.js';
@@ -66,9 +70,15 @@ type PlannedResource = {
   css: string;
 };
 
+type PlannedPreservedBlock = {
+  moduleId: string;
+  css: string;
+};
+
 type ModuleContribution = {
   artifact: StyleModuleArtifact;
   rules: readonly PlannedDeclaration[];
+  preservedBlocks: readonly PlannedPreservedBlock[];
   resources: readonly PlannedResource[];
   diagnostics: readonly GssDiagnostic[];
 };
@@ -148,6 +158,17 @@ function prepareContribution(
     return { diagnostics: parsed.diagnostics };
   }
   const moduleId = toLogicalModuleId(config.projectRoot, input.id);
+  if (moduleId === undefined) {
+    return { diagnostics: [{
+      code: 'GSS1401',
+      severity: 'error',
+      phase: 'validate',
+      id: input.id,
+      message: 'Cannot derive a project-relative GSS Module id.',
+      reason: 'non-relative-module-identity',
+      suggestion: 'Use an absolute projectRoot and a source on the same filesystem root.'
+    }] };
+  }
   const keyframeNames = new Map(
     parsed.resources
       .filter((resource): resource is ParsedKeyframesRegistration => resource.kind === 'keyframes')
@@ -348,6 +369,35 @@ function prepareContribution(
         reason: 'capability-not-registered'
       }]
     };
+  }
+
+  const unsupportedProperties = [...new Set(
+    semanticRules
+      .flatMap(({ declarations }) => declarations.map(({ property }) => property))
+      .filter((property) => !isRegisteredPropertyEffect(property))
+  )].sort();
+  if (unsupportedProperties.length > 0) {
+    if (config.atomizationFallback === 'error') {
+      return {
+        diagnostics: [{
+          code: 'GSS1101',
+          severity: 'error',
+          phase: 'validate',
+          message: `Property effects are not registered: ${unsupportedProperties.join(', ')}.`,
+          id: input.id,
+          reason: 'capability-not-registered',
+          suggestion: 'Register its effects or enable whole-Module preserved fallback.'
+        }]
+      };
+    }
+    return preparePreservedContribution({
+      input,
+      moduleId,
+      parsed,
+      rules: semanticRules,
+      conditionDiagnostics,
+      fallbackProperties: unsupportedProperties
+    });
   }
 
   const ownershipGroups = groupRulesByCondition(ownershipRules);
@@ -710,11 +760,116 @@ function prepareContribution(
     scopeSchema,
     moduleCode: renderModuleCode(exports),
     declarationCode: renderDeclarationCode(exports),
-    dependencies: collectAssetDependencies(parsed)
+    dependencies: collectAssetDependencies(parsed),
+    compilationMode: 'atomic',
+    fallbackReasons: []
   };
 
   const resources = parsed.resources.map((resource) => planResource(resource, moduleId));
-  return { artifact, rules, resources, diagnostics: conditionDiagnostics };
+  return {
+    artifact,
+    rules,
+    preservedBlocks: [],
+    resources,
+    diagnostics: conditionDiagnostics
+  };
+}
+
+function preparePreservedContribution(input: {
+  input: ReplaceStylesheetInput;
+  moduleId: string;
+  parsed: ParsedStylesheet;
+  rules: readonly ParsedStyleRule[];
+  conditionDiagnostics: readonly GssDiagnostic[];
+  fallbackProperties: readonly string[];
+}): ModuleContribution {
+  const roots = new Map<string, MutableScopeNode>();
+  for (const rule of input.rules) {
+    for (let index = 0; index < rule.path.length; index += 1) {
+      const path = rule.path.slice(0, index + 1);
+      ensureScopePath(roots, path).classNames.add(createReadableScopeMarker(input.moduleId, path));
+    }
+    for (const observation of rule.observations.flat()) {
+      if (!observation.observedClass) continue;
+      const path = [observation.observedClass];
+      ensureScopePath(roots, path).classNames.add(createReadableScopeMarker(input.moduleId, path));
+    }
+  }
+
+  const exports = Object.fromEntries(
+    [...roots.entries()].map(([name, scope]) => [name, toScopeSchema(scope)])
+  );
+  const css = [...input.rules]
+    .sort((left, right) => left.sourceOrdinal - right.sourceOrdinal)
+    .map((rule) => renderPreservedRule(rule, input.moduleId))
+    .join('\n\n');
+  const fallbackReasons = input.fallbackProperties.map((property) => ({
+    property,
+    reason: 'property-effect-not-registered' as const
+  }));
+  const scopeSchema = { moduleId: input.moduleId, exports };
+  const artifact: StyleModuleArtifact = {
+    id: input.input.id,
+    scopeSchema,
+    moduleCode: renderModuleCode(exports),
+    declarationCode: renderDeclarationCode(exports),
+    dependencies: collectAssetDependencies(input.parsed),
+    compilationMode: 'preserved',
+    fallbackReasons
+  };
+  const resources = input.parsed.resources.map((resource) =>
+    planResource(resource, input.moduleId)
+  );
+  return {
+    artifact,
+    rules: [],
+    preservedBlocks: [{ moduleId: input.moduleId, css }],
+    resources,
+    diagnostics: [
+      ...input.conditionDiagnostics,
+      {
+        code: 'GSS1104',
+        severity: 'warning',
+        phase: 'plan',
+        message: `Module was preserved because property effects are not registered: ${input.fallbackProperties.join(', ')}.`,
+        id: input.input.id,
+        reason: 'module-preserved-fallback',
+        suggestion: 'Verify the property name or register its complete effect family.'
+      }
+    ]
+  };
+}
+
+function renderPreservedRule(rule: ParsedStyleRule, moduleId: string): string {
+  const selector = selectorParser((root) => {
+    for (const branch of root.nodes) {
+      let pathIndex = 0;
+      for (const node of branch.nodes) {
+        if (node.type === 'class') {
+          pathIndex += 1;
+          node.value = createReadableScopeMarker(moduleId, rule.path.slice(0, pathIndex));
+          continue;
+        }
+        if (node.type !== 'pseudo' || node.value !== ':has') continue;
+        node.walkClasses((observed) => {
+          observed.value = createReadableScopeMarker(moduleId, [observed.value]);
+        });
+      }
+    }
+  }).processSync(rule.selector);
+  const declarations = rule.declarations
+    .map(({ property, value, important }) =>
+      `  ${property}: ${value}${important ? ' !important' : ''};`
+    )
+    .join('\n');
+  let css = `${selector} {\n${declarations}\n}`;
+  for (const condition of [...rule.conditions].reverse()) {
+    css = `@${condition.kind} ${condition.query} {\n${indentCss(css)}\n}`;
+  }
+  if (rule.layer !== 'unlayered') {
+    css = `@layer ${rule.layer} {\n${indentCss(css)}\n}`;
+  }
+  return css;
 }
 
 function rewriteKeyframeReferences(
@@ -1060,14 +1215,29 @@ function finalizeSnapshot(
     compareRuleOrder(left.rule, right.rule, config)
   );
   const renderedRules = orderedRules.map(({ rule }) => renderRule(rule)).join('\n\n');
+  const orderedPreservedBlocks = [...modules.values()]
+    .flatMap(({ preservedBlocks }) => preservedBlocks)
+    .sort((left, right) => left.moduleId.localeCompare(right.moduleId));
+  const renderedPreservedBlocks = orderedPreservedBlocks
+    .map(({ css }) => css)
+    .join('\n\n');
   const layerPrelude = config.layers?.length
     ? `@layer ${config.layers.join(', ')};`
     : '';
   return {
     generation,
-    css: [layerPrelude, renderedResources, renderedRules].filter(Boolean).join('\n\n'),
+    css: [layerPrelude, renderedResources, renderedPreservedBlocks, renderedRules]
+      .filter(Boolean)
+      .join('\n\n'),
     manifest: {
-      modules: [...modules.keys()].sort(),
+      modules: [...modules.values()].map(({ artifact }) => artifact.scopeSchema.moduleId).sort(),
+      moduleDetails: [...modules.values()]
+        .map(({ artifact }) => ({
+          id: artifact.scopeSchema.moduleId,
+          compilationMode: artifact.compilationMode,
+          fallbackReasons: artifact.fallbackReasons
+        }))
+        .sort((left, right) => left.id.localeCompare(right.id)),
       resources: orderedResources.map(({ resource, sources }) => ({
         kind: resource.kind,
         name: resource.name,
@@ -1086,7 +1256,16 @@ function finalizeSnapshot(
     report: {
       modules: modules.size,
       rules: orderedRules.length,
-      resources: orderedResources.length
+      resources: orderedResources.length,
+      atomicModules: [...modules.values()].filter(({ artifact }) =>
+        artifact.compilationMode === 'atomic'
+      ).length,
+      preservedModules: orderedPreservedBlocks.length,
+      atomicCoverage: modules.size === 0
+        ? 1
+        : [...modules.values()].filter(({ artifact }) =>
+            artifact.compilationMode === 'atomic'
+          ).length / modules.size
     }
   };
 }
@@ -1155,8 +1334,7 @@ function renderDeclarationCode(exports: Readonly<Record<string, ScopeNodeSchema>
     `  readonly ${JSON.stringify(name)}: ${renderScopeType(exports[name]!)};`
   );
   return [
-    'declare const GSS_SCOPE: unique symbol;',
-    'type GssScope<T> = string & T & { readonly self: string; readonly [GSS_SCOPE]: true };',
+    "import type { GssScope } from '@gss-l/types';",
     'declare const styles: {',
     ...fields,
     '};',
@@ -1169,7 +1347,9 @@ function renderScopeType(scope: ScopeNodeSchema): string {
   const targets = Object.keys(scope.targets).sort().map((name) =>
     `readonly ${JSON.stringify(name)}: ${renderScopeType(scope.targets[name]!)}`
   );
-  return `GssScope<{ ${targets.join('; ')}${targets.length > 0 ? ';' : ''} }>`;
+  return targets.length === 0
+    ? 'GssScope<{}>'
+    : `GssScope<{ ${targets.join('; ')}; }>`;
 }
 
 function serializeIdentity(identity: PlannedDeclaration['identity']): string {
@@ -1215,15 +1395,4 @@ function serializeIdentity(identity: PlannedDeclaration['identity']): string {
     identity.value,
     identity.important
   ]);
-}
-
-function toLogicalModuleId(projectRoot: string, id: string): string {
-  const root = normalizePath(projectRoot).replace(/\/$/, '');
-  const normalizedId = normalizePath(id);
-  const prefix = `${root}/`;
-  return normalizedId.startsWith(prefix) ? normalizedId.slice(prefix.length) : normalizedId;
-}
-
-function normalizePath(value: string): string {
-  return value.replaceAll('\\', '/');
 }

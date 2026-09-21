@@ -178,13 +178,16 @@ Finalization produces one ordered stylesheet for every reachable main and lazy M
 
 ```text
 React/TSX source
-→ locate .gss imports
-→ resolve ScopeSchema
+→ framework Adapter discovers .gss imports (no file reads)
+→ host resolves and compiles dependencies asynchronously
+→ synchronous transform resolves ScopeSchema
 → track supported local immutable aliases
 → lower GSS references inside JSX className to `.self`
 → diagnose unknown paths and unsupported escape
 → emit transformed source + source map
 ```
+
+The shared `GssSourceAdapter` application port is exported by `@gss-l/compiler`. `@gss-l/react` implements it through `react()`; `@gss-l/vite` explicitly receives it through `gss({ adapter })`. Vite owns physical/virtual ids, file reads, diagnostics presentation and the session, not React lowering. A current compilation error blocks transformation rather than falling back to an old ScopeSchema.
 
 The React Adapter may inspect syntax and binding provenance, but it does not:
 
@@ -207,7 +210,7 @@ getScopeSchema(id)
 finalize()
 ```
 
-Module ids are stable project-relative logical ids. Absolute cwd, timestamps, random values, worker order, and hash-map iteration order never enter output identity.
+Output Module identities are stable project-relative logical ids, including root-external paths such as `../shared/Card.gss`. Canonical physical ids remain session transaction/ScopeSchema lookup keys; the host owns filesystem canonicalization. Absolute cwd, timestamps, random values, worker order, and hash-map iteration order never enter output identity.
 
 ## Production architecture
 
@@ -222,22 +225,26 @@ report
 source maps
 ```
 
-SSR reads the build manifest and links the same CSS asset used by client hydration. The browser does not create or reorder GSS rules at runtime.
+The implemented Vite build emits an asset named `gss.css` through Rollup naming rules, plus `gss-manifest.json` and `gss-report.json`. The JSON envelopes contain `version: 1`, output-relative `cssAsset`, and the corresponding Compiler snapshot data. All emitted HTML entries share the CSS asset; deployment base is applied only when creating their links. An empty GSS census emits no GSS asset or metadata.
 
-The first version includes lazy-route CSS in the central asset so network completion cannot alter the cascade.
+SSR integrations can read `gss-manifest.json` and link the same CSS asset used by client hydration; no generic SSR response helper is provided. The browser does not create or reorder GSS rules at runtime.
+
+The first version includes lazy-route CSS in the central asset so network completion cannot alter the cascade. The final Rollup Module census, not precompiled scope lookups or emitted chunk contents, determines production contributions. Source snapshots retained with virtual Modules keep final CSS aligned with generated JS. Watch builds replay the current census into clean registry state and refresh preserved snapshots even when generated JS is byte-identical.
 
 ## Development and HMR
 
-The dev Adapter owns one `<style data-gss-dev>` element.
+The dev Adapter injects one `<link rel="stylesheet" data-gss-dev>` per Vite-managed HTML document, pointing to the base-aware `/@gss-l/central.css` virtual CSS endpoint. Vite serves direct CSS and owns native stylesheet-link replacement; GSS adds no custom browser runtime or per-Module CSS imports.
 
 ```text
 source update
+→ newest physical-file read wins
 → transactional replace by Module id
 → finalize complete generation
-→ replace style text
+→ invalidate virtual CSS cache
+→ native Vite CSS HMR replaces the stylesheet link
 ```
 
-It never appends newly discovered atoms to the current stylesheet tail.
+It never appends newly discovered atoms to the current stylesheet tail. Later source discovery invalidates an earlier empty snapshot. A newly connected HMR client receives a snapshot refresh so discovery before socket connection cannot leave stale CSS. Each MPA document uses the same URL without duplicate links; this development flow relies on Vite HMR being enabled.
 
 On compile failure:
 
@@ -247,7 +254,7 @@ rollback transaction
 → present diagnostic
 ```
 
-Module invalidation removes its references; zero-reference atoms, markers, and resources disappear from the next snapshot. Generation numbers prevent stale async work from replacing newer output.
+Module invalidation removes its references; zero-reference atoms, markers, and resources disappear from the next snapshot. Per-physical-file generation tokens prevent stale async reads from committing after a newer replacement or deletion. Physical change events also invalidate virtual JS and recorded source importers, ensuring fresh ScopeSchema validation. Virtual loads respect Vite's filesystem access policy.
 
 ## Naming architecture
 

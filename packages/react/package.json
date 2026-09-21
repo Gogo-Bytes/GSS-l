@@ -1,0 +1,29 @@
+{
+  "name": "@gss-l/react",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@gss-l/compiler": "workspace:*",
+    "@babel/parser": "^7.26.3",
+    "@babel/traverse": "^7.26.4",
+    "@babel/types": "^7.26.3",
+    "@gss-l/types": "workspace:*",
+    "magic-string": "^0.30.17"
+  },
+  "devDependencies": {
+    "@types/babel__traverse": "^7.20.6"
+  }
+}

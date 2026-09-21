@@ -82,7 +82,7 @@ export type GssCompilerConfig = {
 
 `atomizationFallback` defaults to `"preserve-module"`. It applies only when selectors and scope semantics are valid but property effects or compatibility sequences cannot be safely atomized. It never converts parse, scoping, selector-safety, ordering, or resource-conflict errors into successful output.
 
-`projectRoot` is used to derive stable logical Module ids. Absolute paths never enter semantic identity or emitted output.
+`projectRoot` is used to derive stable logical Module ids. Absolute paths never enter semantic identity or emitted names. Root-external stylesheets use relative ids such as `../shared/Card.gss` ([ADR-0047](adr/0047-use-project-relative-identities-for-root-external-stylesheets.md)); the host canonicalizes physical root/source paths. Physical ids remain session transaction/lookup keys. Sources on another Windows drive or UNC share fail closed because no project-relative identity can be expressed. The Compiler performs lexical path conversion only and does not read the filesystem.
 
 ### Replace input
 
@@ -196,37 +196,61 @@ export default { father };
 
 `targets` is an internal schema namespace, not part of the authored JavaScript interface.
 
-## Generated TypeScript declarations
+## TypeScript declaration strategy
 
-Generated declarations use a branded phantom intersection so React `className` accepts a scope reference while target properties remain visible:
+The first version does not generate or require a per-Module `.gss.d.ts` file. The integration provides one global wildcard declaration backed by the branded recursive types from `@gss-l/types`:
 
 ```ts
-declare const GSS_SCOPE: unique symbol;
+import type { GssStyles } from '@gss-l/types';
 
-export type GssScope<TTargets> =
-  string &
-  TTargets & {
-    /** Concrete class string. Use outside JSX className. */
-    readonly self: string;
-    readonly [GSS_SCOPE]: true;
+declare module '*.gss' {
+  const styles: GssStyles;
+  export default styles;
+}
+```
+
+`GssScope<TTargets>` models a runtime scope object and exposes only `self: string` as the concrete class string. The wildcard declaration intentionally does not promise that a particular `styles.<path>` exists; the React Adapter validates actual paths against `ScopeSchema` and reports unknown paths during transformation. Precise IDE completion and per-Module declaration generation are deferred to a future IDE integration.
+
+## Shared source Adapter port
+
+Accepted in [ADR-0046](adr/0046-discover-source-imports-before-synchronous-transform.md), exported from `@gss-l/compiler` as an application port:
+
+```ts
+export type GssSourceAdapter = {
+  supports(id: string): boolean;
+  discoverImports(input: { id: string; source: string }): readonly string[];
+  transform(input: {
+    id: string;
+    source: string;
+    resolveScopeSchema(importId: string): ScopeSchema | undefined;
+  }): {
+    code: string;
+    map?: SourceMapArtifact;
+    diagnostics: readonly SourceAdapterDiagnostic[];
   };
+};
 ```
 
-Example:
+`SourceMapArtifact` is source-map v3 data without a third-party editor type. `SourceAdapterDiagnostic` carries `code`, `severity`, `phase`, `message`, `id`, and optional `reason`/`suggestion`; it contains no framework AST or host objects.
+
+`discoverImports()` returns original import specifiers synchronously and does not read files. The host asynchronously resolves and compiles those dependencies before invoking the synchronous transform with a ScopeSchema resolver keyed by original specifier. Errors stop the current transformation; warnings continue. A failed replacement retains the Compiler's last-known-good contribution, but that old schema must not mask the current error.
+
+The implemented composition is:
 
 ```ts
-declare const styles: {
-  readonly father: GssScope<{
-    readonly son: GssScope<{
-      readonly icon: GssScope<{}>;
-    }>;
-  }>;
-};
+import { gss } from '@gss-l/vite';
+import { react } from '@gss-l/react';
 
-export default styles;
+const plugin = gss({ adapter: react() });
 ```
 
-The type is a compile-time interface. The runtime value is the static object shown above; the React Adapter guarantees contextual lowering and reports unsupported escape.
+`gss()` returns a Vite plugin and requires an explicit Adapter. Its session is owned by that integration instance. Stable virtual IDs are encoded/decoded in one Vite-owned module; resolution does not compile. Both virtual JS load and source precompilation use the physical id and the same session. `react()` reuses the existing React transform, including source maps and unknown-path diagnostics.
+
+Current implementation covers virtual JS, source composition, and dev central CSS/HTML/HMR. Development serves the entire `finalize().css` snapshot at `/@gss-l/central.css`; each Vite-managed HTML entry receives one base-aware stylesheet link. File replacement/deletion/recreation invalidates CSS, virtual JS, and recorded source importers. Failed compilation preserves committed CSS while reporting an error. Superseded reads cannot commit; concurrently awaiting consumers follow the newest compilation result, never a stale successful fallback.
+
+Initial discovery refreshes any already-served snapshot; an HMR connection established after compilation is resynchronized through Vite's native CSS update protocol. No custom browser runtime or public HMR API is introduced. Dev file reads honor Vite `server.fs`, including denies and canonical root-external targets.
+
+Production central assets and versioned build metadata are implemented as described below. Asset URL processing is not yet implemented. The broader configuration/Compiler port sketches elsewhere in this document remain architecture targets rather than additional `gss()` options.
 
 ## React style-usage Adapter
 
@@ -286,6 +310,20 @@ export type FinalizedGssSnapshot = {
 7. returns byte-stable output for an unchanged semantic snapshot.
 
 Production emits the finalized CSS as one asset. Development replaces the single style owner's complete text with the new generation.
+
+## Production build files (implemented)
+
+[ADR-0048](adr/0048-emit-versioned-production-css-manifest-and-report.md) defines three outputs for a non-empty reachable GSS census:
+
+- One CSS asset emitted with `name: 'gss.css'`; Rollup/Vite `assetFileNames` determines its final path/hash.
+- `gss-manifest.json`: `{ version: 1, cssAsset, compiler: snapshot.manifest }`.
+- `gss-report.json`: `{ version: 1, cssAsset, compiler: snapshot.report }`.
+
+`cssAsset` is an output-directory-relative filename without deployment base or URL encoding. Each emitted HTML entry gets one stylesheet link; absolute/CDN base and HTML-relative base are resolved independently of the JSON value. Existing matching links are not duplicated, and pre-existing assets with either reserved JSON filename cause a build error.
+
+At `generateBundle`, the Adapter enumerates the complete Rollup Module graph, including lazy dependencies, rather than relying on early CSS loads or only on rendered chunk contents. The census follows static, dynamic and implicit dependency edges from entries, excluding speculative loads without an entry path. Only GSS Modules in that census contribute. Private Rollup metadata retains the source snapshot that produced each Module's JavaScript; finalization replays those snapshots into clean registry state, without rereading files after graph construction. Cached preserved Modules are explicitly refreshed because their CSS can change without changing generated JavaScript.
+
+An empty census emits none of these files and adds no link. A reachable empty stylesheet still has a manifest entry and an empty central CSS asset. Manifest Module ids and rule/resource sources are logical ids, not physical session keys. The JSON payloads reuse the current `FinalizedGssSnapshot` structures; the broader manifest/report sketches below describe remaining architecture targets, not extra fields already emitted by version 1.
 
 ## Module invalidation
 

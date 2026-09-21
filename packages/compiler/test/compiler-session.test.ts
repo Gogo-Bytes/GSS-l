@@ -50,6 +50,24 @@ describe('GssCompilerSession', () => {
     });
   });
 
+  it('emits declarations using the public branded scope object type', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/card.gss',
+      source: '.card { color: red; } .card .icon { opacity: 0.5; }'
+    });
+
+    expect(replacement.module?.declarationCode).toBe(
+      `import type { GssScope } from '@gss-l/types';\n` +
+      `declare const styles: {\n` +
+      `  readonly "card": GssScope<{ readonly "icon": GssScope<{}>; }>;\n` +
+      `};\n` +
+      `export default styles;\n`
+    );
+    expect(replacement.module?.declarationCode).not.toContain('string &');
+  });
+
   it('keeps the last good contribution, replaces it, and invalidates it by Module id', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
     const id = '/project/src/button.gss';
@@ -135,7 +153,7 @@ describe('GssCompilerSession', () => {
       generation: 2,
       report: { modules: 2, rules: 1 },
       manifest: {
-        modules: ['/project/src/a.gss', '/project/src/b.gss'],
+        modules: ['src/a.gss', 'src/b.gss'],
         rules: [{
           className: colorRedClass,
           property: 'color',
@@ -371,6 +389,175 @@ describe('GssCompilerSession', () => {
       css: '',
       report: { modules: 0, rules: 0 }
     });
+  });
+
+  it('replaces and invalidates preserved module contributions without stale CSS', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const id = '/project/src/replaced-fallback.gss';
+
+    compiler.replaceStylesheet({ id, source: '.card { all: unset; }' });
+    expect(compiler.finalize()).toMatchObject({
+      report: { atomicModules: 0, preservedModules: 1 }
+    });
+
+    compiler.replaceStylesheet({ id, source: '.card { color: red; }' });
+    expect(compiler.finalize()).toMatchObject({
+      report: { atomicModules: 1, preservedModules: 0 }
+    });
+    expect(compiler.finalize().css).not.toContain('gss-s--');
+
+    compiler.invalidate(id);
+    expect(compiler.finalize()).toMatchObject({
+      css: '',
+      report: { modules: 0, atomicModules: 0, preservedModules: 0 }
+    });
+  });
+
+  it('can reject an unregistered property effect in strict mode', () => {
+    const compiler = createGssCompilerSession({
+      projectRoot: '/project',
+      atomizationFallback: 'error'
+    });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/strict.gss',
+      source: '.card { all: unset; }'
+    });
+
+    expect(replacement).toMatchObject({
+      committed: false,
+      generation: 0,
+      diagnostics: [{
+        code: 'GSS1101',
+        severity: 'error',
+        reason: 'capability-not-registered'
+      }]
+    });
+  });
+
+  it('preserves conditions, layers, states, and importance in fallback CSS', () => {
+    const compiler = createGssCompilerSession({
+      projectRoot: '/project',
+      layers: ['components'],
+      conditions: { media: ['(min-width: 40rem)'] }
+    });
+
+    compiler.replaceStylesheet({
+      id: '/project/src/structured-fallback.gss',
+      source: `
+        @layer components {
+          @media (min-width: 40rem) {
+            .card:hover { all: unset !important; }
+          }
+        }
+      `
+    });
+
+    expect(compiler.finalize().css).toContain(
+      '@layer components {\n' +
+      '  @media (min-width: 40rem) {\n' +
+      '    .gss-s--module_src_2f_structured_2d_fallback_2e_gss--path_card:hover {\n' +
+      '      all: unset !important;\n' +
+      '    }\n' +
+      '  }\n' +
+      '}'
+    );
+  });
+
+  it('preserves observed local class markers in a fallback selector', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/observed-fallback.gss',
+      source: '.card:has(> .error) { all: unset; }'
+    });
+
+    expect(replacement.module?.scopeSchema.exports).toMatchObject({
+      card: { selfClassName: expect.stringContaining('--path_card') },
+      error: { selfClassName: expect.stringContaining('--path_error') }
+    });
+    expect(compiler.finalize().css).toContain(
+      '.gss-s--module_src_2f_observed_2d_fallback_2e_gss--path_card' +
+      ':has(> .gss-s--module_src_2f_observed_2d_fallback_2e_gss--path_error)'
+    );
+  });
+
+  it('preserves descendant scope paths without changing the GSS export contract', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/nested-fallback.gss',
+      source: '.father .son { all: unset; }'
+    });
+
+    const father = replacement.module?.scopeSchema.exports.father;
+    expect(father?.selfClassName).toBe(
+      'gss-s--module_src_2f_nested_2d_fallback_2e_gss--path_father'
+    );
+    expect(father?.targets.son?.selfClassName).toBe(
+      'gss-s--module_src_2f_nested_2d_fallback_2e_gss--path_father_2e_son'
+    );
+    expect(compiler.finalize().css).toContain(
+      '.gss-s--module_src_2f_nested_2d_fallback_2e_gss--path_father ' +
+      '.gss-s--module_src_2f_nested_2d_fallback_2e_gss--path_father_2e_son'
+    );
+  });
+
+  it('falls back the whole module when a property effect is not registered', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/fallback.gss',
+      source: '.card { color: red; all: unset; unknown-prop: value; opacity: 0.5; }'
+    });
+
+    expect(replacement).toMatchObject({
+      committed: true,
+      module: {
+        compilationMode: 'preserved',
+        fallbackReasons: [
+          { property: 'all', reason: 'property-effect-not-registered' },
+          { property: 'unknown-prop', reason: 'property-effect-not-registered' }
+        ]
+      },
+      diagnostics: [{
+        code: 'GSS1104',
+        severity: 'warning',
+        reason: 'module-preserved-fallback'
+      }]
+    });
+    expect(compiler.finalize()).toMatchObject({
+      report: {
+        modules: 1,
+        atomicModules: 0,
+        preservedModules: 1,
+        atomicCoverage: 0
+      },
+      manifest: {
+        moduleDetails: [{ id: 'src/fallback.gss', compilationMode: 'preserved' }]
+      }
+    });
+    expect(compiler.finalize().css).toBe(
+      '.gss-s--module_src_2f_fallback_2e_gss--path_card {\n' +
+      '  color: red;\n' +
+      '  all: unset;\n' +
+      '  unknown-prop: value;\n' +
+      '  opacity: 0.5;\n' +
+      '}'
+    );
+  });
+
+  it('resolves grid family shorthand and longhand effects', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    compiler.replaceStylesheet({
+      id: '/project/src/grid.gss',
+      source: '.grid { grid-template-columns: 1fr; grid: auto / 2fr 1fr; }'
+    });
+
+    expect(compiler.finalize()).toMatchObject({ report: { modules: 1, rules: 1 } });
+    expect(compiler.finalize().css).toContain('grid: auto / 2fr 1fr;');
+    expect(compiler.finalize().css).not.toContain('grid-template-columns: 1fr;');
   });
 
   it('resolves border family shorthand and longhand effects', () => {
