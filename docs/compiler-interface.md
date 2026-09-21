@@ -381,6 +381,8 @@ export type GssCompilerPorts = {
 };
 ```
 
+The `AssetResolverPort` above is still an architecture placeholder, not an implemented or frozen public interface. [ADR-0049](adr/0049-separate-asset-identity-from-delivery-urls.md) accepts the separation of stable logical Asset identity from rendered deployment URLs and assigns asynchronous resource handling to the host. The concrete reference/discovery/rendering protocol must be confirmed before implementation; existing `StyleModuleArtifact.dependencies` contains only URL strings and is not sufficient to represent that separation.
+
 The ports keep infrastructure replaceable:
 
 - parser implementation can change without changing domain IR;

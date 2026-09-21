@@ -337,6 +337,12 @@ The reference renderer does not call the atomic winner/pruning/planning path. A 
 - Root-external Module identity: [ADR-0047](adr/0047-use-project-relative-identities-for-root-external-stylesheets.md)
 - Production CSS and versioned build metadata: [ADR-0048](adr/0048-emit-versioned-production-css-manifest-and-report.md)
 
+### Asset identity and delivery URLs
+
+[ADR-0049](adr/0049-separate-asset-identity-from-delivery-urls.md) fixes the pending URL integration semantics: local references resolve from their owning `.gss`, and stable logical Asset identity is separate from deployment URLs. Equal authored URL strings from different directories must not cause incorrect atom or resource deduplication. The Vite Adapter owns file reads, watch, rebasing and independent asset emission; the Compiler remains filesystem- and framework-independent. Existing data/remote/fragment URLs pass through, root paths use `publicDir`, and query/fragment are retained. Missing local resources fail before Module contribution commit, retaining last-known-good dev CSS and failing production builds. Automatic inlining is not part of this first slice.
+
+This is an accepted decision, not an implemented capability; the concrete Compiler/host Asset reference protocol still needs confirmation.
+
 ## 18. Implementation status
 
 The semantic design stage is complete. The recipe-oriented exploratory implementation has been discarded without modifying the read-only legacy project.
