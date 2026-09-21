@@ -7,10 +7,10 @@ const fixtures = payload as readonly CompiledReferenceFixture[];
 type Fixture = CompiledReferenceFixture;
 type Reading = {
   phase: string; state: string; node: string; moduleId: string; path: readonly string[];
-  property: string; value: string; expected: string;
+  subject: 'element' | '::before' | '::after'; property: string; value: string; expected: string;
 };
 
-async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt = false): Promise<Reading[]> {
+async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo'): Promise<Reading[]> {
   const frame = document.createElement('iframe');
   frame.title = `${fixture.name}: ${side}${corrupt ? ' negative control' : ''}`;
   frame.width = '640';
@@ -25,7 +25,8 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
   const doc = frame.contentDocument!;
   const style = doc.createElement('style');
   style.textContent = fixture[side].css;
-  if (corrupt) style.textContent += '\n#forward { margin-left: 123px !important; }';
+  if (corrupt === 'element') style.textContent += '\n#forward { margin-left: 123px !important; }';
+  if (corrupt === 'pseudo') style.textContent += '\n#pseudo-a::before { color: rgb(1, 2, 3) !important; }';
   doc.head.append(style);
   for (const node of fixture.nodes) {
     let targets = fixture[side].scopeSchemas[node.moduleId]!.exports;
@@ -46,7 +47,8 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
   }
   const readings: Reading[] = [];
   const phases = [
-    { name: 'baseline', changes: [], expected: Object.fromEntries(fixture.nodes.map((node) => [node.id, node.expected])) },
+    { name: 'baseline', changes: [], expected: Object.fromEntries(fixture.nodes.map((node) => [node.id, node.expected])),
+      pseudoExpected: Object.fromEntries(fixture.nodes.map((node) => [node.id, node.pseudoExpected ?? {}])) },
     ...fixture.phases ?? []
   ];
   for (const phase of phases) {
@@ -58,8 +60,8 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
         (element as HTMLInputElement).checked = change.checked;
       }
       if (change.disabled !== undefined) {
-        if (!['INPUT', 'FIELDSET'].includes(element.tagName)) throw new Error('Disabled requires a native input or fieldset');
-        (element as HTMLInputElement | HTMLFieldSetElement).disabled = change.disabled;
+        if (!['INPUT', 'FIELDSET', 'BUTTON'].includes(element.tagName)) throw new Error('Disabled requires a native input, fieldset or button');
+        (element as HTMLInputElement | HTMLFieldSetElement | HTMLButtonElement).disabled = change.disabled;
       }
       for (const [name, value] of Object.entries(change.attributes ?? {})) {
         if (!/^(data|aria)-/.test(name)) throw new Error(`Not a fixture state attribute: ${name}`);
@@ -75,14 +77,17 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
           .map((attribute) => [attribute.name, attribute.value])) };
     }));
     for (const node of fixture.nodes) {
-      const expected = phase.expected[node.id] ?? {};
-      if (Object.keys(expected).sort().join() !== Object.keys(node.expected).sort().join()) {
-        throw new Error(`Incomplete touched expectations: ${fixture.name}/${phase.name}/${node.id}`);
-      }
-      const computed = frame.contentWindow!.getComputedStyle(doc.getElementById(node.id)!);
-      for (const [property, value] of Object.entries(expected)) {
-        readings.push({ phase: phase.name, state, node: node.id, moduleId: node.moduleId,
-          path: node.path, property, value: computed.getPropertyValue(property), expected: value });
+      for (const subject of ['element', '::before', '::after'] as const) {
+        const expected = (subject === 'element' ? phase.expected[node.id] : phase.pseudoExpected?.[node.id]?.[subject]) ?? {};
+        const baseline = (subject === 'element' ? node.expected : node.pseudoExpected?.[subject]) ?? {};
+        if (Object.keys(expected).sort().join() !== Object.keys(baseline).sort().join()) {
+          throw new Error(`Incomplete touched expectations: ${fixture.name}/${phase.name}/${node.id}/${subject}`);
+        }
+        const computed = frame.contentWindow!.getComputedStyle(doc.getElementById(node.id)!, subject === 'element' ? null : subject);
+        for (const [property, value] of Object.entries(expected)) {
+          readings.push({ phase: phase.name, state, node: node.id, moduleId: node.moduleId,
+            path: node.path, subject, property, value: computed.getPropertyValue(property), expected: value });
+        }
       }
     }
   }
@@ -93,12 +98,12 @@ function compare(reference: readonly Reading[], atomic: readonly Reading[]) {
   return reference.flatMap((reading, index) => {
     const actual = atomic[index];
     if (!actual || actual.node !== reading.node || actual.property !== reading.property ||
-      actual.phase !== reading.phase || actual.state !== reading.state) {
+      actual.phase !== reading.phase || actual.state !== reading.state || actual.subject !== reading.subject) {
       throw new Error('Fixture readings are not aligned');
     }
     return reading.value === actual.value ? [] : [{
       phase: reading.phase, state: reading.state, moduleId: reading.moduleId, path: reading.path, node: reading.node,
-      property: reading.property, reference: reading.value, atomic: actual.value
+      subject: reading.subject, property: reading.property, reference: reading.value, atomic: actual.value
     }];
   });
 }
@@ -123,15 +128,27 @@ async function run() {
   }
   const controlFixture = fixtures.find((fixture) => fixture.name === 'shorthand-longhand')!;
   const controlReference = await readDocument(controlFixture, 'reference');
-  const corrupted = await readDocument(controlFixture, 'atomic', true);
+  const corrupted = await readDocument(controlFixture, 'atomic', 'element');
   const differences = compare(controlReference, corrupted);
   const detected = differences.some((difference) => difference.node === 'forward' &&
     difference.property === 'margin-left' && difference.reference === '9px' && difference.atomic === '123px');
+  const pseudoFixture = fixtures.find((fixture) => fixture.name === 'pseudo-module-isolation')!;
+  const pseudoReference = await readDocument(pseudoFixture, 'reference');
+  const pseudoAtomic = await readDocument(pseudoFixture, 'atomic');
+  const pseudoCorrupted = await readDocument(pseudoFixture, 'atomic', 'pseudo');
+  const pseudoDifferences = compare(pseudoReference, pseudoCorrupted);
+  const corruptionDifferences = compare(pseudoAtomic, pseudoCorrupted);
+  const controlsUnchanged = corruptionDifferences.length === 1 && corruptionDifferences[0]!.node === 'pseudo-a' &&
+    corruptionDifferences[0]!.subject === '::before' && corruptionDifferences[0]!.property === 'color';
+  const pseudoDetected = controlsUnchanged && pseudoDifferences.length === 1 && pseudoDifferences.some((difference) =>
+    difference.node === 'pseudo-a' && difference.subject === '::before' && difference.property === 'color' &&
+    difference.reference === 'rgb(255, 0, 0)' && difference.atomic === 'rgb(1, 2, 3)');
   publish({
-    status: results.every((result) => result.comparisons > 0 && !result.differences.length && !result.expectedFailures.length) && detected
+    status: results.every((result) => result.comparisons > 0 && !result.differences.length && !result.expectedFailures.length) && detected && pseudoDetected
       ? 'passed' : 'failed',
     results,
-    negativeControl: { detected, differences }
+    negativeControl: { detected, differences },
+    pseudoNegativeControl: { detected: pseudoDetected, controlsUnchanged, differences: pseudoDifferences }
   });
 }
 

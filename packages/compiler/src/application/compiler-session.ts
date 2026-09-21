@@ -22,7 +22,7 @@ import { resolveTargetDeclarations } from '../domain/resolve-target-declarations
 import { compareRuleOrder } from '../domain/rule-order-planner.js';
 import { validateDeclarationSequences } from '../domain/validate-declarations.js';
 import { validateLogicalPhysicalConflicts } from '../domain/validate-logical-physical-conflicts.js';
-import { validateStateAmbiguity } from '../domain/validate-state-ambiguity.js';
+import { planPseudoElementConditions } from '../domain/plan-pseudo-element-conditions.js';
 import {
   parseStylesheet,
   type ParsedAttributeCondition,
@@ -235,10 +235,6 @@ function prepareContribution(
   if (logicalPhysicalDiagnostics.some(({ severity }) => severity === 'error')) {
     return { diagnostics: logicalPhysicalDiagnostics };
   }
-  const stateDiagnostics = validateStateAmbiguity(input.id, parsed.rules.filter((rule) => rule.pseudoElements.some(Boolean)));
-  if (stateDiagnostics.some(({ severity }) => severity === 'error')) {
-    return { diagnostics: stateDiagnostics };
-  }
 
   const unsupportedPseudoElement = parsed.rules.find(({
     path,
@@ -358,9 +354,6 @@ function prepareContribution(
   const hasRules = semanticRules.filter(({ observations }) =>
     observations.at(-1)?.length
   );
-  const pseudoElementRules = semanticRules.filter(({ pseudoElements }) =>
-    pseudoElements.at(-1)
-  );
   const contextualRules = semanticRules.filter(({ relations }) =>
     relations.some((relation) => relation !== 'descendant')
   );
@@ -392,6 +385,12 @@ function prepareContribution(
       code: 'GSS1205', severity: 'error', phase: 'resolve', id: input.id,
       reason: 'ambiguous-coactive-state-conflict', message: plannedDescendants.ambiguity
     }] };
+
+  const plannedPseudos = planPseudoElementConditions(semanticRules);
+  if (plannedPseudos.ambiguity) return { diagnostics: [{
+    code: 'GSS1205', severity: 'error', phase: 'resolve', id: input.id,
+    reason: 'ambiguous-coactive-state-conflict', message: plannedPseudos.ambiguity
+  }] };
 
   const unsupportedProperties = [...new Set(
     semanticRules
@@ -503,47 +502,34 @@ function prepareContribution(
     }
   }
 
-  const pseudoElementGroups = new Map<string, typeof pseudoElementRules>();
-  for (const rule of pseudoElementRules) {
-    const pseudoElement = rule.pseudoElements.at(-1);
-    if (!pseudoElement) throw new Error('GSS invariant: pseudo-element rule lost its target.');
-    const state = rule.states.at(-1)!.join(':') || 'self';
-    const key = `${rule.layer}\0${canonicalCondition(rule.conditions)}\0${pseudoElement}\0${state}`;
-    pseudoElementGroups.set(key, [...(pseudoElementGroups.get(key) ?? []), rule]);
+  // Declared pseudo paths remain public scopes even when no declarations survive planning.
+  for (const rule of semanticRules) {
+    if (isPseudoElementRule(rule)) ensureScopePath(roots, rule.path);
   }
-  for (const groupedRules of pseudoElementGroups.values()) {
-    const pseudoElement = groupedRules[0]!.pseudoElements.at(-1);
-    if (!pseudoElement) throw new Error('GSS invariant: pseudo-element group lost its target.');
-    const state = groupedRules[0]!.states.at(-1)!.join(':') || 'self';
-    const wrappers = groupedRules[0]!.conditions;
+  for (const { rule, targetPath, declarations, relationRank } of plannedPseudos.instances) {
+    const pseudoElement = rule.pseudoElements.at(-1)!;
+    const state = rule.states.at(-1)!.join(':') || 'self';
+    const wrappers = rule.conditions;
     const condition = canonicalCondition(wrappers);
-    const layer = groupedRules[0]!.layer;
-    for (const target of resolveTargetDeclarations(
-      groupedRules,
-      groupedRules.map(({ path }) => path)
-    )) {
-      const scope = ensureScopePath(roots, target.path);
-      for (const declaration of target.declarations) {
-        const identity: PureDeclarationIdentity = {
-          layer,
-          condition,
-          state,
-          pseudoElement,
-          property: declaration.property,
-          ...identifyAssetValue(declaration.value, bindings),
-          important: declaration.important
-        };
-        const className = createReadableAtomicName(identity);
-        scope.classNames.add(className);
-        rules.push({
-          kind: state === 'self' ? 'pure-atom' : 'contextual-atom',
-          identity,
-          className,
-          selector: `.${className}${state === 'self' ? '' : `:${state}`}::${pseudoElement}`,
-          wrappers,
-          layer
-        });
-      }
+    const layer = rule.layer;
+    const scope = ensureScopePath(roots, targetPath);
+    for (const declaration of declarations) {
+      const identity: PureDeclarationIdentity = {
+        layer, condition, state, pseudoElement,
+        property: declaration.property,
+        ...identifyAssetValue(declaration.value, bindings),
+        important: declaration.important,
+        ...(rule.path.length > 1 ? { ownership: { moduleId, path: targetPath, specificity: rule.path.length } } : {})
+      };
+      const className = createReadableAtomicName(identity);
+      scope.classNames.add(className);
+      rules.push({
+        kind: state === 'self' ? 'pure-atom' : 'contextual-atom',
+        identity, className,
+        // Keep authored class specificity on this target-qualified atom, not a shared weaker atom.
+        selector: `${`.${className}`.repeat(rule.path.length)}${state === 'self' ? '' : `:${state}`}::${pseudoElement}`,
+        wrappers, layer, relationRank
+      });
     }
   }
 

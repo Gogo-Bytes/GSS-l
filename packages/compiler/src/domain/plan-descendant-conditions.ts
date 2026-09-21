@@ -119,8 +119,10 @@ export function planDescendantConditions<R extends DescendantRule>(
             const intersection = retained.some((candidate) => candidate.rule.layer === left.rule.layer &&
               JSON.stringify(candidate.rule.conditions) === JSON.stringify(left.rule.conditions) &&
               implies(candidate, left) && implies(candidate, right) &&
-              candidate.specificity > left.specificity && candidate.declarations.some((declaration) =>
-                declaration.important === a.important && effectsOfProperty(declaration.property).includes(effect)));
+              candidate.declarations.some((declaration) =>
+                effectsOfProperty(declaration.property).includes(effect) &&
+                (Number(declaration.important) > Number(a.important) ||
+                  (declaration.important === a.important && candidate.specificity > left.specificity))));
             if (!intersection) return { instances: [], ambiguity: `Coactive descendant conditions assign ambiguous ${effect} on ${targetPath.join('.')}.` };
           }
         }

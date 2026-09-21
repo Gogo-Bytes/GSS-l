@@ -1,4 +1,7 @@
 import type { ReplaceStylesheetInput, ScopeSchema } from '@gss-l/compiler';
+import { pseudoElementFixtures } from './pseudo-element-fixtures.js';
+
+export type PseudoExpectations = Partial<Record<'::before' | '::after', Readonly<Record<string, string>>>>;
 
 export type ReferenceFixture = {
   name: string;
@@ -8,8 +11,9 @@ export type ReferenceFixture = {
     moduleId: string;
     path: readonly string[];
     parent?: string;
-    tag?: 'div' | 'span' | 'input' | 'fieldset';
+    tag?: 'div' | 'span' | 'input' | 'fieldset' | 'button';
     expected: Readonly<Record<string, string>>;
+    pseudoExpected?: PseudoExpectations;
   }[];
   phases?: readonly {
     name: string;
@@ -20,6 +24,7 @@ export type ReferenceFixture = {
       attributes?: Readonly<Record<string, string | null>>;
     }[];
     expected: Readonly<Record<string, Readonly<Record<string, string>>>>;
+    pseudoExpected?: Readonly<Record<string, PseudoExpectations>>;
   }[];
 };
 
@@ -30,6 +35,7 @@ export type CompiledReferenceFixture = ReferenceFixture & {
 
 // Literal longhand expectations are a second guard against an empty/common-mode pass.
 export const fixtures: readonly ReferenceFixture[] = [
+  ...pseudoElementFixtures,
   {
     name: 'ownership-module-isolation',
     modules: [

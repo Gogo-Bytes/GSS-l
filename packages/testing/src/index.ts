@@ -58,7 +58,7 @@ export function compileGssReference(
       const selector = node.type === 'rule' ? parseReferenceSelector(node.raws.selector?.raw ?? node.selector) : undefined;
       if (node.type !== 'rule' || !selector) {
         return failure(module.id, 'unsupported-reference-syntax',
-          'Reference rules require local descendant paths with bounded native state conditions.');
+          'Reference rules require local descendant paths with bounded native states and terminal before/after pseudo-elements.');
       }
       selectors.set(node, selector);
       const seen = new Set<string>();
@@ -67,7 +67,7 @@ export function compileGssReference(
         if (child.type !== 'decl' || !properties.has(child.prop) || /[()\\\\]/.test(child.value) ||
           child.raws.before?.includes('_') || child.raws.before?.includes('*')) {
           return failure(module.id, 'unsupported-reference-syntax',
-            'Reference coverage supports only basic color/display/size and physical margin/padding declarations without functions or escapes.');
+            'Reference coverage supports only basic content/color/display/size and physical margin/padding declarations without functions or escapes.');
         }
         const key = `${child.prop}:${child.important ? 'important' : 'normal'}`;
         if (seen.has(key)) {
@@ -113,13 +113,18 @@ function parseReferenceSelector(source: string): selectorParser.Root | undefined
   let position = 0;
   let statePosition: number | undefined;
   let hasAttribute = false;
+  let hasPseudoElement = false;
   for (const node of root.nodes[0]!.nodes) {
     if (node.type === 'comment') continue;
+    if (hasPseudoElement) return undefined;
     if (expectClass && node.type === 'class' && !('namespace' in node) && /^[A-Za-z_][A-Za-z0-9_-]*$/.test(node.value) && !node.toString().includes('\\')) {
       expectClass = false;
       position++;
     } else if (!expectClass && node.type === 'combinator' && /^[\t\n\r\f ]+$/.test(node.value)) {
       expectClass = true;
+    } else if (!expectClass && node.type === 'pseudo' && /^::(before|after)$/.test(node.value) && node.nodes.length === 0) {
+      if (hasAttribute || (statePosition !== undefined && statePosition !== position)) return undefined;
+      hasPseudoElement = true;
     } else if (!expectClass && node.type === 'pseudo' && /^:(checked|disabled)$/.test(node.value) && node.nodes.length === 0) {
       if (hasAttribute || (statePosition !== undefined && statePosition !== position)) return undefined;
       statePosition = position;
@@ -136,7 +141,7 @@ function parseReferenceSelector(source: string): selectorParser.Root | undefined
 // Raw syntax validation excludes namespaces, flags, comments outside strings and other operators.
 const attributeEquality = /^\[[\t\n\r\f ]*(?:data|aria)-[a-z][a-z0-9_-]*[\t\n\r\f ]*=[\t\n\r\f ]*(?:"[^"\\\n\r\f\0]*"|'[^'\\\n\r\f\0]*'|[A-Za-z_][A-Za-z0-9_-]*)[\t\n\r\f ]*\]$/;
 const properties = new Set([
-  'color', 'background-color', 'display', 'width', 'height',
+  'content', 'color', 'background-color', 'display', 'width', 'height',
   'margin', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left',
   'padding', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left'
 ]);

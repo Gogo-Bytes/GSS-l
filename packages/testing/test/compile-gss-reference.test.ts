@@ -5,6 +5,43 @@ import { compileGssReference } from '../src/index.js';
 const config = { projectRoot: '/project' };
 
 describe('compileGssReference', () => {
+  it('keeps terminal before/after identities on base scope paths without injecting content', () => {
+    const source = '.card::before { color: red; } .card .icon::after { color: blue; }';
+    const result = compileGssReference({ config, modules: [{ id: 'Pseudo.gss', source }] });
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error('Expected pseudo reference output');
+    const card = result.scopeSchemas['Pseudo.gss']!.exports.card!;
+    expect(Object.keys(result.scopeSchemas['Pseudo.gss']!.exports)).toEqual(['card']);
+    expect(Object.keys(card.targets)).toEqual(['icon']);
+    expect(card.targets.icon!.targets).toEqual({});
+    expect(result.css).toBe(`.${card.selfClassName}::before { color: red; } .${card.selfClassName} .${card.targets.icon!.selfClassName}::after { color: blue; }`);
+    expect(result.css).not.toContain('content:');
+  });
+
+  it('preserves quoted content and current pseudo states without rewriting string or comment classes', () => {
+    const source = [
+      '.card /* .phantom */ .icon::before { content: "a .icon /* .ghost */"; }',
+      ".card .icon:disabled::after { content: '.card'; color: blue !important; }",
+      '.icon:checked:disabled::before { content: ""; }',
+      '.icon[data-label=".card ::before"] { color: red; }'
+    ].join('\n');
+    const result = compileGssReference({ config, modules: [{ id: 'Content.gss', source }] });
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error('Expected content reference output');
+    const scopes = result.scopeSchemas['Content.gss']!.exports;
+    const card = scopes.card!;
+    const icon = scopes.icon!;
+    expect(card.targets.icon!.selfClassName).toBe(icon.selfClassName);
+    expect(Object.keys(scopes)).toEqual(['card', 'icon']);
+    expect(icon.targets).toEqual({});
+    expect(result.css).toBe([
+      `.${card.selfClassName} /* .phantom */ .${icon.selfClassName}::before { content: "a .icon /* .ghost */"; }`,
+      `.${card.selfClassName} .${icon.selfClassName}:disabled::after { content: '.card'; color: blue !important; }`,
+      `.${icon.selfClassName}:checked:disabled::before { content: ""; }`,
+      `.${icon.selfClassName}[data-label=".card ::before"] { color: red; }`
+    ].join('\n'));
+  });
+
   it('retains current and ancestor native states, intersections, duplicate paths and structural prefixes', () => {
     const source = [
       '.control { color: black; }',
@@ -69,6 +106,16 @@ describe('compileGssReference', () => {
 
   it.each([
     '|.card { color: red; }', 'ns|.card { color: red; }', '.a|.b { color: red; }',
+    '|.card::before { content: "x"; }', 'ns|.card::after { content: "x"; }',
+    '.card::before .icon { color: red; }', '.card::after:disabled { color: red; }',
+    '.card::before::after { color: red; }', '.card::before::before { color: red; }',
+    '.card::before() { color: red; }', '.card:before { color: red; }',
+    '.card::unknown { color: red; }', '.card:hover::before { color: red; }',
+    '.card:disabled .icon::after { color: red; }',
+    '.card[data-mode=ready]::before { color: red; }',
+    '.card[data-mode=ready] .icon::after { color: red; }',
+    '.card::before { content: attr(data-label); }', '.card::after { content: "a\\\\b"; }',
+    '.card::before { content: "a"; content: "b"; }',
     '.card:hover { color: red; }', '.card:focus { color: red; }',
     '.card:checked() { color: red; }', '.card:not(:checked) { color: red; }',
     '.card:is(:disabled) { color: red; }', '.card:where(:checked) { color: red; }',
@@ -90,7 +137,7 @@ describe('compileGssReference', () => {
     '.card > .icon { color: red; }',
     '.card + .icon { color: red; }', '.card ~ .icon { color: red; }',
     '.card.active { color: red; }', '.card, .icon { color: red; }',
-    '.card[data-active] { color: red; }', '.card::before { color: red; }',
+    '.card[data-active] { color: red; }', '.card::selection { color: red; }',
     ':global(.card) { color: red; }', '.c\\\\61rd { color: red; }',
     '@media (min-width: 1px) { .card { color: red; } }',
     '@layer base { .card { color: red; } }', '@keyframes spin { to { width: 1px; } }',
