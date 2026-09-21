@@ -12,6 +12,7 @@ import { hasCentralStylesheet } from './central-html.js';
 import { createDevCssOwner } from './dev-css.js';
 import { emitProductionSnapshot } from './production-output.js';
 import { reachableModuleIds } from './production-census.js';
+import { emitProductionAssets, isProductionStylesheet, readProductionAssets, type ProductionAsset, type ProductionStylesheet } from './production-assets.js';
 
 export type GssOptions = { adapter: GssSourceAdapter };
 
@@ -21,6 +22,7 @@ export function gss({ adapter }: GssOptions): Plugin {
   if (!adapter) throw new Error('gss({ adapter }) requires an explicit framework Adapter.');
   let session: GssCompilerSession;
   let projectRoot = '';
+  let publicDir = '';
   let development = false;
   let devServer: ViteDevServer | undefined;
   let centralCssHref = CENTRAL_CSS_URL;
@@ -29,35 +31,37 @@ export function gss({ adapter }: GssOptions): Plugin {
   const trackedStylesheets = new Set<string>();
   const sourceDependencies = new Map<string, Set<string>>();
   const cachedStylesheets = new Set<string>();
-  type Replacement = { result: Promise<(ReplaceStylesheetResult & { source: string }) | undefined> };
+  type Replacement = { result: Promise<(ReplaceStylesheetResult & ProductionStylesheet) | undefined> };
   const latest = new Map<string, Replacement>();
 
-  function startReplacement(physicalId: string, read: () => string | Promise<string>): Replacement {
+  function startReplacement(physicalId: string, read: () => string | Promise<string>, watch?: (path: string) => void): Replacement {
     trackedStylesheets.add(physicalId);
     // The task identity is a per-physical-file generation, including deletion tombstones.
     const task: Replacement = { result: Promise.resolve(undefined) };
     latest.set(physicalId, task);
     task.result = (async () => {
       let source: string;
+      let assets: ProductionAsset[] = [];
       try {
         if (devServer && !isFileServingAllowed(physicalId, devServer)) {
           throw new Error(`Vite denied GSS file access: ${physicalId}`);
         }
         source = await read();
+        if (!development && watch) assets = await readProductionAssets(physicalId, source, projectRoot, publicDir, watch);
       } catch (error) {
         if (latest.get(physicalId) === task) throw error;
         return undefined;
       }
       if (latest.get(physicalId) !== task) return undefined;
-      const result = session.replaceStylesheet({ id: physicalId, source });
+      const result = session.replaceStylesheet({ id: physicalId, source, assetReferences: assets });
       if (result.committed) cssOwner?.publish();
-      return { ...result, source };
+      return { ...result, source, assets };
     })();
     return task;
   }
 
-  async function compile(context: Rollup.MinimalPluginContext, physicalId: string) {
-    let task = startReplacement(physicalId, () => readFile(physicalId, 'utf8'));
+  async function compile(context: Rollup.PluginContext, physicalId: string) {
+    let task = startReplacement(physicalId, () => readFile(physicalId, 'utf8'), (path) => context.addWatchFile(path));
     let result = await task.result;
     // Concurrent consumers follow the newest result, never the last-known-good on failure.
     while (latest.get(physicalId) !== task) {
@@ -69,7 +73,7 @@ export function gss({ adapter }: GssOptions): Plugin {
     if (!result) context.error(`GSS stylesheet was invalidated: ${physicalId}`);
     reportDiagnostics(context, result.diagnostics.filter(({ severity }) => development || severity === 'error'));
     if (!result.committed || !result.module) context.error('GSS compilation failed.');
-    return { artifact: result.module, source: result.source };
+    return { artifact: result.module, source: result.source, assets: result.assets };
   }
 
   return {
@@ -80,6 +84,7 @@ export function gss({ adapter }: GssOptions): Plugin {
       base = config.base;
       centralCssHref = `${base}${CENTRAL_CSS_URL.slice(1)}`;
       projectRoot = normalizePath(await realpath(config.root));
+      publicDir = config.publicDir;
       session = createGssCompilerSession({ projectRoot });
       trackedStylesheets.clear();
       sourceDependencies.clear();
@@ -111,20 +116,23 @@ export function gss({ adapter }: GssOptions): Plugin {
         // Do not read files here: CSS must match the JavaScript generated for this build.
         session = createGssCompilerSession({ projectRoot });
         let count = 0;
+        const assets: ProductionAsset[] = [];
         for (const id of reachableModuleIds(this)) {
           const physicalId = fromVirtualGssId(id);
           const info = this.getModuleInfo(id);
           if (!physicalId || info?.isExternal) continue;
           const metadata: unknown = info?.meta[STYLESHEET_META];
-          if (!metadata || typeof metadata !== 'object' || !('source' in metadata) ||
-              typeof metadata.source !== 'string') this.error(`Missing GSS source snapshot for ${physicalId}.`);
-          const result = session.replaceStylesheet({ id: physicalId, source: metadata.source });
+          if (!isProductionStylesheet(metadata)) this.error(`Missing GSS source snapshot for ${physicalId}.`);
+          assets.push(...metadata.assets);
+          const result = session.replaceStylesheet({ id: physicalId, source: metadata.source, assetReferences: metadata.assets });
           reportDiagnostics(this, result.diagnostics);
           if (!result.committed) this.error('GSS census compilation failed.');
           count += 1;
         }
         if (count === 0) return;
-        emitProductionSnapshot(this, bundle, session.finalize(), base);
+        const resolveAssetUrl = emitProductionAssets(this, assets, base);
+        emitProductionSnapshot(this, bundle, (cssFileName) =>
+          session.finalize({ resolveAssetUrl: resolveAssetUrl(cssFileName) }), base);
       }
     },
     configureServer(server) {
@@ -188,10 +196,10 @@ export function gss({ adapter }: GssOptions): Plugin {
       const physicalId = fromVirtualGssId(id);
       if (!physicalId) return null;
       this.addWatchFile(physicalId);
-      const { artifact, source } = await compile(this, physicalId);
+      const { artifact, source, assets } = await compile(this, physicalId);
       return development ? artifact.moduleCode : {
         code: artifact.moduleCode,
-        meta: { [STYLESHEET_META]: { source } }
+        meta: { [STYLESHEET_META]: { source, assets } }
       };
     },
     async transform(source, id) {
@@ -201,7 +209,7 @@ export function gss({ adapter }: GssOptions): Plugin {
         const compiled = await compile(this, physicalId);
         return {
           code: compiled.artifact.moduleCode,
-          meta: { [STYLESHEET_META]: { source: compiled.source } }
+          meta: { [STYLESHEET_META]: { source: compiled.source, assets: compiled.assets } }
         };
       }
       if (!adapter.supports(id)) return null;

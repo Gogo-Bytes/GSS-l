@@ -14,4 +14,4 @@ status: accepted
 - 渲染中的 bound reference 缺少非空输出 URL 时明确失败；finalization 不修改已提交 contribution。Resolver 在每个 snapshot 内按 identity 缓存，CSS 与 manifest declaration value 使用一致的渲染值。
 - Pure/contextual declarations、preserved blocks、keyframes、font-face 和 property registrations 使用同一协议。输出 URL 按 CSS string 规则转义，不生成可被 authored text 伪造的占位符。
 - 无绑定的现有 Compiler 调用保持兼容，继续保留原始 URL 值并报告依赖。它们不自动解析本地资源；Host 必须完成 ADR-0049 规定的解析与失败检查。
-- 本阶段只交付 Compiler 协议。Vite 的读取、watch、asset emission 和 URL rebasing 后续接线；`gss()` 配置和 React Adapter 接口不变。
+- Compiler 协议与 Vite 生命周期实现分离。Vite production 已接入读取、watch、asset emission 和 URL rebasing；dev 资源接线仍待完成。`gss()` 配置和 React Adapter 接口不变。

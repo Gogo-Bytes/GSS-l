@@ -160,7 +160,8 @@ Completion criteria:
 - [x] Implement one dev stylesheet owner per HTML document, base-aware MPA injection, and full ordered snapshot replacement through Vite CSS HMR.
 - [x] Implement last-known-good rollback and generation ordering for asynchronous reads, including deletion and late HMR connection synchronization.
 - [x] Implement the Compiler discovery/binding/rendering protocol for stable Asset references, transactional validation and late URL resolution.
-- [ ] Handle CSS and font URL dependencies through the Adapter.
+- [x] Handle production CSS/font URLs through the Vite Adapter: asynchronous preparation, canonical identities, final-census resource emission, relative/public/CDN URL handling and asset watch rebuilds.
+- [ ] Handle dev CSS/font resource URLs, asset HMR and last-known-good recovery through the Adapter.
 
 Completion criteria:
 

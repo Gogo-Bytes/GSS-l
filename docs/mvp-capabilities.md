@@ -58,14 +58,14 @@
 - Module-local `@keyframes`，支持静态 `animation-name`/`animation` reference重写、条件上下文、稳定命名与引用计数。
 - `@font-face` 不可拆全局资源、descriptor/src 顺序保持、URL dependency tracking与引用计数。
 
-## Asset delivery (accepted; implementation pending)
+## Asset delivery (production implemented; dev integration pending)
 
 - Relative CSS/font URLs resolve against their owning `.gss`, with stable logical Asset identities separate from base and output hash.
 - Vite-owned asset reads, watch, rebasing and independent local asset emission; root URLs use `publicDir`.
 - Existing data/remote/fragment URLs and query/fragment preservation.
 - Missing local assets fail the current operation while preserving last-known-good dev CSS.
 
-The Compiler protocol is implemented: pure URL discovery, transactional `assetReferences`, stable bound identities, and render-time `resolveAssetUrl` for atoms/preserved CSS/resources. See [ADR-0049](adr/0049-separate-asset-identity-from-delivery-urls.md) and [ADR-0050](adr/0050-discover-bind-and-render-asset-references.md). Vite resource lifecycle wiring remains pending.
+The Compiler protocol is implemented: pure URL discovery, transactional `assetReferences`, stable bound identities, and render-time `resolveAssetUrl` for atoms/preserved CSS/resources. See [ADR-0049](adr/0049-separate-asset-identity-from-delivery-urls.md) and [ADR-0050](adr/0050-discover-bind-and-render-asset-references.md). Vite production reads/watches canonical local files, retains byte snapshots with cached Modules, and emits only final-census resources. It supports relative/CDN base, custom asset naming, missing-file failure and watch recovery. Dev resource lifecycle wiring remains pending.
 
 ## Output planning
 

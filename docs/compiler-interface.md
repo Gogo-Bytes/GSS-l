@@ -251,7 +251,7 @@ Current implementation covers virtual JS, source composition, and dev central CS
 
 Initial discovery refreshes any already-served snapshot; an HMR connection established after compilation is resynchronized through Vite's native CSS update protocol. No custom browser runtime or public HMR API is introduced. Dev file reads honor Vite `server.fs`, including denies and canonical root-external targets.
 
-Production central assets and versioned build metadata are implemented as described below. Asset URL processing is not yet implemented. The broader configuration/Compiler port sketches elsewhere in this document remain architecture targets rather than additional `gss()` options.
+Production central assets and versioned build metadata are implemented as described below. Production Asset URL processing is implemented; dev resource rebasing/HMR is still pending. The broader configuration/Compiler port sketches elsewhere in this document remain architecture targets rather than additional `gss()` options.
 
 ## React style-usage Adapter
 
@@ -404,7 +404,17 @@ The host stops on discovery errors, resolves resources asynchronously without mo
 
 `finalize({ resolveAssetUrl })` renders bound references in atoms, contextual declarations, preserved CSS and resources. Missing/empty output URLs throw without changing the session. Results are cached by identity within that finalization, CSS strings are escaped, and manifest declaration values reflect the rendered CSS value rather than private identity encoding. A change to output URL does not change ScopeSchema or class names.
 
-Without bindings, the original standalone Compiler behavior is retained: dependency extraction and authored URL values, with no filesystem checks or automatic deployment rebasing. The Vite asset lifecycle is still pending; this Compiler protocol alone does not make local resources deployable.
+Without bindings, the original standalone Compiler behavior is retained: dependency extraction and authored URL values, with no filesystem checks or automatic deployment rebasing. Vite now uses this protocol for production builds; dev resource integration is still pending.
+
+### Vite production asset lifecycle (implemented)
+
+The Adapter discovers URLs and finishes local resource reads before committing the corresponding contribution. Relative references resolve from the physical `.gss`; canonical file identities use project-relative paths plus query/fragment semantics. Root-path references resolve under `publicDir` and retain a public-route identity. Existing scheme URLs, protocol-relative URLs and fragments pass through without IO. Missing files, disabled `publicDir` for root references and invalid paths fail the build.
+
+Private Rollup Module metadata carries source, bindings and resource byte snapshots. Only final-census Modules contribute emitted assets; speculative loads cannot leak outputs. Files with inconsistent byte snapshots fail rather than selecting a registration-order winner. Resource reads are watched, including missing requested paths, and cached GSS Modules refresh those snapshots even when scope JavaScript is unchanged. Neither byte payloads nor deployment URLs enter generated GSS JavaScript.
+
+Local files are emitted independently through Rollup naming rules, without automatic inlining. Public resources retain Vite's normal public-directory copying behavior rather than being re-emitted under hashes. Referenced public paths cannot collide with GSS metadata, CSS or emitted resource outputs. Query/fragment are preserved and filename path segments are URL-encoded.
+
+For relative base, URLs are relative to the emitted CSS file, not the source Module or HTML entry. CSS naming and URL rendering are checked for a stable result so the final CSS hash describes the final bytes; only owned temporary candidates are discarded. Non-converging custom naming fails explicitly. This does not add another CSS file or a runtime URL resolver.
 
 The ports keep infrastructure replaceable:
 
