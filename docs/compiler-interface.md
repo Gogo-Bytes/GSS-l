@@ -251,7 +251,7 @@ Current implementation covers virtual JS, source composition, and dev central CS
 
 Initial discovery refreshes any already-served snapshot; an HMR connection established after compilation is resynchronized through Vite's native CSS update protocol. No custom browser runtime or public HMR API is introduced. Dev file reads honor Vite `server.fs`, including denies and canonical root-external targets.
 
-Production central assets and versioned build metadata are implemented as described below. Production Asset URL processing is implemented; dev resource rebasing/HMR is still pending. The broader configuration/Compiler port sketches elsewhere in this document remain architecture targets rather than additional `gss()` options.
+Production central assets and versioned build metadata are implemented as described below. Production Asset URL processing and dev versioned resource delivery/HMR are implemented. Dev byte snapshots are served through Vite with existing file-access policy, last-known-good recovery and no new browser runtime; their URLs are internal delivery details, not Compiler identity. The broader configuration/Compiler port sketches elsewhere in this document remain architecture targets rather than additional `gss()` options.
 
 ## React style-usage Adapter
 

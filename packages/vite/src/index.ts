@@ -6,13 +6,15 @@ import {
   type ReplaceStylesheetResult,
   type SourceAdapterDiagnostic
 } from '@gss-l/compiler';
-import { isFileServingAllowed, normalizePath, type Plugin, type Rollup, type ViteDevServer } from 'vite';
+import { isFileLoadingAllowed, normalizePath, type Plugin, type Rollup, type ViteDevServer } from 'vite';
 import { CENTRAL_CSS_URL, fromVirtualGssId, resolveCentralCssId, toVirtualGssId } from './virtual-id.js';
 import { hasCentralStylesheet } from './central-html.js';
 import { createDevCssOwner } from './dev-css.js';
 import { emitProductionSnapshot } from './production-output.js';
 import { reachableModuleIds } from './production-census.js';
-import { emitProductionAssets, isProductionStylesheet, readProductionAssets, type ProductionAsset, type ProductionStylesheet } from './production-assets.js';
+import { emitProductionAssets, isProductionStylesheet, type ProductionStylesheet } from './production-assets.js';
+import { readStylesheetAssets, type StylesheetAsset } from './stylesheet-assets.js';
+import { createDevAssetOwner } from './dev-assets.js';
 
 export type GssOptions = { adapter: GssSourceAdapter };
 
@@ -28,11 +30,20 @@ export function gss({ adapter }: GssOptions): Plugin {
   let centralCssHref = CENTRAL_CSS_URL;
   let base = '/';
   let cssOwner: ReturnType<typeof createDevCssOwner> | undefined;
+  let assetOwner: ReturnType<typeof createDevAssetOwner> | undefined;
   const trackedStylesheets = new Set<string>();
   const sourceDependencies = new Map<string, Set<string>>();
   const cachedStylesheets = new Set<string>();
+  const devAssets = new Map<string, StylesheetAsset[]>();
+  const assetDependencies = new Map<string, Set<string>>();
+  const failedReplacements = new Set<string>();
   type Replacement = { result: Promise<(ReplaceStylesheetResult & ProductionStylesheet) | undefined> };
   const latest = new Map<string, Replacement>();
+
+  function readDevCss() {
+    const resolveAssetUrl = assetOwner?.resolve(devAssets.values());
+    return session.finalize(resolveAssetUrl ? { resolveAssetUrl } : undefined).css;
+  }
 
   function startReplacement(physicalId: string, read: () => string | Promise<string>, watch?: (path: string) => void): Replacement {
     trackedStylesheets.add(physicalId);
@@ -41,20 +52,41 @@ export function gss({ adapter }: GssOptions): Plugin {
     latest.set(physicalId, task);
     task.result = (async () => {
       let source: string;
-      let assets: ProductionAsset[] = [];
+      let assets: StylesheetAsset[] = [];
+      const paths = new Set<string>();
       try {
-        if (devServer && !isFileServingAllowed(physicalId, devServer)) {
+        if (devServer && !isFileLoadingAllowed(devServer.config, physicalId)) {
           throw new Error(`Vite denied GSS file access: ${physicalId}`);
         }
         source = await read();
-        if (!development && watch) assets = await readProductionAssets(physicalId, source, projectRoot, publicDir, watch);
+        assets = await readStylesheetAssets(physicalId, source, projectRoot, publicDir, (path) => {
+          if (latest.get(physicalId) !== task) return;
+          paths.add(path);
+          if (development) {
+            assetDependencies.set(physicalId, new Set([...(assetDependencies.get(physicalId) ?? []), path]));
+            devServer?.watcher.add(path);
+          }
+          if (!development) watch?.(path);
+        }, (path) => {
+          if (devServer && !isFileLoadingAllowed(devServer.config, path)) throw new Error(`Vite denied GSS asset access: ${path}`);
+        });
       } catch (error) {
-        if (latest.get(physicalId) === task) throw error;
+        if (latest.get(physicalId) === task) {
+          if (development) failedReplacements.add(physicalId);
+          throw error;
+        }
         return undefined;
       }
       if (latest.get(physicalId) !== task) return undefined;
-      const result = session.replaceStylesheet({ id: physicalId, source, assetReferences: assets });
-      if (result.committed) cssOwner?.publish();
+      const result = session.replaceStylesheet({ id: physicalId, source, assetReferences: assets.map(({ url, identity }) => ({ url, identity })) });
+      if (!result.committed && development) failedReplacements.add(physicalId);
+      if (result.committed && development) {
+        // Latest successful contribution wins shared URL versions; failed attempts retain prior URLs.
+        devAssets.delete(physicalId);
+        devAssets.set(physicalId, assets);
+        assetDependencies.set(physicalId, paths);
+        cssOwner?.publish(failedReplacements.delete(physicalId));
+      }
       return { ...result, source, assets };
     })();
     return task;
@@ -90,7 +122,12 @@ export function gss({ adapter }: GssOptions): Plugin {
       sourceDependencies.clear();
       latest.clear();
       cachedStylesheets.clear();
+      devAssets.clear();
+      assetDependencies.clear();
+      failedReplacements.clear();
       cssOwner?.dispose();
+      assetOwner?.dispose();
+      assetOwner = undefined;
       cssOwner = undefined;
       devServer = undefined;
     },
@@ -116,7 +153,7 @@ export function gss({ adapter }: GssOptions): Plugin {
         // Do not read files here: CSS must match the JavaScript generated for this build.
         session = createGssCompilerSession({ projectRoot });
         let count = 0;
-        const assets: ProductionAsset[] = [];
+        const assets: StylesheetAsset[] = [];
         for (const id of reachableModuleIds(this)) {
           const physicalId = fromVirtualGssId(id);
           const info = this.getModuleInfo(id);
@@ -137,19 +174,48 @@ export function gss({ adapter }: GssOptions): Plugin {
     },
     configureServer(server) {
       devServer = server;
-      cssOwner = createDevCssOwner(server, () => session.finalize().css);
+      assetOwner = createDevAssetOwner(server);
+      cssOwner = createDevCssOwner(server, readDevCss);
+      return assetOwner.install;
     },
     closeBundle() {
       cssOwner?.dispose();
+      assetOwner?.dispose();
       latest.clear();
       trackedStylesheets.clear();
       sourceDependencies.clear();
       cachedStylesheets.clear();
+      devAssets.clear();
+      assetDependencies.clear();
+      failedReplacements.clear();
     },
     async hotUpdate(context) {
       if (this.environment.name !== 'client') return;
       const physicalId = normalizePath(context.file);
-      if (!trackedStylesheets.has(physicalId)) return;
+      if (!trackedStylesheets.has(physicalId)) {
+        const owners = [...assetDependencies].filter(([, paths]) => paths.has(physicalId)).map(([id]) => id);
+        if (owners.length === 0) return;
+        const graph = this.environment.moduleGraph;
+        const changed = new Set<NonNullable<ReturnType<typeof graph.getModuleById>>>();
+        for (const owner of owners) {
+          const before = JSON.stringify(session.getScopeSchema(owner));
+          const task = startReplacement(owner, () => readFile(owner, 'utf8'));
+          const result = await task.result;
+          if (latest.get(owner) !== task) continue;
+          if (result) reportDiagnostics(this, result.diagnostics);
+          if (before === JSON.stringify(session.getScopeSchema(owner))) continue;
+          const virtual = graph.getModuleById(toVirtualGssId(owner));
+          if (virtual) changed.add(virtual);
+          for (const [sourceId, dependencies] of sourceDependencies) {
+            if (!dependencies.has(owner)) continue;
+            const source = graph.getModuleById(sourceId);
+            if (source) changed.add(source);
+          }
+        }
+        for (const module of changed) graph.invalidateModule(module, new Set(), context.timestamp, true);
+        // Byte-only changes need the native CSS update already published, not JS propagation/reload.
+        return [...changed];
+      }
       const graph = this.environment.moduleGraph;
       const modules = new Set(context.modules);
       const virtual = graph.getModuleById(toVirtualGssId(physicalId));
@@ -163,6 +229,9 @@ export function gss({ adapter }: GssOptions): Plugin {
       if (context.type === 'delete') {
         latest.set(physicalId, { result: Promise.resolve(undefined) });
         session.invalidate(physicalId);
+        devAssets.delete(physicalId);
+        assetDependencies.delete(physicalId);
+        failedReplacements.delete(physicalId);
         cssOwner?.publish();
       } else {
         const task = startReplacement(physicalId, context.read);
@@ -192,7 +261,7 @@ export function gss({ adapter }: GssOptions): Plugin {
       return toVirtualGssId(normalizePath(await realpath(resolved.id)));
     },
     async load(id) {
-      if (development && resolveCentralCssId(id)) return session.finalize().css;
+      if (development && resolveCentralCssId(id)) return readDevCss();
       const physicalId = fromVirtualGssId(id);
       if (!physicalId) return null;
       this.addWatchFile(physicalId);

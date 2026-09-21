@@ -14,4 +14,8 @@ status: accepted
 - 渲染中的 bound reference 缺少非空输出 URL 时明确失败；finalization 不修改已提交 contribution。Resolver 在每个 snapshot 内按 identity 缓存，CSS 与 manifest declaration value 使用一致的渲染值。
 - Pure/contextual declarations、preserved blocks、keyframes、font-face 和 property registrations 使用同一协议。输出 URL 按 CSS string 规则转义，不生成可被 authored text 伪造的占位符。
 - 无绑定的现有 Compiler 调用保持兼容，继续保留原始 URL 值并报告依赖。它们不自动解析本地资源；Host 必须完成 ADR-0049 规定的解析与失败检查。
-- Compiler 协议与 Vite 生命周期实现分离。Vite production 已接入读取、watch、asset emission 和 URL rebasing；dev 资源接线仍待完成。`gss()` 配置和 React Adapter 接口不变。
+- Compiler 协议与 Vite 生命周期实现分离。Vite production 已接入读取、watch、asset emission 和 URL rebasing；dev 已接入受文件权限约束的版本化字节 snapshot、资源 HMR 和 last-known-good 恢复。`gss()` 配置和 React Adapter 接口不变。
+
+## Implementation notes
+
+Dev 通过 Vite middleware 和 `send()` 提供内部资源 URL，而不让原生 CSS pipeline 再解析物理文件 URL：真实 dev 测试证明后者会自动 inline 小 SVG，并误处理文件名中的 `%23`。资源读取前用 `isFileLoadingAllowed(config, physicalPath)` 验证 requested/canonical paths，HTTP 响应前再次验证 Vite 文件权限；不把物理路径交给会截断 `#`/`?` 的 URL 权限检查接口。middleware 位于原生 host/CORS 检查之后。版本来自已验证的字节 snapshot，不参与 Compiler identity；失败时仍可提供已提交字节。当前实现仅短暂保留一个前序交付 generation 供 CSS link 切换，随后释放，server 关闭时清空。URL 形状和缓存保留窗口均是内部实现细节，不构成公共 API。
