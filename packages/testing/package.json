@@ -13,7 +13,10 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "browser:reference": "vite browser --host 127.0.0.1 --port 4178 --strictPort"
   },
-  "dependencies": { "postcss": "^8.4.49" },
+  "dependencies": {
+    "postcss": "^8.4.49",
+    "postcss-selector-parser": "^7.0.0"
+  },
   "devDependencies": {
     "@gss-l/compiler": "workspace:*",
     "vite": "^7.3.6"

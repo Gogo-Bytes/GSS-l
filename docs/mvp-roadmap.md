@@ -176,12 +176,14 @@ Completion criteria:
 - [x] Generate reference `ScopeSchema` mappings for identical framework-independent DOM fixtures (per-Module authored class namespace; browser-native accumulation).
 - [x] Run the bounded ownership/Module isolation, ADR-0011 descendant, and shorthand/longhand corpus in isolated browser documents; native `agent_browser` acceptance passed with zero differences and a detected atomic-CSS corruption negative control.
 - [x] Compare explicitly touched properties and all four physical margin/padding longhands, including order/importance variations and literal expected values in that bounded corpus.
+- [x] Implement bounded reference native checked/disabled and single data-/ARIA equality syntax on current/ancestor ownership paths; preserve class-looking comment/attribute text and unchanged public testing API.
+- [x] Accept bounded native state/attribute and descendant-cascade phases: parent native browser passed nineteen fixtures / 213 comparisons (eight compiled-reference fixtures plus eleven hand-authored contextual goldens) with literal expectations on both sides and effective corruption control. Original `9px` ancestor regression and checkbox `1px` margin probe pass; repeated-source bindings, forward/reversed specificity, important physical effects and simultaneous conditions are covered. Compiler repair preserves embedding/provenance and resolves only safe closed-predicate winners.
 - [ ] Expand reference syntax/config coverage and mappings to the representative React fixture corpus.
 - [ ] Cover pseudo-elements, browser states, attributes, relations, media/supports/container, layers, custom properties, keyframes metadata, and resources.
-- [x] Report Module/path/node/property and both computed values for the bounded browser harness.
+- [x] Report Module/path/node/property, phase/actual native state, and both computed values for the bounded browser harness.
 - [ ] Extend difference diagnostics across the full oracle corpus and source ranges.
 
-The first slice is not the complete oracle or Pilot gate. `packages/testing/README.md` documents its exact input limits, reproducible startup and machine-readable browser result. `resolveAssetUrl` is an approved port shape but resource support is not implemented here; nonempty asset bindings and registered condition/layer order fail explicitly.
+The bounded reference slices and nineteen-fixture native browser acceptance are not the complete oracle or Pilot gate. The targeted production descendant-condition repair is implemented; contextual source/observed subject emission now preserves the same ownership-prefix specificity without changing marker placement/matching, at-rule semantics or resources. `packages/testing/README.md` documents its exact input limits, reproducible startup and machine-readable browser result. `resolveAssetUrl` is an approved port shape but resource support is not implemented here; nonempty asset bindings and registered condition/layer order fail explicitly.
 
 Completion criteria:
 

@@ -3,6 +3,7 @@ export type PureDeclarationIdentity = {
   condition: string;
   state: string;
   pseudoElement?: string;
+  ownership?: { moduleId: string; path: readonly string[]; specificity: number };
   property: string;
   value: string;
   assetValue?: true;
@@ -25,6 +26,7 @@ export type ContextualRelationIdentity = {
   layer?: string;
   condition?: string;
   relations: readonly ('descendant' | 'child' | 'adjacent' | 'general-sibling')[];
+  authoredPath?: readonly string[];
   sourceState?: string;
   sourceAttribute?: string;
   sourcePath: readonly string[];
@@ -58,7 +60,12 @@ export function createReadableAtomicName(identity: PureDeclarationIdentity): str
       : undefined,
     `property_${encodeNamePart(identity.property)}`,
     `${identity.assetValue ? 'asset-value' : 'value'}_${encodeNamePart(identity.value)}`,
-    `importance_${identity.important ? 'important' : 'normal'}`
+    `importance_${identity.important ? 'important' : 'normal'}`,
+    ...(identity.ownership ? [
+      `module_${encodeNamePart(identity.ownership.moduleId)}`,
+      `target_${encodePath(identity.ownership.path)}`,
+      `specificity_${identity.ownership.specificity}`
+    ] : [])
   ].filter((part): part is string => part !== undefined).join('--');
 }
 
@@ -136,6 +143,7 @@ export function createReadableTargetMarker(identity: ContextualRelationIdentity)
     identity.sourceAttribute
       ? `condition_${encodeNamePart(identity.sourceAttribute)}`
       : undefined,
+    ...(identity.authoredPath ? [`authored_${encodePath(identity.authoredPath)}`] : []),
     `source_${encodePath(identity.sourcePath)}`,
     `target_${encodePath(identity.targetPath)}`
   ].filter((part): part is string => part !== undefined).join('--');

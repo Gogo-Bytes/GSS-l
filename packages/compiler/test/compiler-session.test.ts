@@ -1321,7 +1321,7 @@ describe('GssCompilerSession', () => {
       }
     });
     expect(compiler.finalize().css).toBe(
-      `.${sourceMarker} > .${targetMarker} {\n  color: red;\n}`
+      `.${sourceMarker}.${sourceMarker} > .${targetMarker} {\n  color: red;\n}`
     );
   });
 

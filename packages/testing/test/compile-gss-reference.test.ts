@@ -5,6 +5,51 @@ import { compileGssReference } from '../src/index.js';
 const config = { projectRoot: '/project' };
 
 describe('compileGssReference', () => {
+  it('retains current and ancestor native states, intersections, duplicate paths and structural prefixes', () => {
+    const source = [
+      '.control { color: black; }',
+      '.control:checked { color: red; }',
+      '.control:disabled { color: blue; }',
+      '.control:checked:disabled { color: green !important; }',
+      '.group:disabled .middle .control { padding-left: 7px; }',
+      '.group:checked .middle .control { margin-left: 9px; }'
+    ].join('\n');
+    const result = compileGssReference({ config, modules: [{ id: 'State.gss', source }] });
+    if (!result.success) throw new Error('Expected native state reference output');
+    const scopes = result.scopeSchemas['State.gss']!.exports;
+    const control = scopes.control!;
+    const group = scopes.group!;
+    const middle = group.targets.middle!;
+    expect(middle.targets.control!.selfClassName).toBe(control.selfClassName);
+    expect(Object.keys(scopes)).toEqual(['control', 'group']);
+    expect(Object.keys(group.targets)).toEqual(['middle']);
+    expect(Object.keys(middle.targets)).toEqual(['control']);
+    expect(result.css).toBe(source.replaceAll('.control', `.${control.selfClassName}`)
+      .replaceAll('.group', `.${group.selfClassName}`).replaceAll('.middle', `.${middle.selfClassName}`));
+  });
+
+  it('preserves data/ARIA equality syntax and string/comment class text without inventing scope paths', () => {
+    const source = [
+      '.card[data-label = "a .phantom /* .ghost */ :checked"] { color: red; }',
+      ".card[aria-expanded='true'] { width: 80px; }",
+      '.card[data-mode=ready] /* .notScope */ .middle .icon { padding-left: 7px; }',
+      '.card[aria-expanded="true"] .middle .icon { margin-left: 9px; }',
+      '.icon[data-empty=""] { height: 20px; }'
+    ].join('\n');
+    const result = compileGssReference({ config, modules: [{ id: 'Attribute.gss', source }] });
+    if (!result.success) throw new Error('Expected attribute reference output');
+    const scopes = result.scopeSchemas['Attribute.gss']!.exports;
+    const card = scopes.card!;
+    const middle = card.targets.middle!;
+    const icon = scopes.icon!;
+    expect(Object.keys(scopes)).toEqual(['card', 'icon']);
+    expect(Object.keys(card.targets)).toEqual(['middle']);
+    expect(Object.keys(middle.targets)).toEqual(['icon']);
+    expect(middle.targets.icon!.selfClassName).toBe(icon.selfClassName);
+    expect(result.css).toBe(source.replaceAll('.card', `.${card.selfClassName}`)
+      .replaceAll('.middle', `.${middle.selfClassName}`).replaceAll('.icon', `.${icon.selfClassName}`));
+  });
+
   it('preserves selector comments without treating their text as scope paths', () => {
     const result = compileGssReference({ config, modules: [{ id: 'A.gss',
       source: '.a /* authored .phantom selector comment */ .b { color: red; }'
@@ -23,7 +68,26 @@ describe('compileGssReference', () => {
   });
 
   it.each([
-    '.card:hover { color: red; }', '.card > .icon { color: red; }',
+    '|.card { color: red; }', 'ns|.card { color: red; }', '.a|.b { color: red; }',
+    '.card:hover { color: red; }', '.card:focus { color: red; }',
+    '.card:checked() { color: red; }', '.card:not(:checked) { color: red; }',
+    '.card:is(:disabled) { color: red; }', '.card:where(:checked) { color: red; }',
+    '.card:checked .icon:disabled { color: red; }',
+    '.card:checked[data-mode="on"] { color: red; }',
+    '.card[data-mode="on"] .icon:checked { color: red; }',
+    '.card[data-mode="on"][aria-expanded="true"] { color: red; }',
+    '.card[data-mode="on"] .icon[data-mode="on"] { color: red; }',
+    '.card[title="on"] { color: red; }', '.card[DATA-mode="on"] { color: red; }',
+    '.card[data-="on"] { color: red; }', '.card[data-1mode="on"] { color: red; }',
+    '.card[ns|data-mode="on"] { color: red; }', '.card[|data-mode="on"] { color: red; }',
+    '.card[*|data-mode="on"] { color: red; }',
+    '.card[data-mode="on" i] { color: red; }', '.card[data-mode="on" s] { color: red; }',
+    '.card[data-mode~="on"] { color: red; }', '.card[data-mode|="on"] { color: red; }',
+    '.card[data-mode^="on"] { color: red; }', '.card[data-mode$="on"] { color: red; }',
+    '.card[data-mode*="on"] { color: red; }', '.card[data-mode=123] { color: red; }',
+    '.card[data-mode="o\\\\6e"] { color: red; }', '.card[data-mode="a\nb"] { color: red; }',
+    '.card[data-mode/**/="on"] { color: red; }',
+    '.card > .icon { color: red; }',
     '.card + .icon { color: red; }', '.card ~ .icon { color: red; }',
     '.card.active { color: red; }', '.card, .icon { color: red; }',
     '.card[data-active] { color: red; }', '.card::before { color: red; }',

@@ -5,7 +5,10 @@ import type { CompiledReferenceFixture } from './fixtures.js';
 // The Vite host typechecks this exact JSON payload before serialization.
 const fixtures = payload as readonly CompiledReferenceFixture[];
 type Fixture = CompiledReferenceFixture;
-type Reading = { node: string; moduleId: string; path: readonly string[]; property: string; value: string; expected: string };
+type Reading = {
+  phase: string; state: string; node: string; moduleId: string; path: readonly string[];
+  property: string; value: string; expected: string;
+};
 
 async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt = false): Promise<Reading[]> {
   const frame = document.createElement('iframe');
@@ -32,31 +35,69 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
       if (!scope) throw new Error(`Missing ${side} mapping: ${node.moduleId}:${node.path.join('.')}`);
       targets = scope.targets;
     }
-    const element = doc.createElement('div');
+    const element = doc.createElement(node.tag ?? 'div');
+    if (element.tagName === 'INPUT') (element as HTMLInputElement).type = 'checkbox';
     element.id = node.id;
     element.className = scope!.selfClassName;
-    element.textContent = node.id;
+    if (element.tagName !== 'INPUT') element.textContent = node.id;
     const parent = node.parent ? doc.getElementById(node.parent) : doc.body;
     if (!parent) throw new Error(`Missing fixture parent: ${node.parent}`);
     parent.append(element);
   }
-  return fixture.nodes.flatMap((node) => {
-    const computed = frame.contentWindow!.getComputedStyle(doc.getElementById(node.id)!);
-    return Object.entries(node.expected).map(([property, expected]) => ({
-      node: node.id, moduleId: node.moduleId, path: node.path, property,
-      value: computed.getPropertyValue(property), expected
+  const readings: Reading[] = [];
+  const phases = [
+    { name: 'baseline', changes: [], expected: Object.fromEntries(fixture.nodes.map((node) => [node.id, node.expected])) },
+    ...fixture.phases ?? []
+  ];
+  for (const phase of phases) {
+    for (const change of phase.changes) {
+      const element = doc.getElementById(change.node);
+      if (!element) throw new Error(`Missing phase node: ${change.node}`);
+      if (change.checked !== undefined) {
+        if (element.tagName !== 'INPUT') throw new Error('Checked requires a native input');
+        (element as HTMLInputElement).checked = change.checked;
+      }
+      if (change.disabled !== undefined) {
+        if (!['INPUT', 'FIELDSET'].includes(element.tagName)) throw new Error('Disabled requires a native input or fieldset');
+        (element as HTMLInputElement | HTMLFieldSetElement).disabled = change.disabled;
+      }
+      for (const [name, value] of Object.entries(change.attributes ?? {})) {
+        if (!/^(data|aria)-/.test(name)) throw new Error(`Not a fixture state attribute: ${name}`);
+        if (value === null) element.removeAttribute(name);
+        else element.setAttribute(name, value);
+      }
+    }
+    // Include ancestor conditions and actual native pseudo matches in every difference report.
+    const state = JSON.stringify(fixture.nodes.map((node) => {
+      const element = doc.getElementById(node.id)!;
+      return { node: node.id, checked: element.matches(':checked'), disabled: element.matches(':disabled'),
+        attributes: Object.fromEntries([...element.attributes].filter((attribute) => /^(data|aria)-/.test(attribute.name))
+          .map((attribute) => [attribute.name, attribute.value])) };
     }));
-  });
+    for (const node of fixture.nodes) {
+      const expected = phase.expected[node.id] ?? {};
+      if (Object.keys(expected).sort().join() !== Object.keys(node.expected).sort().join()) {
+        throw new Error(`Incomplete touched expectations: ${fixture.name}/${phase.name}/${node.id}`);
+      }
+      const computed = frame.contentWindow!.getComputedStyle(doc.getElementById(node.id)!);
+      for (const [property, value] of Object.entries(expected)) {
+        readings.push({ phase: phase.name, state, node: node.id, moduleId: node.moduleId,
+          path: node.path, property, value: computed.getPropertyValue(property), expected: value });
+      }
+    }
+  }
+  return readings;
 }
 
 function compare(reference: readonly Reading[], atomic: readonly Reading[]) {
   return reference.flatMap((reading, index) => {
     const actual = atomic[index];
-    if (!actual || actual.node !== reading.node || actual.property !== reading.property) {
+    if (!actual || actual.node !== reading.node || actual.property !== reading.property ||
+      actual.phase !== reading.phase || actual.state !== reading.state) {
       throw new Error('Fixture readings are not aligned');
     }
     return reading.value === actual.value ? [] : [{
-      moduleId: reading.moduleId, path: reading.path, node: reading.node,
+      phase: reading.phase, state: reading.state, moduleId: reading.moduleId, path: reading.path, node: reading.node,
       property: reading.property, reference: reading.value, atomic: actual.value
     }];
   });
@@ -77,7 +118,8 @@ async function run() {
       ...reference.filter((reading) => reading.value !== reading.expected).map((reading) => ({ side: 'reference', ...reading })),
       ...atomic.filter((reading) => reading.value !== reading.expected).map((reading) => ({ side: 'atomic', ...reading }))
     ];
-    results.push({ name: fixture.name, comparisons: reference.length, differences, expectedFailures, reference, atomic });
+    results.push({ name: fixture.name, phases: [...new Set(reference.map((reading) => reading.phase))],
+      comparisons: reference.length, differences, expectedFailures, reference, atomic });
   }
   const controlFixture = fixtures.find((fixture) => fixture.name === 'shorthand-longhand')!;
   const controlReference = await readDocument(controlFixture, 'reference');

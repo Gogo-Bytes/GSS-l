@@ -1,4 +1,5 @@
 import postcss from 'postcss';
+import selectorParser from 'postcss-selector-parser';
 import { toLogicalModuleId } from './module-identity.js';
 import type {
   FinalizeGssOptions, GssCompilerConfig, GssDiagnostic,
@@ -51,12 +52,15 @@ export function compileGssReference(
     } catch {
       return failure(module.id, 'invalid-reference-css', 'Unable to parse reference CSS.', 'parse');
     }
+    const selectors = new Map<postcss.Rule, selectorParser.Root>();
     for (const node of root.nodes) {
       if (node.type === 'comment') continue;
-      if (node.type !== 'rule' || !localDescendantSelector.test(node.selector)) {
+      const selector = node.type === 'rule' ? parseReferenceSelector(node.raws.selector?.raw ?? node.selector) : undefined;
+      if (node.type !== 'rule' || !selector) {
         return failure(module.id, 'unsupported-reference-syntax',
-          'Reference rules must use plain local classes separated only by descendant whitespace.');
+          'Reference rules require local descendant paths with bounded native state conditions.');
       }
+      selectors.set(node, selector);
       const seen = new Set<string>();
       for (const child of node.nodes) {
         if (child.type === 'comment') continue;
@@ -76,14 +80,15 @@ export function compileGssReference(
     const exports: Record<string, ScopeNodeSchema> = Object.create(null);
     root.walkRules((rule) => {
       let targets = exports;
-      const authoredSelector = rule.raws.selector?.raw ?? rule.selector;
-      rule.selector = authoredSelector.replace(/\/\*[\s\S]*?\*\/|\.([A-Za-z_][A-Za-z0-9_-]*)/g, (match, name: string | undefined) => {
-        if (name === undefined) return match; // Comments are authored text, not scope references.
+      const selector = selectors.get(rule)!;
+      selector.walkClasses((reference) => {
+        const name = reference.value;
         const className = `gss_ref_${encode(logicalId)}__${encode(name)}`;
         const node = targets[name] ??= { selfClassName: className, targets: Object.create(null) };
         targets = node.targets as Record<string, ScopeNodeSchema>;
-        return `.${className}`;
+        reference.value = className;
       });
+      rule.selector = selector.toString();
     });
     scopeSchemas[module.id] = { moduleId: module.id, exports };
     css.push(root.toString());
@@ -95,7 +100,41 @@ function encode(value: string): string {
   return Array.from(value, (character) => character.codePointAt(0)!.toString(16)).join('_');
 }
 
-const localDescendantSelector = /^\.[A-Za-z_][A-Za-z0-9_-]*(?:[\t\n\r\f ]+\.[A-Za-z_][A-Za-z0-9_-]*)*$/;
+/** Syntax-only gate: never resolves applicability, implication or declaration winners. */
+function parseReferenceSelector(source: string): selectorParser.Root | undefined {
+  let root: selectorParser.Root;
+  try {
+    root = selectorParser().astSync(source);
+  } catch {
+    return undefined;
+  }
+  if (root.nodes.length !== 1) return undefined;
+  let expectClass = true;
+  let position = 0;
+  let statePosition: number | undefined;
+  let hasAttribute = false;
+  for (const node of root.nodes[0]!.nodes) {
+    if (node.type === 'comment') continue;
+    if (expectClass && node.type === 'class' && !('namespace' in node) && /^[A-Za-z_][A-Za-z0-9_-]*$/.test(node.value) && !node.toString().includes('\\')) {
+      expectClass = false;
+      position++;
+    } else if (!expectClass && node.type === 'combinator' && /^[\t\n\r\f ]+$/.test(node.value)) {
+      expectClass = true;
+    } else if (!expectClass && node.type === 'pseudo' && /^:(checked|disabled)$/.test(node.value) && node.nodes.length === 0) {
+      if (hasAttribute || (statePosition !== undefined && statePosition !== position)) return undefined;
+      statePosition = position;
+    } else if (!expectClass && node.type === 'attribute' && attributeEquality.test(node.toString().trim())) {
+      if (hasAttribute || statePosition !== undefined) return undefined;
+      hasAttribute = true;
+    } else {
+      return undefined;
+    }
+  }
+  return position > 0 && !expectClass ? root : undefined;
+}
+// One lowercase data-/aria- name, '=' only; quoted unescaped single-line text or an ASCII identifier.
+// Raw syntax validation excludes namespaces, flags, comments outside strings and other operators.
+const attributeEquality = /^\[[\t\n\r\f ]*(?:data|aria)-[a-z][a-z0-9_-]*[\t\n\r\f ]*=[\t\n\r\f ]*(?:"[^"\\\n\r\f\0]*"|'[^'\\\n\r\f\0]*'|[A-Za-z_][A-Za-z0-9_-]*)[\t\n\r\f ]*\]$/;
 const properties = new Set([
   'color', 'background-color', 'display', 'width', 'height',
   'margin', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left',

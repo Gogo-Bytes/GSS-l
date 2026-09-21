@@ -17,6 +17,7 @@ import {
   type PureDeclarationIdentity
 } from '../domain/readable-name.js';
 import { isRegisteredPropertyEffect } from '../domain/property-effects.js';
+import { planDescendantConditions } from '../domain/plan-descendant-conditions.js';
 import { resolveTargetDeclarations } from '../domain/resolve-target-declarations.js';
 import { compareRuleOrder } from '../domain/rule-order-planner.js';
 import { validateDeclarationSequences } from '../domain/validate-declarations.js';
@@ -65,6 +66,7 @@ type PlannedDeclaration = {
   selector: string;
   wrappers?: readonly ParsedCondition[];
   layer?: string;
+  relationRank?: number;
 };
 
 type PlannedResource = {
@@ -233,7 +235,7 @@ function prepareContribution(
   if (logicalPhysicalDiagnostics.some(({ severity }) => severity === 'error')) {
     return { diagnostics: logicalPhysicalDiagnostics };
   }
-  const stateDiagnostics = validateStateAmbiguity(input.id, parsed.rules);
+  const stateDiagnostics = validateStateAmbiguity(input.id, parsed.rules.filter((rule) => rule.pseudoElements.some(Boolean)));
   if (stateDiagnostics.some(({ severity }) => severity === 'error')) {
     return { diagnostics: stateDiagnostics };
   }
@@ -353,19 +355,6 @@ function prepareContribution(
   const roots = new Map<string, MutableScopeNode>();
   const rules: PlannedDeclaration[] = [];
   const ownershipRules = semanticRules.filter(isPureOwnershipRule);
-  const stateRules = semanticRules.filter(isCurrentStateRule);
-  const ancestorStateRules = semanticRules.filter(({ relations, states }) =>
-    relations.every((relation) => relation === 'descendant') &&
-    states.slice(0, -1).some((state) => state.length > 0)
-  );
-  const attributeRules = semanticRules.filter(({ relations, attributes }) =>
-    relations.every((relation) => relation === 'descendant') &&
-    attributes.at(-1)?.length
-  );
-  const ancestorAttributeRules = semanticRules.filter(({ relations, attributes }) =>
-    relations.every((relation) => relation === 'descendant') &&
-    attributes.slice(0, -1).some((conditions) => conditions.length > 0)
-  );
   const hasRules = semanticRules.filter(({ observations }) =>
     observations.at(-1)?.length
   );
@@ -391,6 +380,18 @@ function prepareContribution(
       }]
     };
   }
+
+  const descendantRules = semanticRules.filter((rule) =>
+    isPureOwnershipRule(rule) || isCurrentStateRule(rule) || isCurrentAttributeRule(rule) ||
+    isAncestorStateRule(rule) || isAncestorAttributeRule(rule)
+  );
+  const hasDescendantConditions = descendantRules.some((rule) => !isPureOwnershipRule(rule));
+  const declaredPaths = semanticRules.flatMap(({ path }) => path.map((_, index) => path.slice(0, index + 1)));
+  const plannedDescendants = hasDescendantConditions ? planDescendantConditions(descendantRules, declaredPaths) : undefined;
+  if (plannedDescendants?.ambiguity) return { diagnostics: [{
+      code: 'GSS1205', severity: 'error', phase: 'resolve', id: input.id,
+      reason: 'ambiguous-coactive-state-conflict', message: plannedDescendants.ambiguity
+    }] };
 
   const unsupportedProperties = [...new Set(
     semanticRules
@@ -421,7 +422,53 @@ function prepareContribution(
     });
   }
 
-  const ownershipGroups = groupRulesByCondition(ownershipRules);
+  if (plannedDescendants) {
+    for (const rule of semanticRules) ensureScopePath(roots, rule.path);
+    for (const instance of plannedDescendants.instances) {
+      const { rule, targetPath, sourcePath, sourceIndex, relationRank } = instance;
+      const wrappers = rule.conditions;
+      const condition = canonicalCondition(wrappers);
+      const layer = rule.layer;
+      const states = sourceIndex < 0 ? [] : rule.states[sourceIndex]!;
+      const attribute = sourceIndex < 0 ? undefined : rule.attributes[sourceIndex]![0];
+      const suffix = attribute ? renderAttributeCondition(attribute) : states.map((state) => `:${state}`).join('');
+      const ancestor = sourcePath !== undefined && sourcePath.length < targetPath.length;
+      const scope = ensureScopePath(roots, targetPath);
+      if (ancestor) {
+        const sourceMarker = createReadableSourceMarker(moduleId, sourcePath, condition, layer);
+        const relationIdentity: ContextualRelationIdentity = {
+          moduleId, layer, condition, sourcePath, targetPath,
+          relations: rule.relations.slice(sourceIndex),
+          ...(attribute ? { sourceAttribute: canonicalAttributeCondition(attribute) } : { sourceState: states.join(':') }),
+          ...(JSON.stringify(rule.path) !== JSON.stringify(targetPath) ? { authoredPath: rule.path } : {})
+        };
+        const targetMarker = createReadableTargetMarker(relationIdentity);
+        ensureScopePath(roots, sourcePath).classNames.add(sourceMarker);
+        scope.classNames.add(targetMarker);
+        // Repeat an existing marker, rather than inventing ancestors, to retain authored specificity.
+        const selector = `.${sourceMarker}${suffix} ${`.${targetMarker}`.repeat(rule.path.length - 1)}`;
+        for (const declaration of instance.declarations) rules.push({
+          kind: 'contextual-atom', className: targetMarker, selector, wrappers, layer, relationRank,
+          identity: { ...relationIdentity, property: declaration.property,
+            ...identifyAssetValue(declaration.value, bindings), important: declaration.important }
+        });
+      } else {
+        for (const declaration of instance.declarations) {
+          const identity: PureDeclarationIdentity = {
+            layer, condition, state: attribute ? canonicalAttributeCondition(attribute) : states.join(':') || 'self',
+            property: declaration.property, ...identifyAssetValue(declaration.value, bindings), important: declaration.important,
+            ...(rule.path.length > 1 ? { ownership: { moduleId, path: targetPath, specificity: rule.path.length } } : {})
+          };
+          const className = createReadableAtomicName(identity);
+          scope.classNames.add(className);
+          rules.push({ kind: sourceIndex < 0 ? 'pure-atom' : 'contextual-atom', identity, className,
+            selector: `${`.${className}`.repeat(rule.path.length)}${suffix}`, wrappers, layer, relationRank });
+        }
+      }
+    }
+  }
+
+  const ownershipGroups = groupRulesByCondition(hasDescendantConditions ? [] : ownershipRules);
   for (const groupedRules of ownershipGroups.values()) {
     const wrappers = groupedRules[0]!.conditions;
     const condition = canonicalCondition(wrappers);
@@ -430,7 +477,7 @@ function prepareContribution(
       .filter((rule) =>
         rule.layer === layer && canonicalCondition(rule.conditions) === condition
       )
-      .map(({ path }) => path);
+      .flatMap(({ path }) => path.map((_, index) => path.slice(0, index + 1)));
     for (const target of resolveTargetDeclarations(groupedRules, declaredPaths)) {
       const scope = ensureScopePath(roots, target.path);
       for (const declaration of target.declarations) {
@@ -449,45 +496,6 @@ function prepareContribution(
           identity,
           className,
           selector: `.${className}`,
-          wrappers,
-          layer
-        });
-      }
-    }
-  }
-
-  const stateGroups = new Map<string, typeof stateRules>();
-  for (const rule of stateRules) {
-    const state = rule.states.at(-1)!.join(':');
-    const key = `${rule.layer}\0${canonicalCondition(rule.conditions)}\0${state}`;
-    stateGroups.set(key, [...(stateGroups.get(key) ?? []), rule]);
-  }
-  for (const groupedRules of stateGroups.values()) {
-    const state = groupedRules[0]!.states.at(-1)!.join(':');
-    const wrappers = groupedRules[0]!.conditions;
-    const condition = canonicalCondition(wrappers);
-    const layer = groupedRules[0]!.layer;
-    for (const target of resolveTargetDeclarations(
-      groupedRules,
-      groupedRules.map(({ path }) => path)
-    )) {
-      const scope = ensureScopePath(roots, target.path);
-      for (const declaration of target.declarations) {
-        const identity: PureDeclarationIdentity = {
-          layer,
-          condition,
-          state,
-          property: declaration.property,
-          ...identifyAssetValue(declaration.value, bindings),
-          important: declaration.important
-        };
-        const className = createReadableAtomicName(identity);
-        scope.classNames.add(className);
-        rules.push({
-          kind: 'contextual-atom',
-          identity,
-          className,
-          selector: `.${className}:${state}`,
           wrappers,
           layer
         });
@@ -566,7 +574,8 @@ function prepareContribution(
         })()
         : observation.observedResidual!;
       const observedCombinator = renderObservedCombinator(observation.relation);
-      const selector = `.${subjectMarker}:has(${observedCombinator}${observedSelector})`;
+      // Preserve the subject path's classes; :has() keeps the argument's native specificity.
+      const selector = `${`.${subjectMarker}`.repeat(rule.path.length)}:has(${observedCombinator}${observedSelector})`;
 
       for (const declaration of rule.declarations) {
         const identity: ObservedDeclarationIdentity = {
@@ -584,127 +593,6 @@ function prepareContribution(
           layer
         });
       }
-    }
-  }
-
-  const attributeGroups = new Map<string, typeof attributeRules>();
-  for (const rule of attributeRules) {
-    const condition = rule.attributes.at(-1)![0]!;
-    const key = `${rule.layer}\0${canonicalCondition(rule.conditions)}\0${canonicalAttributeCondition(condition)}`;
-    attributeGroups.set(key, [...(attributeGroups.get(key) ?? []), rule]);
-  }
-  for (const groupedRules of attributeGroups.values()) {
-    const attributeCondition = groupedRules[0]!.attributes.at(-1)![0]!;
-    const state = canonicalAttributeCondition(attributeCondition);
-    const wrappers = groupedRules[0]!.conditions;
-    const condition = canonicalCondition(wrappers);
-    const layer = groupedRules[0]!.layer;
-    for (const target of resolveTargetDeclarations(
-      groupedRules,
-      groupedRules.map(({ path }) => path)
-    )) {
-      const scope = ensureScopePath(roots, target.path);
-      for (const declaration of target.declarations) {
-        const identity: PureDeclarationIdentity = {
-          layer,
-          condition,
-          state,
-          property: declaration.property,
-          ...identifyAssetValue(declaration.value, bindings),
-          important: declaration.important
-        };
-        const className = createReadableAtomicName(identity);
-        scope.classNames.add(className);
-        rules.push({
-          kind: 'contextual-atom',
-          identity,
-          className,
-          selector: `.${className}${renderAttributeCondition(attributeCondition)}`,
-          wrappers,
-          layer
-        });
-      }
-    }
-  }
-
-  for (const rule of ancestorAttributeRules) {
-    const wrappers = rule.conditions;
-    const condition = canonicalCondition(wrappers);
-    const layer = rule.layer;
-    const sourceIndex = rule.attributes.findIndex((conditions) => conditions.length > 0);
-    const sourceCondition = rule.attributes[sourceIndex]![0]!;
-    const sourceAttribute = canonicalAttributeCondition(sourceCondition);
-    const sourcePath = rule.path.slice(0, sourceIndex + 1);
-    const sourceMarker = createReadableSourceMarker(moduleId, sourcePath, condition, layer);
-    const relationIdentity: ContextualRelationIdentity = {
-      moduleId,
-      layer,
-      condition,
-      relations: rule.relations.slice(sourceIndex),
-      sourceAttribute,
-      sourcePath,
-      targetPath: rule.path
-    };
-    const targetMarker = createReadableTargetMarker(relationIdentity);
-    ensureScopePath(roots, sourcePath).classNames.add(sourceMarker);
-    ensureScopePath(roots, rule.path).classNames.add(targetMarker);
-    const selector = `.${sourceMarker}${renderAttributeCondition(sourceCondition)} .${targetMarker}`;
-
-    for (const declaration of rule.declarations) {
-      const identity: ContextualDeclarationIdentity = {
-        ...relationIdentity,
-        property: declaration.property,
-        ...identifyAssetValue(declaration.value, bindings),
-        important: declaration.important
-      };
-      rules.push({
-        kind: 'contextual-atom',
-        identity,
-        className: targetMarker,
-        selector,
-        wrappers,
-        layer
-      });
-    }
-  }
-
-  for (const rule of ancestorStateRules) {
-    const wrappers = rule.conditions;
-    const condition = canonicalCondition(wrappers);
-    const layer = rule.layer;
-    const sourceIndex = rule.states.findIndex((state) => state.length > 0);
-    const sourceState = rule.states[sourceIndex]!.join(':');
-    const sourcePath = rule.path.slice(0, sourceIndex + 1);
-    const sourceMarker = createReadableSourceMarker(moduleId, sourcePath, condition, layer);
-    const relationIdentity: ContextualRelationIdentity = {
-      moduleId,
-      layer,
-      condition,
-      relations: rule.relations.slice(sourceIndex),
-      sourceState,
-      sourcePath,
-      targetPath: rule.path
-    };
-    const targetMarker = createReadableTargetMarker(relationIdentity);
-    ensureScopePath(roots, sourcePath).classNames.add(sourceMarker);
-    ensureScopePath(roots, rule.path).classNames.add(targetMarker);
-    const selector = `.${sourceMarker}:${sourceState} .${targetMarker}`;
-
-    for (const declaration of rule.declarations) {
-      const identity: ContextualDeclarationIdentity = {
-        ...relationIdentity,
-        property: declaration.property,
-        ...identifyAssetValue(declaration.value, bindings),
-        important: declaration.important
-      };
-      rules.push({
-        kind: 'contextual-atom',
-        identity,
-        className: targetMarker,
-        selector,
-        wrappers,
-        layer
-      });
     }
   }
 
@@ -747,7 +635,8 @@ function prepareContribution(
     });
     const selector = markers.map((marker, index) =>
       index === 0
-        ? `.${marker}${sourceState ? `:${sourceState}` : ''}${
+        // The source marker represents the whole ownership prefix, not one authored class.
+        ? `${`.${marker}`.repeat(sourcePath.length)}${sourceState ? `:${sourceState}` : ''}${
           sourceAttributeCondition ? renderAttributeCondition(sourceAttributeCondition) : ''
         }`
         : ` ${renderRelationCombinator(runtimeRelations[index - 1]!)} .${marker}`
@@ -766,7 +655,9 @@ function prepareContribution(
         className: targetMarker,
         selector,
         wrappers,
-        layer
+        layer,
+        // A runtime edge refines ownership; retain its priority above the same source predicate.
+        relationRank: runtimeRelations.length + rule.states[firstRuntimeRelation]!.length + Number(Boolean(sourceAttributeCondition))
       });
     }
   }
@@ -1398,6 +1289,7 @@ function serializeIdentity(identity: PlannedDeclaration['identity']): string {
       identity.sourceAttribute,
       identity.sourcePath,
       identity.targetPath,
+      identity.authoredPath,
       identity.property,
       identity.value,
       identity.important
@@ -1409,6 +1301,7 @@ function serializeIdentity(identity: PlannedDeclaration['identity']): string {
     identity.condition,
     identity.state,
     identity.pseudoElement,
+    identity.ownership,
     identity.property,
     identity.value,
     identity.important
