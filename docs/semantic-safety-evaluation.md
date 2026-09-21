@@ -315,6 +315,12 @@ Both mappings render the same fixture in isolated browser documents. The oracle 
 
 The reference renderer does not call the atomic winner/pruning/planning path. A real-project Pilot must reach zero unexplained computed-style differences.
 
+**Implemented first slice:** `@gss-l/testing` now exports synchronous `compileGssReference({ config, modules }, ports?)`, returning either complete CSS/public ScopeSchema mappings/diagnostics or diagnostics only. It has no production dependents, IO or framework/browser dependencies. PostCSS retains authored selector/declaration structure; independent per-Module authored-class names let the browser perform descendant accumulation and native cascade without invoking any atomic implementation.
+
+Coverage is deliberately bounded to plain ASCII local classes/whitespace descendant paths, basic `color`/`background-color`/`display`/`width`/`height`, and physical margin/padding shorthands/four longhands including importance. Value functions/escapes and equal-importance exact-property duplicates fail. All other syntax, nonempty registered condition/layer configuration, and nonempty asset bindings fail explicitly with no partial output; the reserved asset resolver is not invoked. In particular, unsupported configured precedence cannot pass through as native authored-order semantics. These limits describe reference coverage, not new product restrictions.
+
+The reproducible [browser harness](../packages/testing/README.md) has passed native `agent_browser` acceptance for three fixtures: ownership/Module isolation; ADR-0011 ordered-subsequence accumulation with real matching ancestor DOM; shorthand/longhand order and importance. All 48 touched computed-value comparisons match both sides and literal expectations. The reviewed selector-comment preservation defect was fixed with API regressions; browser revalidation also confirmed that selector comments survive without adding scope paths. `__GSS_REFERENCE_RESULT__.status` was `passed`, each fixture had empty `differences` and `expectedFailures`, and the negative control detected intentionally corrupted atomic `margin-left` (`9px` reference versus `123px` atomic). This is bounded manual browser evidence, not completion of the broader state/condition/resource corpus, independent browser CI, or real-project Pilot.
+
 ## 17. Accepted decision index
 
 - Descendant ownership: [ADR-0001](adr/0001-descendant-selectors-as-style-scope-targets.md)

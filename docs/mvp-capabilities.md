@@ -86,6 +86,8 @@ The Compiler protocol is implemented: pure URL discovery, transactional `assetRe
 
 ## Verification
 
-- 独立 `compileGssReference()` testing API生成非原子化 reference CSS/style mapping。
-- 隔离浏览器 computed-style oracle比较 reference 与 atomic touched properties。
-- 快速 snapshot、浏览器 corpus与真实 Pilot零未解释差异门禁。
+- 独立 `@gss-l/testing` 的同步 `compileGssReference({ config, modules }, { resolveAssetUrl? })` 已实现首个有界 slice；成功返回 CSS/ScopeSchema mappings/diagnostics，失败仅返回 diagnostics，无 partial output，production 不依赖 testing。
+- 当前 reference 正向覆盖：ASCII local class、whitespace descendant path；`color`、`background-color`、`display`、`width`、`height`；physical `margin`/`padding` shorthand 与四个 longhand、authored grouping/order 和 `!important`。Browser 原生完成 selector accumulation/cascade，不调用 atomic winner/planner/allocator。
+- 当前 reference 对上述范围外的 syntax、value functions/escapes、非空 registered condition/layer config 与 asset bindings 显式报错；resolver port 暂不调用。这是 reference coverage 边界，不改变上文 GSS product capabilities。
+- 有界隔离浏览器 harness 已通过 native `agent_browser` 验证：ownership/Module isolation、ADR-0011 descendant ordered-subsequence accumulation、shorthand/longhand order/importance；无 computed-style/字面 expected-value 差异，故意损坏 atomic CSS 的 negative control 被检测。使用方法见 [`packages/testing/README.md`](../packages/testing/README.md)。
+- 完整 state/condition/resource oracle corpus、独立 browser CI 与真实 Pilot 零未解释差异门禁仍未完成。

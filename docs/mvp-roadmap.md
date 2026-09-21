@@ -172,12 +172,16 @@ Completion criteria:
 
 ## Stage 8 — Independent semantic oracle
 
-- [ ] Implement `compileGssReference()` outside the atomic planner.
-- [ ] Generate reference style mappings for the same React fixtures.
-- [ ] Run reference and atomic output in isolated browser documents.
-- [ ] Compare touched properties and property-effect longhands.
+- [x] Implement the first bounded `@gss-l/testing` `compileGssReference()` slice outside the atomic compiler: plain local classes/descendants, basic color/display/size and physical margin/padding declarations; no partial output and explicit unsupported syntax/config failures.
+- [x] Generate reference `ScopeSchema` mappings for identical framework-independent DOM fixtures (per-Module authored class namespace; browser-native accumulation).
+- [x] Run the bounded ownership/Module isolation, ADR-0011 descendant, and shorthand/longhand corpus in isolated browser documents; native `agent_browser` acceptance passed with zero differences and a detected atomic-CSS corruption negative control.
+- [x] Compare explicitly touched properties and all four physical margin/padding longhands, including order/importance variations and literal expected values in that bounded corpus.
+- [ ] Expand reference syntax/config coverage and mappings to the representative React fixture corpus.
 - [ ] Cover pseudo-elements, browser states, attributes, relations, media/supports/container, layers, custom properties, keyframes metadata, and resources.
-- [ ] Produce actionable difference diagnostics.
+- [x] Report Module/path/node/property and both computed values for the bounded browser harness.
+- [ ] Extend difference diagnostics across the full oracle corpus and source ranges.
+
+The first slice is not the complete oracle or Pilot gate. `packages/testing/README.md` documents its exact input limits, reproducible startup and machine-readable browser result. `resolveAssetUrl` is an approved port shape but resource support is not implemented here; nonempty asset bindings and registered condition/layer order fail explicitly.
 
 Completion criteria:
 

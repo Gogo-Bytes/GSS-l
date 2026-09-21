@@ -491,18 +491,33 @@ The first readable naming strategy is measured through this report before any sh
 
 ## Reference testing interface
 
-The testing package owns a separate seam:
+Implemented as a bounded first slice in the separate `@gss-l/testing` package ([ADR-0030](adr/0030-make-semantic-reference-css-a-testing-capability.md)); production packages do not depend on it:
 
 ```ts
+export type CompileGssReferenceInput = {
+  config: GssCompilerConfig;
+  modules: readonly ReplaceStylesheetInput[];
+};
+export type ReferenceCompilerPorts = {
+  resolveAssetUrl?: (identity: string) => string;
+};
+export type ReferenceCompileResult =
+  | { success: true; css: string; scopeSchemas: Readonly<Record<string, ScopeSchema>>; diagnostics: readonly GssDiagnostic[] }
+  | { success: false; diagnostics: readonly GssDiagnostic[] };
+
 export function compileGssReference(
   input: CompileGssReferenceInput,
-  ports: ReferenceCompilerPorts,
+  ports?: ReferenceCompilerPorts,
 ): ReferenceCompileResult;
 ```
 
-The reference renderer shares syntax and source infrastructure but does not call `CascadeResolver`, `RulePlanner`, `RuleOrderPlanner`, or `NameAllocator` from the atomic path.
+This synchronous, stateless API has no IO, framework or browser dependencies. Mappings are keyed by input Module id, and each schema retains that id. Reference class names encode project-relative Module identity and authored local class independently; the same local class is reused across its declared paths so the browser—not target winner resolution—performs accumulation. Input Modules are isolated and sorted by logical identity; authored selector structure, rule order, declaration grouping/order and importance are preserved. Failure returns no partial output, including when an earlier Module was valid.
 
-Browser oracle fixtures render reference and atomic mappings in isolated documents and compare touched computed properties under the same state and condition matrix.
+Current coverage: plain ASCII local classes (`[A-Za-z_][A-Za-z0-9_-]*`), whitespace descendant paths, `color`, `background-color`, `display`, `width`, `height`, and physical `margin`/`padding` shorthands/four longhands. Functions and escapes in values are rejected; values otherwise remain opaque. Equal-importance exact-property duplicate declarations fail. Lists, nesting, states, runtime relations, conditions/layers/resources and other properties fail explicitly. Nonempty registered condition/layer configuration and asset bindings also fail rather than silently using a different cascade. Empty registrations and either atomic fallback policy are accepted. The optional asset resolver is reserved and never called by this slice.
+
+The reference uses PostCSS but no atomic compiler implementation, winner/pruning logic, atom identity, `RulePlanner`, `RuleOrderPlanner`, or `NameAllocator`. The public production API is used only on the atomic side of the browser harness.
+
+The bounded harness renders the same DOM with substituted mappings in isolated documents and compares touched properties/physical longhands for ownership, descendant accumulation and shorthand order/importance, with literal expectations and a corrupted-atomic negative control. See [`packages/testing/README.md`](../packages/testing/README.md) for startup and machine-readable acceptance. The broader state/condition/resource corpus, browser CI and Pilot remain incomplete.
 
 ## Determinism and invariants
 
