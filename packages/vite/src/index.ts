@@ -3,8 +3,7 @@ import {
   createGssCompilerSession,
   type GssCompilerSession,
   type GssSourceAdapter,
-  type ReplaceStylesheetResult,
-  type SourceAdapterDiagnostic
+  type ReplaceStylesheetResult
 } from '@gss-l/compiler';
 import { isFileLoadingAllowed, normalizePath, type Plugin, type Rollup, type ViteDevServer } from 'vite';
 import { CENTRAL_CSS_URL, fromVirtualGssId, resolveCentralCssId, toVirtualGssId } from './virtual-id.js';
@@ -15,6 +14,7 @@ import { reachableModuleIds } from './production-census.js';
 import { emitProductionAssets, isProductionStylesheet, type ProductionStylesheet } from './production-assets.js';
 import { readStylesheetAssets, type StylesheetAsset } from './stylesheet-assets.js';
 import { createDevAssetOwner } from './dev-assets.js';
+import { reportDiagnostics } from './diagnostics.js';
 
 export type GssOptions = { adapter: GssSourceAdapter };
 
@@ -103,7 +103,7 @@ export function gss({ adapter }: GssOptions): Plugin {
       result = await task.result;
     }
     if (!result) context.error(`GSS stylesheet was invalidated: ${physicalId}`);
-    reportDiagnostics(context, result.diagnostics.filter(({ severity }) => development || severity === 'error'));
+    reportDiagnostics(context, result.diagnostics.filter(({ severity }) => development || severity === 'error'), { id: physicalId, source: result.source });
     if (!result.committed || !result.module) context.error('GSS compilation failed.');
     return { artifact: result.module, source: result.source, assets: result.assets };
   }
@@ -162,7 +162,7 @@ export function gss({ adapter }: GssOptions): Plugin {
           if (!isProductionStylesheet(metadata)) this.error(`Missing GSS source snapshot for ${physicalId}.`);
           assets.push(...metadata.assets);
           const result = session.replaceStylesheet({ id: physicalId, source: metadata.source, assetReferences: metadata.assets });
-          reportDiagnostics(this, result.diagnostics);
+          reportDiagnostics(this, result.diagnostics, { id: physicalId, source: metadata.source });
           if (!result.committed) this.error('GSS census compilation failed.');
           count += 1;
         }
@@ -202,7 +202,7 @@ export function gss({ adapter }: GssOptions): Plugin {
           const task = startReplacement(owner, () => readFile(owner, 'utf8'));
           const result = await task.result;
           if (latest.get(owner) !== task) continue;
-          if (result) reportDiagnostics(this, result.diagnostics);
+          if (result) reportDiagnostics(this, result.diagnostics, { id: owner, source: result.source });
           if (before === JSON.stringify(session.getScopeSchema(owner))) continue;
           const virtual = graph.getModuleById(toVirtualGssId(owner));
           if (virtual) changed.add(virtual);
@@ -234,10 +234,14 @@ export function gss({ adapter }: GssOptions): Plugin {
         failedReplacements.delete(physicalId);
         cssOwner?.publish();
       } else {
+        const before = JSON.stringify(session.getScopeSchema(physicalId));
         const task = startReplacement(physicalId, context.read);
         const result = await task.result;
         if (latest.get(physicalId) !== task) return [];
-        if (result) reportDiagnostics(this, result.diagnostics);
+        if (result) reportDiagnostics(this, result.diagnostics, { id: physicalId, source: result.source });
+        // Native CSS publication also clears errors on identical-byte recovery.
+        // Only changed scope JavaScript needs propagation through its importers.
+        if (result?.committed && before === JSON.stringify(session.getScopeSchema(physicalId))) return [];
       }
       return [...modules];
     },
@@ -312,16 +316,4 @@ export function gss({ adapter }: GssOptions): Plugin {
       return { code: result.code, ...(result.map ? { map: JSON.stringify(result.map) } : {}) };
     }
   };
-}
-
-function reportDiagnostics(
-  context: Rollup.MinimalPluginContext,
-  diagnostics: readonly SourceAdapterDiagnostic[]
-): void {
-  for (const diagnostic of diagnostics) {
-    const log = { ...diagnostic, message: `[${diagnostic.code}] ${diagnostic.message}` };
-    if (diagnostic.severity === 'error') context.error(log);
-    else if (diagnostic.severity === 'warning') context.warn(log);
-    else context.info(log);
-  }
 }
