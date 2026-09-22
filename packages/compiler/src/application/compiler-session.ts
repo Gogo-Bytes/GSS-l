@@ -23,17 +23,16 @@ import { compareRuleOrder } from '../domain/rule-order-planner.js';
 import { validateDeclarationSequences } from '../domain/validate-declarations.js';
 import { validateLogicalPhysicalConflicts } from '../domain/validate-logical-physical-conflicts.js';
 import { planPseudoElementConditions } from '../domain/plan-pseudo-element-conditions.js';
-import {
-  parseStylesheet,
-  type ParsedAttributeCondition,
-  type ParsedCondition,
-  type ParsedFontFaceResource,
-  type ParsedGlobalResource,
-  type ParsedKeyframesRegistration,
-  type ParsedPropertyRegistration,
-  type ParsedStylesheet,
-  type ParsedStyleRule
-} from '../infrastructure/postcss-stylesheet-parser.js';
+import type {
+  ParsedAttributeCondition,
+  ParsedCondition,
+  ParsedFontFaceResource,
+  ParsedGlobalResource,
+  ParsedKeyframesRegistration,
+  ParsedPropertyRegistration,
+  ParsedStyleRule
+} from '../domain/parsed-stylesheet.js';
+import type { CssParserPort, ParsedStylesheet } from './css-parser-port.js';
 import type {
   FinalizedGssSnapshot,
   FinalizeGssOptions,
@@ -97,13 +96,13 @@ type MutableScopeNode = {
   targets: Map<string, MutableScopeNode>;
 };
 
-export function createGssCompilerSession(config: GssCompilerConfig): GssCompilerSession {
+export function createCompilerSession(config: GssCompilerConfig, cssParser: CssParserPort): GssCompilerSession {
   const modules = new Map<string, ModuleContribution>();
   let generation = 0;
 
   return {
     replaceStylesheet(input) {
-      const prepared = prepareContribution(config, input);
+      const prepared = prepareContribution(config, input, cssParser);
       if (!('artifact' in prepared)) {
         return {
           id: input.id,
@@ -160,9 +159,10 @@ export function createGssCompilerSession(config: GssCompilerConfig): GssCompiler
 
 function prepareContribution(
   config: GssCompilerConfig,
-  input: ReplaceStylesheetInput
+  input: ReplaceStylesheetInput,
+  cssParser: CssParserPort
 ): ModuleContribution | { diagnostics: readonly GssDiagnostic[] } {
-  const parsed = parseStylesheet(input.id, input.source);
+  const parsed = cssParser.parseStylesheet(input.id, input.source);
   if (parsed.diagnostics.some(({ severity }) => severity === 'error')) {
     return { diagnostics: parsed.diagnostics };
   }
@@ -871,7 +871,10 @@ function planKeyframesRegistration(
       resource.name,
       resource.layer,
       resource.conditions,
-      resource.frames
+      resource.frames.map(({ selector, declarations }) => ({
+        selector,
+        declarations: declarations.map(({ property, value, important }) => ({ property, value, important }))
+      }))
     ]),
     css
   };

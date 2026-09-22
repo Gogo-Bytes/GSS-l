@@ -1,0 +1,247 @@
+[
+  {
+    "source": ".card, .other { color: red; } .card { & .icon { width: 1px; } }",
+    "result": {
+      "id": "/project/card.gss",
+      "committed": true,
+      "generation": 1,
+      "module": {
+        "id": "/project/card.gss",
+        "scopeSchema": {
+          "moduleId": "card.gss",
+          "exports": {
+            "card": {
+              "selfClassName": "gss-a--layer_unlayered--condition_base--state_self--property_color--value_red--importance_normal",
+              "targets": {
+                "icon": {
+                  "selfClassName": "gss-a--layer_unlayered--condition_base--state_self--property_width--value_1px--importance_normal",
+                  "targets": {}
+                }
+              }
+            },
+            "other": {
+              "selfClassName": "gss-a--layer_unlayered--condition_base--state_self--property_color--value_red--importance_normal",
+              "targets": {}
+            }
+          }
+        },
+        "moduleCode": "const card = { self: \"gss-a--layer_unlayered--condition_base--state_self--property_color--value_red--importance_normal\", \"icon\": { self: \"gss-a--layer_unlayered--condition_base--state_self--property_width--value_1px--importance_normal\" } };\nconst other = { self: \"gss-a--layer_unlayered--condition_base--state_self--property_color--value_red--importance_normal\" };\nexport default { card, other };\n",
+        "declarationCode": "import type { GssScope } from '@gss-l/types';\ndeclare const styles: {\n  readonly \"card\": GssScope<{ readonly \"icon\": GssScope<{}>; }>;\n  readonly \"other\": GssScope<{}>;\n};\nexport default styles;\n",
+        "dependencies": [],
+        "compilationMode": "atomic",
+        "fallbackReasons": []
+      },
+      "diagnostics": []
+    },
+    "snapshot": {
+      "generation": 1,
+      "css": ".gss-a--layer_unlayered--condition_base--state_self--property_color--value_red--importance_normal {\n  color: red;\n}\n\n.gss-a--layer_unlayered--condition_base--state_self--property_width--value_1px--importance_normal {\n  width: 1px;\n}",
+      "manifest": {
+        "modules": [
+          "card.gss"
+        ],
+        "moduleDetails": [
+          {
+            "id": "card.gss",
+            "compilationMode": "atomic",
+            "fallbackReasons": []
+          }
+        ],
+        "resources": [],
+        "rules": [
+          {
+            "kind": "pure-atom",
+            "className": "gss-a--layer_unlayered--condition_base--state_self--property_color--value_red--importance_normal",
+            "selector": ".gss-a--layer_unlayered--condition_base--state_self--property_color--value_red--importance_normal",
+            "property": "color",
+            "value": "red",
+            "important": false,
+            "sources": [
+              "card.gss"
+            ]
+          },
+          {
+            "kind": "pure-atom",
+            "className": "gss-a--layer_unlayered--condition_base--state_self--property_width--value_1px--importance_normal",
+            "selector": ".gss-a--layer_unlayered--condition_base--state_self--property_width--value_1px--importance_normal",
+            "property": "width",
+            "value": "1px",
+            "important": false,
+            "sources": [
+              "card.gss"
+            ]
+          }
+        ]
+      },
+      "report": {
+        "modules": 1,
+        "rules": 2,
+        "resources": 0,
+        "atomicModules": 1,
+        "preservedModules": 0,
+        "atomicCoverage": 1
+      }
+    }
+  },
+  {
+    "source": "@keyframes pulse { from, 50% { width: 1px; } to { width: 2px; } } .card { animation: pulse 1s; }",
+    "result": {
+      "id": "/project/card.gss",
+      "committed": true,
+      "generation": 1,
+      "module": {
+        "id": "/project/card.gss",
+        "scopeSchema": {
+          "moduleId": "card.gss",
+          "exports": {
+            "card": {
+              "selfClassName": "gss-a--layer_unlayered--condition_base--state_self--property_animation--value_gss_2d_k_2d__2d_module_5f_card_5f_2e_5f_gss_2d__2d_name_5f_pulse_20_1s--importance_normal",
+              "targets": {}
+            }
+          }
+        },
+        "moduleCode": "const card = { self: \"gss-a--layer_unlayered--condition_base--state_self--property_animation--value_gss_2d_k_2d__2d_module_5f_card_5f_2e_5f_gss_2d__2d_name_5f_pulse_20_1s--importance_normal\" };\nexport default { card };\n",
+        "declarationCode": "import type { GssScope } from '@gss-l/types';\ndeclare const styles: {\n  readonly \"card\": GssScope<{}>;\n};\nexport default styles;\n",
+        "dependencies": [],
+        "compilationMode": "atomic",
+        "fallbackReasons": []
+      },
+      "diagnostics": []
+    },
+    "snapshot": {
+      "generation": 1,
+      "css": "@keyframes gss-k--module_card_2e_gss--name_pulse {\n  from, 50% {\n    width: 1px;\n  }\n  to {\n    width: 2px;\n  }\n}\n\n.gss-a--layer_unlayered--condition_base--state_self--property_animation--value_gss_2d_k_2d__2d_module_5f_card_5f_2e_5f_gss_2d__2d_name_5f_pulse_20_1s--importance_normal {\n  animation: gss-k--module_card_2e_gss--name_pulse 1s;\n}",
+      "manifest": {
+        "modules": [
+          "card.gss"
+        ],
+        "moduleDetails": [
+          {
+            "id": "card.gss",
+            "compilationMode": "atomic",
+            "fallbackReasons": []
+          }
+        ],
+        "resources": [
+          {
+            "kind": "keyframes",
+            "name": "gss-k--module_card_2e_gss--name_pulse",
+            "sources": [
+              "card.gss"
+            ]
+          }
+        ],
+        "rules": [
+          {
+            "kind": "pure-atom",
+            "className": "gss-a--layer_unlayered--condition_base--state_self--property_animation--value_gss_2d_k_2d__2d_module_5f_card_5f_2e_5f_gss_2d__2d_name_5f_pulse_20_1s--importance_normal",
+            "selector": ".gss-a--layer_unlayered--condition_base--state_self--property_animation--value_gss_2d_k_2d__2d_module_5f_card_5f_2e_5f_gss_2d__2d_name_5f_pulse_20_1s--importance_normal",
+            "property": "animation",
+            "value": "gss-k--module_card_2e_gss--name_pulse 1s",
+            "important": false,
+            "sources": [
+              "card.gss"
+            ]
+          }
+        ]
+      },
+      "report": {
+        "modules": 1,
+        "rules": 1,
+        "resources": 1,
+        "atomicModules": 1,
+        "preservedModules": 0,
+        "atomicCoverage": 1
+      }
+    }
+  },
+  {
+    "source": "@property --size { syntax: \"<length>\"; inherits: false; initial-value: 1px; } @font-face { font-family: Demo; src: url(demo.woff2); } .card { unknown-prop: 1; }",
+    "result": {
+      "id": "/project/card.gss",
+      "committed": true,
+      "generation": 1,
+      "module": {
+        "id": "/project/card.gss",
+        "scopeSchema": {
+          "moduleId": "card.gss",
+          "exports": {
+            "card": {
+              "selfClassName": "gss-s--module_card_2e_gss--path_card",
+              "targets": {}
+            }
+          }
+        },
+        "moduleCode": "const card = { self: \"gss-s--module_card_2e_gss--path_card\" };\nexport default { card };\n",
+        "declarationCode": "import type { GssScope } from '@gss-l/types';\ndeclare const styles: {\n  readonly \"card\": GssScope<{}>;\n};\nexport default styles;\n",
+        "dependencies": [
+          "demo.woff2"
+        ],
+        "compilationMode": "preserved",
+        "fallbackReasons": [
+          {
+            "property": "unknown-prop",
+            "reason": "property-effect-not-registered"
+          }
+        ]
+      },
+      "diagnostics": [
+        {
+          "code": "GSS1104",
+          "severity": "warning",
+          "phase": "plan",
+          "message": "Module was preserved because property effects are not registered: unknown-prop.",
+          "id": "/project/card.gss",
+          "reason": "module-preserved-fallback",
+          "suggestion": "Verify the property name or register its complete effect family."
+        }
+      ]
+    },
+    "snapshot": {
+      "generation": 1,
+      "css": "@font-face {\n  font-family: Demo;\n  src: url(demo.woff2);\n}\n\n@property --size {\n  syntax: \"<length>\";\n  inherits: false;\n  initial-value: 1px;\n}\n\n.gss-s--module_card_2e_gss--path_card {\n  unknown-prop: 1;\n}",
+      "manifest": {
+        "modules": [
+          "card.gss"
+        ],
+        "moduleDetails": [
+          {
+            "id": "card.gss",
+            "compilationMode": "preserved",
+            "fallbackReasons": [
+              {
+                "property": "unknown-prop",
+                "reason": "property-effect-not-registered"
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "kind": "font-face",
+            "name": "Demo|normal|normal|normal|all",
+            "sources": [
+              "card.gss"
+            ]
+          },
+          {
+            "kind": "property",
+            "name": "--size",
+            "sources": [
+              "card.gss"
+            ]
+          }
+        ],
+        "rules": []
+      },
+      "report": {
+        "modules": 1,
+        "rules": 0,
+        "resources": 2,
+        "atomicModules": 0,
+        "preservedModules": 1,
+        "atomicCoverage": 0
+      }
+    }
+  }
+]

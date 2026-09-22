@@ -1,4 +1,6 @@
-import postcss, { type Declaration } from 'postcss';
+import postcss, { CssSyntaxError, type Declaration } from 'postcss';
+import PreviousMap from 'postcss/lib/previous-map';
+import Parser from 'postcss/lib/parser';
 import postcssNesting from 'postcss-nesting';
 import selectorParser, {
   type Attribute,
@@ -11,85 +13,20 @@ import { isSupportedPseudoElement } from '../domain/pseudo-element-capabilities.
 import { isSupportedPseudoState } from '../domain/pseudo-state-capabilities.js';
 import type { GssDiagnostic } from '../public-types.js';
 
-export type ParsedDeclaration = {
-  property: string;
-  value: string;
-  important: boolean;
-};
-
-export type SelectorRelation = 'descendant' | 'child' | 'adjacent' | 'general-sibling';
-
-export type ParsedAttributeCondition = {
-  attribute: string;
-  operator: '=';
-  value: string;
-};
-
-export type ParsedHasCondition = {
-  relation: 'descendant' | 'child' | 'adjacent' | 'general-sibling';
-  observedClass?: string;
-  observedState?: string;
-  observedResidual?: string;
-};
-
-export type ParsedCondition = {
-  kind: 'media' | 'supports' | 'container';
-  query: string;
-};
-
-export type ParsedStyleRule = {
-  selector: string;
-  path: readonly string[];
-  relations: readonly SelectorRelation[];
-  states: readonly (readonly string[])[];
-  attributes: readonly (readonly ParsedAttributeCondition[])[];
-  observations: readonly (readonly ParsedHasCondition[])[];
-  pseudoElements: readonly (string | null)[];
-  conditions: readonly ParsedCondition[];
-  layer: string;
-  declarations: readonly ParsedDeclaration[];
-  sourceOrdinal: number;
-};
-
-export type ParsedPropertyRegistration = {
-  kind: 'property';
-  name: string;
-  declarations: readonly ParsedDeclaration[];
-};
-
-export type ParsedKeyframesRegistration = {
-  kind: 'keyframes';
-  name: string;
-  conditions: readonly ParsedCondition[];
-  layer: string;
-  frames: readonly {
-    selector: string;
-    declarations: readonly ParsedDeclaration[];
-  }[];
-};
-
-export type ParsedFontFaceResource = {
-  kind: 'font-face';
-  declarations: readonly ParsedDeclaration[];
-};
-
-export type ParsedGlobalResource =
-  | ParsedPropertyRegistration
-  | ParsedKeyframesRegistration
-  | ParsedFontFaceResource;
-
-export type ParsedStylesheet = {
-  rules: readonly ParsedStyleRule[];
-  resources: readonly ParsedGlobalResource[];
-  diagnostics: readonly GssDiagnostic[];
-};
+import type {
+  ParsedDeclaration, SelectorRelation, ParsedAttributeCondition, ParsedHasCondition,
+  ParsedCondition, ParsedStyleRule, ParsedPropertyRegistration, ParsedKeyframesRegistration,
+  ParsedFontFaceResource, ParsedGlobalResource, SourceSpan
+} from '../domain/parsed-stylesheet.js';
+import type { ParsedStylesheet } from '../application/css-parser-port.js';
 
 export function parseStylesheet(id: string, source: string): ParsedStylesheet {
-  let root: postcss.Root;
   try {
-    root = postcss([postcssNesting()]).process(source, { from: id }).sync().root;
+    return parseAndNormalizeStylesheet(id, source);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    // Rule.error gives selector-parser the same typed author-error channel as PostCSS.
+    // Invariant failures and unexpected adapter errors must still escape.
+    if (!(error instanceof CssSyntaxError)) throw error;
     return {
       rules: [],
       resources: [],
@@ -97,11 +34,81 @@ export function parseStylesheet(id: string, source: string): ParsedStylesheet {
         code: 'GSS1001',
         severity: 'error',
         phase: 'parse',
-        message,
+        message: 'Invalid CSS syntax.',
         id
       }]
     };
   }
+}
+
+function validateInlineSourceMap(source: string): boolean {
+  // Use PostCSS's last-annotation discovery without decoding or external-map IO.
+  // This exported infrastructure seam keeps encoding/schema handling identical to Input.
+  const annotation = new PreviousMap(source, { map: { prev: false } });
+  if (!annotation.inline) return false;
+  try {
+    const map = new PreviousMap(source, {});
+    // Input skips the consumer for empty decoded payloads as well.
+    if (!map.text) return false;
+    map.consumer();
+    return true;
+  } catch (error) {
+    // Inline decoding/consumer validation uses untyped Errors for malformed author data.
+    // Only those data operations are enclosed here, never CSS parsing or normalization.
+    if (!(error instanceof Error)) throw error;
+    throw new CssSyntaxError('Invalid inline source map.');
+  }
+}
+
+function parseAuthoredStylesheet(id: string, source: string): postcss.Root {
+  if (!validateInlineSourceMap(source)) return postcss.parse(source, { from: id });
+
+  // postcss.parse constructs Input internally, leaving no instance-local hook before
+  // syntax errors look up lazy mappings. Use its exported Parser only for inline maps.
+  const input = new postcss.Input(source, { from: id });
+  const consumer = input.map.consumer();
+  const originalPositionFor = consumer.originalPositionFor;
+  consumer.originalPositionFor = function (...args) {
+    try {
+      return originalPositionFor.apply(this, args);
+    } catch (error) {
+      // Only authored map lookup is enclosed, never parsing or Input.error itself.
+      if (!(error instanceof Error)) throw error;
+      throw new CssSyntaxError('Invalid inline source map.');
+    }
+  };
+  const parser = new Parser(input);
+  parser.parse();
+  return parser.root;
+}
+
+function parseAndNormalizeStylesheet(id: string, source: string): ParsedStylesheet {
+  const authored = parseAuthoredStylesheet(id, source);
+  const originalSpans = new WeakMap<postcss.Source, SourceSpan>();
+  authored.walk((node) => {
+    const origin = node.source;
+    if (!origin?.start || !origin.end) throw new Error('Missing authored CSS source span.');
+    // PostCSS removes one leading U+FEFF/U+FFFE before assigning node offsets.
+    const inputOffset = origin.input.hasBOM ? 1 : 0;
+    originalSpans.set(origin, {
+      sourceId: id,
+      start: origin.start.offset + inputOffset,
+      end: origin.end.offset + inputOffset
+    });
+  });
+  const spanOf: SourceSpanReader = (node) => {
+    // PostCSS clones retain the original Source object. Never infer offsets from regenerated CSS.
+    const span = node.source && originalSpans.get(node.source);
+    if (!span) throw new Error('Normalized CSS node has no original source span.');
+    return span;
+  };
+  authored.walkRules((rule) => {
+    // Frame selectors have a separate resource grammar, not a scope selector grammar.
+    if (rule.parent?.type === 'atrule' && rule.parent.name === 'keyframes') return;
+    // Validate before nesting can discard or rewrite an invalid branch.
+    selectorParser().astSync(rule);
+  });
+  const root = postcss([postcssNesting()]).process(authored, { from: id }).sync().root;
 
   const diagnostics: GssDiagnostic[] = [];
   const rules: ParsedStyleRule[] = [];
@@ -116,7 +123,7 @@ export function parseStylesheet(id: string, source: string): ParsedStylesheet {
     for (const node of nodes) {
       if (node.type === 'atrule') {
         if (node.name === 'font-face') {
-          const fontFace = parseFontFaceResource(node, conditions, layer);
+          const fontFace = parseFontFaceResource(node, conditions, layer, spanOf);
           if (!fontFace) {
             diagnostics.push(unsupportedDiagnostic(id, 'Unsupported @font-face resource.'));
           } else {
@@ -125,7 +132,7 @@ export function parseStylesheet(id: string, source: string): ParsedStylesheet {
           continue;
         }
         if (node.name === 'keyframes') {
-          const keyframes = parseKeyframesRegistration(node, conditions, layer);
+          const keyframes = parseKeyframesRegistration(node, conditions, layer, spanOf);
           if (!keyframes) {
             diagnostics.push(unsupportedDiagnostic(id, 'Unsupported @keyframes resource.'));
           } else {
@@ -134,7 +141,7 @@ export function parseStylesheet(id: string, source: string): ParsedStylesheet {
           continue;
         }
         if (node.name === 'property') {
-          const registration = parsePropertyRegistration(node, conditions, layer);
+          const registration = parsePropertyRegistration(node, conditions, layer, spanOf);
           if (!registration) {
             diagnostics.push(unsupportedDiagnostic(id, 'Unsupported @property registration.'));
           } else {
@@ -163,7 +170,7 @@ export function parseStylesheet(id: string, source: string): ParsedStylesheet {
         continue;
       }
 
-      const paths = parseDescendantClassPaths(node.selector);
+      const paths = parseDescendantClassPaths(node);
       if (!paths) {
         diagnostics.push(unsupportedDiagnostic(id, `Unsupported selector: ${node.selector}`));
         continue;
@@ -177,12 +184,12 @@ export function parseStylesheet(id: string, source: string): ParsedStylesheet {
           valid = false;
           continue;
         }
-        declarations.push(toDeclaration(child));
+        declarations.push(toDeclaration(child, spanOf));
       }
 
       if (valid) {
         for (const path of paths) {
-          rules.push({ ...path, conditions, layer, declarations, sourceOrdinal });
+          rules.push({ ...path, conditions, layer, declarations, sourceOrdinal, source: spanOf(node) });
         }
       }
       sourceOrdinal += 1;
@@ -196,7 +203,8 @@ export function parseStylesheet(id: string, source: string): ParsedStylesheet {
 function parseFontFaceResource(
   node: postcss.AtRule,
   conditions: readonly ParsedCondition[],
-  layer: string
+  layer: string,
+  spanOf: SourceSpanReader
 ): ParsedFontFaceResource | undefined {
   if (conditions.length > 0 || layer !== 'unlayered' || node.params.trim() || !node.nodes) {
     return undefined;
@@ -204,17 +212,18 @@ function parseFontFaceResource(
   const declarations: ParsedDeclaration[] = [];
   for (const child of node.nodes) {
     if (child.type !== 'decl' || child.important) return undefined;
-    declarations.push(toDeclaration(child));
+    declarations.push(toDeclaration(child, spanOf));
   }
   const descriptors = new Set(declarations.map(({ property }) => property));
   if (!descriptors.has('font-family') || !descriptors.has('src')) return undefined;
-  return { kind: 'font-face', declarations };
+  return { kind: 'font-face', declarations, source: spanOf(node) };
 }
 
 function parseKeyframesRegistration(
   node: postcss.AtRule,
   conditions: readonly ParsedCondition[],
-  layer: string
+  layer: string,
+  spanOf: SourceSpanReader
 ): ParsedKeyframesRegistration | undefined {
   const name = node.params.trim();
   if (!/^[-_A-Za-z][-_A-Za-z0-9]*$/.test(name) || !node.nodes) return undefined;
@@ -225,11 +234,11 @@ function parseKeyframesRegistration(
     const declarations: ParsedDeclaration[] = [];
     for (const declaration of child.nodes) {
       if (declaration.type !== 'decl' || declaration.important) return undefined;
-      declarations.push(toDeclaration(declaration));
+      declarations.push(toDeclaration(declaration, spanOf));
     }
-    frames.push({ selector: child.selector.trim(), declarations });
+    frames.push({ selector: child.selector.trim(), declarations, source: spanOf(child) });
   }
-  return { kind: 'keyframes', name, conditions, layer, frames };
+  return { kind: 'keyframes', name, conditions, layer, frames, source: spanOf(node) };
 }
 
 function isKeyframeSelector(selector: string): boolean {
@@ -245,7 +254,8 @@ function isKeyframeSelector(selector: string): boolean {
 function parsePropertyRegistration(
   node: postcss.AtRule,
   conditions: readonly ParsedCondition[],
-  layer: string
+  layer: string,
+  spanOf: SourceSpanReader
 ): ParsedPropertyRegistration | undefined {
   const name = node.params.trim();
   if (
@@ -258,7 +268,7 @@ function parsePropertyRegistration(
   const declarations: ParsedDeclaration[] = [];
   for (const child of node.nodes) {
     if (child.type !== 'decl' || child.important) return undefined;
-    declarations.push(toDeclaration(child));
+    declarations.push(toDeclaration(child, spanOf));
   }
   const descriptorNames = declarations.map(({ property }) => property);
   if (
@@ -266,7 +276,7 @@ function parsePropertyRegistration(
     !descriptorNames.includes('syntax') ||
     !descriptorNames.includes('inherits')
   ) return undefined;
-  return { kind: 'property', name, declarations };
+  return { kind: 'property', name, declarations, source: spanOf(node) };
 }
 
 type ParsedSelectorPath = {
@@ -289,9 +299,9 @@ function isSupportedConditionKind(
 }
 
 function parseDescendantClassPaths(
-  selector: string
+  rule: postcss.Rule
 ): readonly (ParsedSelectorPath & { selector: string })[] | undefined {
-  const root = selectorParser().astSync(selector);
+  const root = selectorParser().astSync(rule);
   const paths: (ParsedSelectorPath & { selector: string })[] = [];
   for (const branch of root.nodes) {
     const path = parseClassPath(branch.nodes);
@@ -497,8 +507,11 @@ function renderParsedAttributeCondition(condition: ParsedAttributeCondition): st
   return `[${condition.attribute}=${JSON.stringify(condition.value)}]`;
 }
 
-function toDeclaration(declaration: Declaration): ParsedDeclaration {
+type SourceSpanReader = (node: postcss.Node) => SourceSpan;
+
+function toDeclaration(declaration: Declaration, spanOf: SourceSpanReader): ParsedDeclaration {
   return {
+    source: spanOf(declaration),
     property: declaration.prop.toLowerCase(),
     value: declaration.value.trim(),
     important: declaration.important === true

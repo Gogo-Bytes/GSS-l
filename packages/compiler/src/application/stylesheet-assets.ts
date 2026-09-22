@@ -1,12 +1,12 @@
 import valueParser from 'postcss-value-parser';
-import { parseStylesheet, type ParsedStylesheet } from '../infrastructure/postcss-stylesheet-parser.js';
+import type { CssParserPort, ParsedStylesheet } from './css-parser-port.js';
 import type { GssDiagnostic, ReplaceStylesheetInput } from '../public-types.js';
 
-export function discoverStylesheetAssets(input: Pick<ReplaceStylesheetInput, 'id' | 'source'>): {
+export function discoverAssets(input: Pick<ReplaceStylesheetInput, 'id' | 'source'>, cssParser: CssParserPort): {
   urls: readonly string[];
   diagnostics: readonly GssDiagnostic[];
 } {
-  const parsed = parseStylesheet(input.id, input.source);
+  const parsed = cssParser.parseStylesheet(input.id, input.source);
   return { urls: collectAssetDependencies(parsed), diagnostics: parsed.diagnostics };
 }
 

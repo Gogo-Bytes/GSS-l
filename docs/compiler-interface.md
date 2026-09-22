@@ -67,6 +67,8 @@ export function createGssCompilerSession(
 
 There is no process-global singleton.
 
+**Shipped API versus this target sketch:** the exported constructor is still `createGssCompilerSession(config)` with exactly one argument. There is no public `GssCompilerPorts`. The internal [`createCompilerSession`](../packages/compiler/src/application/compiler-session.ts) requires an injectable [`CssParserPort`](../packages/compiler/src/application/css-parser-port.ts); [`default composition`](../packages/compiler/src/compiler.ts) supplies PostCSS outside the application use case. Asset discovery retains its existing public signature. This internal seam does not add public configuration, exports or diagnostic fields.
+
 ### Configuration
 
 ```ts
@@ -382,7 +384,7 @@ export type GssCompilerPorts = {
 };
 ```
 
-The `AssetResolverPort` configuration slot above remains an architecture sketch, not an additional constructor argument implemented today. The concrete protocol accepted in [ADR-0050](adr/0050-discover-bind-and-render-asset-references.md) is implemented through discovery, replacement input bindings and finalization options:
+The suite above remains a public architecture sketch, not an exported `GssCompilerPorts` or an additional constructor argument today. Only the internal parser seam is implemented in this stage. It returns domain-owned `Parsed*` shapes with internal original-source provenance; no parser AST/host types cross that seam. See [coordinate units and granularity](architecture.md#internal-source-provenance-bounded-implementation). The `AssetResolverPort` configuration slot likewise remains a sketch. The concrete protocol accepted in [ADR-0050](adr/0050-discover-bind-and-render-asset-references.md) is implemented through discovery, replacement input bindings and finalization options:
 
 ```ts
 export function discoverStylesheetAssets(input: { id: string; source: string }): {
@@ -449,7 +451,7 @@ export type GssDiagnostic = {
 
 Expected user errors return diagnostics. Exceptions are reserved for violated Compiler invariants.
 
-Diagnostics are sorted by source range, code, and path. No result contains timestamps, random ids, or absolute project paths.
+Range/code/path sorting and path-clean diagnostic attribution above are targets, not the shipped contract. Current diagnostics retain caller-supplied `id` (including physical ids), and have no `range`/`path` fields. Expected PostCSS/selector syntax errors now use a generic path-clean message and existing `GSS1001`/`parse`; the id is not silently rewritten. Internal source spans do not alter the public diagnostic or source-map API. CSS/manifest semantic identity remains independent of physical checkout location.
 
 ## Manifest
 
