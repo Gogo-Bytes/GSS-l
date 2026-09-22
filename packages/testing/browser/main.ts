@@ -1,4 +1,5 @@
 import payload from 'virtual:reference-fixtures';
+import { animationMetadata, animationProbeNames, removeKeyframeDefinition } from './animation-metadata.js';
 import type { ScopeNodeSchema } from '@gss-l/compiler';
 import type { CompiledReferenceFixture } from './fixtures.js';
 
@@ -10,7 +11,7 @@ type Reading = {
   subject: 'element' | '::before' | '::after'; property: string; value: string; expected: string;
 };
 
-async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'asset'): Promise<Reading[]> {
+async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'asset' | 'keyframes'): Promise<Reading[]> {
   const frame = document.createElement('iframe');
   frame.title = `${fixture.name}: ${side}${corrupt ? ' negative control' : ''}`;
   frame.width = '640';
@@ -55,6 +56,12 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
     const parent = node.parent ? doc.getElementById(node.parent) : doc.body;
     if (!parent) throw new Error(`Missing fixture parent: ${node.parent}`);
     parent.append(element);
+  }
+  const probeNames = animationProbeNames(doc, fixture);
+  if (corrupt === 'keyframes') {
+    const name = probeNames.get('MotionA.gss/pulse');
+    if (!name) throw new Error('Missing intended keyframe control probe');
+    removeKeyframeDefinition(style, name);
   }
   const readings: Reading[] = [];
   const phases: NonNullable<Fixture['phases']> = [
@@ -110,6 +117,13 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
           .map((attribute) => [attribute.name, attribute.value])) };
     }) });
     for (const node of fixture.nodes) {
+      if (node.animationExpected) {
+        const label = `${node.moduleId}/${node.animationExpected.symbol}`;
+        for (const reading of await animationMetadata(doc.getElementById(node.id)!, node.animationExpected, probeNames.get(label), label)) {
+          readings.push({ phase: phase.name, state, node: node.id, moduleId: node.moduleId,
+            path: node.path, subject: 'element', ...reading });
+        }
+      }
       for (const subject of ['element', '::before', '::after'] as const) {
         const expected = (subject === 'element' ? phase.expected[node.id] : phase.pseudoExpected?.[node.id]?.[subject]) ?? {};
         const baseline = (subject === 'element' ? node.expected : node.pseudoExpected?.[subject]) ?? {};
@@ -234,11 +248,22 @@ async function run() {
     assetDifferences.length === 2 && assetDifferences.every((difference) => difference.node === 'asset-a');
   const assetDetected = assetControlsUnchanged && assetDifferences.some((difference) =>
     difference.property === 'background-image:decoded-dimensions' && difference.reference === '3x2' && difference.atomic === '11x7');
+  const keyframesFixture = fixtures.find((fixture) => fixture.name === 'keyframes-module-isolation-forward')!;
+  const keyframesReference = await readDocument(keyframesFixture, 'reference');
+  const keyframesAtomic = await readDocument(keyframesFixture, 'atomic');
+  const keyframesCorrupted = await readDocument(keyframesFixture, 'atomic', 'keyframes');
+  const keyframesDifferences = compare(keyframesReference, keyframesCorrupted);
+  const keyframesChanges = compare(keyframesAtomic, keyframesCorrupted);
+  const keyframesControlsUnchanged = keyframesChanges.length === 5 && keyframesChanges.every((difference) =>
+    difference.node === 'motion-a' && difference.property.startsWith('animation:'));
+  const keyframesDetected = keyframesControlsUnchanged && keyframesDifferences.length === 5 && keyframesDifferences.some((difference) =>
+    difference.node === 'motion-a' && difference.property === 'animation:count' && difference.reference === '1' && difference.atomic === '0');
   publish({
-    status: results.every((result) => result.comparisons > 0 && !result.differences.length && !result.expectedFailures.length) && detected && pseudoDetected && conditionDetected && layerDetected && assetDetected
+    status: results.every((result) => result.comparisons > 0 && !result.differences.length && !result.expectedFailures.length) && detected && pseudoDetected && conditionDetected && layerDetected && assetDetected && keyframesDetected
       ? 'passed' : 'failed',
     results,
     negativeControl: { detected, differences },
+    keyframesNegativeControl: { detected: keyframesDetected, controlsUnchanged: keyframesControlsUnchanged, definitionRemoved: true, differences: keyframesDifferences },
     assetNegativeControl: { detected: assetDetected, controlsUnchanged: assetControlsUnchanged, differences: assetDifferences },
     conditionNegativeControl: { detected: conditionDetected, differences: conditionDifferences },
     layerNegativeControl: { detected: layerDetected, differences: layerDifferences },

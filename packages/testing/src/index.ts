@@ -1,6 +1,7 @@
 import postcss from 'postcss';
 import selectorParser from 'postcss-selector-parser';
 import { referenceContentValue, referenceImageUrl, renderReferenceUrl } from './asset-value.js';
+import { referenceAnimationValue, referenceDeclarationValue, referenceKeyframes } from './keyframes.js';
 import { toLogicalModuleId } from './module-identity.js';
 import type {
   FinalizeGssOptions, GssCompilerConfig, GssDiagnostic,
@@ -51,12 +52,16 @@ export function compileGssReference(
     const images = new Map<postcss.Declaration, string>();
     const selectors = new Map<postcss.Rule, selectorParser.Root>();
     const rules: postcss.Rule[] = [];
+    const keyframes = new Map<string, postcss.AtRule>();
     const validate = (container: postcss.Root | postcss.AtRule, inLayer = false, inCondition = false): boolean => {
       for (const node of container.nodes ?? []) {
         if (node.type === 'comment') continue;
         if (node.type === 'rule') { rules.push(node); continue; }
         if (node.type !== 'atrule' || !node.nodes) return false;
-        if (node.name === 'layer') {
+        if (node.name === 'keyframes') {
+          if (inLayer || inCondition || keyframes.has(node.params) || !referenceKeyframes(node)) return false;
+          keyframes.set(node.params, node);
+        } else if (node.name === 'layer') {
           if (inLayer || inCondition || !ordering.layers.includes(node.params) || !validate(node, true, false)) return false;
         } else {
           if (inCondition || node.name !== ordering.kind || !ordering.queries.includes(node.params) || !validate(node, inLayer, true)) return false;
@@ -81,7 +86,16 @@ export function compileGssReference(
           return failure(module.id, 'unsupported-reference-syntax',
             'Reference coverage supports only bounded background-image, basic content/color/display/size and physical margin/padding declarations.');
         }
-        if (child.prop === 'background-image') {
+        if (child.prop.startsWith('animation-')) {
+          const value = referenceDeclarationValue(child);
+          if (value === undefined || !referenceAnimationValue(child.prop, value)) {
+            return failure(module.id, 'unsupported-reference-syntax', 'Reference animation longhands require one bounded static value.');
+          }
+          if (child.prop === 'animation-name' && keyframes.has(value)) {
+            child.value = `gss_ref_keyframes_${encode(logicalId)}__${encode(value)}`;
+            delete child.raws.value;
+          }
+        } else if (child.prop === 'background-image') {
           // PostCSS stores leading value comments after the colon in `between`.
           const image = child.raws.between?.includes('/*') ? undefined
             : referenceImageUrl(child.raws.value?.raw ?? child.value);
@@ -111,7 +125,8 @@ export function compileGssReference(
       if (identity !== undefined) bound.push({ id: module.id, declaration, identity });
     }
     const exports: Record<string, ScopeNodeSchema> = Object.create(null);
-    root.walkRules((rule) => {
+    for (const [name, definition] of keyframes) definition.params = `gss_ref_keyframes_${encode(logicalId)}__${encode(name)}`;
+    for (const rule of rules) {
       let targets = exports;
       const selector = selectors.get(rule)!;
       selector.walkClasses((reference) => {
@@ -122,7 +137,7 @@ export function compileGssReference(
         reference.value = className;
       });
       rule.selector = selector.toString();
-    });
+    }
     scopeSchemas[module.id] = { moduleId: module.id, exports };
     prepared.push(root);
   }
@@ -242,6 +257,8 @@ function parseReferenceSelector(source: string): selectorParser.Root | undefined
 // Raw syntax validation excludes namespaces, flags, comments outside strings and other operators.
 const attributeEquality = /^\[[\t\n\r\f ]*(?:data|aria)-[a-z][a-z0-9_-]*[\t\n\r\f ]*=[\t\n\r\f ]*(?:"[^"\\\n\r\f\0]*"|'[^'\\\n\r\f\0]*'|[A-Za-z_][A-Za-z0-9_-]*)[\t\n\r\f ]*\]$/;
 const properties = new Set([
+  'animation-name', 'animation-duration', 'animation-delay', 'animation-iteration-count',
+  'animation-play-state', 'animation-timing-function', 'animation-direction', 'animation-fill-mode',
   'content', 'color', 'background-color', 'background-image', 'display', 'width', 'height',
   'margin', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left',
   'padding', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left'

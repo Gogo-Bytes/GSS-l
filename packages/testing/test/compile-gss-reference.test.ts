@@ -140,7 +140,7 @@ describe('compileGssReference', () => {
     '.card[data-active] { color: red; }', '.card::selection { color: red; }',
     ':global(.card) { color: red; }', '.c\\\\61rd { color: red; }',
     '@media (min-width: 1px) { .card { color: red; } }',
-    '@layer base { .card { color: red; } }', '@keyframes spin { to { width: 1px; } }',
+    '@layer base { .card { color: red; } }', '@keyframes spin { to { transform: rotate(1turn); } }',
     '@font-face { font-family: Test; }', '@import "other.css";',
     '.card { .icon { color: red; } }', '.card { & { color: red; } }',
     '.card { unknown: 1; }', '.card { margin-inline: 1px; }',
