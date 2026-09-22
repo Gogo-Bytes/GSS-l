@@ -10,7 +10,7 @@ type Reading = {
   subject: 'element' | '::before' | '::after'; property: string; value: string; expected: string;
 };
 
-async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer'): Promise<Reading[]> {
+async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'asset'): Promise<Reading[]> {
   const frame = document.createElement('iframe');
   frame.title = `${fixture.name}: ${side}${corrupt ? ' negative control' : ''}`;
   frame.width = '640';
@@ -30,6 +30,7 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
   const style = doc.createElement('style');
   style.textContent = fixture[side].css;
   if (corrupt === 'element') style.textContent += '\n#forward { margin-left: 123px !important; }';
+  if (corrupt === 'asset') style.textContent += '\n#asset-a { background-image: url("/__reference_assets__/wrong.svg") !important; }';
   if (corrupt === 'pseudo') style.textContent += '\n#pseudo-a::before { color: rgb(1, 2, 3) !important; }';
   if (corrupt === 'condition') style.textContent += '\n@media (min-width: 400px) { #target { padding-left: 123px !important; } }';
   if (corrupt === 'layer') {
@@ -117,13 +118,44 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
         }
         const computed = frame.contentWindow!.getComputedStyle(doc.getElementById(node.id)!, subject === 'element' ? null : subject);
         for (const [property, value] of Object.entries(expected)) {
+          const actual = computed.getPropertyValue(property);
+          // URL expectations are authored literals resolved against this owned host, never atomic CSS.
+          const expectedUrl = property === 'background-image' ? /^url\("([^"]+)"\)$/.exec(value)?.[1] : undefined;
           readings.push({ phase: phase.name, state, node: node.id, moduleId: node.moduleId,
-            path: node.path, subject, property, value: computed.getPropertyValue(property), expected: value });
+            path: node.path, subject, property, value: actual,
+            expected: expectedUrl ? `url("${new URL(expectedUrl, window.location.href).href}")` : value });
+          if (expectedUrl && fixture.assetDimensions) {
+            const expectedSize = fixture.assetDimensions[expectedUrl];
+            const actualUrl = /^url\("([^"]+)"\)$/.exec(actual)?.[1];
+            if (!expectedSize || !actualUrl) throw new Error('Missing literal Asset dimensions or computed URL');
+            const size = await decodedImageSize(win, actualUrl);
+            readings.push({ phase: phase.name, state, node: node.id, moduleId: node.moduleId,
+              path: node.path, subject, property: 'background-image:decoded-dimensions', value: size, expected: expectedSize });
+          }
         }
       }
     }
   }
   return readings;
+}
+
+// Decode the bytes selected by each side's computed background URL. This proves
+// load/content dimensions, not background painting or platform-dependent pixels.
+async function decodedImageSize(win: Window & typeof globalThis, url: string): Promise<string> {
+  const parsed = new URL(url);
+  if (parsed.origin !== window.location.origin || !parsed.pathname.startsWith('/__reference_assets__/')) {
+    throw new Error(`Unexpected non-owned Asset URL: ${url}`);
+  }
+  const image = new win.Image();
+  image.src = url;
+  let timer: number | undefined;
+  try {
+    await Promise.race([image.decode(), new Promise<never>((_, reject) => {
+      timer = window.setTimeout(() => reject(new Error(`Asset decode timed out: ${url}`)), 5000);
+    })]);
+    if (!image.naturalWidth || !image.naturalHeight) throw new Error(`Empty decoded Asset: ${url}`);
+    return `${image.naturalWidth}x${image.naturalHeight}`;
+  } finally { window.clearTimeout(timer); }
 }
 
 function compare(reference: readonly Reading[], atomic: readonly Reading[]) {
@@ -193,11 +225,21 @@ async function run() {
       ? difference.reference === 'rgb(0, 0, 255)' && difference.atomic === 'rgb(255, 0, 0)'
       : ['layer-important', 'unlayered-important'].includes(difference.node) &&
         difference.reference === 'rgb(255, 0, 0)' && difference.atomic === 'rgb(0, 0, 255)'));
+  const assetFixture = fixtures.find((fixture) => fixture.name === 'asset-module-isolation-one')!;
+  const assetReference = await readDocument(assetFixture, 'reference');
+  const assetAtomic = await readDocument(assetFixture, 'atomic');
+  const assetCorrupted = await readDocument(assetFixture, 'atomic', 'asset');
+  const assetDifferences = compare(assetReference, assetCorrupted);
+  const assetControlsUnchanged = compare(assetAtomic, assetCorrupted).length === 2 &&
+    assetDifferences.length === 2 && assetDifferences.every((difference) => difference.node === 'asset-a');
+  const assetDetected = assetControlsUnchanged && assetDifferences.some((difference) =>
+    difference.property === 'background-image:decoded-dimensions' && difference.reference === '3x2' && difference.atomic === '11x7');
   publish({
-    status: results.every((result) => result.comparisons > 0 && !result.differences.length && !result.expectedFailures.length) && detected && pseudoDetected && conditionDetected && layerDetected
+    status: results.every((result) => result.comparisons > 0 && !result.differences.length && !result.expectedFailures.length) && detected && pseudoDetected && conditionDetected && layerDetected && assetDetected
       ? 'passed' : 'failed',
     results,
     negativeControl: { detected, differences },
+    assetNegativeControl: { detected: assetDetected, controlsUnchanged: assetControlsUnchanged, differences: assetDifferences },
     conditionNegativeControl: { detected: conditionDetected, differences: conditionDifferences },
     layerNegativeControl: { detected: layerDetected, differences: layerDifferences },
     pseudoNegativeControl: { detected: pseudoDetected, controlsUnchanged, differences: pseudoDifferences }

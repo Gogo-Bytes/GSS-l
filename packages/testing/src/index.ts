@@ -1,5 +1,6 @@
 import postcss from 'postcss';
 import selectorParser from 'postcss-selector-parser';
+import { referenceContentValue, referenceImageUrl, renderReferenceUrl } from './asset-value.js';
 import { toLogicalModuleId } from './module-identity.js';
 import type {
   FinalizeGssOptions, GssCompilerConfig, GssDiagnostic,
@@ -22,13 +23,13 @@ export function compileGssReference(
   input: CompileGssReferenceInput,
   ports: ReferenceCompilerPorts = {}
 ): ReferenceCompileResult {
-  // Reserved public seam: this slice rejects assets before any resolver is called.
-  void ports;
   const ordering = referenceOrdering(input.config);
   if (!ordering) return failure('<config>', 'unsupported-reference-config',
     'Reference ordering requires one bounded condition kind and unique simple named layers.');
   const scopeSchemas: Record<string, ScopeSchema> = Object.create(null);
   const css: { rank: number; css: string }[] = [];
+  const prepared: postcss.Root[] = [];
+  const bound: { id: string; declaration: postcss.Declaration; identity: string }[] = [];
   const modules = new Map<string, ReplaceStylesheetInput>();
   for (const module of input.modules) {
     const logicalId = toLogicalModuleId(input.config.projectRoot, module.id);
@@ -41,15 +42,13 @@ export function compileGssReference(
     modules.set(logicalId, module);
   }
   for (const [logicalId, module] of [...modules].sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)) {
-    if (module.assetReferences?.length) {
-      return failure(module.id, 'unsupported-reference-assets', 'Reference asset bindings are not supported yet.');
-    }
     let root: postcss.Root;
     try {
       root = postcss.parse(module.source);
     } catch {
       return failure(module.id, 'invalid-reference-css', 'Unable to parse reference CSS.', 'parse');
     }
+    const images = new Map<postcss.Declaration, string>();
     const selectors = new Map<postcss.Rule, selectorParser.Root>();
     const rules: postcss.Rule[] = [];
     const validate = (container: postcss.Root | postcss.AtRule, inLayer = false, inCondition = false): boolean => {
@@ -77,10 +76,19 @@ export function compileGssReference(
       const seen = new Set<string>();
       for (const child of node.nodes) {
         if (child.type === 'comment') continue;
-        if (child.type !== 'decl' || !properties.has(child.prop) || /[()\\\\]/.test(child.value) ||
+        if (child.type !== 'decl' || !properties.has(child.prop) ||
           child.raws.before?.includes('_') || child.raws.before?.includes('*')) {
           return failure(module.id, 'unsupported-reference-syntax',
-            'Reference coverage supports only basic content/color/display/size and physical margin/padding declarations without functions or escapes.');
+            'Reference coverage supports only bounded background-image, basic content/color/display/size and physical margin/padding declarations.');
+        }
+        if (child.prop === 'background-image') {
+          // PostCSS stores leading value comments after the colon in `between`.
+          const image = child.raws.between?.includes('/*') ? undefined
+            : referenceImageUrl(child.raws.value?.raw ?? child.value);
+          if (!image) return failure(module.id, 'unsupported-reference-syntax', 'Reference background-image requires none or one bounded URL.');
+          if (image.url !== undefined) images.set(child, image.url);
+        } else if (child.prop === 'content' ? !referenceContentValue(child.value) : /[()\\]/.test(child.value)) {
+          return failure(module.id, 'unsupported-reference-syntax', 'Reference values do not support functions or escapes.');
         }
         const key = `${child.prop}:${child.important ? 'important' : 'normal'}`;
         if (seen.has(key)) {
@@ -89,6 +97,18 @@ export function compileGssReference(
         }
         seen.add(key);
       }
+    }
+    const bindings = new Map<string, string>();
+    const discovered = new Set(images.values());
+    for (const { url, identity } of module.assetReferences ?? []) {
+      if (!url || !identity || !discovered.has(url) || bindings.has(url) && bindings.get(url) !== identity) {
+        return failure(module.id, 'invalid-reference-asset-binding', 'Asset bindings require nonempty fields, discovered URLs and one identity per URL.');
+      }
+      bindings.set(url, identity);
+    }
+    for (const [declaration, url] of images) {
+      const identity = bindings.get(url);
+      if (identity !== undefined) bound.push({ id: module.id, declaration, identity });
     }
     const exports: Record<string, ScopeNodeSchema> = Object.create(null);
     root.walkRules((rule) => {
@@ -104,6 +124,27 @@ export function compileGssReference(
       rule.selector = selector.toString();
     });
     scopeSchemas[module.id] = { moduleId: module.id, exports };
+    prepared.push(root);
+  }
+  // Every source/config/binding is validated before entering the host boundary.
+  // The cache is invocation-local; callback side effects cannot be rolled back.
+  const resolved = new Map<string, string>();
+  for (const { id, declaration, identity } of bound) {
+    try {
+      let value = resolved.get(identity);
+      if (value === undefined) {
+        const url = ports.resolveAssetUrl?.(identity);
+        if (typeof url !== 'string' || !url) throw new Error('Missing output URL');
+        value = renderReferenceUrl(url);
+        resolved.set(identity, value);
+      }
+      declaration.value = value;
+      delete declaration.raws.value;
+    } catch {
+      return failure(id, 'reference-asset-resolution-failed', 'Bound Asset resolution requires a nonempty output URL without a resolver exception.');
+    }
+  }
+  for (const root of prepared) {
     for (const [rank, group] of partitionByCondition(root, ordering.queries)) css.push({ rank, css: group.toString() });
   }
   // Stable sort moves whole authored groups, never declarations or specificity. Native CSS
@@ -201,7 +242,7 @@ function parseReferenceSelector(source: string): selectorParser.Root | undefined
 // Raw syntax validation excludes namespaces, flags, comments outside strings and other operators.
 const attributeEquality = /^\[[\t\n\r\f ]*(?:data|aria)-[a-z][a-z0-9_-]*[\t\n\r\f ]*=[\t\n\r\f ]*(?:"[^"\\\n\r\f\0]*"|'[^'\\\n\r\f\0]*'|[A-Za-z_][A-Za-z0-9_-]*)[\t\n\r\f ]*\]$/;
 const properties = new Set([
-  'content', 'color', 'background-color', 'display', 'width', 'height',
+  'content', 'color', 'background-color', 'background-image', 'display', 'width', 'height',
   'margin', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left',
   'padding', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left'
 ]);

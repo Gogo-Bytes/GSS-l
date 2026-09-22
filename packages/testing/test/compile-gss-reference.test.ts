@@ -145,7 +145,7 @@ describe('compileGssReference', () => {
     '.card { .icon { color: red; } }', '.card { & { color: red; } }',
     '.card { unknown: 1; }', '.card { margin-inline: 1px; }',
     '.card { --tone: red; }', '.card { color: var(--tone); }',
-    '.card { background-image: url(image.png); }', '.card { animation: spin 1s; }',
+    '.card { background-image: linear-gradient(red, blue); }', '.card { animation: spin 1s; }',
     '.card { color: red; color: blue; }', 'color: red;', '.card { color: red'
   ])('fails unsupported or malformed source without partial output: %s', (source) => {
     const result = compileGssReference({ config, modules: [
@@ -291,7 +291,7 @@ describe('compileGssReference', () => {
     '@layer base { @layer base { .card {} } }', '@layer base.base { .card {} }',
     '@layer unknown { .card {} }', '@layer { .card {} }', '@layer base;',
     '@media (min-width: 1px);', '@layer base { @import "x.css"; }',
-    '@layer base { @media (min-width: 1px) { .card { background-image: url(x); } } }',
+    '@layer base { @media (min-width: 1px) { .card { background-image: image-set(url(x) 1x); } } }',
     '@layer base { @media (min-width: 1px) { .card { .child {} } } }'
   ])('fails unsupported wrappers/resources transactionally: %s', (source) => {
     const result = compileGssReference({ config: { ...config, layers: ['base'], conditions: { media: ['(min-width: 1px)'] } }, modules: [
@@ -302,12 +302,12 @@ describe('compileGssReference', () => {
     expect(result).not.toHaveProperty('scopeSchemas');
   });
 
-  it('rejects asset bindings without invoking a host resolver', () => {
+  it('rejects unknown asset bindings without invoking a host resolver', () => {
     const result = compileGssReference({ config, modules: [
       { id: 'Card.gss', source: '.card {}', assetReferences: [{ url: 'a.png', identity: 'a' }] }
     ] }, { resolveAssetUrl() { throw new Error('Reference slice must not request resources'); } });
     expect(result.success).toBe(false);
-    expect(result.diagnostics[0]?.reason).toBe('unsupported-reference-assets');
+    expect(result.diagnostics[0]?.reason).toBe('invalid-reference-asset-binding');
   });
 
   it('isolates Modules and calls, preserving order within each Module but not registration order', () => {
