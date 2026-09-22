@@ -1,6 +1,8 @@
 import type { GssDiagnostic } from '../public-types.js';
+import type { SourceSpan } from './parsed-stylesheet.js';
 
 type DeclarationCandidate = {
+  source: SourceSpan;
   property: string;
   important: boolean;
 };
@@ -27,6 +29,9 @@ export function validateDeclarationSequences(
           phase: 'resolve',
           message: `Duplicate declaration for ${declaration.property} in ${rule.path.map((name) => `.${name}`).join(' ')}.`,
           id,
+          ...(declaration.source.sourceId === id ? {
+            range: { start: declaration.source.start, end: declaration.source.end }
+          } : {}),
           reason: 'duplicate-exact-property',
           suggestion: 'Keep one standard value or express feature fallback with @supports.'
         });

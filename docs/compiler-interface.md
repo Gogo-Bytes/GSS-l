@@ -427,7 +427,11 @@ The ports keep infrastructure replaceable:
 
 ## Diagnostics
 
+The shipped bounded contract is recorded in [ADR-0051](adr/0051-expose-bounded-original-css-diagnostic-ranges.md).
+
 ```ts
+export type GssSourceRange = { start: number; end: number };
+
 export type GssDiagnostic = {
   code: string;
   severity: "info" | "warning" | "error";
@@ -438,12 +442,10 @@ export type GssDiagnostic = {
     | "resolve"
     | "plan"
     | "registry"
-    | "render"
-    | "react-transform";
+    | "render";
   message: string;
   id: string;
-  range?: SourceRange;
-  path?: readonly string[];
+  range?: GssSourceRange;
   reason?: string;
   suggestion?: string;
 };
@@ -451,7 +453,11 @@ export type GssDiagnostic = {
 
 Expected user errors return diagnostics. Exceptions are reserved for violated Compiler invariants.
 
-Range/code/path sorting and path-clean diagnostic attribution above are targets, not the shipped contract. Current diagnostics retain caller-supplied `id` (including physical ids), and have no `range`/`path` fields. Expected PostCSS/selector syntax errors now use a generic path-clean message and existing `GSS1001`/`parse`; the id is not silently rewritten. Internal source spans do not alter the public diagnostic or source-map API. CSS/manifest semantic identity remains independent of physical checkout location.
+`range` uses zero-based UTF-16 offsets into the **original caller CSS**, with an exclusive end; CRLF/astral characters take two units and BOM markers count. It is optional: absent means no reliable attribution, not offset zero. CSS syntax `GSS1001` uses validated parser Input coordinates, never upstream source-map coordinates. Without a supplied end it reports a zero-width point (including a genuinely reported EOF). Authored selector syntax `GSS1001` and unsupported-selector `GSS1101` use the complete enclosing authored rule span, including braces; list branches share it and nested branches point to their original nested rule. Duplicate-declaration `GSS1204` identifies the actual repeated declaration, including a semicolon if authored. These are not exact selector-token or generated-CSS mappings.
+
+Other diagnostic sites (including configuration/bindings, resources/registry and multi-origin resolution), unknown origins and inline-map decode/schema/lazy-lookup failures without Input coordinates omit the field. Asset discovery exposes these parser ranges but does not perform declaration validation. Existing consumers and independent reference diagnostics can still supply diagnostics without ranges.
+
+Diagnostic `id` remains caller-supplied (including physical ids); codes and current emission order are unchanged. Expected PostCSS/selector syntax errors retain a generic path-clean message and existing `GSS1001`/`parse`. There is no public `path` field, range/code/path sorting, CSS source-map emission or IDE/Vite overlay consumption in this slice. Failed replacement still retains generation, ScopeSchema and finalized last-known-good contribution. CSS/manifest semantic identity remains independent of physical checkout location and source positions.
 
 ## Manifest
 

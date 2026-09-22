@@ -74,7 +74,7 @@ describe('PostCSS adapter original-source provenance', () => {
   it('returns no normalized partial result for malformed nested list branches', () => {
     expect(parseStylesheet(id, '.good { color: red; } .outer { & .ok, & .bad) { width: 1px; } }')).toEqual({
       rules: [], resources: [], diagnostics: [{ code: 'GSS1001', phase: 'parse', severity: 'error', id,
-        message: 'Invalid CSS syntax.' }]
+        message: 'Invalid CSS syntax.', range: { start: 31, end: 61 } }]
     });
   });
 });

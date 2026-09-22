@@ -11,7 +11,7 @@ import selectorParser, {
 } from 'postcss-selector-parser';
 import { isSupportedPseudoElement } from '../domain/pseudo-element-capabilities.js';
 import { isSupportedPseudoState } from '../domain/pseudo-state-capabilities.js';
-import type { GssDiagnostic } from '../public-types.js';
+import type { GssDiagnostic, GssSourceRange } from '../public-types.js';
 
 import type {
   ParsedDeclaration, SelectorRelation, ParsedAttributeCondition, ParsedHasCondition,
@@ -27,18 +27,46 @@ export function parseStylesheet(id: string, source: string): ParsedStylesheet {
     // Rule.error gives selector-parser the same typed author-error channel as PostCSS.
     // Invariant failures and unexpected adapter errors must still escape.
     if (!(error instanceof CssSyntaxError)) throw error;
-    return {
-      rules: [],
-      resources: [],
-      diagnostics: [{
-        code: 'GSS1001',
-        severity: 'error',
-        phase: 'parse',
-        message: 'Invalid CSS syntax.',
-        id
-      }]
-    };
+    return syntaxFailure(id, syntaxErrorRange(error, source));
   }
+}
+
+function syntaxFailure(id: string, range?: GssSourceRange): ParsedStylesheet {
+  return {
+    rules: [],
+    resources: [],
+    diagnostics: [{
+      code: 'GSS1001', severity: 'error', phase: 'parse',
+      message: 'Invalid CSS syntax.', id,
+      ...(range ? { range } : {})
+    }]
+  };
+}
+
+function syntaxErrorRange(error: CssSyntaxError, source: string): GssSourceRange | undefined {
+  const bom = /^[\uFEFF\uFFFE]/.test(source) ? 1 : 0;
+  const css = source.slice(bom);
+  // .line/.column/.source may refer to an upstream map. Only Input coordinates
+  // whose text matches the actual caller input can locate this diagnostic.
+  const input = error.input;
+  if (!input || input.source !== css) return undefined;
+  const lines = css.split('\n');
+  const offset = (line: number | undefined, column: number | undefined): number | undefined => {
+    if (line === undefined || column === undefined ||
+      !Number.isInteger(line) || !Number.isInteger(column) || line < 1 || column < 1) return undefined;
+    const text = lines[line - 1];
+    if (text === undefined || column > text.length + 1) return undefined;
+    const position = bom + lines.slice(0, line - 1).reduce((size, part) => size + part.length + 1, 0) + column - 1;
+    // Never turn an upstream half-surrogate coordinate into a fabricated highlight.
+    if (/[\uD800-\uDBFF]/.test(source.charAt(position - 1)) && /[\uDC00-\uDFFF]/.test(source.charAt(position))) return undefined;
+    return position;
+  };
+  const start = offset(input.line, input.column);
+  if (start === undefined) return undefined;
+  // A missing end means a reported point, including at EOF, not a guessed token.
+  const end = input.endLine === undefined && input.endColumn === undefined
+    ? start : offset(input.endLine, input.endColumn);
+  return end !== undefined && end >= start ? { start, end } : undefined;
 }
 
 function validateInlineSourceMap(source: string): boolean {
@@ -102,12 +130,23 @@ function parseAndNormalizeStylesheet(id: string, source: string): ParsedStyleshe
     if (!span) throw new Error('Normalized CSS node has no original source span.');
     return span;
   };
+  let selectorFailure: ParsedStylesheet | undefined;
   authored.walkRules((rule) => {
     // Frame selectors have a separate resource grammar, not a scope selector grammar.
     if (rule.parent?.type === 'atrule' && rule.parent.name === 'keyframes') return;
     // Validate before nesting can discard or rewrite an invalid branch.
-    selectorParser().astSync(rule);
+    try {
+      selectorParser().astSync(rule);
+    } catch (error) {
+      // Inline-map helper errors have no Input origin: do not assign the rule
+      // merely because the lazy map lookup happened inside selector validation.
+      if (!(error instanceof CssSyntaxError) || !syntaxErrorRange(error, source)) throw error;
+      const { start, end } = spanOf(rule);
+      selectorFailure = syntaxFailure(id, { start, end });
+      return false;
+    }
   });
+  if (selectorFailure) return selectorFailure;
   const root = postcss([postcssNesting()]).process(authored, { from: id }).sync().root;
 
   const diagnostics: GssDiagnostic[] = [];
@@ -172,7 +211,11 @@ function parseAndNormalizeStylesheet(id: string, source: string): ParsedStyleshe
 
       const paths = parseDescendantClassPaths(node);
       if (!paths) {
-        diagnostics.push(unsupportedDiagnostic(id, `Unsupported selector: ${node.selector}`));
+        const { start, end } = spanOf(node);
+        diagnostics.push({
+          ...unsupportedDiagnostic(id, `Unsupported selector: ${node.selector}`),
+          range: { start, end }
+        });
         continue;
       }
 

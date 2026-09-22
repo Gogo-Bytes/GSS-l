@@ -51,12 +51,16 @@ describe('lazy inline source-map lookup failures', () => {
   it.each(['?', 'AA', 'A'].flatMap((mappings) => [
     ['unclosed CSS', mappings, `.card { color:blue ${mappedAnnotation(mappings)}`] as const,
     ['malformed selector', mappings, `.card) { color:${mappedAnnotation(mappings)} blue }`] as const
-  ]))('diagnoses %s with mappings %s without changing the last contribution', (_kind, _mappings, source) => {
+  ]))('diagnoses %s with mappings %s without changing the last contribution', (kind, mappings, source) => {
     const compiler = createGssCompilerSession({ projectRoot: '/private/project' });
     expect(compiler.replaceStylesheet({ id, source: '.card{color:red}' }).committed).toBe(true);
     const previous = compiler.finalize();
     const schema = compiler.getScopeSchema(id);
-    const diagnostics = [{ code: 'GSS1001', phase: 'parse', severity: 'error', id, message: 'Invalid CSS syntax.' }];
+    const diagnostics = [{
+      code: 'GSS1001', phase: 'parse', severity: 'error', id, message: 'Invalid CSS syntax.',
+      // A is a valid unmapped segment; ?/AA fail in map lookup, with no reliable origin.
+      ...(mappings === 'A' ? { range: { start: 0, end: kind === 'unclosed CSS' ? 0 : source.length } } : {})
+    }];
     expect(compiler.replaceStylesheet({ id, source })).toEqual({
       id, committed: false, generation: 1, diagnostics
     });

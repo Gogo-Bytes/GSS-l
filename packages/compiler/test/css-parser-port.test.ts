@@ -36,8 +36,8 @@ describe('internal CssParserPort session seam', () => {
   });
 });
 
-it('does not swallow a broken custom parser or mutate the last committed contribution', () => {
-  const failure = new TypeError('broken custom parser');
+it.each([Error, TypeError, SyntaxError, URIError])('does not swallow a broken custom parser (%s) or mutate the last committed contribution', (ErrorType) => {
+  const failure = new ErrorType('broken custom parser');
   let broken = false;
   const cssParser: CssParserPort = { parseStylesheet() {
     if (broken) throw failure;

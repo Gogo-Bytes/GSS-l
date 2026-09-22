@@ -11,6 +11,7 @@ export type {
   GssCompilerConfig,
   GssCompilerSession,
   GssDiagnostic,
+  GssSourceRange,
   ReplaceStylesheetInput,
   ReplaceStylesheetResult,
   ScopeNodeSchema,
