@@ -11,7 +11,7 @@ type Reading = {
   subject: 'element' | '::before' | '::after'; property: string; value: string; expected: string;
 };
 
-async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'asset' | 'keyframes'): Promise<Reading[]> {
+async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'asset' | 'keyframes' | 'relation'): Promise<Reading[]> {
   const frame = document.createElement('iframe');
   frame.title = `${fixture.name}: ${side}${corrupt ? ' negative control' : ''}`;
   frame.width = '640';
@@ -40,6 +40,16 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
     style.textContent = changed;
   }
   doc.head.append(style);
+  if (corrupt === 'relation') {
+    // Move only the general-sibling color rule after adjacent, preserving specificity.
+    const sheet = style.sheet!;
+    const index = [...sheet.cssRules].findIndex((rule) => rule instanceof (frame.contentWindow as Window & typeof globalThis).CSSStyleRule &&
+      (rule as CSSStyleRule).selectorText.includes(' ~ ') && (rule as CSSStyleRule).style.color === 'blue');
+    if (index < 0 || index === sheet.cssRules.length - 1) throw new Error('Relation control must actually change rule order');
+    const text = sheet.cssRules[index]!.cssText;
+    sheet.deleteRule(index);
+    sheet.insertRule(text, sheet.cssRules.length);
+  }
   for (const node of fixture.nodes) {
     let targets = fixture[side].scopeSchemas[node.moduleId]!.exports;
     let scope: ScopeNodeSchema | undefined;
@@ -258,8 +268,20 @@ async function run() {
     difference.node === 'motion-a' && difference.property.startsWith('animation:'));
   const keyframesDetected = keyframesControlsUnchanged && keyframesDifferences.length === 5 && keyframesDifferences.some((difference) =>
     difference.node === 'motion-a' && difference.property === 'animation:count' && difference.reference === '1' && difference.atomic === '0');
+  const relationFixture = fixtures.find((fixture) => fixture.name === 'structural-sibling-base-forward')!;
+  const relationReference = await readDocument(relationFixture, 'reference');
+  const relationAtomic = await readDocument(relationFixture, 'atomic');
+  const relationCorrupted = await readDocument(relationFixture, 'atomic', 'relation');
+  const relationDifferences = compare(relationReference, relationCorrupted);
+  const relationChanges = compare(relationAtomic, relationCorrupted);
+  const relationControlsUnchanged = relationChanges.length === 1 && relationChanges[0]!.node === 'adjacent' &&
+    relationChanges[0]!.property === 'color';
+  const relationDetected = relationControlsUnchanged && compare(relationReference, relationAtomic).length === 0 &&
+    relationDifferences.length === 1 && relationDifferences[0]!.node === 'adjacent' &&
+    relationDifferences[0]!.reference === 'rgb(255, 0, 0)' && relationDifferences[0]!.atomic === 'rgb(0, 0, 255)';
   publish({
-    status: results.every((result) => result.comparisons > 0 && !result.differences.length && !result.expectedFailures.length) && detected && pseudoDetected && conditionDetected && layerDetected && assetDetected && keyframesDetected
+    relationNegativeControl: { detected: relationDetected, controlsUnchanged: relationControlsUnchanged, ruleReordered: true, differences: relationDifferences },
+    status: results.every((result) => result.comparisons > 0 && !result.differences.length && !result.expectedFailures.length) && detected && pseudoDetected && conditionDetected && layerDetected && assetDetected && keyframesDetected && relationDetected
       ? 'passed' : 'failed',
     results,
     negativeControl: { detected, differences },

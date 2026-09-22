@@ -18,6 +18,7 @@ import {
 } from '../domain/readable-name.js';
 import { isRegisteredPropertyEffect } from '../domain/property-effects.js';
 import { planDescendantConditions } from '../domain/plan-descendant-conditions.js';
+import { planStructuralRelations } from '../domain/plan-structural-relations.js';
 import { resolveTargetDeclarations } from '../domain/resolve-target-declarations.js';
 import { compareRuleOrder } from '../domain/rule-order-planner.js';
 import { validateDeclarationSequences } from '../domain/validate-declarations.js';
@@ -378,13 +379,19 @@ function prepareContribution(
     isPureOwnershipRule(rule) || isCurrentStateRule(rule) || isCurrentAttributeRule(rule) ||
     isAncestorStateRule(rule) || isAncestorAttributeRule(rule)
   );
-  const hasDescendantConditions = descendantRules.some((rule) => !isPureOwnershipRule(rule));
+  const hasDescendantConditions = contextualRules.length > 0 || descendantRules.some((rule) => !isPureOwnershipRule(rule));
   const declaredPaths = semanticRules.flatMap(({ path }) => path.map((_, index) => path.slice(0, index + 1)));
   const plannedDescendants = hasDescendantConditions ? planDescendantConditions(descendantRules, declaredPaths) : undefined;
   if (plannedDescendants?.ambiguity) return { diagnostics: [{
       code: 'GSS1205', severity: 'error', phase: 'resolve', id: input.id,
       reason: 'ambiguous-coactive-state-conflict', message: plannedDescendants.ambiguity
     }] };
+
+  const plannedStructural = planStructuralRelations(contextualRules, plannedDescendants?.instances ?? [], hasRules);
+  if (plannedStructural.ambiguity) return { diagnostics: [{
+    code: 'GSS1205', severity: 'error', phase: 'resolve', id: input.id,
+    reason: 'ambiguous-coactive-state-conflict', message: plannedStructural.ambiguity
+  }] };
 
   const plannedPseudos = planPseudoElementConditions(semanticRules);
   if (plannedPseudos.ambiguity) return { diagnostics: [{
@@ -423,7 +430,7 @@ function prepareContribution(
 
   if (plannedDescendants) {
     for (const rule of semanticRules) ensureScopePath(roots, rule.path);
-    for (const instance of plannedDescendants.instances) {
+    for (const instance of plannedStructural.descendants) {
       const { rule, targetPath, sourcePath, sourceIndex, relationRank } = instance;
       const wrappers = rule.conditions;
       const condition = canonicalCondition(wrappers);
@@ -582,7 +589,7 @@ function prepareContribution(
     }
   }
 
-  for (const rule of contextualRules) {
+  for (const { rule, declarations, relationRank } of plannedStructural.instances) {
     const wrappers = rule.conditions;
     const condition = canonicalCondition(wrappers);
     const layer = rule.layer;
@@ -628,7 +635,7 @@ function prepareContribution(
         : ` ${renderRelationCombinator(runtimeRelations[index - 1]!)} .${marker}`
     ).join('');
 
-    for (const declaration of rule.declarations) {
+    for (const declaration of declarations) {
       const identity: ContextualDeclarationIdentity = {
         ...relationIdentity,
         property: declaration.property,
@@ -642,8 +649,7 @@ function prepareContribution(
         selector,
         wrappers,
         layer,
-        // A runtime edge refines ownership; retain its priority above the same source predicate.
-        relationRank: runtimeRelations.length + rule.states[firstRuntimeRelation]!.length + Number(Boolean(sourceAttributeCondition))
+        relationRank
       });
     }
   }
