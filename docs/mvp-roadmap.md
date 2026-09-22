@@ -1,6 +1,32 @@
 # GSS-l MVP roadmap
 
-> The product semantics are frozen for the first implementation pass. Implementation status starts from zero; the existing uncommitted recipe-oriented prototype is exploratory and does not count as completed work.
+> Accepted MVP semantics remain the contract, not a claim of complete implementation. This status reconciliation is based on code and test assertions at `7e9b81a` (`feat/compiler-language-mvp`). The exploratory recipe prototype is a historical baseline, not the current implementation.
+
+## Reading status and counts
+
+The counting unit is an **original roadmap checkbox**, not a test, fixture, scope path, acceptance check or future implementation round. All **108** original checkbox labels are retained. Reconciliation changes **82 checked / 26 open → 87 checked / 21 open**: only pure ownership planning and the four Compiler session lifecycle labels become checked. Open labels comprise **18 partial** and **3 not implemented**. No percentage of MVP readiness follows from these counts.
+
+- **Checked:** evidence satisfies the bounded label. Stage 0 records decisions; Stage 1 includes policy/history; Stage 8 includes historical manual gates. These are not 87 interchangeable implementation features.
+- **Partial:** some of the original label works, but the remaining contract or acceptance coverage is unfinished; keep it unchecked.
+- **Not implemented:** the requested feature has no implementation in the inspected seam (even if adjacent foundations exist); keep it unchecked.
+- **Implemented, acceptance incomplete/unverified:** implementation evidence exists, but a stage-wide gate has not been established. This is a separate acceptance axis, not additional unchecked units. Stage 9 has no original checkbox and is tracked separately.
+
+| Stage | Checked | Open: partial | Open: not implemented | Stage acceptance status |
+| --- | ---: | ---: | ---: | --- |
+| 0 — Decisions | 11 | 0 | 0 | Recorded semantics, not implementation proof |
+| 1 — Baseline | 5 | 0 | 0 | Workspace established; historical process assertions not re-audited |
+| 2 — Domain/parser | 2 | 5 | 0 | Partial; full capability/IR/diagnostic gate open |
+| 3 — Cascade | 7 | 4 | 0 | Partial; full effects/specificity/implication gate open |
+| 4 — Planning | 14 | 2 | 3 | Partial; accepted selector and compatibility work remains |
+| 5 — Session/output | 7 | 2 | 0 | Lifecycle implemented; full output/determinism gate open |
+| 6 — React | 12 | 2 | 0 | Local lowering implemented; cross-file acceptance incomplete |
+| 7 — Vite | 12 | 0 | 0 | Listed implementation delivered; stage-wide acceptance incomplete |
+| 8 — Oracle | 17 | 3 | 0 | Bounded manual gate only; full corpus and browser CI incomplete |
+| **Checkbox totals** | **87** | **18** | **3** | **108 original labels** |
+
+Stage 9 remains an uncompleted **20–50 actual style-Module Pilot plus its six gates**, not another checkbox total. Stage-local evidence below uses original item positions (for example, S4.1 is Stage 4's first checkbox) to keep completed and remaining portions traceable without splitting/inflating units.
+
+**Evidence levels:** inspected code/assertions are linked below; prior `631` workspace tests and the native **49 fixtures / 875 comparisons / six effective controls** are recorded historical baseline evidence in [testing README](../packages/testing/README.md), not a fresh browser run by this reconciliation. Local `verify` runs fast tests/build/lint/typecheck, not the native browser corpus. Historical Vite browser smoke checks in [semantic safety §18](semantic-safety-evaluation.md#18-implementation-status) are separate from both the independent oracle and full host/Pilot acceptance.
 
 ## Stage 0 — Product semantics and architecture
 
@@ -32,6 +58,8 @@ Completion evidence:
 - [x] Copy legacy utilities or tests into this repository only when they express an accepted invariant, adapting them to the new interfaces.
 - [x] Establish install, typecheck, lint, test, and build commands for the new workspace.
 
+Status evidence: [workspace commands](../package.json), [Compiler layers](../packages/compiler/src/), [React Adapter](../packages/react/src/index.ts) and [Vite Adapter](../packages/vite/src/index.ts) establish the present boundary. Source inspection finds no active recipe DSL. The read-only legacy rule and selective-copy rule are policies; this reconciliation does not independently reconstruct prototype deletion/copy provenance or sibling history. Historical passing verification is not a newly performed install.
+
 Completion criteria:
 
 - no file in the sibling legacy project is modified;
@@ -50,6 +78,18 @@ Use test-first vertical slices.
 - [ ] Build `ScopeTree` and positive capability validation.
 - [ ] Parse attributes, pseudo states, functional pseudo conditions, pseudo-elements, combinators, residual selectors, and explicit globals in the accepted set.
 - [ ] Return stable diagnostics for unsupported or unsafe input.
+
+### Reconciled evidence and remaining acceptance
+
+| Original item | Status and existing evidence | Remaining gate for that same item |
+| --- | --- | --- |
+| S2.1 — Value objects/domain model | **Partial.** [Parsed IR](../packages/compiler/src/infrastructure/postcss-stylesheet-parser.ts#L14), [logical Module identity](../packages/compiler/src/application/module-identity.ts), [naming identities](../packages/compiler/src/domain/readable-name.ts) and [public schema/diagnostics](../packages/compiler/src/public-types.ts) exist; [Module identity tests](../packages/compiler/test/module-identity.test.ts) cover relocation. | Establish framework-independent domain/port IR invariants for all named concepts, source ranges and byte-stable normalized-IR fixtures. Parsed IR is currently infrastructure-owned, with paths/layers/specificity distributed as arrays/strings/numbers; classes or branding alone are not the gate. |
+| S2.2 — CSS parsing behind port | **Partial.** PostCSS/nesting [parser](../packages/compiler/src/infrastructure/postcss-stylesheet-parser.ts#L87) is called directly by the session; [session tests](../packages/compiler/test/compiler-session.test.ts#L1697) cover nesting and lists. | Implement/test the accepted `CssParserPort` boundary and parser error contract; the parser function is not an injected port. |
+| S2.5 — ScopeTree/positive validation | **Partial.** [Scope construction](../packages/compiler/src/application/compiler-session.ts#L1032) and pre-commit capability checks work; [nested-scope tests](../packages/compiler/test/compiler-session.test.ts#L1771) and [ambiguity rollback tests](../packages/compiler/test/descendant-conditions.test.ts#L198) cover bounded behavior. | Positive/negative whole-Module fixtures for every accepted capability, including remaining residual/global/interleaved combinations; no partial contribution after any invalid branch. |
+| S2.6 — Full accepted selector parsing | **Partial.** [Selector parser](../packages/compiler/src/infrastructure/postcss-stylesheet-parser.ts#L304) and [session assertions](../packages/compiler/test/compiler-session.test.ts#L1168) cover local paths, equality attributes, states, simple functional branches, pseudos and simple observations. | General residual and explicit-global syntax, interleaving and accepted mixed compositions. Functional arguments currently have one pseudo/attribute per branch; observed branches have one node, optionally one local state. Implement normalization and safety validation together, not acceptance by emission alone. |
+| S2.7 — Stable diagnostics | **Partial.** [Diagnostic type](../packages/compiler/src/public-types.ts#L1) and [malformed/duplicate rollback tests](../packages/compiler/test/compiler-session.test.ts#L96) establish bounded codes. | Source ranges/path attribution, deterministic range/code/path sorting and path-clean messages, matrix-wide diagnostics/rollback tests. Physical ids/upstream parser messages still escape the target path-clean contract. Verify malformed selector-AST exceptions cannot escape: the parser catch covers PostCSS, not the later `astSync` call. |
+
+The checked list/nesting labels remain bounded normalization work, not proof of every accepted nesting/composition form. Include a mixed valid/invalid selector-list fixture in the whole-Module fail-closed gate.
 
 Completion criteria:
 
@@ -71,6 +111,17 @@ Completion criteria:
 - [ ] Implement full relation implication and remaining incomparable-condition diagnostics.
 - [x] Accumulate descendant-class selectors whose paths provably match a declared target and resolve their exact-property winners.
 
+### Reconciled evidence and remaining acceptance
+
+| Original item | Status and existing evidence | Remaining gate for that same item |
+| --- | --- | --- |
+| S3.4 — Full property-effect classification | **Partial.** [Versioned classifier](../packages/compiler/src/domain/property-effects.ts#L164), [effect tests](../packages/compiler/test/property-effects.test.ts) and [strict/preserved session tests](../packages/compiler/test/compiler-session.test.ts#L416) prove unknowns cannot enter session atomic output. | Audit the full positive dataset and shorthand overlap/reset effects with table coverage. Family presence/sample winners are not completeness proof. Lower-level `effectsOfProperty()` still has a singleton fallback; do not confuse it with `classifyPropertyEffect()`'s explicit unknown result. |
+| S3.6 — Importance/layers | **Partial.** [Closed-target resolver](../packages/compiler/src/domain/resolve-target-declarations.ts), [descendant priority tests](../packages/compiler/test/descendant-conditions.test.ts#L183), [layer output tests](../packages/compiler/test/compiler-session.test.ts#L628) and [native layer fixtures](../packages/testing/browser/condition-layer-fixtures.ts) support the implemented normal/important/unlayered slice. | Nested canonical-layer acceptance and cross-context candidates composed with the complete specificity/condition/relation model. Preserve native important-layer reversal; do not rebuild the already present layer emitter. |
+| S3.7 — Specificity including where | **Partial.** [Descendant planner](../packages/compiler/src/domain/plan-descendant-conditions.ts) and [where test](../packages/compiler/test/compiler-session.test.ts#L1281) preserve bounded ownership/predicate specificity. | General accepted-selector specificity, including residual/global and functional/observed list maxima, and cross-layer/condition candidate acceptance. Ownership-only groups currently emit single-class atoms; emission snapshots alone do not prove cross-context priority. |
+| S3.10 — Full implication/ambiguity | **Partial.** [Predicate planner](../packages/compiler/src/domain/plan-descendant-conditions.ts#L45) and [ambiguity tests](../packages/compiler/test/descendant-conditions.test.ts#L198) handle bounded same-source predicates. | Structural implication/coactivity, conflicting adjacent/general sibling pairs, mixed/observed predicates, intersections/exclusions and transactional fail-closed tests. [Current relation rank](../packages/compiler/src/application/compiler-session.ts#L640) counts edges/state/attribute presence; equal-length `+` and `~` chains have equal rank, not ADR-0013 implication proof. Names must never resolve an unsafe conflict. |
+
+Existing checks for versioned families, closed-target winners, logical/physical conflicts, registered query ranks and bounded state/descendant handling stand at their tested scope. They do not close the full cascade acceptance criteria.
+
 Completion criteria:
 
 - no winner depends on value, emitted name, registry insertion, or worker completion order;
@@ -79,7 +130,7 @@ Completion criteria:
 
 ## Stage 4 — Rule and resource planning
 
-- [ ] Plan ownership declarations as pure atoms.
+- [x] Plan ownership declarations as pure atoms.
 - [x] Plan direct-child chains and adjacent/general sibling relations as contextual atoms with path-specific markers.
 - [x] Lower a leading ownership prefix before a child/sibling runtime-relation suffix.
 - [x] Plan the positive current/ancestor pseudo-state set and compose source state with runtime-relation suffixes.
@@ -99,6 +150,19 @@ Completion criteria:
 - [x] Replan unregistered property-effect failures as one whole preserved Module while retaining ScopeSchema, resources, authored order, conditions/layers, and transactional replacement.
 - [ ] Extend whole-Module preserved fallback to indivisible compatibility declaration sequences.
 
+### Reconciled evidence and remaining acceptance
+
+| Original item | Status and existing evidence | Remaining gate for that same item |
+| --- | --- | --- |
+| S4.1 — Pure ownership atoms | **Completed; newly checked.** [Ownership planning](../packages/compiler/src/application/compiler-session.ts#L470) creates pure identities/tokens; [session tests](../packages/compiler/test/compiler-session.test.ts#L20) assert pure output and sharing, with [accumulation/nested targets](../packages/compiler/test/compiler-session.test.ts#L1727). | None for this bounded label; full cascade and source tracing remain separate gates. |
+| S4.9 — Interleaved chains/global branches | **Not implemented.** [Session validation](../packages/compiler/src/application/compiler-session.ts#L355) rejects ownership after runtime edges; [functional/observed parser](../packages/compiler/src/infrastructure/postcss-stylesheet-parser.ts#L383) has no global branch. [Prefix test](../packages/compiler/test/compiler-session.test.ts#L1554) proves only a leading ownership prefix. | Implement accepted interleaved marker/scoping and explicit-global functional/observed branches with positive and ambiguity/rollback fixtures. |
+| S4.10 — Residual/global planning | **Partial.** Bounded residual observation exists in [has parser](../packages/compiler/src/infrastructure/postcss-stylesheet-parser.ts#L426) and [session tests](../packages/compiler/test/compiler-session.test.ts#L872). | General residual tag/attribute and explicit-global contextual placement/scoping with positive and negative tests; do not treat the bounded observed residual as the entire item. |
+| S4.16 — Full condition/cascade order | **Partial.** [Rule order planner](../packages/compiler/src/domain/rule-order-planner.ts) and [registered-query tests](../packages/compiler/test/compiler-session.test.ts#L605) implement per-kind query ranks and wrapper-position comparisons. | Full canonical context/explicit compound registration and warnings, cross-kind/nested ordering and implication-safe conflict checks per [semantic safety §9](semantic-safety-evaluation.md#9-at-rule-conditions) and ADR-0027. Current [config](../packages/compiler/src/public-types.ts#L96) cannot express that full contract. |
+| S4.17 — Compatibility sequences | **Not implemented.** [Parsed declarations](../packages/compiler/src/infrastructure/postcss-stylesheet-parser.ts#L14) are single physical declarations; no Compiler transformer/browserslist port/config exists. [Duplicate rejection](../packages/compiler/test/compiler-session.test.ts#L115) is authored-input validation, not lowering. | Accepted transformer/target port, one semantic declaration to indivisible physical sequence, target-dependent transformation and order tests. |
+| S4.19 — Compatibility preserved fallback | **Not implemented.** [Fallback reason](../packages/compiler/src/public-types.ts#L21) supports property effects only; [fallback tests](../packages/compiler/test/compiler-session.test.ts#L394) cover that implemented case. | Compatibility-specific recoverable proof/reason, whole tentative atomic-plan discard, transformed sequence/resource/order preservation, strict-mode and transactional replacement tests. Depends on S4.17. |
+
+Checked relation/state/attribute/pseudo/functional/observed labels describe their bounded accepted forms, not arbitrary composition or full implication. Preserve the resource implementation: [resource planning](../packages/compiler/src/application/compiler-session.ts#L774), [font/keyframes/property tests](../packages/compiler/test/compiler-session.test.ts#L189) and [asset cleanup tests](../packages/compiler/test/stylesheet-assets.test.ts#L111). Remaining acceptance probes include native custom-property inheritance, shared-owner removal/replacement per resource, keyword-like animation shorthand names, and multiple condition/layer keyframe definitions. The current shorthand rewrite scans words and resources sort by identity; neither establishes full resource cascade semantics. Likewise, separate `:has()` branch emission does not prove maximum selector-list specificity. These are static coverage/risk findings, not newly reproduced failures.
+
 Completion criteria:
 
 - every planned rule traces to source and semantic identity;
@@ -107,15 +171,28 @@ Completion criteria:
 
 ## Stage 5 — Compiler session and deterministic output
 
-- [ ] Implement `createGssCompilerSession()`.
-- [ ] Implement transactional `replaceStylesheet(id, source)`.
-- [ ] Implement `invalidate(id)` and reference-count cleanup.
-- [ ] Implement full-census `finalize()`.
+- [x] Implement `createGssCompilerSession()`.
+- [x] Implement transactional `replaceStylesheet(id, source)`.
+- [x] Implement `invalidate(id)` and reference-count cleanup.
+- [x] Implement full-census `finalize()`.
 - [x] Implement `RuleOrderPlanner` separately from `CascadeResolver`.
 - [ ] Implement reversible readable names behind `NameAllocatorPort`.
 - [x] Emit nested static scope objects and branded object-based consumer types through `@gss-l/types`.
 - [x] Provide a global wildcard `.gss` declaration without per-Module declaration files.
 - [ ] Emit central CSS, source map, manifest, and report, including Module compilation mode, fallback reasons, and atomic coverage.
+
+### Reconciled evidence and remaining acceptance
+
+| Original item | Status and existing evidence | Remaining gate for that same item |
+| --- | --- | --- |
+| S5.1 — Session factory | **Completed; newly checked.** [Factory](../packages/compiler/src/application/compiler-session.ts#L100) owns the contribution map/generation; [public-session test](../packages/compiler/test/compiler-session.test.ts#L20) exercises it. | None for the factory label. Constructor port injection remains S2/S5 architecture work. |
+| S5.2 — Transactional replacement | **Completed; newly checked.** [Prepare-before-commit](../packages/compiler/src/application/compiler-session.ts#L105) and [LKG test](../packages/compiler/test/compiler-session.test.ts#L71), plus resource/ambiguity rollback tests, prove replacement. Actual API is `replaceStylesheet({ id, source, assetReferences? })`. | None for the preparation/commit mechanism; comprehensive diagnostic exception containment remains S2.7. |
+| S5.3 — Invalidation/reference cleanup | **Completed; newly checked.** [Invalidation](../packages/compiler/src/application/compiler-session.ts#L144) removes contributions; [finalization](../packages/compiler/src/application/compiler-session.ts#L1070) reconstructs live references rather than mutating counters. [Asset tests](../packages/compiler/test/stylesheet-assets.test.ts#L124) assert last-owner cleanup for atomic/preserved/resource inputs. | None for the mechanism; shared-owner decrement/replacement coverage across every resource remains the stage-wide stale-output gate. |
+| S5.4 — Full-census finalization | **Completed; newly checked.** [Finalizer](../packages/compiler/src/application/compiler-session.ts#L1056) enumerates every committed contribution; [multi-Module test](../packages/compiler/test/compiler-session.test.ts#L140) and [history/relocation test](../packages/compiler/test/descendant-conditions.test.ts#L249) verify bounded convergence. | None for the Compiler's committed census. Reachability is the Stage 7 host's responsibility; broad randomized determinism remains below. |
+| S5.6 — Reversible allocator port | **Partial.** [Readable helpers](../packages/compiler/src/domain/readable-name.ts) and [naming/relocation tests](../packages/compiler/test/module-identity.test.ts) exist, but session code calls helpers directly. | Accepted `NameAllocatorPort` wiring/strategy contract and canonical identity round-trip/collision proof, including the encoder's NFC normalization boundary. Readability is not reversibility proof. |
+| S5.9 — CSS/map/manifest/report | **Partial.** [Snapshot type](../packages/compiler/src/public-types.ts#L61), [finalizer](../packages/compiler/src/application/compiler-session.ts#L1117) and [mode/coverage assertions](../packages/compiler/test/compiler-session.test.ts#L506) prove CSS and current manifest/report; atomic coverage is a Module ratio. | Compiler CSS source maps and source-declaration/range-to-rule tracing; remaining [manifest/report target fields](compiler-interface.md#manifest) (condition/layer/order, dependencies/diagnostics, declaration/size/class costs). React source maps and Vite version-1 envelopes do not supply these fields. |
+
+The separate order planner and branded nested exports/wildcard declarations are implemented, but do not prove all planner inputs safe. Determinism below concerns semantic/artifact output for equivalent live inputs; the session generation counter intentionally records mutation history, not byte-equivalent history. Include randomized registration/replacement/deletion/resource sequences and path hygiene in acceptance rather than inferring them from a single reverse-order test.
 
 Completion criteria:
 
@@ -141,6 +218,17 @@ Completion criteria:
 - [ ] Extend scope-escape diagnostics to all proven typed cross-file contexts.
 - [x] Preserve non-GSS expressions and produce high-resolution source maps for direct and nested reference lowering.
 
+### Reconciled evidence and remaining acceptance
+
+[React lowering](../packages/react/src/index.ts) and [transform tests](../packages/react/test/transform-react-gss-usage.test.ts) establish the checked local syntax slices. The parent/child test transforms two files separately; the child explicitly imports its own GSS type. It is not an inter-file provenance resolver or rendered React acceptance.
+
+| Original item | Status and existing evidence | Remaining gate for that same item |
+| --- | --- | --- |
+| S6.11 — Multi-hop/shared/cross-file props | **Partial.** [Typed-prop collector](../packages/react/src/index.ts#L420) recognizes current-file literal aliases; [typed-prop tests](../packages/react/test/transform-react-gss-usage.test.ts#L153) cover inline/local/direct props. No project type/import graph is supplied to the transform. | Constrained shared/imported alias provenance and multi-hop forwarding with representative positive/negative TypeScript fixture projects and actual React className use. Repeating independently explicit local types is not full cross-file support. |
+| S6.13 — All proven typed escapes | **Partial.** [Escape tests](../packages/react/test/transform-react-gss-usage.test.ts#L251) cover direct/local coercion. | Cover all proven typed cross-file escape contexts and explicit `.self` recommendations; prove non-GSS expressions remain unchanged. Depends on S6.11. |
+
+The completion criteria remain open across the full accepted typed-provenance scope. Unrecognized imported/shared typed references can remain untouched; do not claim every unsupported escape is currently diagnosed. The [branded wildcard consumer fixture](../packages/vite/test/consumer/index.ts) proves object/string/readonly typing, not a rendered TSX fixture project with React className typing.
+
 Completion criteria:
 
 - transformed code contains no scope object where React receives a class string;
@@ -162,6 +250,17 @@ Completion criteria:
 - [x] Implement the Compiler discovery/binding/rendering protocol for stable Asset references, transactional validation and late URL resolution.
 - [x] Handle production CSS/font URLs through the Vite Adapter: asynchronous preparation, canonical identities, final-census resource emission, relative/public/CDN URL handling and asset watch rebuilds.
 - [x] Handle dev CSS/font resource URLs, asset HMR and last-known-good recovery through the Adapter, including identical-byte restoration, source-generation ordering and unchanged file-access policy.
+
+### Implementation evidence versus acceptance
+
+All twelve listed implementation labels remain checked. [Vite hooks](../packages/vite/src/index.ts), [plugin tests](../packages/vite/test/vite-plugin.test.ts), [production CSS tests](../packages/vite/test/production-css.test.ts), [dev CSS tests](../packages/vite/test/dev-css.test.ts), [production assets](../packages/vite/test/production-assets.test.ts) and [dev assets](../packages/vite/test/dev-assets.test.ts) cover the host pipeline. In particular, real watch-build tests update cached preserved CSS, remove contributions and revalidate cached JSX schemas: incremental implementation is not missing.
+
+Stage acceptance is **implemented in substantial slices but incomplete/unverified as a whole**:
+
+- Static virtual JS establishes the no-GSS-runtime slice. Full-census lazy/MPA build behavior has integration tests and historical preview smoke evidence.
+- [Semantic safety §18](semantic-safety-evaluation.md#18-implementation-status) records prior native HMR/error recovery, lazy loading and resource smoke checks. Keep those bounded results; they are not a reproducible full lifecycle/React/Pilot gate, nor freshly rerun here.
+- SSR/client hydration name **and CSS-asset linkage** acceptance is unverified; deterministic naming alone does not establish it. No SSR render/hydration fixture was found. Apply the criterion below within [ADR-0044](adr/0044-scope-vite-adapter-to-vite-managed-html.md)'s Vite-managed SPA/MPA/Vite-based SSG HTML scope; arbitrary SSR responses and non-Vite framework integration are not newly required. A supported-host SSR/SSG/client-linkage fixture must establish the applicable server/client and hydration claims, not assume generic SSR support.
+- Broader clean-versus-incremental artifact/resource convergence and native change/delete/recreate/error/asset recovery, one-current-stylesheet behavior and lazy cascade stability remain acceptance work for the representative host/Pilot corpus.
 
 Completion criteria:
 
@@ -195,6 +294,16 @@ Completion criteria:
 
 The bounded reference slices and forty-nine-fixture native browser acceptance are not the complete oracle or Pilot gate. The targeted production descendant-condition repair is implemented; contextual source/observed subject emission now preserves the same ownership-prefix specificity without changing marker placement/matching, at-rule semantics or resources. `packages/testing/README.md` documents its exact input limits, reproducible startup and machine-readable browser result. `resolveAssetUrl` now renders only bounded background-image bindings; other resources and condition/layer configurations outside the exact ADR-0030/testing README slice fail explicitly. Missing resolver, empty output or callback exceptions return reference diagnostics only; prior callback side effects are not rolled back. Cross-kind/compound/nested reference ordering, the full React corpus, browser CI and Pilot remain incomplete; no new production capability was deferred.
 
+### Remaining original oracle deliverables
+
+| Original item | Status and existing evidence | Remaining gate for that same item |
+| --- | --- | --- |
+| S8.17 — Representative React reference corpus | **Partial.** [Independent API](../packages/testing/src/index.ts) and [browser harness](../packages/testing/browser/main.ts) exist; the [README](../packages/testing/README.md) explicitly uses framework-independent DOM, not React lowering/rendering. | Authored Modules plus real adapter-transformed React consumers, equivalent independent reference mappings, real states/composition, and the exact reference syntax/config needed by that representative corpus. Keep handwritten contextual goldens identified separately. |
+| S8.18 — Full feature-family corpus | **Partial.** Prior manual gate covers bounded ownership/state/attribute/before-after, eleven child/has goldens, flat registered conditions/simple outer layers, one-URL background images with decoded dimensions, and root keyframes with paused association/effect/frame metadata. [Fixture/harness source](../packages/testing/browser/) and [reference tests](../packages/testing/test/) corroborate those slices. | Representative positive selector/state/attribute/relation/pseudo combinations, custom-property inheritance/registration, fonts/resources, broader keyframe/resource combinations and mixed/compound/nested condition/layer cases. The existing metadata/dimension probes are not animation progression, painted pixels or full resource semantics. Reference exclusions do not defer production scope. |
+| S8.20 — Full diagnostics/source ranges | **Partial.** [Comparison records](../packages/testing/browser/main.ts#L175) already report Module/path/node/subject/property, phase/state and both values. | Original-source ranges and attribution throughout the representative corpus; deliberate mismatches must identify the correct source/subject/state, not merely report unequal values. |
+
+**CI gate: not implemented/evidenced in this repository.** [Root verify](../package.json) runs local lint/build/fast tests/typecheck. [browser:reference](../packages/testing/package.json) starts a Vite server; it is not a browser runner. No checked-in CI workflow was found. Add separate fast and actual browser jobs with reproducible setup, retained results/artifacts and failure on compile/frame/runtime/timeout/empty results, unexplained differences, literal failures and ineffective corruption controls. External CI configuration was not audited. This is an existing stage acceptance criterion, not a new checkbox unit.
+
 Completion criteria:
 
 - the representative corpus has zero unexplained computed-style differences;
@@ -202,6 +311,8 @@ Completion criteria:
 - fast snapshots and browser tests run as separate CI jobs.
 
 ## Stage 9 — Real-project pilot
+
+**Pilot not implemented/evidenced as a deliverable.** No checked-in real-project migration inventory, Pilot report, size measurements or developer-feedback record was found. Compiler/Vite tests and synthetic oracle fixtures are foundations, not migrated Modules. Select a real baseline and record the actual Module inventory across all eight areas below; count Modules, not tests or scopes. Publish attributable browser/diagnostic results, reproducible clean/repeated/incremental artifact and resource comparisons (including lazy routes), native stale-output/recovery evidence, before/after raw/gzip/Brotli sizes, and actual authoring/React feedback. SSR HTML measurements apply to the accepted supported-host boundary in Stage 7; do not invent savings or generic SSR integration.
 
 Migrate 20–50 representative style Modules containing:
 
@@ -222,6 +333,17 @@ Pilot gates:
 - no stale CSS after Module change/removal;
 - measured CSS, JavaScript, and SSR HTML raw/gzip/Brotli sizes;
 - documented developer feedback for authored and React usage.
+
+## Prioritized remaining execution gates
+
+These are dependency groups over the original labels and stage criteria, **not new progress units or a fixed number of rounds**. Keep all accepted MVP scope; no new deferrals are introduced.
+
+1. **Domain/parser and diagnostic boundary (S2).** Establish the accepted ports/IR and source attribution, then matrix-backed positive/negative normalization/rollback fixtures, including adversarial selector errors. Gate: stable framework-free normalized IR and deterministic path-clean diagnostics with no partial contribution. Source tracing is a dependency of CSS maps and oracle ranges.
+2. **Selector/cascade safety and planning (S2–S4).** Finish full effect classification, specificity, structural implication and canonical compound condition precedence jointly with residual/global/interleaved lowering. Gate: every accepted composition has positive and conflict/rollback evidence; names never select an unsafe winner; nested layers, functional/has list specificity, native inheritance and resource-cascade probes match independent expectations. Preserve already working native layer, resource and bounded predicate behavior.
+3. **Compatibility and complete Compiler output (S4–S5).** Implement browserslist transformer/indivisible sequences, then whole-Module compatibility fallback; wire allocator and complete source maps/manifest/report targets. Gate: target/sequence/strict/fallback tests, identity round-trip/collision proof, source-to-rule mapping assertions, and randomized live-set convergence/resource cleanup. Depends on the domain/source boundary and semantic proof above.
+4. **React provenance and supported-host acceptance (S6–S7).** Complete constrained cross-file props/escapes with typed React fixtures; exercise real hydration/linkage where applicable to Vite-managed HTML, lazy census and native lifecycle/resource recovery. Gate: supported class strings and diagnostics, unchanged external composition, shared CSS linkage and clean/incremental convergence. Existing server/watch/smoke evidence is retained, not rebuilt from zero.
+5. **Representative independent oracle and browser CI (S8).** Expand independent syntax/mappings alongside the completed production slices and React corpus, add source ranges, and run separate fast/browser CI. Gate: zero unexplained differences, both-side literal expectations where needed, effective deliberate corruptions, complete attributable results and reproducible actual browser execution. The prior 49/875/six-control gate stays as bounded regression evidence, not full acceptance.
+6. **Real-project migration (S9).** After the relevant semantic/adapter/oracle gates, migrate 20–50 real Modules covering the original inventory and publish all six Pilot outcomes. Gate: zero unexplained differences/ignored errors, deterministic clean/incremental outputs, no stale CSS, measured raw/gzip/Brotli CSS/JS/supported SSR HTML and developer feedback.
 
 ## After the MVP
 

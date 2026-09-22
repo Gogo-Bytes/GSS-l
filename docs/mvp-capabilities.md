@@ -1,6 +1,15 @@
 # GSS-l MVP capability matrix
 
-本文件只列出第一版已经确认支持的正向能力。未列入的语法按 fail-closed 处理；已明确讨论并延后的能力见 [deferred-capabilities.md](deferred-capabilities.md)。
+本文件列出第一版已接受的正向能力契约，**不是所有能力已实现或已通过完整验收的清单**。未列入的语法按 fail-closed 处理；已明确讨论并延后的能力见 [deferred-capabilities.md](deferred-capabilities.md)。实现与验收状态以 [MVP roadmap](mvp-roadmap.md#reading-status-and-counts) 为准；以下状态核对基于 `7e9b81a`，不改变 accepted ADR 或新增延期项。
+
+## Implementation status versus accepted scope
+
+- **Implemented bounded slices:** local ownership/pure atoms, supported contextual selectors, property-effect fallback, resources, transactional session/finalization, local React lowering, and Vite production/dev delivery. The roadmap links code/tests and distinguishes each slice from its full acceptance gate.
+- **Partial compiler semantics:** full effect classification, specificity/relation implication, complete canonical condition-context precedence, residual/global selectors and matrix-wide fail-closed diagnostics remain open. Existing simple query/layer handling and bounded `:has()` residuals do not establish the full contracts listed below.
+- **Not implemented:** interleaved ownership/runtime chains with explicit-global functional/observed branches; browserslist compatibility transformation/indivisible sequences; compatibility-specific whole-Module fallback. Property-effect fallback is implemented separately.
+- **Partial architecture/output:** parsing and readable naming helpers exist, but `CssParserPort`/`NameAllocatorPort` wiring and complete reversibility proof remain open. Compiler CSS source maps, normalized source-range IR and richer target manifest/report fields are absent; current version-1 output is not that full target.
+- **Partial React/host acceptance:** constrained shared-type/cross-file provenance and typed escapes remain open. Vite server/watch tests and previously recorded browser smoke checks exist; full representative lifecycle, SSR/SSG/client linkage and hydration acceptance remain incomplete. SSR statements below apply within [ADR-0044](adr/0044-scope-vite-adapter-to-vite-managed-html.md)'s supported host boundary, not arbitrary SSR responses.
+- **Verification:** prior 631 workspace tests and manual native 49 fixtures / 875 comparisons / six controls are historical bounded evidence, not a new run or full React/resource oracle. Browser CI and the real-project Pilot remain incomplete. No checked-in browser CI workflow exists at this baseline.
 
 ## Consumer environment
 
