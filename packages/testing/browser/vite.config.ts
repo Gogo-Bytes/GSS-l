@@ -4,6 +4,7 @@ import { compileGssReference } from '../src/index.js';
 import { fixtures, type CompiledReferenceFixture, type ReferenceFixture } from './fixtures.js';
 import { contextualBoundaryFixtures } from './contextual-boundary-fixtures.js';
 import { structuralRelationFixtures, structuralObservedFixtures } from './structural-relation-fixtures.js';
+import { fontResetFixtures } from './font-reset-fixtures.js';
 
 // Host-only compilation. The browser receives CSS/mappings, never either compiler.
 export default defineConfig({
@@ -57,7 +58,8 @@ export default defineConfig({
       const compiled = [
         ...fixtures.map((fixture) => compile(fixture)),
         ...contextualBoundaryFixtures.map((fixture) => compile(fixture, fixture.reference)),
-        ...[...structuralRelationFixtures, ...structuralObservedFixtures].map((fixture) => compile(fixture, fixture.reference))
+        ...[...structuralRelationFixtures, ...structuralObservedFixtures].map((fixture) => compile(fixture, fixture.reference)),
+        ...fontResetFixtures.map((fixture) => compile(fixture, fixture.reference))
       ];
       const first = compiled.find((fixture) => fixture.name === 'asset-module-isolation-one')!;
       const second = compiled.find((fixture) => fixture.name === 'asset-module-isolation-two')!;

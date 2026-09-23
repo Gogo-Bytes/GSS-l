@@ -573,6 +573,49 @@ describe('GssCompilerSession', () => {
     expect(compiler.finalize().css).not.toContain('border-top-color: red;');
   });
 
+  it('lets font shorthand reset the represented font-variant family', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/type.gss',
+      source: '.text { font-variant: small-caps; font: 16px serif; }'
+    });
+
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    const css = compiler.finalize().css;
+    expect(css).toContain('font: 16px serif;');
+    expect(css).not.toContain('font-variant: small-caps;');
+  });
+
+  it('keeps a later font-variant override after font shorthand', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/type.gss',
+      source: '.text { font: 16px serif; font-variant: small-caps; }'
+    });
+
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    const css = compiler.finalize().css;
+    expect(css).toContain('font: 16px serif;');
+    expect(css).toContain('font-variant: small-caps;');
+    expect(css.indexOf('font: 16px serif;')).toBeLessThan(css.indexOf('font-variant: small-caps;'));
+  });
+
+  it('retains an important font-variant over a normal font shorthand', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/type.gss',
+      source: '.text { font-variant: small-caps !important; font: 16px serif; }'
+    });
+
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    const css = compiler.finalize().css;
+    expect(css).toContain('font: 16px serif;');
+    expect(css).toContain('font-variant: small-caps !important;');
+  });
+
   it('removes a longhand fully shadowed by a later shorthand', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 

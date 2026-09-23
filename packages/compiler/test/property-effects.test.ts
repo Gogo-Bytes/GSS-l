@@ -32,6 +32,17 @@ describe('PropertyEffectRegistry', () => {
     expect(effectsOfProperty(property)).toContain(effect);
   });
 
+  it('includes every represented font-variant reset effect in font shorthand', () => {
+    expect(effectsOfProperty('font')).toEqual(expect.arrayContaining([
+      'font-variant-caps',
+      'font-variant-ligatures',
+      'font-variant-numeric',
+      'font-variant-east-asian',
+      'font-variant-alternates',
+      'font-variant-position'
+    ]));
+  });
+
   it('orders a containing shorthand before its longhand override', () => {
     expect(comparePropertyRenderOrder('border', 'border-top-color')).toBeLessThan(0);
     expect(comparePropertyRenderOrder('border-top-color', 'border')).toBeGreaterThan(0);

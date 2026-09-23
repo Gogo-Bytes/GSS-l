@@ -111,6 +111,11 @@ const families: readonly PropertyFamily[] = [
   ['font', [
     'font-style',
     'font-variant-caps',
+    'font-variant-ligatures',
+    'font-variant-numeric',
+    'font-variant-east-asian',
+    'font-variant-alternates',
+    'font-variant-position',
     'font-weight',
     'font-stretch',
     'font-size',

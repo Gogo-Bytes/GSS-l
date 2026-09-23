@@ -11,7 +11,7 @@ type Reading = {
   subject: 'element' | '::before' | '::after'; property: string; value: string; expected: string;
 };
 
-async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'asset' | 'keyframes' | 'relation'): Promise<Reading[]> {
+async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'asset' | 'keyframes' | 'relation' | 'font-reset'): Promise<Reading[]> {
   const frame = document.createElement('iframe');
   frame.title = `${fixture.name}: ${side}${corrupt ? ' negative control' : ''}`;
   frame.width = '640';
@@ -31,6 +31,7 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
   const style = doc.createElement('style');
   style.textContent = fixture[side].css;
   if (corrupt === 'element') style.textContent += '\n#forward { margin-left: 123px !important; }';
+  if (corrupt === 'font-reset') style.textContent += '\n#font-reset { font-variant: small-caps !important; }';
   if (corrupt === 'asset') style.textContent += '\n#asset-a { background-image: url("/__reference_assets__/wrong.svg") !important; }';
   if (corrupt === 'pseudo') style.textContent += '\n#pseudo-a::before { color: rgb(1, 2, 3) !important; }';
   if (corrupt === 'condition') style.textContent += '\n@media (min-width: 400px) { #target { padding-left: 123px !important; } }';
@@ -268,6 +269,15 @@ async function run() {
     difference.node === 'motion-a' && difference.property.startsWith('animation:'));
   const keyframesDetected = keyframesControlsUnchanged && keyframesDifferences.length === 5 && keyframesDifferences.some((difference) =>
     difference.node === 'motion-a' && difference.property === 'animation:count' && difference.reference === '1' && difference.atomic === '0');
+  const fontResetFixture = fixtures.find((fixture) => fixture.name === 'font-shorthand-resets-font-variant')!;
+  const fontResetReference = await readDocument(fontResetFixture, 'reference');
+  const fontResetAtomic = await readDocument(fontResetFixture, 'atomic');
+  const fontResetCorrupted = await readDocument(fontResetFixture, 'atomic', 'font-reset');
+  const fontResetDifferences = compare(fontResetReference, fontResetCorrupted);
+  const fontResetChanges = compare(fontResetAtomic, fontResetCorrupted);
+  const fontResetNegativeControl = fontResetChanges.length === 1 && fontResetChanges[0]!.node === 'font-reset' &&
+    fontResetChanges[0]!.property === 'font-variant-caps' && fontResetChanges[0]!.reference === 'normal' &&
+    fontResetChanges[0]!.atomic === 'small-caps' && fontResetDifferences.length === 1;
   const relationFixture = fixtures.find((fixture) => fixture.name === 'structural-sibling-base-forward')!;
   const relationReference = await readDocument(relationFixture, 'reference');
   const relationAtomic = await readDocument(relationFixture, 'atomic');
@@ -281,10 +291,11 @@ async function run() {
     relationDifferences[0]!.reference === 'rgb(255, 0, 0)' && relationDifferences[0]!.atomic === 'rgb(0, 0, 255)';
   publish({
     relationNegativeControl: { detected: relationDetected, controlsUnchanged: relationControlsUnchanged, ruleReordered: true, differences: relationDifferences },
-    status: results.every((result) => result.comparisons > 0 && !result.differences.length && !result.expectedFailures.length) && detected && pseudoDetected && conditionDetected && layerDetected && assetDetected && keyframesDetected && relationDetected
+    status: results.every((result) => result.comparisons > 0 && !result.differences.length && !result.expectedFailures.length) && detected && pseudoDetected && conditionDetected && layerDetected && assetDetected && keyframesDetected && relationDetected && fontResetNegativeControl
       ? 'passed' : 'failed',
     results,
     negativeControl: { detected, differences },
+    fontResetNegativeControl: { detected: fontResetNegativeControl, differences: fontResetDifferences },
     keyframesNegativeControl: { detected: keyframesDetected, controlsUnchanged: keyframesControlsUnchanged, definitionRemoved: true, differences: keyframesDifferences },
     assetNegativeControl: { detected: assetDetected, controlsUnchanged: assetControlsUnchanged, differences: assetDifferences },
     conditionNegativeControl: { detected: conditionDetected, differences: conditionDifferences },
