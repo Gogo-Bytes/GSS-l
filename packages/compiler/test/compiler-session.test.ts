@@ -1735,21 +1735,74 @@ describe('GssCompilerSession', () => {
     expect(results[0]?.css).toBe(results[1]?.css);
   });
 
-  it('fails closed when the ownership suffix contains more than one descendant edge after a runtime relation', () => {
-    const compiler = createGssCompilerSession({ projectRoot: '/project' });
-
-    const replacement = compiler.replaceStylesheet({
-      id: '/project/src/field.gss',
-      source: '.input + .label .badge .icon { color: red; }'
+  it('retains multiple ownership-descendant edges after one adjacent runtime relation', () => {
+    const sources = [
+      '.input + .label .icon .badge { color: red; } .input + .label .icon .badge { background-color: blue; }',
+      '.input + .label .icon .badge { background-color: blue; } .input + .label .icon .badge { color: red; }'
+    ];
+    const results = sources.map((source) => {
+      const compiler = createGssCompilerSession({ projectRoot: '/project' });
+      const replacement = compiler.replaceStylesheet({
+        id: '/project/src/field.gss',
+        source
+      });
+      return { replacement, css: compiler.finalize().css };
     });
 
-    expect(replacement.module).toBeUndefined();
-    expect(replacement.diagnostics).toMatchObject([{
-      code: 'GSS1101',
-      phase: 'validate',
-      reason: 'capability-not-registered'
-    }]);
-    expect(compiler.finalize().css).toBe('');
+    const sourceMarker = 'gss-s--module_src_2f_field_2e_gss--path_input';
+    const labelMarker =
+      'gss-c--module_src_2f_field_2e_gss--relation_adjacent_2f_descendant_2f_descendant--position_1--path_input_2f_label--target_input_2f_label_2f_icon_2f_badge';
+    const iconMarker =
+      'gss-c--module_src_2f_field_2e_gss--relation_adjacent_2f_descendant_2f_descendant--position_2--path_input_2f_label_2f_icon--target_input_2f_label_2f_icon_2f_badge';
+    const badgeMarker =
+      'gss-t--module_src_2f_field_2e_gss--relation_adjacent_2f_descendant_2f_descendant--source_input--target_input_2f_label_2f_icon_2f_badge';
+    const selector = `.${sourceMarker} + .${labelMarker} .${iconMarker} .${badgeMarker}`;
+    const expectedSchema = {
+      input: {
+        selfClassName: sourceMarker,
+        targets: {
+          label: {
+            selfClassName: labelMarker,
+            targets: {
+              icon: {
+                selfClassName: iconMarker,
+                targets: { badge: { selfClassName: badgeMarker, targets: {} } }
+              }
+            }
+          }
+        }
+      }
+    };
+
+    const expectedCss = `${selector} {\n  background-color: blue;\n}\n\n${selector} {\n  color: red;\n}`;
+    for (const { replacement, css } of results) {
+      expect(replacement.diagnostics).toEqual([]);
+      expect(replacement.module?.scopeSchema.exports).toEqual(expectedSchema);
+      expect(css).toBe(expectedCss);
+    }
+    expect(results[0]?.css).toBe(results[1]?.css);
+  });
+
+  it('fails closed when another runtime relation follows or splits the ownership suffix', () => {
+    const sources = [
+      '.input + .label .icon + .badge { color: red; }',
+      '.input + .label .icon > .badge { color: red; }'
+    ];
+    for (const source of sources) {
+      const compiler = createGssCompilerSession({ projectRoot: '/project' });
+      const replacement = compiler.replaceStylesheet({
+        id: '/project/src/field.gss',
+        source
+      });
+
+      expect(replacement.module).toBeUndefined();
+      expect(replacement.diagnostics).toMatchObject([{
+        code: 'GSS1101',
+        phase: 'validate',
+        reason: 'capability-not-registered'
+      }]);
+      expect(compiler.finalize().css).toBe('');
+    }
   });
 
   it('emits a general-sibling contextual atom', () => {

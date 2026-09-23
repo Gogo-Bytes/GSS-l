@@ -11,7 +11,7 @@ type Reading = {
   subject: 'element' | '::before' | '::after'; property: string; value: string; expected: string;
 };
 
-async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'nested-layer' | 'asset' | 'keyframes' | 'relation' | 'interleaved' | 'font-reset' | 'has-specificity' | 'has-specificity-dedup'): Promise<Reading[]> {
+async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'nested-layer' | 'asset' | 'keyframes' | 'relation' | 'interleaved' | 'interleaved-depth' | 'font-reset' | 'has-specificity' | 'has-specificity-dedup'): Promise<Reading[]> {
   const frame = document.createElement('iframe');
   frame.title = `${fixture.name}: ${side}${corrupt ? ' negative control' : ''}`;
   frame.width = '640';
@@ -107,6 +107,21 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
     const selector = rule.selectorText;
     const weakened = selector.replace(' + ', ' ');
     if (weakened === selector) throw new Error('Interleaved control did not remove the adjacent edge');
+    const declarations = rule.style.cssText;
+    sheet.deleteRule(index);
+    sheet.insertRule(`${weakened} { ${declarations} }`, index);
+  }
+  if (corrupt === 'interleaved-depth') {
+    // Collapse only the final ownership-descendant edge in the deeper chain.
+    const sheet = style.sheet!;
+    const index = [...sheet.cssRules].findIndex((rule) => rule instanceof (frame.contentWindow as Window & typeof globalThis).CSSStyleRule &&
+      (rule as CSSStyleRule).selectorText.includes('--position_2--') && (rule as CSSStyleRule).style.color === 'red');
+    const rule = sheet.cssRules[index] as CSSStyleRule | undefined;
+    if (index < 0 || !rule) throw new Error('Deep ownership control requires the red position-2 rule');
+    const selector = rule.selectorText;
+    const separator = selector.lastIndexOf(' .');
+    if (separator < 0) throw new Error('Deep ownership control requires a trailing descendant edge');
+    const weakened = selector.slice(0, separator) + selector.slice(separator + 1);
     const declarations = rule.style.cssText;
     sheet.deleteRule(index);
     sheet.insertRule(`${weakened} { ${declarations} }`, index);
@@ -407,14 +422,27 @@ async function run() {
     interleavedDifferences.length === 1 && interleavedDifferences[0]!.node === 'icon' &&
     interleavedDifferences[0]!.property === 'color' && interleavedDifferences[0]!.reference === 'rgb(255, 0, 0)' &&
     interleavedDifferences[0]!.atomic === 'rgb(0, 0, 0)';
+  const interleavedDepthFixture = fixtures.find((fixture) => fixture.name === 'interleaved-owned-descendant-deep-forward')!;
+  const interleavedDepthReference = await readDocument(interleavedDepthFixture, 'reference');
+  const interleavedDepthAtomic = await readDocument(interleavedDepthFixture, 'atomic');
+  const interleavedDepthCorrupted = await readDocument(interleavedDepthFixture, 'atomic', 'interleaved-depth');
+  const interleavedDepthDifferences = compare(interleavedDepthReference, interleavedDepthCorrupted);
+  const interleavedDepthChanges = compare(interleavedDepthAtomic, interleavedDepthCorrupted);
+  const interleavedDepthDetected = compare(interleavedDepthReference, interleavedDepthAtomic).length === 0 &&
+    interleavedDepthChanges.length === 1 && interleavedDepthChanges[0]!.node === 'badge' &&
+    interleavedDepthChanges[0]!.property === 'color' && interleavedDepthDifferences.length === 1 &&
+    interleavedDepthDifferences[0]!.node === 'badge' && interleavedDepthDifferences[0]!.property === 'color' &&
+    interleavedDepthDifferences[0]!.reference === 'rgb(255, 0, 0)' &&
+    interleavedDepthDifferences[0]!.atomic === 'rgb(0, 0, 0)';
   publish({
     relationNegativeControl: { detected: relationDetected, controlsUnchanged: relationControlsUnchanged, ruleReordered: true, differences: relationDifferences },
     interleavedChainNegativeControl: { detected: interleavedDetected, controlsUnchanged: interleavedChanges.length === 1, adjacentEdgeRemoved: true, differences: interleavedDifferences },
+    interleavedDepthNegativeControl: { detected: interleavedDepthDetected, controlsUnchanged: interleavedDepthChanges.length === 1, finalDescendantEdgeCollapsed: true, differences: interleavedDepthDifferences },
     hasSpecificityNegativeControl: { detected: hasSpecificityDetected, controlsUnchanged: hasSpecificityControlsUnchanged, qualifierRemoved: true, differences: hasSpecificityDifferences },
     hasSpecificityDedup: { fixtures: hasSpecificityDedupResults, negativeControl: { detected: hasSpecificityDedupControl, qualifierRemoved: true, differences: hasSpecificityDedupDifferences } },
     status: results.every((result) => result.comparisons > 0 && !result.differences.length && !result.expectedFailures.length) &&
       hasSpecificityDedupResults.every((result) => result.differences.length === 0) && hasSpecificityDedupControl &&
-      detected && pseudoDetected && conditionDetected && layerDetected && nestedLayerDetected && assetDetected && keyframesDetected && relationDetected && interleavedDetected && hasSpecificityDetected && fontResetNegativeControl
+      detected && pseudoDetected && conditionDetected && layerDetected && nestedLayerDetected && assetDetected && keyframesDetected && relationDetected && interleavedDetected && interleavedDepthDetected && hasSpecificityDetected && fontResetNegativeControl
       ? 'passed' : 'failed',
     results,
     negativeControl: { detected, differences },
