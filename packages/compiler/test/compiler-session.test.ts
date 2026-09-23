@@ -1694,6 +1694,64 @@ describe('GssCompilerSession', () => {
     );
   });
 
+  it('retains one descendant ownership suffix after an adjacent runtime relation', () => {
+    const sources = [
+      '.input + .label .icon { color: red; } .input + .label .icon { background-color: blue; }',
+      '.input + .label .icon { background-color: blue; } .input + .label .icon { color: red; }'
+    ];
+    const results = sources.map((source) => {
+      const compiler = createGssCompilerSession({ projectRoot: '/project' });
+      const replacement = compiler.replaceStylesheet({
+        id: '/project/src/field.gss',
+        source
+      });
+      return { replacement, css: compiler.finalize().css };
+    });
+
+    const sourceMarker = 'gss-s--module_src_2f_field_2e_gss--path_input';
+    const contextMarker =
+      'gss-c--module_src_2f_field_2e_gss--relation_adjacent_2f_descendant--position_1--path_input_2f_label--target_input_2f_label_2f_icon';
+    const targetMarker =
+      'gss-t--module_src_2f_field_2e_gss--relation_adjacent_2f_descendant--source_input--target_input_2f_label_2f_icon';
+    const selector = `.${sourceMarker} + .${contextMarker} .${targetMarker}`;
+    const expectedSchema = {
+      input: {
+        selfClassName: sourceMarker,
+        targets: {
+          label: {
+            selfClassName: contextMarker,
+            targets: { icon: { selfClassName: targetMarker, targets: {} } }
+          }
+        }
+      }
+    };
+
+    const expectedCss = `${selector} {\n  background-color: blue;\n}\n\n${selector} {\n  color: red;\n}`;
+    for (const { replacement, css } of results) {
+      expect(replacement.diagnostics).toEqual([]);
+      expect(replacement.module?.scopeSchema.exports).toEqual(expectedSchema);
+      expect(css).toBe(expectedCss);
+    }
+    expect(results[0]?.css).toBe(results[1]?.css);
+  });
+
+  it('fails closed when the ownership suffix contains more than one descendant edge after a runtime relation', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/field.gss',
+      source: '.input + .label .badge .icon { color: red; }'
+    });
+
+    expect(replacement.module).toBeUndefined();
+    expect(replacement.diagnostics).toMatchObject([{
+      code: 'GSS1101',
+      phase: 'validate',
+      reason: 'capability-not-registered'
+    }]);
+    expect(compiler.finalize().css).toBe('');
+  });
+
   it('emits a general-sibling contextual atom', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 

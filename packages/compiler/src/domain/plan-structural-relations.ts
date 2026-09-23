@@ -129,12 +129,15 @@ export function planStructuralRelations(
     const sourceIndex = rule.relations.findIndex((relation) => relation !== 'descendant');
     const sourcePath = rule.path.slice(0, sourceIndex + 1);
     const predicate = predicates(rule, sourceIndex);
+    // The session admits only one explicit trailing descendant ownership edge;
+    // it remains in the emitted selector but is not a runtime implication edge.
+    const runtimeEdges = rule.relations.slice(sourceIndex).filter((relation) => relation !== 'descendant');
     return {
       instance: { rule, targetPath: rule.path, sourcePath, sourceIndex,
         specificity: rule.path.length + rule.states[sourceIndex]!.filter((state) => !state.startsWith('where(')).length + rule.attributes[sourceIndex]!.length,
         relationRank: 0, declarations: rule.declarations },
       constraint: { targetPath: rule.path, sourcePath, predicates: predicate,
-        runtime: { sourcePath, edges: rule.relations.slice(sourceIndex) } }
+        runtime: { sourcePath, edges: runtimeEdges } }
     };
   });
   const inherited: Candidate[] = descendants.map((instance) => ({ instance: { ...instance }, constraint: {

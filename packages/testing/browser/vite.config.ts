@@ -7,6 +7,7 @@ import { structuralRelationFixtures, structuralObservedFixtures } from './struct
 import { fontResetFixtures } from './font-reset-fixtures.js';
 import { hasSpecificityDedupFixtures, hasSpecificityFixtures } from './has-specificity-fixtures.js';
 import { nestedLayerFixtures } from './nested-layer-fixtures.js';
+import { interleavedChainFixtures } from './interleaved-chain-fixtures.js';
 
 // Host-only compilation. The browser receives CSS/mappings, never either compiler.
 export default defineConfig({
@@ -64,7 +65,8 @@ export default defineConfig({
         ...fontResetFixtures.map((fixture) => compile(fixture, fixture.reference)),
         ...hasSpecificityFixtures.map((fixture) => compile(fixture, fixture.reference)),
         ...hasSpecificityDedupFixtures.map((fixture) => compile(fixture, fixture.reference)),
-        ...nestedLayerFixtures.map((fixture) => compile(fixture, fixture.reference))
+        ...nestedLayerFixtures.map((fixture) => compile(fixture, fixture.reference)),
+        ...interleavedChainFixtures.map((fixture) => compile(fixture, fixture.reference))
       ];
       const first = compiled.find((fixture) => fixture.name === 'asset-module-isolation-one')!;
       const second = compiled.find((fixture) => fixture.name === 'asset-module-isolation-two')!;

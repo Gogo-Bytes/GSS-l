@@ -11,7 +11,7 @@ type Reading = {
   subject: 'element' | '::before' | '::after'; property: string; value: string; expected: string;
 };
 
-async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'nested-layer' | 'asset' | 'keyframes' | 'relation' | 'font-reset' | 'has-specificity' | 'has-specificity-dedup'): Promise<Reading[]> {
+async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'nested-layer' | 'asset' | 'keyframes' | 'relation' | 'interleaved' | 'font-reset' | 'has-specificity' | 'has-specificity-dedup'): Promise<Reading[]> {
   const frame = document.createElement('iframe');
   frame.title = `${fixture.name}: ${side}${corrupt ? ' negative control' : ''}`;
   frame.width = '640';
@@ -96,6 +96,20 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
     const text = sheet.cssRules[index]!.cssText;
     sheet.deleteRule(index);
     sheet.insertRule(text, sheet.cssRules.length);
+  }
+  if (corrupt === 'interleaved') {
+    // Remove only the runtime adjacent edge from the bounded interleaved selector.
+    const sheet = style.sheet!;
+    const index = [...sheet.cssRules].findIndex((rule) => rule instanceof (frame.contentWindow as Window & typeof globalThis).CSSStyleRule &&
+      (rule as CSSStyleRule).selectorText.includes(' + ') && (rule as CSSStyleRule).style.color === 'red');
+    const rule = sheet.cssRules[index] as CSSStyleRule | undefined;
+    if (index < 0 || !rule) throw new Error('Interleaved control requires the adjacent red rule');
+    const selector = rule.selectorText;
+    const weakened = selector.replace(' + ', ' ');
+    if (weakened === selector) throw new Error('Interleaved control did not remove the adjacent edge');
+    const declarations = rule.style.cssText;
+    sheet.deleteRule(index);
+    sheet.insertRule(`${weakened} { ${declarations} }`, index);
   }
   for (const node of fixture.nodes) {
     let targets = fixture[side].scopeSchemas[node.moduleId]!.exports;
@@ -382,13 +396,25 @@ async function run() {
   const relationDetected = relationControlsUnchanged && compare(relationReference, relationAtomic).length === 0 &&
     relationDifferences.length === 1 && relationDifferences[0]!.node === 'adjacent' &&
     relationDifferences[0]!.reference === 'rgb(255, 0, 0)' && relationDifferences[0]!.atomic === 'rgb(0, 0, 255)';
+  const interleavedFixture = fixtures.find((fixture) => fixture.name === 'interleaved-owned-descendant-forward')!;
+  const interleavedReference = await readDocument(interleavedFixture, 'reference');
+  const interleavedAtomic = await readDocument(interleavedFixture, 'atomic');
+  const interleavedCorrupted = await readDocument(interleavedFixture, 'atomic', 'interleaved');
+  const interleavedDifferences = compare(interleavedReference, interleavedCorrupted);
+  const interleavedChanges = compare(interleavedAtomic, interleavedCorrupted);
+  const interleavedDetected = compare(interleavedReference, interleavedAtomic).length === 0 &&
+    interleavedChanges.length === 1 && interleavedChanges[0]!.node === 'icon' && interleavedChanges[0]!.property === 'color' &&
+    interleavedDifferences.length === 1 && interleavedDifferences[0]!.node === 'icon' &&
+    interleavedDifferences[0]!.property === 'color' && interleavedDifferences[0]!.reference === 'rgb(255, 0, 0)' &&
+    interleavedDifferences[0]!.atomic === 'rgb(0, 0, 0)';
   publish({
     relationNegativeControl: { detected: relationDetected, controlsUnchanged: relationControlsUnchanged, ruleReordered: true, differences: relationDifferences },
+    interleavedChainNegativeControl: { detected: interleavedDetected, controlsUnchanged: interleavedChanges.length === 1, adjacentEdgeRemoved: true, differences: interleavedDifferences },
     hasSpecificityNegativeControl: { detected: hasSpecificityDetected, controlsUnchanged: hasSpecificityControlsUnchanged, qualifierRemoved: true, differences: hasSpecificityDifferences },
     hasSpecificityDedup: { fixtures: hasSpecificityDedupResults, negativeControl: { detected: hasSpecificityDedupControl, qualifierRemoved: true, differences: hasSpecificityDedupDifferences } },
     status: results.every((result) => result.comparisons > 0 && !result.differences.length && !result.expectedFailures.length) &&
       hasSpecificityDedupResults.every((result) => result.differences.length === 0) && hasSpecificityDedupControl &&
-      detected && pseudoDetected && conditionDetected && layerDetected && nestedLayerDetected && assetDetected && keyframesDetected && relationDetected && hasSpecificityDetected && fontResetNegativeControl
+      detected && pseudoDetected && conditionDetected && layerDetected && nestedLayerDetected && assetDetected && keyframesDetected && relationDetected && interleavedDetected && hasSpecificityDetected && fontResetNegativeControl
       ? 'passed' : 'failed',
     results,
     negativeControl: { detected, differences },

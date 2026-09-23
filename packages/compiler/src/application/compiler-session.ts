@@ -359,9 +359,13 @@ function prepareContribution(
   const contextualRules = semanticRules.filter(({ relations }) =>
     relations.some((relation) => relation !== 'descendant')
   );
-  const unsupportedRelation = contextualRules.find(({ relations }) => {
+  const unsupportedRelation = contextualRules.find(({ path, relations }) => {
     const firstRuntimeRelation = relations.findIndex((relation) => relation !== 'descendant');
-    return relations.slice(firstRuntimeRelation).some((relation) => relation === 'descendant');
+    const hasOwnershipSuffix = relations.slice(firstRuntimeRelation).includes('descendant');
+    return hasOwnershipSuffix && !(
+      firstRuntimeRelation === 0 && path.length === 3 && relations.length === 2 &&
+      relations[0] === 'adjacent' && relations[1] === 'descendant'
+    );
   });
   if (unsupportedRelation) {
     return {
@@ -641,14 +645,16 @@ function prepareContribution(
       ensureScopePath(roots, path).classNames.add(marker);
       return marker;
     });
-    const selector = markers.map((marker, index) =>
-      index === 0
+    const selector = markers.map((marker, index) => {
+      if (index === 0) {
         // The source marker represents the whole ownership prefix, not one authored class.
-        ? `${`.${marker}`.repeat(sourcePath.length)}${sourceState ? `:${sourceState}` : ''}${
+        return `${`.${marker}`.repeat(sourcePath.length)}${sourceState ? `:${sourceState}` : ''}${
           sourceAttributeCondition ? renderAttributeCondition(sourceAttributeCondition) : ''
-        }`
-        : ` ${renderRelationCombinator(runtimeRelations[index - 1]!)} .${marker}`
-    ).join('');
+        }`;
+      }
+      const combinator = renderRelationCombinator(runtimeRelations[index - 1]!);
+      return `${combinator ? ` ${combinator} ` : ' '}.${marker}`;
+    }).join('');
 
     for (const declaration of declarations) {
       const identity: ContextualDeclarationIdentity = {
