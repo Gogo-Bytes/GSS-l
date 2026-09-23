@@ -689,6 +689,76 @@ describe('GssCompilerSession', () => {
     );
   });
 
+  it('retains canonical nested layer names and configured order across modules', () => {
+    const compiler = createGssCompilerSession({
+      projectRoot: '/project',
+      layers: ['framework.utilities', 'framework.base']
+    });
+
+    const utility = compiler.replaceStylesheet({
+      id: '/project/src/utilities.gss',
+      source: '@layer framework { @layer utilities { .probe { color: blue; } } }'
+    });
+    const base = compiler.replaceStylesheet({
+      id: '/project/src/base.gss',
+      source: '@layer framework { @layer base { .probe { color: red; } } }'
+    });
+
+    expect(utility.diagnostics).toEqual([]);
+    expect(base.diagnostics).toEqual([]);
+    expect(utility.module?.scopeSchema.exports.probe?.selfClassName).toContain(
+      '--layer_framework_2e_utilities--'
+    );
+    expect(base.module?.scopeSchema.exports.probe?.selfClassName).toContain(
+      '--layer_framework_2e_base--'
+    );
+    const css = compiler.finalize().css;
+    expect(css).toBe(
+      '@layer framework.utilities, framework.base;\n\n' +
+      '@layer framework.utilities {\n' +
+      `  .${utility.module?.scopeSchema.exports.probe?.selfClassName} {\n` +
+      '    color: blue;\n' +
+      '  }\n' +
+      '}\n\n' +
+      '@layer framework.base {\n' +
+      `  .${base.module?.scopeSchema.exports.probe?.selfClassName} {\n` +
+      '    color: red;\n' +
+      '  }\n' +
+      '}'
+    );
+
+    const reversed = createGssCompilerSession({
+      projectRoot: '/project',
+      layers: ['framework.utilities', 'framework.base']
+    });
+    reversed.replaceStylesheet({
+      id: '/project/src/base.gss',
+      source: '@layer framework { @layer base { .probe { color: red; } } }'
+    });
+    reversed.replaceStylesheet({
+      id: '/project/src/utilities.gss',
+      source: '@layer framework { @layer utilities { .probe { color: blue; } } }'
+    });
+    expect(reversed.finalize().css).toBe(css);
+
+    const reversedSourceAndConfig = createGssCompilerSession({
+      projectRoot: '/project',
+      layers: ['framework.base', 'framework.utilities']
+    });
+    reversedSourceAndConfig.replaceStylesheet({
+      id: '/project/src/nested.gss',
+      source: [
+        '@layer framework { @layer utilities { .probe { color: blue; } } }',
+        '@layer framework { @layer base { .probe { color: red; } } }'
+      ].join('\n')
+    });
+    const reversedCss = reversedSourceAndConfig.finalize().css;
+    expect(reversedCss).toContain('@layer framework.base, framework.utilities;');
+    expect(reversedCss.indexOf('@layer framework.base {')).toBeLessThan(
+      reversedCss.indexOf('@layer framework.utilities {')
+    );
+  });
+
   it('warns without rejecting an unregistered named layer', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 

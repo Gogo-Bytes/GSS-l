@@ -11,7 +11,7 @@ type Reading = {
   subject: 'element' | '::before' | '::after'; property: string; value: string; expected: string;
 };
 
-async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'asset' | 'keyframes' | 'relation' | 'font-reset' | 'has-specificity' | 'has-specificity-dedup'): Promise<Reading[]> {
+async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'nested-layer' | 'asset' | 'keyframes' | 'relation' | 'font-reset' | 'has-specificity' | 'has-specificity-dedup'): Promise<Reading[]> {
   const frame = document.createElement('iframe');
   frame.title = `${fixture.name}: ${side}${corrupt ? ' negative control' : ''}`;
   frame.width = '640';
@@ -38,6 +38,14 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
   if (corrupt === 'layer') {
     const changed = style.textContent.replace(/@layer early,\s*late;/, '@layer late, early;');
     if (changed === style.textContent) throw new Error('Layer corruption did not change the prelude');
+    style.textContent = changed;
+  }
+  if (corrupt === 'nested-layer') {
+    const changed = style.textContent.replace(
+      '@layer framework.base, framework.utilities;',
+      '@layer framework.utilities, framework.base;'
+    );
+    if (changed === style.textContent) throw new Error('Nested-layer control did not change the configured prelude');
     style.textContent = changed;
   }
   doc.head.append(style);
@@ -288,6 +296,23 @@ async function run() {
       ? difference.reference === 'rgb(0, 0, 255)' && difference.atomic === 'rgb(255, 0, 0)'
       : ['layer-important', 'unlayered-important'].includes(difference.node) &&
         difference.reference === 'rgb(255, 0, 0)' && difference.atomic === 'rgb(0, 0, 255)'));
+  const nestedLayerFixture = fixtures.find((fixture) => fixture.name === 'nested-layers-forward-source-forward-config')!;
+  const nestedLayerReference = await readDocument(nestedLayerFixture, 'reference');
+  const nestedLayerAtomic = await readDocument(nestedLayerFixture, 'atomic');
+  const nestedLayerCorrupted = await readDocument(nestedLayerFixture, 'atomic', 'nested-layer');
+  const nestedLayerDifferences = compare(nestedLayerReference, nestedLayerCorrupted);
+  const nestedLayerChanges = compare(nestedLayerAtomic, nestedLayerCorrupted);
+  const nestedLayerExpected = new Map([
+    ['color', ['rgb(0, 0, 255)', 'rgb(255, 0, 0)']],
+    ['background-color', ['rgb(255, 0, 0)', 'rgb(0, 0, 255)']],
+    ['outline-color', ['rgb(255, 0, 0)', 'rgb(0, 0, 255)']]
+  ]);
+  const nestedLayerDetected = nestedLayerChanges.length === 3 && nestedLayerDifferences.length === 3 &&
+    [...nestedLayerExpected].every(([property, [reference, atomic]]) =>
+      nestedLayerDifferences.some((difference) => difference.node === 'nested-layer-probe' &&
+        difference.property === property && difference.reference === reference && difference.atomic === atomic) &&
+      nestedLayerChanges.some((difference) => difference.node === 'nested-layer-probe' && difference.property === property)) &&
+    !nestedLayerDifferences.some((difference) => difference.property === 'border-top-color');
   const assetFixture = fixtures.find((fixture) => fixture.name === 'asset-module-isolation-one')!;
   const assetReference = await readDocument(assetFixture, 'reference');
   const assetAtomic = await readDocument(assetFixture, 'atomic');
@@ -363,7 +388,7 @@ async function run() {
     hasSpecificityDedup: { fixtures: hasSpecificityDedupResults, negativeControl: { detected: hasSpecificityDedupControl, qualifierRemoved: true, differences: hasSpecificityDedupDifferences } },
     status: results.every((result) => result.comparisons > 0 && !result.differences.length && !result.expectedFailures.length) &&
       hasSpecificityDedupResults.every((result) => result.differences.length === 0) && hasSpecificityDedupControl &&
-      detected && pseudoDetected && conditionDetected && layerDetected && assetDetected && keyframesDetected && relationDetected && hasSpecificityDetected && fontResetNegativeControl
+      detected && pseudoDetected && conditionDetected && layerDetected && nestedLayerDetected && assetDetected && keyframesDetected && relationDetected && hasSpecificityDetected && fontResetNegativeControl
       ? 'passed' : 'failed',
     results,
     negativeControl: { detected, differences },
@@ -372,6 +397,7 @@ async function run() {
     assetNegativeControl: { detected: assetDetected, controlsUnchanged: assetControlsUnchanged, differences: assetDifferences },
     conditionNegativeControl: { detected: conditionDetected, differences: conditionDifferences },
     layerNegativeControl: { detected: layerDetected, differences: layerDifferences },
+    nestedLayerNegativeControl: { detected: nestedLayerDetected, controlsUnchanged: nestedLayerChanges.length === 3 && !nestedLayerChanges.some((difference) => difference.property === 'border-top-color'), configuredOrderPerturbed: true, differences: nestedLayerDifferences },
     pseudoNegativeControl: { detected: pseudoDetected, controlsUnchanged, differences: pseudoDifferences }
   });
 }
