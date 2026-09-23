@@ -11,7 +11,7 @@ type Reading = {
   subject: 'element' | '::before' | '::after'; property: string; value: string; expected: string;
 };
 
-async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'asset' | 'keyframes' | 'relation'): Promise<Reading[]> {
+async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'nested-layer' | 'asset' | 'keyframes' | 'relation' | 'interleaved' | 'font-reset' | 'has-specificity' | 'has-specificity-dedup'): Promise<Reading[]> {
   const frame = document.createElement('iframe');
   frame.title = `${fixture.name}: ${side}${corrupt ? ' negative control' : ''}`;
   frame.width = '640';
@@ -31,6 +31,7 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
   const style = doc.createElement('style');
   style.textContent = fixture[side].css;
   if (corrupt === 'element') style.textContent += '\n#forward { margin-left: 123px !important; }';
+  if (corrupt === 'font-reset') style.textContent += '\n#font-reset { font-variant: small-caps !important; }';
   if (corrupt === 'asset') style.textContent += '\n#asset-a { background-image: url("/__reference_assets__/wrong.svg") !important; }';
   if (corrupt === 'pseudo') style.textContent += '\n#pseudo-a::before { color: rgb(1, 2, 3) !important; }';
   if (corrupt === 'condition') style.textContent += '\n@media (min-width: 400px) { #target { padding-left: 123px !important; } }';
@@ -39,7 +40,53 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
     if (changed === style.textContent) throw new Error('Layer corruption did not change the prelude');
     style.textContent = changed;
   }
+  if (corrupt === 'nested-layer') {
+    const changed = style.textContent.replace(
+      '@layer framework.base, framework.utilities;',
+      '@layer framework.utilities, framework.base;'
+    );
+    if (changed === style.textContent) throw new Error('Nested-layer control did not change the configured prelude');
+    style.textContent = changed;
+  }
   doc.head.append(style);
+  if (corrupt === 'has-specificity-dedup') {
+    const sheet = style.sheet!;
+    const rule = [...sheet.cssRules].map((item, index) => ({ item, index })).find(({ item }) =>
+      item instanceof (frame.contentWindow as Window & typeof globalThis).CSSStyleRule &&
+      (item as CSSStyleRule).selectorText.includes('--observed_error') &&
+      (item as CSSStyleRule).style.color === 'red' &&
+      (item as CSSStyleRule).selectorText.slice(0, (item as CSSStyleRule).selectorText.indexOf(':has(')).split('.').filter(Boolean).length === 3
+    );
+    if (!rule) throw new Error('Dedup specificity control requires the stronger shared .error selector');
+    const cssRule = rule.item as CSSStyleRule;
+    const separator = cssRule.selectorText.indexOf(':has(');
+    const subject = cssRule.selectorText.slice(0, separator);
+    const markers = subject.split('.').filter(Boolean);
+    if (markers.length !== 3 || !markers.every((marker) => marker === markers[0])) {
+      throw new Error('Dedup specificity control requires three repeated target-qualified markers');
+    }
+    const weakenedSelector = `.${markers[0]}.${markers[0]}${cssRule.selectorText.slice(separator)}`;
+    const cssText = cssRule.cssText.slice(cssRule.cssText.indexOf('{'));
+    sheet.deleteRule(rule.index);
+    sheet.insertRule(`${weakenedSelector} ${cssText}`, rule.index);
+  }
+  if (corrupt === 'has-specificity') {
+    const sheet = style.sheet!;
+    const index = [...sheet.cssRules].findIndex((rule) => rule instanceof (frame.contentWindow as Window & typeof globalThis).CSSStyleRule &&
+      (rule as CSSStyleRule).selectorText.includes('--observed_error') && (rule as CSSStyleRule).selectorText.includes(':has(:where('));
+    const rule = sheet.cssRules[index] as CSSStyleRule | undefined;
+    if (index < 0 || !rule) throw new Error('Specificity control requires the lower :has() list branch');
+    const separator = rule.selectorText.indexOf(':has(');
+    const subject = rule.selectorText.slice(0, separator);
+    const markers = subject.split('.').filter(Boolean);
+    if (markers.length < 2 || !markers.every((marker) => marker === markers[0])) {
+      throw new Error('Specificity control requires repeated target-qualified markers');
+    }
+    const weakenedSelector = `.${markers[0]}${rule.selectorText.slice(separator)}`;
+    const cssText = rule.cssText.slice(rule.cssText.indexOf('{'));
+    sheet.deleteRule(index);
+    sheet.insertRule(`${weakenedSelector} ${cssText}`, index);
+  }
   if (corrupt === 'relation') {
     // Move only the general-sibling color rule after adjacent, preserving specificity.
     const sheet = style.sheet!;
@@ -49,6 +96,20 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
     const text = sheet.cssRules[index]!.cssText;
     sheet.deleteRule(index);
     sheet.insertRule(text, sheet.cssRules.length);
+  }
+  if (corrupt === 'interleaved') {
+    // Remove only the runtime adjacent edge from the bounded interleaved selector.
+    const sheet = style.sheet!;
+    const index = [...sheet.cssRules].findIndex((rule) => rule instanceof (frame.contentWindow as Window & typeof globalThis).CSSStyleRule &&
+      (rule as CSSStyleRule).selectorText.includes(' + ') && (rule as CSSStyleRule).style.color === 'red');
+    const rule = sheet.cssRules[index] as CSSStyleRule | undefined;
+    if (index < 0 || !rule) throw new Error('Interleaved control requires the adjacent red rule');
+    const selector = rule.selectorText;
+    const weakened = selector.replace(' + ', ' ');
+    if (weakened === selector) throw new Error('Interleaved control did not remove the adjacent edge');
+    const declarations = rule.style.cssText;
+    sheet.deleteRule(index);
+    sheet.insertRule(`${weakened} { ${declarations} }`, index);
   }
   for (const node of fixture.nodes) {
     let targets = fixture[side].scopeSchemas[node.moduleId]!.exports;
@@ -249,6 +310,23 @@ async function run() {
       ? difference.reference === 'rgb(0, 0, 255)' && difference.atomic === 'rgb(255, 0, 0)'
       : ['layer-important', 'unlayered-important'].includes(difference.node) &&
         difference.reference === 'rgb(255, 0, 0)' && difference.atomic === 'rgb(0, 0, 255)'));
+  const nestedLayerFixture = fixtures.find((fixture) => fixture.name === 'nested-layers-forward-source-forward-config')!;
+  const nestedLayerReference = await readDocument(nestedLayerFixture, 'reference');
+  const nestedLayerAtomic = await readDocument(nestedLayerFixture, 'atomic');
+  const nestedLayerCorrupted = await readDocument(nestedLayerFixture, 'atomic', 'nested-layer');
+  const nestedLayerDifferences = compare(nestedLayerReference, nestedLayerCorrupted);
+  const nestedLayerChanges = compare(nestedLayerAtomic, nestedLayerCorrupted);
+  const nestedLayerExpected = new Map([
+    ['color', ['rgb(0, 0, 255)', 'rgb(255, 0, 0)']],
+    ['background-color', ['rgb(255, 0, 0)', 'rgb(0, 0, 255)']],
+    ['outline-color', ['rgb(255, 0, 0)', 'rgb(0, 0, 255)']]
+  ]);
+  const nestedLayerDetected = nestedLayerChanges.length === 3 && nestedLayerDifferences.length === 3 &&
+    [...nestedLayerExpected].every(([property, [reference, atomic]]) =>
+      nestedLayerDifferences.some((difference) => difference.node === 'nested-layer-probe' &&
+        difference.property === property && difference.reference === reference && difference.atomic === atomic) &&
+      nestedLayerChanges.some((difference) => difference.node === 'nested-layer-probe' && difference.property === property)) &&
+    !nestedLayerDifferences.some((difference) => difference.property === 'border-top-color');
   const assetFixture = fixtures.find((fixture) => fixture.name === 'asset-module-isolation-one')!;
   const assetReference = await readDocument(assetFixture, 'reference');
   const assetAtomic = await readDocument(assetFixture, 'atomic');
@@ -268,6 +346,45 @@ async function run() {
     difference.node === 'motion-a' && difference.property.startsWith('animation:'));
   const keyframesDetected = keyframesControlsUnchanged && keyframesDifferences.length === 5 && keyframesDifferences.some((difference) =>
     difference.node === 'motion-a' && difference.property === 'animation:count' && difference.reference === '1' && difference.atomic === '0');
+  const fontResetFixture = fixtures.find((fixture) => fixture.name === 'font-shorthand-resets-font-variant')!;
+  const fontResetReference = await readDocument(fontResetFixture, 'reference');
+  const fontResetAtomic = await readDocument(fontResetFixture, 'atomic');
+  const fontResetCorrupted = await readDocument(fontResetFixture, 'atomic', 'font-reset');
+  const fontResetDifferences = compare(fontResetReference, fontResetCorrupted);
+  const fontResetChanges = compare(fontResetAtomic, fontResetCorrupted);
+  const fontResetNegativeControl = fontResetChanges.length === 1 && fontResetChanges[0]!.node === 'font-reset' &&
+    fontResetChanges[0]!.property === 'font-variant-caps' && fontResetChanges[0]!.reference === 'normal' &&
+    fontResetChanges[0]!.atomic === 'small-caps' && fontResetDifferences.length === 1;
+  const hasSpecificityFixture = fixtures.find((fixture) => fixture.name === 'has-selector-list-specificity-forward')!;
+  const hasSpecificityReference = await readDocument(hasSpecificityFixture, 'reference');
+  const hasSpecificityAtomic = await readDocument(hasSpecificityFixture, 'atomic');
+  const hasSpecificityCorrupted = await readDocument(hasSpecificityFixture, 'atomic', 'has-specificity');
+  const hasSpecificityDifferences = compare(hasSpecificityReference, hasSpecificityCorrupted);
+  const hasSpecificityChanges = compare(hasSpecificityAtomic, hasSpecificityCorrupted);
+  const hasSpecificityControlsUnchanged = hasSpecificityChanges.length === 1 &&
+    hasSpecificityChanges[0]!.node === 'card' && hasSpecificityChanges[0]!.phase === 'lower-branch-matches-maximum-branch-does-not' &&
+    hasSpecificityChanges[0]!.property === 'color';
+  const hasSpecificityDetected = hasSpecificityControlsUnchanged && hasSpecificityDifferences.length === 1 &&
+    hasSpecificityDifferences[0]!.node === 'card' && hasSpecificityDifferences[0]!.reference === 'rgb(255, 0, 0)' &&
+    hasSpecificityDifferences[0]!.atomic === 'rgb(0, 0, 255)';
+  const hasSpecificityDedupFixtures = fixtures.filter((fixture) => fixture.name.startsWith('has-selector-list-shared-branch-'));
+  const hasSpecificityDedupResults = await Promise.all(hasSpecificityDedupFixtures.map(async (fixture) => {
+    const reference = await readDocument(fixture, 'reference');
+    const atomic = await readDocument(fixture, 'atomic');
+    return { name: fixture.name, differences: compare(reference, atomic) };
+  }));
+  const hasSpecificityDedupFixture = hasSpecificityDedupFixtures.find((fixture) =>
+    fixture.name === 'has-selector-list-shared-branch-forward-list-weaker-first'
+  )!;
+  const hasSpecificityDedupReference = await readDocument(hasSpecificityDedupFixture, 'reference');
+  const hasSpecificityDedupCorrupted = await readDocument(hasSpecificityDedupFixture, 'atomic', 'has-specificity-dedup');
+  const hasSpecificityDedupDifferences = compare(hasSpecificityDedupReference, hasSpecificityDedupCorrupted);
+  const hasSpecificityDedupAtomic = await readDocument(hasSpecificityDedupFixture, 'atomic');
+  const hasSpecificityDedupChanges = compare(hasSpecificityDedupAtomic, hasSpecificityDedupCorrupted);
+  const hasSpecificityDedupControl = hasSpecificityDedupChanges.length === 1 &&
+    hasSpecificityDedupChanges[0]!.node === 'card' && hasSpecificityDedupChanges[0]!.property === 'color' &&
+    hasSpecificityDedupDifferences.length === 1 && hasSpecificityDedupDifferences[0]!.reference === 'rgb(255, 0, 0)' &&
+    hasSpecificityDedupDifferences[0]!.atomic === 'rgb(0, 0, 255)';
   const relationFixture = fixtures.find((fixture) => fixture.name === 'structural-sibling-base-forward')!;
   const relationReference = await readDocument(relationFixture, 'reference');
   const relationAtomic = await readDocument(relationFixture, 'atomic');
@@ -279,16 +396,34 @@ async function run() {
   const relationDetected = relationControlsUnchanged && compare(relationReference, relationAtomic).length === 0 &&
     relationDifferences.length === 1 && relationDifferences[0]!.node === 'adjacent' &&
     relationDifferences[0]!.reference === 'rgb(255, 0, 0)' && relationDifferences[0]!.atomic === 'rgb(0, 0, 255)';
+  const interleavedFixture = fixtures.find((fixture) => fixture.name === 'interleaved-owned-descendant-forward')!;
+  const interleavedReference = await readDocument(interleavedFixture, 'reference');
+  const interleavedAtomic = await readDocument(interleavedFixture, 'atomic');
+  const interleavedCorrupted = await readDocument(interleavedFixture, 'atomic', 'interleaved');
+  const interleavedDifferences = compare(interleavedReference, interleavedCorrupted);
+  const interleavedChanges = compare(interleavedAtomic, interleavedCorrupted);
+  const interleavedDetected = compare(interleavedReference, interleavedAtomic).length === 0 &&
+    interleavedChanges.length === 1 && interleavedChanges[0]!.node === 'icon' && interleavedChanges[0]!.property === 'color' &&
+    interleavedDifferences.length === 1 && interleavedDifferences[0]!.node === 'icon' &&
+    interleavedDifferences[0]!.property === 'color' && interleavedDifferences[0]!.reference === 'rgb(255, 0, 0)' &&
+    interleavedDifferences[0]!.atomic === 'rgb(0, 0, 0)';
   publish({
     relationNegativeControl: { detected: relationDetected, controlsUnchanged: relationControlsUnchanged, ruleReordered: true, differences: relationDifferences },
-    status: results.every((result) => result.comparisons > 0 && !result.differences.length && !result.expectedFailures.length) && detected && pseudoDetected && conditionDetected && layerDetected && assetDetected && keyframesDetected && relationDetected
+    interleavedChainNegativeControl: { detected: interleavedDetected, controlsUnchanged: interleavedChanges.length === 1, adjacentEdgeRemoved: true, differences: interleavedDifferences },
+    hasSpecificityNegativeControl: { detected: hasSpecificityDetected, controlsUnchanged: hasSpecificityControlsUnchanged, qualifierRemoved: true, differences: hasSpecificityDifferences },
+    hasSpecificityDedup: { fixtures: hasSpecificityDedupResults, negativeControl: { detected: hasSpecificityDedupControl, qualifierRemoved: true, differences: hasSpecificityDedupDifferences } },
+    status: results.every((result) => result.comparisons > 0 && !result.differences.length && !result.expectedFailures.length) &&
+      hasSpecificityDedupResults.every((result) => result.differences.length === 0) && hasSpecificityDedupControl &&
+      detected && pseudoDetected && conditionDetected && layerDetected && nestedLayerDetected && assetDetected && keyframesDetected && relationDetected && interleavedDetected && hasSpecificityDetected && fontResetNegativeControl
       ? 'passed' : 'failed',
     results,
     negativeControl: { detected, differences },
+    fontResetNegativeControl: { detected: fontResetNegativeControl, differences: fontResetDifferences },
     keyframesNegativeControl: { detected: keyframesDetected, controlsUnchanged: keyframesControlsUnchanged, definitionRemoved: true, differences: keyframesDifferences },
     assetNegativeControl: { detected: assetDetected, controlsUnchanged: assetControlsUnchanged, differences: assetDifferences },
     conditionNegativeControl: { detected: conditionDetected, differences: conditionDifferences },
     layerNegativeControl: { detected: layerDetected, differences: layerDifferences },
+    nestedLayerNegativeControl: { detected: nestedLayerDetected, controlsUnchanged: nestedLayerChanges.length === 3 && !nestedLayerChanges.some((difference) => difference.property === 'border-top-color'), configuredOrderPerturbed: true, differences: nestedLayerDifferences },
     pseudoNegativeControl: { detected: pseudoDetected, controlsUnchanged, differences: pseudoDifferences }
   });
 }

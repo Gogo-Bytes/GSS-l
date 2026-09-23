@@ -573,6 +573,49 @@ describe('GssCompilerSession', () => {
     expect(compiler.finalize().css).not.toContain('border-top-color: red;');
   });
 
+  it('lets font shorthand reset the represented font-variant family', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/type.gss',
+      source: '.text { font-variant: small-caps; font: 16px serif; }'
+    });
+
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    const css = compiler.finalize().css;
+    expect(css).toContain('font: 16px serif;');
+    expect(css).not.toContain('font-variant: small-caps;');
+  });
+
+  it('keeps a later font-variant override after font shorthand', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/type.gss',
+      source: '.text { font: 16px serif; font-variant: small-caps; }'
+    });
+
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    const css = compiler.finalize().css;
+    expect(css).toContain('font: 16px serif;');
+    expect(css).toContain('font-variant: small-caps;');
+    expect(css.indexOf('font: 16px serif;')).toBeLessThan(css.indexOf('font-variant: small-caps;'));
+  });
+
+  it('retains an important font-variant over a normal font shorthand', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/type.gss',
+      source: '.text { font-variant: small-caps !important; font: 16px serif; }'
+    });
+
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    const css = compiler.finalize().css;
+    expect(css).toContain('font: 16px serif;');
+    expect(css).toContain('font-variant: small-caps !important;');
+  });
+
   it('removes a longhand fully shadowed by a later shorthand', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 
@@ -643,6 +686,76 @@ describe('GssCompilerSession', () => {
     expect(sonClass).toContain('--layer_components--');
     expect(compiler.finalize().css).toBe(
       `@layer components;\n\n@layer components {\n  .${fatherClass} > .${sonClass} {\n    color: red;\n  }\n}`
+    );
+  });
+
+  it('retains canonical nested layer names and configured order across modules', () => {
+    const compiler = createGssCompilerSession({
+      projectRoot: '/project',
+      layers: ['framework.utilities', 'framework.base']
+    });
+
+    const utility = compiler.replaceStylesheet({
+      id: '/project/src/utilities.gss',
+      source: '@layer framework { @layer utilities { .probe { color: blue; } } }'
+    });
+    const base = compiler.replaceStylesheet({
+      id: '/project/src/base.gss',
+      source: '@layer framework { @layer base { .probe { color: red; } } }'
+    });
+
+    expect(utility.diagnostics).toEqual([]);
+    expect(base.diagnostics).toEqual([]);
+    expect(utility.module?.scopeSchema.exports.probe?.selfClassName).toContain(
+      '--layer_framework_2e_utilities--'
+    );
+    expect(base.module?.scopeSchema.exports.probe?.selfClassName).toContain(
+      '--layer_framework_2e_base--'
+    );
+    const css = compiler.finalize().css;
+    expect(css).toBe(
+      '@layer framework.utilities, framework.base;\n\n' +
+      '@layer framework.utilities {\n' +
+      `  .${utility.module?.scopeSchema.exports.probe?.selfClassName} {\n` +
+      '    color: blue;\n' +
+      '  }\n' +
+      '}\n\n' +
+      '@layer framework.base {\n' +
+      `  .${base.module?.scopeSchema.exports.probe?.selfClassName} {\n` +
+      '    color: red;\n' +
+      '  }\n' +
+      '}'
+    );
+
+    const reversed = createGssCompilerSession({
+      projectRoot: '/project',
+      layers: ['framework.utilities', 'framework.base']
+    });
+    reversed.replaceStylesheet({
+      id: '/project/src/base.gss',
+      source: '@layer framework { @layer base { .probe { color: red; } } }'
+    });
+    reversed.replaceStylesheet({
+      id: '/project/src/utilities.gss',
+      source: '@layer framework { @layer utilities { .probe { color: blue; } } }'
+    });
+    expect(reversed.finalize().css).toBe(css);
+
+    const reversedSourceAndConfig = createGssCompilerSession({
+      projectRoot: '/project',
+      layers: ['framework.base', 'framework.utilities']
+    });
+    reversedSourceAndConfig.replaceStylesheet({
+      id: '/project/src/nested.gss',
+      source: [
+        '@layer framework { @layer utilities { .probe { color: blue; } } }',
+        '@layer framework { @layer base { .probe { color: red; } } }'
+      ].join('\n')
+    });
+    const reversedCss = reversedSourceAndConfig.finalize().css;
+    expect(reversedCss).toContain('@layer framework.base, framework.utilities;');
+    expect(reversedCss.indexOf('@layer framework.base {')).toBeLessThan(
+      reversedCss.indexOf('@layer framework.utilities {')
     );
   });
 
@@ -1228,10 +1341,10 @@ describe('GssCompilerSession', () => {
     expect(subjectMarkers).toHaveLength(2);
     expect(compiler.finalize()).toMatchObject({ report: { modules: 1, rules: 2 } });
     expect(compiler.finalize().css).toContain(
-      `.${errorSubject}:has(.${errorObserved}) {\n  color: red;\n}`
+      `.${errorSubject}.${errorSubject}:has(:where(.${errorObserved})) {\n  color: red;\n}`
     );
     expect(compiler.finalize().css).toContain(
-      `.${warningSubject}:has(> .${warningObserved}) {\n  color: red;\n}`
+      `.${warningSubject}.${warningSubject}:has(> :where(.${warningObserved})) {\n  color: red;\n}`
     );
   });
 
@@ -1579,6 +1692,64 @@ describe('GssCompilerSession', () => {
     expect(compiler.finalize().css).toBe(
       `.${sourceMarker}.${sourceMarker} > .${targetMarker} {\n  color: red;\n}`
     );
+  });
+
+  it('retains one descendant ownership suffix after an adjacent runtime relation', () => {
+    const sources = [
+      '.input + .label .icon { color: red; } .input + .label .icon { background-color: blue; }',
+      '.input + .label .icon { background-color: blue; } .input + .label .icon { color: red; }'
+    ];
+    const results = sources.map((source) => {
+      const compiler = createGssCompilerSession({ projectRoot: '/project' });
+      const replacement = compiler.replaceStylesheet({
+        id: '/project/src/field.gss',
+        source
+      });
+      return { replacement, css: compiler.finalize().css };
+    });
+
+    const sourceMarker = 'gss-s--module_src_2f_field_2e_gss--path_input';
+    const contextMarker =
+      'gss-c--module_src_2f_field_2e_gss--relation_adjacent_2f_descendant--position_1--path_input_2f_label--target_input_2f_label_2f_icon';
+    const targetMarker =
+      'gss-t--module_src_2f_field_2e_gss--relation_adjacent_2f_descendant--source_input--target_input_2f_label_2f_icon';
+    const selector = `.${sourceMarker} + .${contextMarker} .${targetMarker}`;
+    const expectedSchema = {
+      input: {
+        selfClassName: sourceMarker,
+        targets: {
+          label: {
+            selfClassName: contextMarker,
+            targets: { icon: { selfClassName: targetMarker, targets: {} } }
+          }
+        }
+      }
+    };
+
+    const expectedCss = `${selector} {\n  background-color: blue;\n}\n\n${selector} {\n  color: red;\n}`;
+    for (const { replacement, css } of results) {
+      expect(replacement.diagnostics).toEqual([]);
+      expect(replacement.module?.scopeSchema.exports).toEqual(expectedSchema);
+      expect(css).toBe(expectedCss);
+    }
+    expect(results[0]?.css).toBe(results[1]?.css);
+  });
+
+  it('fails closed when the ownership suffix contains more than one descendant edge after a runtime relation', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/field.gss',
+      source: '.input + .label .badge .icon { color: red; }'
+    });
+
+    expect(replacement.module).toBeUndefined();
+    expect(replacement.diagnostics).toMatchObject([{
+      code: 'GSS1101',
+      phase: 'validate',
+      reason: 'capability-not-registered'
+    }]);
+    expect(compiler.finalize().css).toBe('');
   });
 
   it('emits a general-sibling contextual atom', () => {
