@@ -171,12 +171,13 @@ Key safety decisions:
 - business variants use attributes, ARIA, or pseudo states;
 - external class contracts use explicit `:global(...)`;
 - selector lists normalize into independent branches and fail as a whole if one branch is invalid;
+- emitted branches of an accepted `:has()` selector list retain the authored list's maximum argument specificity through target-qualified subject markers; `:where()` neutralizes each separately emitted observed argument when class/pseudo specificity is carried by those markers, while type-only lists retain their type specificity;
 - `:not()`, `:is()`, and `:where()` preserve negative, OR, and zero-specificity semantics;
 - `:has()` remains a browser-evaluated observed relation;
 - supported pseudo-elements remain part of selector identity;
 - standard CSS nesting expands before semantic analysis.
 
-Residual tag/attribute/global selectors remain contextual instead of being falsely converted into target-only atoms.
+Residual tag/attribute/global selectors remain contextual instead of being falsely converted into target-only atoms. The bounded `:has()` list correction pads only unique subject-relation selectors; it does not strengthen reusable ownership/property atoms or change the authored selector branches. When one observed declaration identity is produced by multiple lists with different maxima, finalization keys those observed emissions by both canonical declaration identity and emitted selector, retaining distinct required specificity while still deduplicating identical selectors. Public-session regressions cover lower-member/list-maximum specificity, residual tag branches, both competitor source orders, weaker/stronger repeated-branch lists in both orders, and exact-selector deduplication. Independent literal browser fixtures cover the repeated branch, list/rule order variants, and an effective qualifier-removal control; final native acceptance remains pending parent review.
 
 ## 8. Cascade model
 

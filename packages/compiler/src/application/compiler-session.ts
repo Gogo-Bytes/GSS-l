@@ -29,6 +29,7 @@ import type {
   ParsedCondition,
   ParsedFontFaceResource,
   ParsedGlobalResource,
+  ParsedHasCondition,
   ParsedKeyframesRegistration,
   ParsedPropertyRegistration,
   ParsedStyleRule
@@ -544,7 +545,16 @@ function prepareContribution(
     const wrappers = rule.conditions;
     const condition = canonicalCondition(wrappers);
     const layer = rule.layer;
-    for (const observation of rule.observations.at(-1)!) {
+    const observations = rule.observations.at(-1)!;
+    const observedSpecificity = (observation: ParsedHasCondition) => observation.observedClass
+      ? 1 + Number(Boolean(observation.observedState))
+      : observation.observedResidual?.startsWith(':') || observation.observedResidual?.startsWith('[')
+        ? 1
+        : 0;
+    const selectorListSpecificity = observations.length > 1
+      ? Math.max(...observations.map(observedSpecificity))
+      : undefined;
+    for (const observation of observations) {
       const relationIdentity: ObservedRelationIdentity = {
         moduleId,
         layer,
@@ -567,8 +577,13 @@ function prepareContribution(
         })()
         : observation.observedResidual!;
       const observedCombinator = renderObservedCombinator(observation.relation);
-      // Preserve the subject path's classes; :has() keeps the argument's native specificity.
-      const selector = `${`.${subjectMarker}`.repeat(rule.path.length)}:has(${observedCombinator}${observedSelector})`;
+      const normalizedObservedSelector = selectorListSpecificity !== undefined && selectorListSpecificity > 0
+        ? `:where(${observedSelector})`
+        : observedSelector;
+      const subjectSpecificity = rule.path.length + (selectorListSpecificity ?? 0);
+      // Selector-list branches stay separately observable, but share native list-maximum
+      // specificity through repeated target-qualified markers; weaker reusable atoms stay pure.
+      const selector = `${`.${subjectMarker}`.repeat(subjectSpecificity)}:has(${observedCombinator}${normalizedObservedSelector})`;
 
       for (const declaration of rule.declarations) {
         const identity: ObservedDeclarationIdentity = {
@@ -1102,7 +1117,12 @@ function finalizeSnapshot(
   }>();
   for (const contribution of modules.values()) {
     for (const rule of contribution.rules) {
-      const key = serializeIdentity(rule.identity);
+      const identity = serializeIdentity(rule.identity);
+      // Observed declaration identity captures the relation and value, but different authored
+      // selector-list maxima can give that same branch distinct emitted selector specificity.
+      const key = 'subjectPath' in rule.identity
+        ? JSON.stringify([identity, rule.selector])
+        : identity;
       const registered = uniqueRules.get(key) ?? { rule, sources: new Set<string>() };
       registered.sources.add(contribution.artifact.scopeSchema.moduleId);
       uniqueRules.set(key, registered);
