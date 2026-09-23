@@ -1,4 +1,7 @@
-import type { ReplaceStylesheetInput, ScopeSchema } from '@gss-l/compiler';
+import type { GssCompilerConfig, ReplaceStylesheetInput, ScopeSchema } from '@gss-l/compiler';
+import { keyframesFixtures, type AnimationExpectation } from './keyframes-fixtures.js';
+import { assetFixtures } from './asset-fixtures.js';
+import { conditionLayerFixtures } from './condition-layer-fixtures.js';
 import { pseudoElementFixtures } from './pseudo-element-fixtures.js';
 
 export type PseudoExpectations = Partial<Record<'::before' | '::after', Readonly<Record<string, string>>>>;
@@ -6,6 +9,13 @@ export type PseudoExpectations = Partial<Record<'::before' | '::after', Readonly
 export type ReferenceFixture = {
   name: string;
   modules: readonly ReplaceStylesheetInput[];
+  config?: Pick<GssCompilerConfig, 'conditions' | 'layers'>;
+  setupCss?: string;
+  animationSymbols?: readonly { moduleId: string; symbol: string; probe: string }[];
+  assetUrls?: Readonly<Record<string, string>>;
+  assetDimensions?: Readonly<Record<string, string>>;
+  conditionProbes?: { media?: readonly string[]; supports?: readonly string[]; container?: string };
+
   nodes: readonly {
     id: string;
     moduleId: string;
@@ -14,9 +24,12 @@ export type ReferenceFixture = {
     tag?: 'div' | 'span' | 'input' | 'fieldset' | 'button';
     expected: Readonly<Record<string, string>>;
     pseudoExpected?: PseudoExpectations;
+    animationExpected?: AnimationExpectation;
   }[];
   phases?: readonly {
     name: string;
+    viewportWidth?: number;
+    containerWidth?: number;
     changes: readonly {
       node: string;
       checked?: boolean;
@@ -35,7 +48,10 @@ export type CompiledReferenceFixture = ReferenceFixture & {
 
 // Literal longhand expectations are a second guard against an empty/common-mode pass.
 export const fixtures: readonly ReferenceFixture[] = [
+  ...assetFixtures,
+  ...keyframesFixtures,
   ...pseudoElementFixtures,
+  ...conditionLayerFixtures,
   {
     name: 'ownership-module-isolation',
     modules: [

@@ -140,12 +140,12 @@ describe('compileGssReference', () => {
     '.card[data-active] { color: red; }', '.card::selection { color: red; }',
     ':global(.card) { color: red; }', '.c\\\\61rd { color: red; }',
     '@media (min-width: 1px) { .card { color: red; } }',
-    '@layer base { .card { color: red; } }', '@keyframes spin { to { width: 1px; } }',
+    '@layer base { .card { color: red; } }', '@keyframes spin { to { transform: rotate(1turn); } }',
     '@font-face { font-family: Test; }', '@import "other.css";',
     '.card { .icon { color: red; } }', '.card { & { color: red; } }',
     '.card { unknown: 1; }', '.card { margin-inline: 1px; }',
     '.card { --tone: red; }', '.card { color: var(--tone); }',
-    '.card { background-image: url(image.png); }', '.card { animation: spin 1s; }',
+    '.card { background-image: linear-gradient(red, blue); }', '.card { animation: spin 1s; }',
     '.card { color: red; color: blue; }', 'color: red;', '.card { color: red'
   ])('fails unsupported or malformed source without partial output: %s', (source) => {
     const result = compileGssReference({ config, modules: [
@@ -159,25 +159,155 @@ describe('compileGssReference', () => {
     expect(result).not.toHaveProperty('scopeSchemas');
   });
 
+  it('orders registered media groups globally before source/Module order without changing specificity or grouping', () => {
+    const config = { projectRoot: '/project', conditions: { media: ['(min-width: 200px)', '(min-width: 400px)'] } };
+    const modules = [
+      { id: 'Z.gss', source: '@media (min-width: 400px) { .card { color: blue !important; padding: 1px; padding-left: 3px; } } .card { color: black; } @media (min-width: 200px) { .outer .card { color: red; } .empty {} }' },
+      { id: 'A.gss', source: '@media (min-width: 400px) { .card { color: green; } } .card {}' }
+    ];
+    const result = compileGssReference({ config, modules });
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error('Expected registered reference output');
+    expect(compileGssReference({ config, modules: [...modules].reverse() })).toEqual(result);
+    const root = postcss.parse(result.css);
+    expect(root.nodes.map((node) => node.type === 'atrule' ? node.params : 'base')).toEqual([
+      'base', 'base', '(min-width: 200px)', '(min-width: 400px)', '(min-width: 400px)'
+    ]);
+    const z = result.scopeSchemas['Z.gss']!.exports;
+    expect(z.outer!.targets.card!.selfClassName).toBe(z.card!.selfClassName);
+    expect(z.empty!.selfClassName).toBeTruthy();
+    expect(z.card!.selfClassName).not.toBe(result.scopeSchemas['A.gss']!.exports.card!.selfClassName);
+    expect(result.css).toContain(`.${z.outer!.selfClassName} .${z.card!.selfClassName} { color: red; }`);
+    expect(result.css).toContain('color: blue !important; padding: 1px; padding-left: 3px;');
+    const reversed = compileGssReference({ config: { ...config, conditions: { media: [...config.conditions.media].reverse() } }, modules });
+    if (!reversed.success) throw new Error('Expected reverse configured order');
+    expect(postcss.parse(reversed.css).nodes.map((node) => node.type === 'atrule' ? node.params : 'base')).toEqual([
+      'base', 'base', '(min-width: 400px)', '(min-width: 400px)', '(min-width: 200px)'
+    ]);
+  });
+
   it.each([
     { layers: ['base'] }, { conditions: { media: ['(min-width: 1px)'] } },
     { conditions: { supports: ['(display: grid)'] } },
     { conditions: { container: ['(min-width: 1px)'] } }
-  ])('rejects configured ordering rather than substituting native source order: %j', (ordering) => {
-    const result = compileGssReference({ config: { ...config, ...ordering }, modules: [
-      { id: 'Card.gss', source: '.card { color: red; }' }
-    ] });
-    expect(result.success).toBe(false);
-    expect(result).not.toHaveProperty('css');
-    expect(result.diagnostics[0]?.reason).toBe('unsupported-reference-config');
+  ])('accepts bounded configuration even when registered wrappers are unused: %j', (ordering) => {
+    const result = compileGssReference({ config: { ...config, ...ordering }, modules: [{ id: 'Card.gss', source: '.card {}' }] });
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error('Expected unused registration support');
+    expect(result.scopeSchemas['Card.gss']!.exports.card!.selfClassName).toBeTruthy();
+    expect(result.css.startsWith('@layer base;')).toBe('layers' in ordering);
   });
 
-  it('rejects asset bindings without invoking a host resolver', () => {
+  it('uses configured rank under reversed authored wrappers, retaining order inside each group', () => {
+    const first = '@media (min-width: 200px) { .card { color: red; } .card { color: green; } }';
+    const last = '@media (min-width: 400px) { .card { color: blue; } }';
+    const base = '.card { color: black; }';
+    const compile = (source: string) => compileGssReference({ config: { ...config, conditions: { media: ['(min-width: 200px)', '(min-width: 400px)'] } }, modules: [{ id: 'Order.gss', source }] });
+    const values = (result: ReturnType<typeof compile>) => {
+      if (!result.success) throw new Error('Expected configured order');
+      const values: string[] = [];
+      postcss.parse(result.css).walkDecls('color', (declaration) => { values.push(declaration.value); });
+      return values;
+    };
+    expect(values(compile([base, first, last].join('\n')))).toEqual(['black', 'red', 'green', 'blue']);
+    expect(values(compile([last, first, base].join('\n')))).toEqual(['black', 'red', 'green', 'blue']);
+  });
+
+  it('rejects unknown condition configuration keys rather than ignoring them', () => {
+    const result = compileGssReference({ config: { ...config, conditions: { media: [], unknown: [] } } as typeof config, modules: [] });
+    expect(result).toMatchObject({ success: false, diagnostics: [{ reason: 'unsupported-reference-config' }] });
+    expect(result).not.toHaveProperty('css');
+  });
+
+  it.each(['media', 'supports', 'container'] as const)('keeps registered %s wrappers within configured layers and empty paths', (kind) => {
+    const queries = kind === 'supports' ? ['(display: grid)', '(display: gss-unsupported)']
+      : kind === 'container' ? ['panel (min-width: 200px)', '(max-width: 400px)'] : ['(min-width: 200px)', '(max-width: 400px)'];
+    const source = `@layer late { @${kind} ${queries[1]} { /* .ghost */ .outer .empty {} .card { content: ".card"; color: blue !important; color: green; } } }
+      @layer early { @${kind} ${queries[0]} { .card { color: red !important; } } .card { color: black; } }
+      .card { color: purple !important; }`;
+    const result = compileGssReference({ config: { ...config, layers: ['early', 'late'], conditions: { [kind]: queries } }, modules: [{ id: 'Layer.gss', source }] });
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error('Expected layered reference');
+    const root = postcss.parse(result.css);
+    expect(root.nodes.map((node) => node.type === 'atrule' ? [node.name, node.params] : 'rule')).toEqual([
+      ['layer', 'early, late'], ['layer', 'early'], 'rule', ['layer', 'early'], ['layer', 'late']
+    ]);
+    const wrappers: string[] = [];
+    root.walkAtRules(kind, (node) => { wrappers.push(node.params); expect(node.parent).toMatchObject({ name: 'layer' }); });
+    expect(wrappers).toEqual(queries);
+    const scopes = result.scopeSchemas['Layer.gss']!.exports;
+    expect(scopes.outer!.targets.empty!.selfClassName).toBeTruthy();
+    expect(result.css).toContain('/* .ghost */');
+    expect(result.css).toContain('content: ".card"; color: blue !important; color: green;');
+    // Native prelude, not declaration/important reversal, controls layer priority.
+    const reverse = compileGssReference({ config: { ...config, layers: ['late', 'early'], conditions: { [kind]: queries } }, modules: [{ id: 'Layer.gss', source }] });
+    if (!reverse.success) throw new Error('Expected reversed layers');
+    expect(reverse.css.replace('@layer late, early;', '@layer early, late;')).toBe(result.css);
+  });
+
+  it.each(['not', 'and', 'or', 'NoT', 'AnD', 'OR'])('rejects container operator %s as a name, including unused registrations', (name) => {
+    const query = `${name} (min-width: 200px)`;
+    for (const source of ['.card {}', `@container ${query} { .card { color: red; } }`]) {
+      const result = compileGssReference({
+        config: { ...config, conditions: { container: [query] } },
+        modules: [{ id: 'Valid.gss', source: '.valid {}' }, { id: 'Container.gss', source }]
+      });
+      expect(result).toMatchObject({ success: false, diagnostics: [{ reason: 'unsupported-reference-config' }] });
+      expect(result).not.toHaveProperty('css');
+      expect(result).not.toHaveProperty('scopeSchemas');
+    }
+  });
+
+  it('does not exclude container operators from configured layer names', () => {
+    const layers = ['not', 'and', 'or', 'NoT', 'AnD', 'OR'];
+    const result = compileGssReference({
+      config: { ...config, layers },
+      modules: [{ id: 'Layers.gss', source: layers.map((name) => `@layer ${name} { .card {} }`).join('\n') }]
+    });
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error('Expected valid layer names');
+    expect(result.css).toContain('@layer not, and, or, NoT, AnD, OR;');
+    expect(result.scopeSchemas['Layers.gss']!.exports.card!.selfClassName).toBeTruthy();
+  });
+
+  it.each([
+    { layers: ['base.base'] }, { layers: ['base', 'base'] }, { layers: ['initial'] }, { layers: ['default'] },
+    { conditions: { media: ['(min-width: 1px)'], supports: ['(display: grid)'] } },
+    { conditions: { media: ['(min-width: 1px)', '(min-width: 1px)'] } },
+    { conditions: { media: ['screen'] } }, { conditions: { media: ['(min-width: 1px) and (max-width: 2px)'] } },
+    { conditions: { media: ['(min-width: 1.5px)'] } }, { conditions: { supports: ['not (display: grid)'] } },
+    { conditions: { container: ['style(--theme: dark)'] } }, { conditions: { container: ['none (min-width: 1px)'] } }
+  ])('rejects out-of-slice ordering configuration without partial output: %j', (ordering) => {
+    const result = compileGssReference({ config: { ...config, ...ordering }, modules: [{ id: 'A.gss', source: '.card {}' }] });
+    expect(result).toMatchObject({ success: false, diagnostics: [{ reason: 'unsupported-reference-config' }] });
+    expect(result).not.toHaveProperty('css');
+    expect(result).not.toHaveProperty('scopeSchemas');
+  });
+
+  it.each([
+    '@media (min-width: 2px) { .card {} }', '@supports (display: grid) { .card {} }',
+    '@media (min-width: 1px) { @media (min-width: 1px) { .card {} } }',
+    '@media (min-width: 1px) { @layer base { .card {} } }',
+    '@layer base { @layer base { .card {} } }', '@layer base.base { .card {} }',
+    '@layer unknown { .card {} }', '@layer { .card {} }', '@layer base;',
+    '@media (min-width: 1px);', '@layer base { @import "x.css"; }',
+    '@layer base { @media (min-width: 1px) { .card { background-image: image-set(url(x) 1x); } } }',
+    '@layer base { @media (min-width: 1px) { .card { .child {} } } }'
+  ])('fails unsupported wrappers/resources transactionally: %s', (source) => {
+    const result = compileGssReference({ config: { ...config, layers: ['base'], conditions: { media: ['(min-width: 1px)'] } }, modules: [
+      { id: 'AValid.gss', source: '.valid {}' }, { id: 'ZInvalid.gss', source }
+    ] });
+    expect(result).toMatchObject({ success: false, diagnostics: [{ id: 'ZInvalid.gss' }] });
+    expect(result).not.toHaveProperty('css');
+    expect(result).not.toHaveProperty('scopeSchemas');
+  });
+
+  it('rejects unknown asset bindings without invoking a host resolver', () => {
     const result = compileGssReference({ config, modules: [
       { id: 'Card.gss', source: '.card {}', assetReferences: [{ url: 'a.png', identity: 'a' }] }
     ] }, { resolveAssetUrl() { throw new Error('Reference slice must not request resources'); } });
     expect(result.success).toBe(false);
-    expect(result.diagnostics[0]?.reason).toBe('unsupported-reference-assets');
+    expect(result.diagnostics[0]?.reason).toBe('invalid-reference-asset-binding');
   });
 
   it('isolates Modules and calls, preserving order within each Module but not registration order', () => {

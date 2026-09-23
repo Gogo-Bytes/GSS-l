@@ -67,6 +67,8 @@ export function createGssCompilerSession(
 
 There is no process-global singleton.
 
+**Shipped API versus this target sketch:** the exported constructor is still `createGssCompilerSession(config)` with exactly one argument. There is no public `GssCompilerPorts`. The internal [`createCompilerSession`](../packages/compiler/src/application/compiler-session.ts) requires an injectable [`CssParserPort`](../packages/compiler/src/application/css-parser-port.ts); [`default composition`](../packages/compiler/src/compiler.ts) supplies PostCSS outside the application use case. Asset discovery retains its existing public signature. This internal seam does not add public configuration, exports or diagnostic fields.
+
 ### Configuration
 
 ```ts
@@ -251,6 +253,8 @@ Current implementation covers virtual JS, source composition, and dev central CS
 
 Initial discovery refreshes any already-served snapshot; an HMR connection established after compilation is resynchronized through Vite's native CSS update protocol. No custom browser runtime or public HMR API is introduced. Dev file reads honor Vite `server.fs`, including denies and canonical root-external targets.
 
+Compiler diagnostics with a validated range and matching owned source snapshot receive native Vite/Rollup `loc` (physical `.gss` file, one-based line, zero-based UTF-16 column) and a plain-text `frame`. The private presenter uses the replacement/census source, not filesystem rereads, virtual JavaScript or importing JSX/maps. CRLF/BOM/astral offsets and exclusive ends stay unchanged; zero-width points use an insertion caret, including EOF. Missing/invalid/unmatched ranges remain location-free; React/source-adapter diagnostics and IO/resource failures acquire no CSS frames. Severity/code/order and the public source-adapter interface are unchanged. Latest successful unchanged-ScopeSchema stylesheet recovery publishes only the native CSS update, including identical-byte overlay clearance; changed schema and deletion retain JavaScript propagation. See [host tests](../packages/vite/test/diagnostic-location.test.ts) and [presentation constraints](architecture.md#diagnostics). No custom overlay protocol or CSS source maps are introduced.
+
 Production central assets and versioned build metadata are implemented as described below. Production Asset URL processing and dev versioned resource delivery/HMR are implemented. Dev byte snapshots are served through Vite with existing file-access policy, last-known-good recovery and no new browser runtime; their URLs are internal delivery details, not Compiler identity. The broader configuration/Compiler port sketches elsewhere in this document remain architecture targets rather than additional `gss()` options.
 
 ## React style-usage Adapter
@@ -382,7 +386,7 @@ export type GssCompilerPorts = {
 };
 ```
 
-The `AssetResolverPort` configuration slot above remains an architecture sketch, not an additional constructor argument implemented today. The concrete protocol accepted in [ADR-0050](adr/0050-discover-bind-and-render-asset-references.md) is implemented through discovery, replacement input bindings and finalization options:
+The suite above remains a public architecture sketch, not an exported `GssCompilerPorts` or an additional constructor argument today. Only the internal parser seam is implemented in this stage. It returns domain-owned `Parsed*` shapes with internal original-source provenance; no parser AST/host types cross that seam. See [coordinate units and granularity](architecture.md#internal-source-provenance-bounded-implementation). The `AssetResolverPort` configuration slot likewise remains a sketch. The concrete protocol accepted in [ADR-0050](adr/0050-discover-bind-and-render-asset-references.md) is implemented through discovery, replacement input bindings and finalization options:
 
 ```ts
 export function discoverStylesheetAssets(input: { id: string; source: string }): {
@@ -425,7 +429,11 @@ The ports keep infrastructure replaceable:
 
 ## Diagnostics
 
+The shipped bounded contract is recorded in [ADR-0051](adr/0051-expose-bounded-original-css-diagnostic-ranges.md).
+
 ```ts
+export type GssSourceRange = { start: number; end: number };
+
 export type GssDiagnostic = {
   code: string;
   severity: "info" | "warning" | "error";
@@ -436,12 +444,10 @@ export type GssDiagnostic = {
     | "resolve"
     | "plan"
     | "registry"
-    | "render"
-    | "react-transform";
+    | "render";
   message: string;
   id: string;
-  range?: SourceRange;
-  path?: readonly string[];
+  range?: GssSourceRange;
   reason?: string;
   suggestion?: string;
 };
@@ -449,7 +455,11 @@ export type GssDiagnostic = {
 
 Expected user errors return diagnostics. Exceptions are reserved for violated Compiler invariants.
 
-Diagnostics are sorted by source range, code, and path. No result contains timestamps, random ids, or absolute project paths.
+`range` uses zero-based UTF-16 offsets into the **original caller CSS**, with an exclusive end; CRLF/astral characters take two units and BOM markers count. It is optional: absent means no reliable attribution, not offset zero. CSS syntax `GSS1001` uses validated parser Input coordinates, never upstream source-map coordinates. Without a supplied end it reports a zero-width point (including a genuinely reported EOF). Authored selector syntax `GSS1001` and unsupported-selector `GSS1101` use the complete enclosing authored rule span, including braces; list branches share it and nested branches point to their original nested rule. Duplicate-declaration `GSS1204` identifies the actual repeated declaration, including a semicolon if authored. These are not exact selector-token or generated-CSS mappings.
+
+Other diagnostic sites (including configuration/bindings, resources/registry and multi-origin resolution), unknown origins and inline-map decode/schema/lazy-lookup failures without Input coordinates omit the field. Asset discovery exposes these parser ranges but does not perform declaration validation. Existing consumers and independent reference diagnostics can still supply diagnostics without ranges.
+
+Diagnostic `id` remains caller-supplied (including physical ids); codes and current emission order are unchanged. Expected PostCSS/selector syntax errors retain a generic path-clean message and existing `GSS1001`/`parse`. There is no public `path` field, range/code/path sorting, CSS source-map emission or IDE integration in this Compiler slice. The Vite Adapter consumes the ranges as described in its integration contract above. Failed replacement still retains generation, ScopeSchema and finalized last-known-good contribution. CSS/manifest semantic identity remains independent of physical checkout location and source positions.
 
 ## Manifest
 

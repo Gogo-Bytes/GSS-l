@@ -1,9 +1,14 @@
+/** Zero-based UTF-16 offsets into the original caller CSS, with an exclusive end. */
+export type GssSourceRange = { start: number; end: number };
+
 export type GssDiagnostic = {
   code: string;
   severity: 'info' | 'warning' | 'error';
   phase: 'parse' | 'normalize' | 'validate' | 'resolve' | 'plan' | 'registry' | 'render';
   message: string;
   id: string;
+  /** Absent when reliable original-source attribution is unavailable. */
+  range?: GssSourceRange;
   reason?: string;
   suggestion?: string;
 };

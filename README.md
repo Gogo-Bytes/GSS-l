@@ -143,3 +143,7 @@ Dev 同样解析 CSS/font 资源，在 Vite 的 HTTP 服务中提供内部版本
 ## Delivery policy
 
 Every implementation stage must satisfy its roadmap completion criteria and relevant checks before commit and push. Package publication and releases require a separate explicit decision.
+
+独立 testing reference 新增有界 root-only Module-local `@keyframes` 与静态 single animation-name/timing longhands，保持 public API、独立命名与 Asset callback transaction；精确 frame grammar/exclusions 见 [testing README](packages/testing/README.md)。317 reference / 622 workspace tests 与 lint/build/typecheck 通过；新增 paused metadata/actual effect association 的 49 fixtures / 875 comparisons parent native gate 已通过，零 differences/literal failures、六个 controls detected，不声称 painted pixels、完整 oracle/browser CI/Pilot 完成。
+
+Keyframe reference review follow-up 修复 property/colon punctuation 与 importance comment 的 fail-closed 漏洞，新增 9 个 public regressions；当前 326 reference / 631 workspace tests 与 lint/build/typecheck 通过。未改 production/API/fixture expectations；Parent freshly reopened post-fix final-build native gate 再次通过 49/875、零 differences/literal failures、六个 controls detected，pseudo/asset/keyframes controlsUnchanged 与 definitionRemoved=true；仍不代表完整 oracle/Pilot。
