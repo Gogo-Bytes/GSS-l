@@ -1694,6 +1694,34 @@ describe('GssCompilerSession', () => {
     );
   });
 
+  it('retains a root general-sibling runtime relation and ownership suffix', () => {
+    const sources = [
+      '.input ~ .label .icon { color: red; } .input ~ .label .icon { background-color: blue; }',
+      '.input ~ .label .icon { background-color: blue; } .input ~ .label .icon { color: red; }'
+    ];
+    const results = sources.map((source) => {
+      const compiler = createGssCompilerSession({ projectRoot: '/project' });
+      const replacement = compiler.replaceStylesheet({ id: '/project/src/general.gss', source });
+      return { replacement, css: compiler.finalize().css };
+    });
+    const sourceMarker = 'gss-s--module_src_2f_general_2e_gss--path_input';
+    const contextMarker =
+      'gss-c--module_src_2f_general_2e_gss--relation_general_2d_sibling_2f_descendant--position_1--path_input_2f_label--target_input_2f_label_2f_icon';
+    const targetMarker =
+      'gss-t--module_src_2f_general_2e_gss--relation_general_2d_sibling_2f_descendant--source_input--target_input_2f_label_2f_icon';
+    const selector = `.${sourceMarker} ~ .${contextMarker} .${targetMarker}`;
+    const expectedSchema = { input: { selfClassName: sourceMarker, targets: {
+      label: { selfClassName: contextMarker, targets: { icon: { selfClassName: targetMarker, targets: {} } } }
+    } } };
+    const expectedCss = `${selector} {\n  background-color: blue;\n}\n\n${selector} {\n  color: red;\n}`;
+    for (const { replacement, css } of results) {
+      expect(replacement.diagnostics).toEqual([]);
+      expect(replacement.module?.scopeSchema.exports).toEqual(expectedSchema);
+      expect(css).toBe(expectedCss);
+    }
+    expect(results[0]?.css).toBe(results[1]?.css);
+  });
+
   it('retains a leading ownership prefix around an adjacent runtime relation and suffix', () => {
     const sources = [
       '.root .input + .label .icon { color: red; } .root .input + .label .icon { background-color: blue; }',
@@ -1868,7 +1896,7 @@ describe('GssCompilerSession', () => {
       '.root .input + .label .icon + .badge { color: red; }',
       '.root .input + .label .icon > .badge { color: red; }',
       '.root .input > .label .icon { color: red; }',
-      '.input ~ .label .icon { color: red; }'
+      '.input ~ .label .icon + .badge { color: red; }'
     ];
     for (const source of sources) {
       const compiler = createGssCompilerSession({ projectRoot: '/project' });
