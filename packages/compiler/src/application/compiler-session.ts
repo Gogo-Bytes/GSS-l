@@ -363,8 +363,11 @@ function prepareContribution(
     const firstRuntimeRelation = relations.findIndex((relation) => relation !== 'descendant');
     const hasOwnershipSuffix = relations.slice(firstRuntimeRelation).includes('descendant');
     return hasOwnershipSuffix && !(
-      firstRuntimeRelation === 0 && path.length >= 3 && relations.length === path.length - 1 &&
-      relations[0] === 'adjacent' && relations.slice(1).every((relation) => relation === 'descendant')
+      firstRuntimeRelation >= 0 && path.length >= firstRuntimeRelation + 3 &&
+      relations.length === path.length - 1 &&
+      relations.slice(0, firstRuntimeRelation).every((relation) => relation === 'descendant') &&
+      relations[firstRuntimeRelation] === 'adjacent' &&
+      relations.slice(firstRuntimeRelation + 1).every((relation) => relation === 'descendant')
     );
   });
   if (unsupportedRelation) {

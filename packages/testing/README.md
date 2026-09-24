@@ -66,7 +66,7 @@ corepack pnpm --filter @gss-l/testing browser:reference
 
 Open **http://127.0.0.1:4178/** with native `agent_browser`. The fixed port is strict. Stop the server with Ctrl-C when done.
 
-The page compiles the thirty-eight reference and atomic fixture outputs separately on the Vite host. Eleven additional contextual-boundary fixtures use explicit hand-authored native CSS and mappings, never atomic output, for syntax intentionally outside `compileGssReference` (child relations and `:has()`). The reference API remains fail-closed for that syntax. It renders identical fixture DOM with the corresponding mappings into separate initially same-size iframe documents (640px viewport; matching scripted resize on both sides), each with only its own stylesheet. No React adapter or browser-side compiler is involved. Both sides must match literal expected computed values, not merely each other. Fixtures cover:
+The page compiles the current 88 reference and atomic fixture outputs separately on the Vite host. Additional contextual and interleaved fixtures use explicit hand-authored native CSS and mappings, never atomic output, for syntax intentionally outside `compileGssReference` (child relations, `:has()`, and bounded runtime/ownership chains). The reference API remains fail-closed for that syntax. It renders identical fixture DOM with the corresponding mappings into separate initially same-size iframe documents (640px viewport; matching scripted resize on both sides), each with only its own stylesheet. No React adapter or browser-side compiler is involved. Both sides must match literal expected computed values, not merely each other. Fixtures cover:
 
 1. Local ownership and isolation of equal class names in two Modules.
 2. `.icon`, `.son .icon`, `.father .icon`, `.father .son .icon` accumulation with actual matching ancestors, including direct and standalone icons.
@@ -92,22 +92,35 @@ Wait until `window.__GSS_REFERENCE_RESULT__.status !== 'running'` (also JSON tex
 ```js
 const r = window.__GSS_REFERENCE_RESULT__;
 r.status === 'passed' &&
-r.results.length === 49 &&
-r.results.reduce((sum, f) => sum + f.comparisons, 0) === 875 &&
+r.results.length === 88 &&
+r.results.reduce((sum, f) => sum + f.comparisons, 0) === 1015 &&
 r.results.every(f => f.comparisons > 0 && f.differences.length === 0 && f.expectedFailures.length === 0) &&
 r.negativeControl.detected === true &&
 r.pseudoNegativeControl.detected === true &&
 r.pseudoNegativeControl.controlsUnchanged === true &&
 r.conditionNegativeControl.detected === true &&
 r.layerNegativeControl.detected === true &&
+r.nestedLayerNegativeControl.detected === true &&
+r.nestedLayerNegativeControl.controlsUnchanged === true &&
 r.assetNegativeControl.detected === true &&
 r.assetNegativeControl.controlsUnchanged === true &&
 r.keyframesNegativeControl.detected === true &&
 r.keyframesNegativeControl.controlsUnchanged === true &&
-r.keyframesNegativeControl.definitionRemoved === true
+r.keyframesNegativeControl.definitionRemoved === true &&
+r.fontResetNegativeControl.detected === true &&
+r.relationNegativeControl.detected === true &&
+r.relationNegativeControl.controlsUnchanged === true &&
+r.interleavedChainNegativeControl.detected === true &&
+r.interleavedChainNegativeControl.controlsUnchanged === true &&
+r.interleavedDepthNegativeControl.detected === true &&
+r.interleavedDepthNegativeControl.controlsUnchanged === true &&
+r.interleavedPrefixNegativeControl.detected === true &&
+r.interleavedPrefixNegativeControl.controlsUnchanged === true &&
+r.hasSpecificityNegativeControl.detected === true &&
+r.hasSpecificityNegativeControl.controlsUnchanged === true
 ```
 
-Each difference reports phase, actual native pseudo/attribute state plus iframe viewport width, matchMedia/CSS.supports results and container provider width, Module id, scope path, node, sampled subject (`element`, `::before`, `::after`), property, reference value and atomic value; each fixture also exposes its phase list and complete readings. The negative control intentionally overrides atomic `#forward` with `margin-left: 123px !important`; it must detect reference `9px` versus atomic `123px`. A second control overrides only atomic `#pseudo-a::before` color with `rgb(1, 2, 3) !important`; exactly one before-color difference from literal red must be detected, with every originating-element/after/other-Module reading unchanged. Page success requires all six controls. The registered-media control appends a matching-only important override: exactly baseline/restored `padding-left: 7px` versus `123px` must differ, with nonmatching phases/control readings unchanged. The layer control reverses only the atomic prelude: normal blue → red and both important cases red → blue must differ, while unlayered normal stays green. If either compilation or frame loading fails, the page fails rather than reporting an empty comparison as success (host compilation errors also appear in Vite's overlay).
+Each difference reports phase, actual native pseudo/attribute state plus iframe viewport width, matchMedia/CSS.supports results and container provider width, Module id, scope path, node, sampled subject (`element`, `::before`, `::after`), property, reference value and atomic value; each fixture also exposes its phase list and complete readings. The negative control intentionally overrides atomic `#forward` with `margin-left: 123px !important`; it must detect reference `9px` versus atomic `123px`. A second control overrides only atomic `#pseudo-a::before` color with `rgb(1, 2, 3) !important`; exactly one before-color difference from literal red must be detected, with every originating-element/after/other-Module reading unchanged. Page success requires all thirteen controls. The registered-media control appends a matching-only important override: exactly baseline/restored `padding-left: 7px` versus `123px` must differ, with nonmatching phases/control readings unchanged. The layer control reverses only the atomic prelude: normal blue → red and both important cases red → blue must differ, while unlayered normal stays green. If either compilation or frame loading fails, the page fails rather than reporting an empty comparison as success (host compilation errors also appear in Vite's overlay).
 
 **Previous bounded native browser gate passed.** Parent `agent_browser` ran all twenty-five fixtures (fourteen compiled-reference fixtures plus eleven hand-authored contextual goldens): **575 computed-value comparisons**, no differences or expected failures. The unchanged original ancestor attribute fixture now reads `margin-left: 1px → 9px → 1px → 1px` on both sides. The checkbox margin probe reads `1px` on both sides across all five phases; the abandoned padding probe is not used to assert native checkbox rendering. The corruption control remains effective (`9px` versus `123px`).
 
@@ -198,3 +211,5 @@ A dedicated CSSOM control perturbs only the emitted dotted layer prelude. It mus
 A CSSOM negative control removes only the emitted adjacent `+` edge. It must leave the reference unchanged and change only the atomic target's color from red to the `div` baseline black; the background remains blue. Parent native `agent_browser` passed **84 fixtures / 1007 comparisons**, zero differences/literal failures, and all **eleven** controls detected. The prior 82/1003 corpus and ten controls remain intact. This is the first one-adjacent-edge/one-owned-descendant S4.9 slice.
 
 The current bounded extension adds two independent native fixtures for `.input + .label .icon .badge` in forward/reversed declaration order. They encode two trailing ownership-descendant edges and literal red/blue values at `badge`. A dedicated CSSOM control collapses only the final descendant edge and changes only the deep target's color from red to the `div` baseline black. Parent native `agent_browser` passed **86 fixtures / 1011 comparisons**, zero differences/literal failures, and all **twelve** controls detected; the prior 84/1007 corpus and eleven controls remain intact. Additional runtime edges, other interleavings, and explicit-global branches remain outside this bounded slice.
+
+The next bounded fixtures add a leading ownership prefix: `.root .input + .label .icon`, in forward/reversed declaration order. The hand-authored native schema places `root` and `input` as ancestors, `label` as the adjacent sibling, and `icon` as its descendant; the Compiler side repeats the source marker by the `root.input` prefix depth while retaining the normalized adjacent/descendant contextual identity. A dedicated control removes only the adjacent edge and must change only the icon color from red to the `div` baseline black. These two fixtures add four comparisons. Parent native `agent_browser` passed **88 fixtures / 1015 comparisons**, zero differences/literal failures, and all **thirteen** controls; the earlier 86/1011 corpus and twelve controls remain intact. The control changed only icon color from red to the `div` baseline black.
