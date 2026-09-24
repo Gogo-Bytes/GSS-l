@@ -366,7 +366,8 @@ function prepareContribution(
       firstRuntimeRelation >= 0 && path.length >= firstRuntimeRelation + 3 &&
       relations.length === path.length - 1 &&
       relations.slice(0, firstRuntimeRelation).every((relation) => relation === 'descendant') &&
-      relations[firstRuntimeRelation] === 'adjacent' &&
+      (relations[firstRuntimeRelation] === 'adjacent' ||
+        (firstRuntimeRelation > 0 && relations[firstRuntimeRelation] === 'general-sibling')) &&
       relations.slice(firstRuntimeRelation + 1).every((relation) => relation === 'descendant')
     );
   });

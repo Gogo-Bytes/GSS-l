@@ -43,6 +43,20 @@ const prefixDeclarations = [
   '.root .input + .label .icon { background-color: blue; }'
 ] as const;
 
+const generalPrefixScopeSchemas: Readonly<Record<string, ScopeSchema>> = {
+  'InterleavedGeneralPrefix.gss': { moduleId: 'InterleavedGeneralPrefix.gss', exports: {
+    root: { selfClassName: 'root', targets: {
+      input: { selfClassName: 'input', targets: {
+        label: { selfClassName: 'label', targets: { icon: { selfClassName: 'icon', targets: {} } } }
+      } }
+    } }
+  } }
+};
+const generalPrefixDeclarations = [
+  '.root .input ~ .label .icon { color: red; }',
+  '.root .input ~ .label .icon { background-color: blue; }'
+] as const;
+
 type InterleavedFixture = ReferenceFixture & {
   reference: { css: string; scopeSchemas: Readonly<Record<string, ScopeSchema>> };
 };
@@ -102,6 +116,26 @@ export const interleavedChainFixtures: readonly InterleavedFixture[] = [
         { id: 'source', parent: 'root', tag: 'input', moduleId: 'InterleavedPrefix.gss', path: ['root', 'input'], expected: {} },
         { id: 'label', parent: 'root', moduleId: 'InterleavedPrefix.gss', path: ['root', 'input', 'label'], expected: {} },
         { id: 'icon', parent: 'label', moduleId: 'InterleavedPrefix.gss', path: ['root', 'input', 'label', 'icon'], expected: {
+          color: 'rgb(255, 0, 0)', 'background-color': 'rgb(0, 0, 255)'
+        } }
+      ]
+    };
+  }),
+  ...[false, true].map((reverse): InterleavedFixture => {
+    const sourceRules = reverse ? [...generalPrefixDeclarations].reverse() : [...generalPrefixDeclarations];
+    return {
+      name: `interleaved-owned-descendant-general-prefix-${reverse ? 'reversed' : 'forward'}`,
+      modules: [{ id: 'InterleavedGeneralPrefix.gss', source: sourceRules.join('\n') }],
+      setupCss: 'div { color: black; }',
+      reference: {
+        css: '.root .input ~ .label .icon { color: red; } .root .input ~ .label .icon { background-color: blue; }',
+        scopeSchemas: generalPrefixScopeSchemas
+      },
+      nodes: [
+        { id: 'root', moduleId: 'InterleavedGeneralPrefix.gss', path: ['root'], expected: {} },
+        { id: 'source', parent: 'root', tag: 'input', moduleId: 'InterleavedGeneralPrefix.gss', path: ['root', 'input'], expected: {} },
+        { id: 'label', parent: 'root', moduleId: 'InterleavedGeneralPrefix.gss', path: ['root', 'input', 'label'], expected: {} },
+        { id: 'icon', parent: 'label', moduleId: 'InterleavedGeneralPrefix.gss', path: ['root', 'input', 'label', 'icon'], expected: {
           color: 'rgb(255, 0, 0)', 'background-color': 'rgb(0, 0, 255)'
         } }
       ]

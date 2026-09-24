@@ -11,7 +11,7 @@ type Reading = {
   subject: 'element' | '::before' | '::after'; property: string; value: string; expected: string;
 };
 
-async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'nested-layer' | 'asset' | 'keyframes' | 'relation' | 'interleaved' | 'interleaved-depth' | 'interleaved-prefix' | 'font-reset' | 'has-specificity' | 'has-specificity-dedup'): Promise<Reading[]> {
+async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'nested-layer' | 'asset' | 'keyframes' | 'relation' | 'interleaved' | 'interleaved-depth' | 'interleaved-prefix' | 'interleaved-general-prefix' | 'font-reset' | 'has-specificity' | 'has-specificity-dedup'): Promise<Reading[]> {
   const frame = document.createElement('iframe');
   frame.title = `${fixture.name}: ${side}${corrupt ? ' negative control' : ''}`;
   frame.width = '640';
@@ -97,15 +97,16 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
     sheet.deleteRule(index);
     sheet.insertRule(text, sheet.cssRules.length);
   }
-  if (corrupt === 'interleaved' || corrupt === 'interleaved-prefix') {
+  if (corrupt === 'interleaved' || corrupt === 'interleaved-prefix' || corrupt === 'interleaved-general-prefix') {
     // Remove only the runtime adjacent edge from the bounded interleaved selector.
     const sheet = style.sheet!;
+    const relation = corrupt === 'interleaved-general-prefix' ? ' ~ ' : ' + ';
     const index = [...sheet.cssRules].findIndex((rule) => rule instanceof (frame.contentWindow as Window & typeof globalThis).CSSStyleRule &&
-      (rule as CSSStyleRule).selectorText.includes(' + ') && (rule as CSSStyleRule).style.color === 'red');
+      (rule as CSSStyleRule).selectorText.includes(relation) && (rule as CSSStyleRule).style.color === 'red');
     const rule = sheet.cssRules[index] as CSSStyleRule | undefined;
-    if (index < 0 || !rule) throw new Error('Interleaved control requires the adjacent red rule');
+    if (index < 0 || !rule) throw new Error('Interleaved control requires the intended red rule');
     const selector = rule.selectorText;
-    const weakened = selector.replace(' + ', ' ');
+    const weakened = selector.replace(relation, ' ');
     if (weakened === selector) throw new Error('Interleaved control did not remove the adjacent edge');
     const declarations = rule.style.cssText;
     sheet.deleteRule(index);
@@ -446,16 +447,29 @@ async function run() {
     interleavedPrefixDifferences[0]!.node === 'icon' && interleavedPrefixDifferences[0]!.property === 'color' &&
     interleavedPrefixDifferences[0]!.reference === 'rgb(255, 0, 0)' &&
     interleavedPrefixDifferences[0]!.atomic === 'rgb(0, 0, 0)';
+  const interleavedGeneralPrefixFixture = fixtures.find((fixture) => fixture.name === 'interleaved-owned-descendant-general-prefix-forward')!;
+  const interleavedGeneralPrefixReference = await readDocument(interleavedGeneralPrefixFixture, 'reference');
+  const interleavedGeneralPrefixAtomic = await readDocument(interleavedGeneralPrefixFixture, 'atomic');
+  const interleavedGeneralPrefixCorrupted = await readDocument(interleavedGeneralPrefixFixture, 'atomic', 'interleaved-general-prefix');
+  const interleavedGeneralPrefixDifferences = compare(interleavedGeneralPrefixReference, interleavedGeneralPrefixCorrupted);
+  const interleavedGeneralPrefixChanges = compare(interleavedGeneralPrefixAtomic, interleavedGeneralPrefixCorrupted);
+  const interleavedGeneralPrefixDetected = compare(interleavedGeneralPrefixReference, interleavedGeneralPrefixAtomic).length === 0 &&
+    interleavedGeneralPrefixChanges.length === 1 && interleavedGeneralPrefixChanges[0]!.node === 'icon' &&
+    interleavedGeneralPrefixChanges[0]!.property === 'color' && interleavedGeneralPrefixDifferences.length === 1 &&
+    interleavedGeneralPrefixDifferences[0]!.node === 'icon' && interleavedGeneralPrefixDifferences[0]!.property === 'color' &&
+    interleavedGeneralPrefixDifferences[0]!.reference === 'rgb(255, 0, 0)' &&
+    interleavedGeneralPrefixDifferences[0]!.atomic === 'rgb(0, 0, 0)';
   publish({
     relationNegativeControl: { detected: relationDetected, controlsUnchanged: relationControlsUnchanged, ruleReordered: true, differences: relationDifferences },
     interleavedChainNegativeControl: { detected: interleavedDetected, controlsUnchanged: interleavedChanges.length === 1, adjacentEdgeRemoved: true, differences: interleavedDifferences },
     interleavedDepthNegativeControl: { detected: interleavedDepthDetected, controlsUnchanged: interleavedDepthChanges.length === 1, finalDescendantEdgeCollapsed: true, differences: interleavedDepthDifferences },
     interleavedPrefixNegativeControl: { detected: interleavedPrefixDetected, controlsUnchanged: interleavedPrefixChanges.length === 1, adjacentEdgeRemoved: true, differences: interleavedPrefixDifferences },
+    interleavedGeneralPrefixNegativeControl: { detected: interleavedGeneralPrefixDetected, controlsUnchanged: interleavedGeneralPrefixChanges.length === 1, generalSiblingEdgeRemoved: true, differences: interleavedGeneralPrefixDifferences },
     hasSpecificityNegativeControl: { detected: hasSpecificityDetected, controlsUnchanged: hasSpecificityControlsUnchanged, qualifierRemoved: true, differences: hasSpecificityDifferences },
     hasSpecificityDedup: { fixtures: hasSpecificityDedupResults, negativeControl: { detected: hasSpecificityDedupControl, qualifierRemoved: true, differences: hasSpecificityDedupDifferences } },
     status: results.every((result) => result.comparisons > 0 && !result.differences.length && !result.expectedFailures.length) &&
       hasSpecificityDedupResults.every((result) => result.differences.length === 0) && hasSpecificityDedupControl &&
-      detected && pseudoDetected && conditionDetected && layerDetected && nestedLayerDetected && assetDetected && keyframesDetected && relationDetected && interleavedDetected && interleavedDepthDetected && interleavedPrefixDetected && hasSpecificityDetected && fontResetNegativeControl
+      detected && pseudoDetected && conditionDetected && layerDetected && nestedLayerDetected && assetDetected && keyframesDetected && relationDetected && interleavedDetected && interleavedDepthDetected && interleavedPrefixDetected && interleavedGeneralPrefixDetected && hasSpecificityDetected && fontResetNegativeControl
       ? 'passed' : 'failed',
     results,
     negativeControl: { detected, differences },
