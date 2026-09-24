@@ -69,6 +69,17 @@ const generalRootDeclarations = [
   '.input ~ .label .icon { color: red; }',
   '.input ~ .label .icon { background-color: blue; }'
 ] as const;
+const childRootScopeSchemas: Readonly<Record<string, ScopeSchema>> = {
+  'InterleavedChildRoot.gss': { moduleId: 'InterleavedChildRoot.gss', exports: {
+    input: { selfClassName: 'input', targets: {
+      label: { selfClassName: 'label', targets: { icon: { selfClassName: 'icon', targets: {} } } }
+    } }
+  } }
+};
+const childRootDeclarations = [
+  '.input > .label .icon { color: red; }',
+  '.input > .label .icon { background-color: blue; }'
+] as const;
 
 type InterleavedFixture = ReferenceFixture & {
   reference: { css: string; scopeSchemas: Readonly<Record<string, ScopeSchema>> };
@@ -168,6 +179,25 @@ export const interleavedChainFixtures: readonly InterleavedFixture[] = [
         { id: 'source', parent: 'root', tag: 'input', moduleId: 'InterleavedGeneralPrefix.gss', path: ['root', 'input'], expected: {} },
         { id: 'label', parent: 'root', moduleId: 'InterleavedGeneralPrefix.gss', path: ['root', 'input', 'label'], expected: {} },
         { id: 'icon', parent: 'label', moduleId: 'InterleavedGeneralPrefix.gss', path: ['root', 'input', 'label', 'icon'], expected: {
+          color: 'rgb(255, 0, 0)', 'background-color': 'rgb(0, 0, 255)'
+        } }
+      ]
+    };
+  }),
+  ...[false, true].map((reverse): InterleavedFixture => {
+    const sourceRules = reverse ? [...childRootDeclarations].reverse() : [...childRootDeclarations];
+    return {
+      name: `interleaved-owned-descendant-child-root-${reverse ? 'reversed' : 'forward'}`,
+      modules: [{ id: 'InterleavedChildRoot.gss', source: sourceRules.join('\n') }],
+      setupCss: 'div { color: black; }',
+      reference: {
+        css: '.input > .label .icon { color: red; } .input > .label .icon { background-color: blue; }',
+        scopeSchemas: childRootScopeSchemas
+      },
+      nodes: [
+        { id: 'source', tag: 'div', moduleId: 'InterleavedChildRoot.gss', path: ['input'], expected: {} },
+        { id: 'label', parent: 'source', moduleId: 'InterleavedChildRoot.gss', path: ['input', 'label'], expected: {} },
+        { id: 'icon', parent: 'label', moduleId: 'InterleavedChildRoot.gss', path: ['input', 'label', 'icon'], expected: {
           color: 'rgb(255, 0, 0)', 'background-color': 'rgb(0, 0, 255)'
         } }
       ]

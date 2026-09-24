@@ -11,7 +11,7 @@ type Reading = {
   subject: 'element' | '::before' | '::after'; property: string; value: string; expected: string;
 };
 
-async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'nested-layer' | 'asset' | 'keyframes' | 'relation' | 'interleaved' | 'interleaved-depth' | 'interleaved-prefix' | 'interleaved-general-prefix' | 'interleaved-general-root' | 'font-reset' | 'has-specificity' | 'has-specificity-dedup'): Promise<Reading[]> {
+async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'nested-layer' | 'asset' | 'keyframes' | 'relation' | 'interleaved' | 'interleaved-depth' | 'interleaved-prefix' | 'interleaved-general-prefix' | 'interleaved-general-root' | 'interleaved-child-root' | 'font-reset' | 'has-specificity' | 'has-specificity-dedup'): Promise<Reading[]> {
   const frame = document.createElement('iframe');
   frame.title = `${fixture.name}: ${side}${corrupt ? ' negative control' : ''}`;
   frame.width = '640';
@@ -97,17 +97,18 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
     sheet.deleteRule(index);
     sheet.insertRule(text, sheet.cssRules.length);
   }
-  if (corrupt === 'interleaved' || corrupt === 'interleaved-prefix' || corrupt === 'interleaved-general-prefix' || corrupt === 'interleaved-general-root') {
-    // Remove only the runtime adjacent edge from the bounded interleaved selector.
+  if (corrupt === 'interleaved' || corrupt === 'interleaved-prefix' || corrupt === 'interleaved-general-prefix' || corrupt === 'interleaved-general-root' || corrupt === 'interleaved-child-root') {
+    // Replace only the runtime edge in the bounded interleaved selector.
     const sheet = style.sheet!;
-    const relation = corrupt === 'interleaved-general-prefix' || corrupt === 'interleaved-general-root' ? ' ~ ' : ' + ';
+    const relation = corrupt === 'interleaved-general-prefix' || corrupt === 'interleaved-general-root' ? ' ~ '
+      : corrupt === 'interleaved-child-root' ? ' > ' : ' + ';
     const index = [...sheet.cssRules].findIndex((rule) => rule instanceof (frame.contentWindow as Window & typeof globalThis).CSSStyleRule &&
       (rule as CSSStyleRule).selectorText.includes(relation) && (rule as CSSStyleRule).style.color === 'red');
     const rule = sheet.cssRules[index] as CSSStyleRule | undefined;
     if (index < 0 || !rule) throw new Error('Interleaved control requires the intended red rule');
     const selector = rule.selectorText;
-    const weakened = selector.replace(relation, ' ');
-    if (weakened === selector) throw new Error('Interleaved control did not remove the adjacent edge');
+    const weakened = selector.replace(relation, corrupt === 'interleaved-child-root' ? ' + ' : ' ');
+    if (weakened === selector) throw new Error('Interleaved control did not alter the intended runtime edge');
     const declarations = rule.style.cssText;
     sheet.deleteRule(index);
     sheet.insertRule(`${weakened} { ${declarations} }`, index);
@@ -471,6 +472,18 @@ async function run() {
     interleavedGeneralRootDifferences[0]!.node === 'icon' && interleavedGeneralRootDifferences[0]!.property === 'color' &&
     interleavedGeneralRootDifferences[0]!.reference === 'rgb(255, 0, 0)' &&
     interleavedGeneralRootDifferences[0]!.atomic === 'rgb(0, 0, 0)';
+  const interleavedChildRootFixture = fixtures.find((fixture) => fixture.name === 'interleaved-owned-descendant-child-root-forward')!;
+  const interleavedChildRootReference = await readDocument(interleavedChildRootFixture, 'reference');
+  const interleavedChildRootAtomic = await readDocument(interleavedChildRootFixture, 'atomic');
+  const interleavedChildRootCorrupted = await readDocument(interleavedChildRootFixture, 'atomic', 'interleaved-child-root');
+  const interleavedChildRootDifferences = compare(interleavedChildRootReference, interleavedChildRootCorrupted);
+  const interleavedChildRootChanges = compare(interleavedChildRootAtomic, interleavedChildRootCorrupted);
+  const interleavedChildRootDetected = compare(interleavedChildRootReference, interleavedChildRootAtomic).length === 0 &&
+    interleavedChildRootChanges.length === 1 && interleavedChildRootChanges[0]!.node === 'icon' &&
+    interleavedChildRootChanges[0]!.property === 'color' && interleavedChildRootDifferences.length === 1 &&
+    interleavedChildRootDifferences[0]!.node === 'icon' && interleavedChildRootDifferences[0]!.property === 'color' &&
+    interleavedChildRootDifferences[0]!.reference === 'rgb(255, 0, 0)' &&
+    interleavedChildRootDifferences[0]!.atomic === 'rgb(0, 0, 0)';
   publish({
     relationNegativeControl: { detected: relationDetected, controlsUnchanged: relationControlsUnchanged, ruleReordered: true, differences: relationDifferences },
     interleavedChainNegativeControl: { detected: interleavedDetected, controlsUnchanged: interleavedChanges.length === 1, adjacentEdgeRemoved: true, differences: interleavedDifferences },
@@ -478,11 +491,12 @@ async function run() {
     interleavedPrefixNegativeControl: { detected: interleavedPrefixDetected, controlsUnchanged: interleavedPrefixChanges.length === 1, adjacentEdgeRemoved: true, differences: interleavedPrefixDifferences },
     interleavedGeneralPrefixNegativeControl: { detected: interleavedGeneralPrefixDetected, controlsUnchanged: interleavedGeneralPrefixChanges.length === 1, generalSiblingEdgeRemoved: true, differences: interleavedGeneralPrefixDifferences },
     interleavedGeneralRootNegativeControl: { detected: interleavedGeneralRootDetected, controlsUnchanged: interleavedGeneralRootChanges.length === 1, generalSiblingEdgeRemoved: true, differences: interleavedGeneralRootDifferences },
+    interleavedChildRootNegativeControl: { detected: interleavedChildRootDetected, controlsUnchanged: interleavedChildRootChanges.length === 1, childEdgeChangedToAdjacent: true, differences: interleavedChildRootDifferences },
     hasSpecificityNegativeControl: { detected: hasSpecificityDetected, controlsUnchanged: hasSpecificityControlsUnchanged, qualifierRemoved: true, differences: hasSpecificityDifferences },
     hasSpecificityDedup: { fixtures: hasSpecificityDedupResults, negativeControl: { detected: hasSpecificityDedupControl, qualifierRemoved: true, differences: hasSpecificityDedupDifferences } },
     status: results.every((result) => result.comparisons > 0 && !result.differences.length && !result.expectedFailures.length) &&
       hasSpecificityDedupResults.every((result) => result.differences.length === 0) && hasSpecificityDedupControl &&
-      detected && pseudoDetected && conditionDetected && layerDetected && nestedLayerDetected && assetDetected && keyframesDetected && relationDetected && interleavedDetected && interleavedDepthDetected && interleavedPrefixDetected && interleavedGeneralPrefixDetected && interleavedGeneralRootDetected && hasSpecificityDetected && fontResetNegativeControl
+      detected && pseudoDetected && conditionDetected && layerDetected && nestedLayerDetected && assetDetected && keyframesDetected && relationDetected && interleavedDetected && interleavedDepthDetected && interleavedPrefixDetected && interleavedGeneralPrefixDetected && interleavedGeneralRootDetected && interleavedChildRootDetected && hasSpecificityDetected && fontResetNegativeControl
       ? 'passed' : 'failed',
     results,
     negativeControl: { detected, differences },
