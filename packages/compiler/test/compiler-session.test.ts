@@ -1694,6 +1694,207 @@ describe('GssCompilerSession', () => {
     );
   });
 
+  it('retains a root general-sibling runtime relation and ownership suffix', () => {
+    const sources = [
+      '.input ~ .label .icon { color: red; } .input ~ .label .icon { background-color: blue; }',
+      '.input ~ .label .icon { background-color: blue; } .input ~ .label .icon { color: red; }'
+    ];
+    const results = sources.map((source) => {
+      const compiler = createGssCompilerSession({ projectRoot: '/project' });
+      const replacement = compiler.replaceStylesheet({ id: '/project/src/general.gss', source });
+      return { replacement, css: compiler.finalize().css };
+    });
+    const sourceMarker = 'gss-s--module_src_2f_general_2e_gss--path_input';
+    const contextMarker =
+      'gss-c--module_src_2f_general_2e_gss--relation_general_2d_sibling_2f_descendant--position_1--path_input_2f_label--target_input_2f_label_2f_icon';
+    const targetMarker =
+      'gss-t--module_src_2f_general_2e_gss--relation_general_2d_sibling_2f_descendant--source_input--target_input_2f_label_2f_icon';
+    const selector = `.${sourceMarker} ~ .${contextMarker} .${targetMarker}`;
+    const expectedSchema = { input: { selfClassName: sourceMarker, targets: {
+      label: { selfClassName: contextMarker, targets: { icon: { selfClassName: targetMarker, targets: {} } } }
+    } } };
+    const expectedCss = `${selector} {\n  background-color: blue;\n}\n\n${selector} {\n  color: red;\n}`;
+    for (const { replacement, css } of results) {
+      expect(replacement.diagnostics).toEqual([]);
+      expect(replacement.module?.scopeSchema.exports).toEqual(expectedSchema);
+      expect(css).toBe(expectedCss);
+    }
+    expect(results[0]?.css).toBe(results[1]?.css);
+  });
+
+  it('retains a leading ownership prefix around an adjacent runtime relation and suffix', () => {
+    const sources = [
+      '.root .input + .label .icon { color: red; } .root .input + .label .icon { background-color: blue; }',
+      '.root .input + .label .icon { background-color: blue; } .root .input + .label .icon { color: red; }'
+    ];
+    const results = sources.map((source) => {
+      const compiler = createGssCompilerSession({ projectRoot: '/project' });
+      const replacement = compiler.replaceStylesheet({
+        id: '/project/src/prefix.gss',
+        source
+      });
+      return { replacement, css: compiler.finalize().css };
+    });
+
+    const sourceMarker = 'gss-s--module_src_2f_prefix_2e_gss--path_root_2f_input';
+    const contextMarker =
+      'gss-c--module_src_2f_prefix_2e_gss--relation_adjacent_2f_descendant--position_1--path_root_2f_input_2f_label--target_root_2f_input_2f_label_2f_icon';
+    const targetMarker =
+      'gss-t--module_src_2f_prefix_2e_gss--relation_adjacent_2f_descendant--source_root_2f_input--target_root_2f_input_2f_label_2f_icon';
+    const selector = `.${sourceMarker}.${sourceMarker} + .${contextMarker} .${targetMarker}`;
+    const expectedSchema = {
+      root: {
+        selfClassName: '',
+        targets: {
+          input: {
+            selfClassName: sourceMarker,
+            targets: {
+              label: {
+                selfClassName: contextMarker,
+                targets: { icon: { selfClassName: targetMarker, targets: {} } }
+              }
+            }
+          }
+        }
+      }
+    };
+
+    const expectedCss = `${selector} {\n  background-color: blue;\n}\n\n${selector} {\n  color: red;\n}`;
+    for (const { replacement, css } of results) {
+      expect(replacement.diagnostics).toEqual([]);
+      expect(replacement.module?.scopeSchema.exports).toEqual(expectedSchema);
+      expect(css).toBe(expectedCss);
+    }
+    expect(results[0]?.css).toBe(results[1]?.css);
+  });
+
+  it('retains a leading ownership prefix around a general-sibling runtime relation and suffix', () => {
+    const sources = [
+      '.root .input ~ .label .icon { color: red; } .root .input ~ .label .icon { background-color: blue; }',
+      '.root .input ~ .label .icon { background-color: blue; } .root .input ~ .label .icon { color: red; }'
+    ];
+    const results = sources.map((source) => {
+      const compiler = createGssCompilerSession({ projectRoot: '/project' });
+      const replacement = compiler.replaceStylesheet({ id: '/project/src/prefix-gs.gss', source });
+      return { replacement, css: compiler.finalize().css };
+    });
+    const sourceMarker = 'gss-s--module_src_2f_prefix_2d_gs_2e_gss--path_root_2f_input';
+    const contextMarker =
+      'gss-c--module_src_2f_prefix_2d_gs_2e_gss--relation_general_2d_sibling_2f_descendant--position_1--path_root_2f_input_2f_label--target_root_2f_input_2f_label_2f_icon';
+    const targetMarker =
+      'gss-t--module_src_2f_prefix_2d_gs_2e_gss--relation_general_2d_sibling_2f_descendant--source_root_2f_input--target_root_2f_input_2f_label_2f_icon';
+    const selector = `.${sourceMarker}.${sourceMarker} ~ .${contextMarker} .${targetMarker}`;
+    const expectedSchema = {
+      root: { selfClassName: '', targets: {
+        input: { selfClassName: sourceMarker, targets: {
+          label: { selfClassName: contextMarker, targets: { icon: { selfClassName: targetMarker, targets: {} } } }
+        } }
+      } }
+    };
+    const expectedCss = `${selector} {\n  background-color: blue;\n}\n\n${selector} {\n  color: red;\n}`;
+    for (const { replacement, css } of results) {
+      expect(replacement.diagnostics).toEqual([]);
+      expect(replacement.module?.scopeSchema.exports).toEqual(expectedSchema);
+      expect(css).toBe(expectedCss);
+    }
+    expect(results[0]?.css).toBe(results[1]?.css);
+  });
+
+  it('retains one descendant ownership suffix after a child runtime relation', () => {
+    const sources = [
+      '.input > .label .icon { color: red; } .input > .label .icon { background-color: blue; }',
+      '.input > .label .icon { background-color: blue; } .input > .label .icon { color: red; }'
+    ];
+    const results = sources.map((source) => {
+      const compiler = createGssCompilerSession({ projectRoot: '/project' });
+      const replacement = compiler.replaceStylesheet({ id: '/project/src/child.gss', source });
+      return { replacement, css: compiler.finalize().css };
+    });
+
+    const sourceMarker = 'gss-s--module_src_2f_child_2e_gss--path_input';
+    const contextMarker =
+      'gss-c--module_src_2f_child_2e_gss--relation_child_2f_descendant--position_1--path_input_2f_label--target_input_2f_label_2f_icon';
+    const targetMarker =
+      'gss-t--module_src_2f_child_2e_gss--relation_child_2f_descendant--source_input--target_input_2f_label_2f_icon';
+    const selector = `.${sourceMarker} > .${contextMarker} .${targetMarker}`;
+    const expectedSchema = {
+      input: {
+        selfClassName: sourceMarker,
+        targets: {
+          label: {
+            selfClassName: contextMarker,
+            targets: { icon: { selfClassName: targetMarker, targets: {} } }
+          }
+        }
+      }
+    };
+    const expectedCss = `${selector} {\n  background-color: blue;\n}\n\n${selector} {\n  color: red;\n}`;
+    for (const { replacement, css } of results) {
+      expect(replacement.diagnostics).toEqual([]);
+      expect(replacement.module?.scopeSchema.exports).toEqual(expectedSchema);
+      expect(css).toBe(expectedCss);
+    }
+    expect(results[0]?.css).toBe(results[1]?.css);
+  });
+
+  it('retains a leading ownership prefix around a child runtime relation and suffix', () => {
+    const sources = [
+      '.root .input > .label .icon { color: red; } .root .input > .label .icon { background-color: blue; }',
+      '.root .input > .label .icon { background-color: blue; } .root .input > .label .icon { color: red; }'
+    ];
+    const results = sources.map((source) => {
+      const compiler = createGssCompilerSession({ projectRoot: '/project' });
+      const replacement = compiler.replaceStylesheet({ id: '/project/src/child-prefix.gss', source });
+      return { replacement, css: compiler.finalize().css };
+    });
+    const sourceMarker = 'gss-s--module_src_2f_child_2d_prefix_2e_gss--path_root_2f_input';
+    const contextMarker =
+      'gss-c--module_src_2f_child_2d_prefix_2e_gss--relation_child_2f_descendant--position_1--path_root_2f_input_2f_label--target_root_2f_input_2f_label_2f_icon';
+    const targetMarker =
+      'gss-t--module_src_2f_child_2d_prefix_2e_gss--relation_child_2f_descendant--source_root_2f_input--target_root_2f_input_2f_label_2f_icon';
+    const selector = `.${sourceMarker}.${sourceMarker} > .${contextMarker} .${targetMarker}`;
+    const expectedSchema = {
+      root: {
+        selfClassName: '',
+        targets: {
+          input: {
+            selfClassName: sourceMarker,
+            targets: {
+              label: {
+                selfClassName: contextMarker,
+                targets: { icon: { selfClassName: targetMarker, targets: {} } }
+              }
+            }
+          }
+        }
+      }
+    };
+    const expectedCss = `${selector} {\n  background-color: blue;\n}\n\n${selector} {\n  color: red;\n}`;
+    for (const { replacement, css } of results) {
+      expect(replacement.diagnostics).toEqual([]);
+      expect(replacement.module?.scopeSchema.exports).toEqual(expectedSchema);
+      expect(css).toBe(expectedCss);
+    }
+    expect(results[0]?.css).toBe(results[1]?.css);
+  });
+
+  it('fails closed for unsupported child interleavings', () => {
+    const sources = [
+      '.input > .label > .icon .leaf { color: red; }',
+      '.input > .label .badge > .icon { color: red; }',
+      '.root .input > .label > .icon { color: red; }'
+    ];
+    for (const source of sources) {
+      const compiler = createGssCompilerSession({ projectRoot: '/project' });
+      const replacement = compiler.replaceStylesheet({ id: '/project/src/child-invalid.gss', source });
+      expect(replacement.module).toBeUndefined();
+      expect(replacement.diagnostics).toMatchObject([{
+        code: 'GSS1101', phase: 'validate', reason: 'capability-not-registered'
+      }]);
+      expect(compiler.finalize().css).toBe('');
+    }
+  });
+
   it('retains one descendant ownership suffix after an adjacent runtime relation', () => {
     const sources = [
       '.input + .label .icon { color: red; } .input + .label .icon { background-color: blue; }',
@@ -1786,7 +1987,10 @@ describe('GssCompilerSession', () => {
   it('fails closed when another runtime relation follows or splits the ownership suffix', () => {
     const sources = [
       '.input + .label .icon + .badge { color: red; }',
-      '.input + .label .icon > .badge { color: red; }'
+      '.input + .label .icon > .badge { color: red; }',
+      '.root .input + .label .icon + .badge { color: red; }',
+      '.root .input + .label .icon > .badge { color: red; }',
+      '.input ~ .label .icon + .badge { color: red; }'
     ];
     for (const source of sources) {
       const compiler = createGssCompilerSession({ projectRoot: '/project' });

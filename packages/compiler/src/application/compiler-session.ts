@@ -362,10 +362,16 @@ function prepareContribution(
   const unsupportedRelation = contextualRules.find(({ path, relations }) => {
     const firstRuntimeRelation = relations.findIndex((relation) => relation !== 'descendant');
     const hasOwnershipSuffix = relations.slice(firstRuntimeRelation).includes('descendant');
-    return hasOwnershipSuffix && !(
-      firstRuntimeRelation === 0 && path.length >= 3 && relations.length === path.length - 1 &&
-      relations[0] === 'adjacent' && relations.slice(1).every((relation) => relation === 'descendant')
-    );
+    const runtimeEdgeCount = relations.slice(firstRuntimeRelation).filter((relation) => relation !== 'descendant').length;
+    return (firstRuntimeRelation > 0 && runtimeEdgeCount > 1) || (hasOwnershipSuffix && !(
+      firstRuntimeRelation >= 0 && path.length >= firstRuntimeRelation + 3 &&
+      relations.length === path.length - 1 &&
+      relations.slice(0, firstRuntimeRelation).every((relation) => relation === 'descendant') &&
+      (relations[firstRuntimeRelation] === 'child' ||
+        relations[firstRuntimeRelation] === 'adjacent' ||
+        relations[firstRuntimeRelation] === 'general-sibling') &&
+      relations.slice(firstRuntimeRelation + 1).every((relation) => relation === 'descendant')
+    ));
   });
   if (unsupportedRelation) {
     return {

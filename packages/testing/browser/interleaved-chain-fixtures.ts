@@ -29,6 +29,71 @@ const deepDeclarations = [
   '.input + .label .icon .badge { background-color: blue; }'
 ] as const;
 
+const prefixScopeSchemas: Readonly<Record<string, ScopeSchema>> = {
+  'InterleavedPrefix.gss': { moduleId: 'InterleavedPrefix.gss', exports: {
+    root: { selfClassName: 'root', targets: {
+      input: { selfClassName: 'input', targets: {
+        label: { selfClassName: 'label', targets: { icon: { selfClassName: 'icon', targets: {} } } }
+      } }
+    } }
+  } }
+};
+const prefixDeclarations = [
+  '.root .input + .label .icon { color: red; }',
+  '.root .input + .label .icon { background-color: blue; }'
+] as const;
+
+const generalPrefixScopeSchemas: Readonly<Record<string, ScopeSchema>> = {
+  'InterleavedGeneralPrefix.gss': { moduleId: 'InterleavedGeneralPrefix.gss', exports: {
+    root: { selfClassName: 'root', targets: {
+      input: { selfClassName: 'input', targets: {
+        label: { selfClassName: 'label', targets: { icon: { selfClassName: 'icon', targets: {} } } }
+      } }
+    } }
+  } }
+};
+const generalPrefixDeclarations = [
+  '.root .input ~ .label .icon { color: red; }',
+  '.root .input ~ .label .icon { background-color: blue; }'
+] as const;
+const generalRootScopeSchemas: Readonly<Record<string, ScopeSchema>> = {
+  'InterleavedGeneralRoot.gss': { moduleId: 'InterleavedGeneralRoot.gss', exports: {
+    input: { selfClassName: 'input', targets: {
+      label: { selfClassName: 'label', targets: {
+        icon: { selfClassName: 'icon', targets: {} }
+      } }
+    } }
+  } }
+};
+const generalRootDeclarations = [
+  '.input ~ .label .icon { color: red; }',
+  '.input ~ .label .icon { background-color: blue; }'
+] as const;
+const childRootScopeSchemas: Readonly<Record<string, ScopeSchema>> = {
+  'InterleavedChildRoot.gss': { moduleId: 'InterleavedChildRoot.gss', exports: {
+    input: { selfClassName: 'input', targets: {
+      label: { selfClassName: 'label', targets: { icon: { selfClassName: 'icon', targets: {} } } }
+    } }
+  } }
+};
+const childRootDeclarations = [
+  '.input > .label .icon { color: red; }',
+  '.input > .label .icon { background-color: blue; }'
+] as const;
+const childPrefixScopeSchemas: Readonly<Record<string, ScopeSchema>> = {
+  'InterleavedChildPrefix.gss': { moduleId: 'InterleavedChildPrefix.gss', exports: {
+    root: { selfClassName: 'root', targets: {
+      input: { selfClassName: 'input', targets: {
+        label: { selfClassName: 'label', targets: { icon: { selfClassName: 'icon', targets: {} } } }
+      } }
+    } }
+  } }
+};
+const childPrefixDeclarations = [
+  '.root .input > .label .icon { color: red; }',
+  '.root .input > .label .icon { background-color: blue; }'
+] as const;
+
 type InterleavedFixture = ReferenceFixture & {
   reference: { css: string; scopeSchemas: Readonly<Record<string, ScopeSchema>> };
 };
@@ -68,6 +133,104 @@ export const interleavedChainFixtures: readonly InterleavedFixture[] = [
         { id: 'label', moduleId: 'InterleavedDeep.gss', path: ['input', 'label'], expected: {} },
         { id: 'icon', parent: 'label', moduleId: 'InterleavedDeep.gss', path: ['input', 'label', 'icon'], expected: {} },
         { id: 'badge', parent: 'icon', moduleId: 'InterleavedDeep.gss', path: ['input', 'label', 'icon', 'badge'], expected: {
+          color: 'rgb(255, 0, 0)', 'background-color': 'rgb(0, 0, 255)'
+        } }
+      ]
+    };
+  }),
+  ...[false, true].map((reverse): InterleavedFixture => {
+    const sourceRules = reverse ? [...prefixDeclarations].reverse() : [...prefixDeclarations];
+    return {
+      name: `interleaved-owned-descendant-prefix-${reverse ? 'reversed' : 'forward'}`,
+      modules: [{ id: 'InterleavedPrefix.gss', source: sourceRules.join('\n') }],
+      setupCss: 'div { color: black; }',
+      reference: {
+        css: '.root .input + .label .icon { color: red; } .root .input + .label .icon { background-color: blue; }',
+        scopeSchemas: prefixScopeSchemas
+      },
+      nodes: [
+        { id: 'root', moduleId: 'InterleavedPrefix.gss', path: ['root'], expected: {} },
+        { id: 'source', parent: 'root', tag: 'input', moduleId: 'InterleavedPrefix.gss', path: ['root', 'input'], expected: {} },
+        { id: 'label', parent: 'root', moduleId: 'InterleavedPrefix.gss', path: ['root', 'input', 'label'], expected: {} },
+        { id: 'icon', parent: 'label', moduleId: 'InterleavedPrefix.gss', path: ['root', 'input', 'label', 'icon'], expected: {
+          color: 'rgb(255, 0, 0)', 'background-color': 'rgb(0, 0, 255)'
+        } }
+      ]
+    };
+  }),
+  ...[false, true].map((reverse): InterleavedFixture => {
+    const sourceRules = reverse ? [...generalRootDeclarations].reverse() : [...generalRootDeclarations];
+    return {
+      name: `interleaved-owned-descendant-general-root-${reverse ? 'reversed' : 'forward'}`,
+      modules: [{ id: 'InterleavedGeneralRoot.gss', source: sourceRules.join('\n') }],
+      setupCss: 'div { color: black; }',
+      reference: {
+        css: '.input ~ .label .icon { color: red; } .input ~ .label .icon { background-color: blue; }',
+        scopeSchemas: generalRootScopeSchemas
+      },
+      nodes: [
+        { id: 'source', tag: 'input', moduleId: 'InterleavedGeneralRoot.gss', path: ['input'], expected: {} },
+        { id: 'label', moduleId: 'InterleavedGeneralRoot.gss', path: ['input', 'label'], expected: {} },
+        { id: 'icon', parent: 'label', moduleId: 'InterleavedGeneralRoot.gss', path: ['input', 'label', 'icon'], expected: {
+          color: 'rgb(255, 0, 0)', 'background-color': 'rgb(0, 0, 255)'
+        } }
+      ]
+    };
+  }),
+  ...[false, true].map((reverse): InterleavedFixture => {
+    const sourceRules = reverse ? [...generalPrefixDeclarations].reverse() : [...generalPrefixDeclarations];
+    return {
+      name: `interleaved-owned-descendant-general-prefix-${reverse ? 'reversed' : 'forward'}`,
+      modules: [{ id: 'InterleavedGeneralPrefix.gss', source: sourceRules.join('\n') }],
+      setupCss: 'div { color: black; }',
+      reference: {
+        css: '.root .input ~ .label .icon { color: red; } .root .input ~ .label .icon { background-color: blue; }',
+        scopeSchemas: generalPrefixScopeSchemas
+      },
+      nodes: [
+        { id: 'root', moduleId: 'InterleavedGeneralPrefix.gss', path: ['root'], expected: {} },
+        { id: 'source', parent: 'root', tag: 'input', moduleId: 'InterleavedGeneralPrefix.gss', path: ['root', 'input'], expected: {} },
+        { id: 'label', parent: 'root', moduleId: 'InterleavedGeneralPrefix.gss', path: ['root', 'input', 'label'], expected: {} },
+        { id: 'icon', parent: 'label', moduleId: 'InterleavedGeneralPrefix.gss', path: ['root', 'input', 'label', 'icon'], expected: {
+          color: 'rgb(255, 0, 0)', 'background-color': 'rgb(0, 0, 255)'
+        } }
+      ]
+    };
+  }),
+  ...[false, true].map((reverse): InterleavedFixture => {
+    const sourceRules = reverse ? [...childRootDeclarations].reverse() : [...childRootDeclarations];
+    return {
+      name: `interleaved-owned-descendant-child-root-${reverse ? 'reversed' : 'forward'}`,
+      modules: [{ id: 'InterleavedChildRoot.gss', source: sourceRules.join('\n') }],
+      setupCss: 'div { color: black; }',
+      reference: {
+        css: '.input > .label .icon { color: red; } .input > .label .icon { background-color: blue; }',
+        scopeSchemas: childRootScopeSchemas
+      },
+      nodes: [
+        { id: 'source', tag: 'div', moduleId: 'InterleavedChildRoot.gss', path: ['input'], expected: {} },
+        { id: 'label', parent: 'source', moduleId: 'InterleavedChildRoot.gss', path: ['input', 'label'], expected: {} },
+        { id: 'icon', parent: 'label', moduleId: 'InterleavedChildRoot.gss', path: ['input', 'label', 'icon'], expected: {
+          color: 'rgb(255, 0, 0)', 'background-color': 'rgb(0, 0, 255)'
+        } }
+      ]
+    };
+  }),
+  ...[false, true].map((reverse): InterleavedFixture => {
+    const sourceRules = reverse ? [...childPrefixDeclarations].reverse() : [...childPrefixDeclarations];
+    return {
+      name: `interleaved-owned-descendant-child-prefix-${reverse ? 'reversed' : 'forward'}`,
+      modules: [{ id: 'InterleavedChildPrefix.gss', source: sourceRules.join('\n') }],
+      setupCss: 'div { color: black; }',
+      reference: {
+        css: '.root .input > .label .icon { color: red; } .root .input > .label .icon { background-color: blue; }',
+        scopeSchemas: childPrefixScopeSchemas
+      },
+      nodes: [
+        { id: 'root', moduleId: 'InterleavedChildPrefix.gss', path: ['root'], expected: {} },
+        { id: 'source', parent: 'root', moduleId: 'InterleavedChildPrefix.gss', path: ['root', 'input'], expected: {} },
+        { id: 'label', parent: 'source', moduleId: 'InterleavedChildPrefix.gss', path: ['root', 'input', 'label'], expected: {} },
+        { id: 'icon', parent: 'label', moduleId: 'InterleavedChildPrefix.gss', path: ['root', 'input', 'label', 'icon'], expected: {
           color: 'rgb(255, 0, 0)', 'background-color': 'rgb(0, 0, 255)'
         } }
       ]
