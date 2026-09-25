@@ -92,8 +92,8 @@ Wait until `window.__GSS_REFERENCE_RESULT__.status !== 'running'` (also JSON tex
 ```js
 const r = window.__GSS_REFERENCE_RESULT__;
 r.status === 'passed' &&
-r.results.length === 94 &&
-r.results.reduce((sum, f) => sum + f.comparisons, 0) === 1027 &&
+r.results.length === 96 &&
+r.results.reduce((sum, f) => sum + f.comparisons, 0) === 1031 &&
 r.results.every(f => f.comparisons > 0 && f.differences.length === 0 && f.expectedFailures.length === 0) &&
 r.negativeControl.detected === true &&
 r.pseudoNegativeControl.detected === true &&
@@ -122,11 +122,13 @@ r.interleavedGeneralRootNegativeControl.detected === true &&
 r.interleavedGeneralRootNegativeControl.controlsUnchanged === true &&
 r.interleavedChildRootNegativeControl.detected === true &&
 r.interleavedChildRootNegativeControl.controlsUnchanged === true &&
+r.interleavedChildPrefixNegativeControl.detected === true &&
+r.interleavedChildPrefixNegativeControl.controlsUnchanged === true &&
 r.hasSpecificityNegativeControl.detected === true &&
 r.hasSpecificityNegativeControl.controlsUnchanged === true
 ```
 
-Each difference reports phase, actual native pseudo/attribute state plus iframe viewport width, matchMedia/CSS.supports results and container provider width, Module id, scope path, node, sampled subject (`element`, `::before`, `::after`), property, reference value and atomic value; each fixture also exposes its phase list and complete readings. The negative control intentionally overrides atomic `#forward` with `margin-left: 123px !important`; it must detect reference `9px` versus atomic `123px`. A second control overrides only atomic `#pseudo-a::before` color with `rgb(1, 2, 3) !important`; exactly one before-color difference from literal red must be detected, with every originating-element/after/other-Module reading unchanged. Page success requires all sixteen controls. The registered-media control appends a matching-only important override: exactly baseline/restored `padding-left: 7px` versus `123px` must differ, with nonmatching phases/control readings unchanged. The layer control reverses only the atomic prelude: normal blue → red and both important cases red → blue must differ, while unlayered normal stays green. If either compilation or frame loading fails, the page fails rather than reporting an empty comparison as success (host compilation errors also appear in Vite's overlay).
+Each difference reports phase, actual native pseudo/attribute state plus iframe viewport width, matchMedia/CSS.supports results and container provider width, Module id, scope path, node, sampled subject (`element`, `::before`, `::after`), property, reference value and atomic value; each fixture also exposes its phase list and complete readings. The negative control intentionally overrides atomic `#forward` with `margin-left: 123px !important`; it must detect reference `9px` versus atomic `123px`. A second control overrides only atomic `#pseudo-a::before` color with `rgb(1, 2, 3) !important`; exactly one before-color difference from literal red must be detected, with every originating-element/after/other-Module reading unchanged. Page success requires all seventeen controls. The registered-media control appends a matching-only important override: exactly baseline/restored `padding-left: 7px` versus `123px` must differ, with nonmatching phases/control readings unchanged. The layer control reverses only the atomic prelude: normal blue → red and both important cases red → blue must differ, while unlayered normal stays green. If either compilation or frame loading fails, the page fails rather than reporting an empty comparison as success (host compilation errors also appear in Vite's overlay).
 
 **Previous bounded native browser gate passed.** Parent `agent_browser` ran all twenty-five fixtures (fourteen compiled-reference fixtures plus eleven hand-authored contextual goldens): **575 computed-value comparisons**, no differences or expected failures. The unchanged original ancestor attribute fixture now reads `margin-left: 1px → 9px → 1px → 1px` on both sides. The checkbox margin probe reads `1px` on both sides across all five phases; the abandoned padding probe is not used to assert native checkbox rendering. The corruption control remains effective (`9px` versus `123px`).
 
@@ -225,3 +227,5 @@ The current bounded extension adds `.root .input ~ .label .icon` in forward/reve
 The root-level general-sibling extension adds `.input ~ .label .icon` in forward/reversed declaration order. It retains the full mapped path and uses a dedicated CSSOM control that removes only `~`, changing only icon color from red to the `div` baseline black. Parent native `agent_browser` passed **92 fixtures / 1023 comparisons**, zero differences/literal failures, and all **fifteen** controls; the earlier 90/1019 corpus and fourteen controls remain intact.
 
 The next bounded extension adds `.input > .label .icon` in forward/reversed declaration order. It retains the full mapped path and uses a dedicated CSSOM control that changes only the child edge to an adjacent edge, changing only icon color from red to the `div` baseline black. Two fixtures add four comparisons. Parent native `agent_browser` passed **94 fixtures / 1027 comparisons**, zero differences/literal failures, and all **sixteen** controls; the earlier 92/1023 corpus and fifteen controls remain intact. Prefix-child and explicit-global branches remain outside this slice.
+
+The current bounded extension adds `.root .input > .label .icon` in forward/reversed declaration order. It retains the complete mapped path and uses a non-void `div` source with a direct child label. A dedicated CSSOM control changes only `>` to `+`, changing only icon color from red to the `div` baseline black. Parent native `agent_browser` passed **96 fixtures / 1031 comparisons**, zero differences/literal failures, and all **seventeen** controls; the earlier 94/1027 corpus and sixteen controls remain intact. Explicit-global branches remain outside this slice.
