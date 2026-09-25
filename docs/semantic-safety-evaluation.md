@@ -245,6 +245,8 @@ Values remain opaque. In particular, `var(...)` is not assumed to substitute one
 
 Potential logical/physical overlap still fails closed because its winner can depend on runtime writing mode. An otherwise valid Module with unknown property effects cannot emit atoms; it may instead pass the independent preserved-scoping proof and retain browser-evaluated authored order as one whole preserved Module.
 
+The bounded S3.4 completeness invariant enumerates every currently registered shorthand family in the domain test, checks exact represented effects, rejects duplicate effect entries, verifies each listed effect classifies as a known longhand (with the existing singleton `grid-auto-flow` classification preserved), and retains unknown-property singleton fallback behavior. This is evidence for the current registry dataset only; it does not establish that the dataset covers every CSS shorthand or complete CSS reset semantics.
+
 ## 11. Duplicate property and compatibility sequences
 
 Authored duplicate exact-property sequences are rejected rather than split into value-ordered atoms.
