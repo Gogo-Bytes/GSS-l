@@ -11,7 +11,7 @@ type Reading = {
   subject: 'element' | '::before' | '::after'; property: string; value: string; expected: string;
 };
 
-async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'nested-layer' | 'asset' | 'keyframes' | 'relation' | 'interleaved' | 'interleaved-depth' | 'interleaved-prefix' | 'interleaved-general-prefix' | 'interleaved-general-root' | 'interleaved-child-root' | 'interleaved-child-prefix' | 'font-reset' | 'has-specificity' | 'has-specificity-dedup'): Promise<Reading[]> {
+async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'nested-layer' | 'asset' | 'keyframes' | 'relation' | 'interleaved' | 'interleaved-depth' | 'interleaved-prefix' | 'interleaved-general-prefix' | 'interleaved-general-root' | 'interleaved-child-root' | 'interleaved-child-prefix' | 'cross-layer-specificity' | 'font-reset' | 'has-specificity' | 'has-specificity-dedup'): Promise<Reading[]> {
   const frame = document.createElement('iframe');
   frame.title = `${fixture.name}: ${side}${corrupt ? ' negative control' : ''}`;
   frame.width = '640';
@@ -46,6 +46,11 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
       '@layer framework.utilities, framework.base;'
     );
     if (changed === style.textContent) throw new Error('Nested-layer control did not change the configured prelude');
+    style.textContent = changed;
+  }
+  if (corrupt === 'cross-layer-specificity') {
+    const changed = style.textContent.replace('@layer base, override;', '@layer override, base;');
+    if (changed === style.textContent) throw new Error('Cross-layer specificity control did not change the configured prelude');
     style.textContent = changed;
   }
   doc.head.append(style);
@@ -344,6 +349,19 @@ async function run() {
         difference.property === property && difference.reference === reference && difference.atomic === atomic) &&
       nestedLayerChanges.some((difference) => difference.node === 'nested-layer-probe' && difference.property === property)) &&
     !nestedLayerDifferences.some((difference) => difference.property === 'border-top-color');
+  const crossLayerSpecificityFixture = fixtures.find((fixture) => fixture.name === 'cross-layer-specificity-forward-source-forward-config')!;
+  const crossLayerSpecificityReference = await readDocument(crossLayerSpecificityFixture, 'reference');
+  const crossLayerSpecificityAtomic = await readDocument(crossLayerSpecificityFixture, 'atomic');
+  const crossLayerSpecificityCorrupted = await readDocument(crossLayerSpecificityFixture, 'atomic', 'cross-layer-specificity');
+  const crossLayerSpecificityDifferences = compare(crossLayerSpecificityReference, crossLayerSpecificityCorrupted);
+  const crossLayerSpecificityChanges = compare(crossLayerSpecificityAtomic, crossLayerSpecificityCorrupted);
+  const crossLayerSpecificityDetected = compare(crossLayerSpecificityReference, crossLayerSpecificityAtomic).length === 0 &&
+    crossLayerSpecificityChanges.length === 2 && crossLayerSpecificityDifferences.length === 2 &&
+    crossLayerSpecificityDifferences.some((difference) => difference.phase === 'ready' && difference.property === 'color' &&
+      difference.reference === 'rgb(0, 0, 255)' && difference.atomic === 'rgb(255, 0, 0)') &&
+    crossLayerSpecificityDifferences.some((difference) => difference.phase === 'ready' && difference.property === 'background-color' &&
+      difference.reference === 'rgb(255, 0, 0)' && difference.atomic === 'rgb(0, 0, 255)') &&
+    !crossLayerSpecificityDifferences.some((difference) => difference.property === 'outline-color');
   const assetFixture = fixtures.find((fixture) => fixture.name === 'asset-module-isolation-one')!;
   const assetReference = await readDocument(assetFixture, 'reference');
   const assetAtomic = await readDocument(assetFixture, 'atomic');
@@ -505,11 +523,12 @@ async function run() {
     interleavedGeneralRootNegativeControl: { detected: interleavedGeneralRootDetected, controlsUnchanged: interleavedGeneralRootChanges.length === 1, generalSiblingEdgeRemoved: true, differences: interleavedGeneralRootDifferences },
     interleavedChildRootNegativeControl: { detected: interleavedChildRootDetected, controlsUnchanged: interleavedChildRootChanges.length === 1, childEdgeChangedToAdjacent: true, differences: interleavedChildRootDifferences },
     interleavedChildPrefixNegativeControl: { detected: interleavedChildPrefixDetected, controlsUnchanged: interleavedChildPrefixChanges.length === 1, childEdgeChangedToAdjacent: true, differences: interleavedChildPrefixDifferences },
+    crossLayerSpecificityNegativeControl: { detected: crossLayerSpecificityDetected, controlsUnchanged: crossLayerSpecificityChanges.length === 2 && !crossLayerSpecificityChanges.some((difference) => difference.property === 'outline-color'), configuredOrderPerturbed: true, differences: crossLayerSpecificityDifferences },
     hasSpecificityNegativeControl: { detected: hasSpecificityDetected, controlsUnchanged: hasSpecificityControlsUnchanged, qualifierRemoved: true, differences: hasSpecificityDifferences },
     hasSpecificityDedup: { fixtures: hasSpecificityDedupResults, negativeControl: { detected: hasSpecificityDedupControl, qualifierRemoved: true, differences: hasSpecificityDedupDifferences } },
     status: results.every((result) => result.comparisons > 0 && !result.differences.length && !result.expectedFailures.length) &&
       hasSpecificityDedupResults.every((result) => result.differences.length === 0) && hasSpecificityDedupControl &&
-      detected && pseudoDetected && conditionDetected && layerDetected && nestedLayerDetected && assetDetected && keyframesDetected && relationDetected && interleavedDetected && interleavedDepthDetected && interleavedPrefixDetected && interleavedGeneralPrefixDetected && interleavedGeneralRootDetected && interleavedChildRootDetected && interleavedChildPrefixDetected && hasSpecificityDetected && fontResetNegativeControl
+      detected && pseudoDetected && conditionDetected && layerDetected && nestedLayerDetected && assetDetected && keyframesDetected && relationDetected && interleavedDetected && interleavedDepthDetected && interleavedPrefixDetected && interleavedGeneralPrefixDetected && interleavedGeneralRootDetected && interleavedChildRootDetected && interleavedChildPrefixDetected && crossLayerSpecificityDetected && hasSpecificityDetected && fontResetNegativeControl
       ? 'passed' : 'failed',
     results,
     negativeControl: { detected, differences },
