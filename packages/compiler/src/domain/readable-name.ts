@@ -189,5 +189,5 @@ function encodeNamePart(value: string): string {
       ? character
       : `_${character.codePointAt(0)?.toString(16)}_`;
   }
-  return encoded || 'empty';
+  return encoded || '_0_';
 }
