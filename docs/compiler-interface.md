@@ -386,7 +386,7 @@ export type GssCompilerPorts = {
 };
 ```
 
-The suite above remains a public architecture sketch, not an exported `GssCompilerPorts` or an additional constructor argument today. Only the internal parser seam is implemented in this stage. It returns domain-owned `Parsed*` shapes with internal original-source provenance; no parser AST/host types cross that seam. See [coordinate units and granularity](architecture.md#internal-source-provenance-bounded-implementation). The `AssetResolverPort` configuration slot likewise remains a sketch. The concrete protocol accepted in [ADR-0050](adr/0050-discover-bind-and-render-asset-references.md) is implemented through discovery, replacement input bindings and finalization options:
+The suite above remains a public architecture sketch, not an exported `GssCompilerPorts` or an additional constructor argument today. The internal parser and allocator seams are implemented in bounded form; only the parser port is required by the session and the default allocator is composed by `compiler.ts`. The parser returns domain-owned `Parsed*` shapes with internal original-source provenance; no parser AST/host types cross that seam. See [coordinate units and granularity](architecture.md#internal-source-provenance-bounded-implementation). The complete allocator strategy/reversibility contract and the `AssetResolverPort` configuration slot remain targets. The concrete protocol accepted in [ADR-0050](adr/0050-discover-bind-and-render-asset-references.md) is implemented through discovery, replacement input bindings and finalization options:
 
 ```ts
 export function discoverStylesheetAssets(input: { id: string; source: string }): {

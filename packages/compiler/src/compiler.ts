@@ -1,4 +1,5 @@
 import { createCompilerSession } from './application/compiler-session.js';
+import { createDefaultNameAllocator } from './application/name-allocator.js';
 import { discoverAssets } from './application/stylesheet-assets.js';
 import { parseStylesheet } from './infrastructure/postcss-stylesheet-parser.js';
 import type { GssCompilerConfig, GssCompilerSession, ReplaceStylesheetInput } from './public-types.js';
@@ -6,7 +7,7 @@ import type { GssCompilerConfig, GssCompilerSession, ReplaceStylesheetInput } fr
 const cssParser = { parseStylesheet };
 
 export function createGssCompilerSession(config: GssCompilerConfig): GssCompilerSession {
-  return createCompilerSession(config, cssParser);
+  return createCompilerSession(config, cssParser, createDefaultNameAllocator());
 }
 
 export function discoverStylesheetAssets(input: Pick<ReplaceStylesheetInput, 'id' | 'source'>) {
