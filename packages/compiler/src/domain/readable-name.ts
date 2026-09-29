@@ -182,7 +182,7 @@ function encodePath(path: readonly string[]): string {
   return encodeNamePart(path.join('/'));
 }
 
-function encodeNamePart(value: string): string {
+export function encodeReadableNamePart(value: string): string {
   let encoded = '';
   for (const character of value.normalize('NFC')) {
     encoded += /[A-Za-z0-9]/.test(character)
@@ -191,4 +191,34 @@ function encodeNamePart(value: string): string {
   }
   // A lone underscore cannot encode a nonempty character (underscores encode as _5f_).
   return encoded || '_';
+}
+
+const encodeNamePart = encodeReadableNamePart;
+
+export function decodeReadableNamePart(encoded: string): string | undefined {
+  if (encoded === '_') return '';
+  if (!encoded || !/^[A-Za-z0-9_]+$/.test(encoded)) return undefined;
+
+  let decoded = '';
+  for (let index = 0; index < encoded.length;) {
+    const character = encoded[index]!;
+    if (character !== '_') {
+      decoded += character;
+      index += 1;
+      continue;
+    }
+
+    const end = encoded.indexOf('_', index + 1);
+    if (end < 0) return undefined;
+    const hex = encoded.slice(index + 1, end);
+    if (!/^[0-9a-f]+$/i.test(hex)) return undefined;
+    const codePoint = Number.parseInt(hex, 16);
+    if (codePoint > 0x10ffff || (codePoint >= 0xd800 && codePoint <= 0xdfff)) {
+      return undefined;
+    }
+    decoded += String.fromCodePoint(codePoint);
+    index = end + 1;
+  }
+
+  return decoded.normalize('NFC');
 }
