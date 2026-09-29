@@ -189,5 +189,6 @@ function encodeNamePart(value: string): string {
       ? character
       : `_${character.codePointAt(0)?.toString(16)}_`;
   }
-  return encoded || '_0_';
+  // A lone underscore cannot encode a nonempty character (underscores encode as _5f_).
+  return encoded || '_';
 }
