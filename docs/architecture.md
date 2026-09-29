@@ -99,7 +99,7 @@ NameAllocatorPort
 
 Ports use domain/application data rather than exposing Babel, Vite, filesystem, or third-party parser objects across the boundary.
 
-The first internal parser seam is implemented: [`CssParserPort`](../packages/compiler/src/application/css-parser-port.ts) returns project-owned [`Parsed*` IR](../packages/compiler/src/domain/parsed-stylesheet.ts) and existing diagnostic values. The session requires this port; [`compiler.ts`](../packages/compiler/src/compiler.ts) composes the default PostCSS Adapter outside the use case, also for Asset discovery. The exported constructor remains `createGssCompilerSession(config)`, with no public port argument. Compatibility/allocator port wiring and the broader value model remain targets.
+The first internal parser seam is implemented: [`CssParserPort`](../packages/compiler/src/application/css-parser-port.ts) returns project-owned [`Parsed*` IR](../packages/compiler/src/domain/parsed-stylesheet.ts) and existing diagnostic values. The session requires this port; [`compiler.ts`](../packages/compiler/src/compiler.ts) composes the default PostCSS Adapter outside the use case, also for Asset discovery. The session also routes naming through the internal [`NameAllocatorPort`](../packages/compiler/src/application/name-allocator.ts), while the exported constructor remains `createGssCompilerSession(config)` with no public port argument. Compatibility wiring, the complete allocator strategy/reversibility contract and the broader value model remain targets.
 
 ### Adapters
 

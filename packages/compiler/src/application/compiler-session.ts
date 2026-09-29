@@ -4,18 +4,14 @@ import { collectAssetDependencies } from './stylesheet-assets.js';
 import { toLogicalModuleId } from './module-identity.js';
 import valueParser from 'postcss-value-parser';
 import {
-  createReadableAtomicName,
-  createReadableContextMarker,
-  createReadableHasSubjectMarker,
-  createReadableKeyframesName,
-  createReadableObservedMarker,
-  createReadableSourceMarker,
-  createReadableScopeMarker,
-  createReadableTargetMarker,
   type ContextualRelationIdentity,
   type ObservedRelationIdentity,
   type PureDeclarationIdentity
 } from '../domain/readable-name.js';
+import {
+  createDefaultNameAllocator,
+  type NameAllocatorPort
+} from './name-allocator.js';
 import { isRegisteredPropertyEffect } from '../domain/property-effects.js';
 import { planDescendantConditions } from '../domain/plan-descendant-conditions.js';
 import { planStructuralRelations } from '../domain/plan-structural-relations.js';
@@ -98,13 +94,17 @@ type MutableScopeNode = {
   targets: Map<string, MutableScopeNode>;
 };
 
-export function createCompilerSession(config: GssCompilerConfig, cssParser: CssParserPort): GssCompilerSession {
+export function createCompilerSession(
+  config: GssCompilerConfig,
+  cssParser: CssParserPort,
+  nameAllocator: NameAllocatorPort = createDefaultNameAllocator()
+): GssCompilerSession {
   const modules = new Map<string, ModuleContribution>();
   let generation = 0;
 
   return {
     replaceStylesheet(input) {
-      const prepared = prepareContribution(config, input, cssParser);
+      const prepared = prepareContribution(config, input, cssParser, nameAllocator);
       if (!('artifact' in prepared)) {
         return {
           id: input.id,
@@ -162,7 +162,8 @@ export function createCompilerSession(config: GssCompilerConfig, cssParser: CssP
 function prepareContribution(
   config: GssCompilerConfig,
   input: ReplaceStylesheetInput,
-  cssParser: CssParserPort
+  cssParser: CssParserPort,
+  nameAllocator: NameAllocatorPort
 ): ModuleContribution | { diagnostics: readonly GssDiagnostic[] } {
   const parsed = cssParser.parseStylesheet(input.id, input.source);
   if (parsed.diagnostics.some(({ severity }) => severity === 'error')) {
@@ -197,7 +198,7 @@ function prepareContribution(
   const keyframeNames = new Map(
     parsed.resources
       .filter((resource): resource is ParsedKeyframesRegistration => resource.kind === 'keyframes')
-      .map((resource) => [resource.name, createReadableKeyframesName(moduleId, resource.name)])
+      .map((resource) => [resource.name, nameAllocator.createKeyframesName(moduleId, resource.name)])
   );
   const semanticRules = rewriteKeyframeReferences(parsed.rules, keyframeNames);
   const conditionDiagnostics = validateRegisteredConditions(
@@ -435,7 +436,8 @@ function prepareContribution(
       parsed,
       rules: semanticRules,
       conditionDiagnostics,
-      fallbackProperties: unsupportedProperties
+      fallbackProperties: unsupportedProperties,
+      nameAllocator
     });
   }
 
@@ -452,14 +454,14 @@ function prepareContribution(
       const ancestor = sourcePath !== undefined && sourcePath.length < targetPath.length;
       const scope = ensureScopePath(roots, targetPath);
       if (ancestor) {
-        const sourceMarker = createReadableSourceMarker(moduleId, sourcePath, condition, layer);
+        const sourceMarker = nameAllocator.createSourceMarker(moduleId, sourcePath, condition, layer);
         const relationIdentity: ContextualRelationIdentity = {
           moduleId, layer, condition, sourcePath, targetPath,
           relations: rule.relations.slice(sourceIndex),
           ...(attribute ? { sourceAttribute: canonicalAttributeCondition(attribute) } : { sourceState: states.join(':') }),
           ...(JSON.stringify(rule.path) !== JSON.stringify(targetPath) ? { authoredPath: rule.path } : {})
         };
-        const targetMarker = createReadableTargetMarker(relationIdentity);
+        const targetMarker = nameAllocator.createTargetMarker(relationIdentity);
         ensureScopePath(roots, sourcePath).classNames.add(sourceMarker);
         scope.classNames.add(targetMarker);
         // Repeat an existing marker, rather than inventing ancestors, to retain authored specificity.
@@ -476,7 +478,7 @@ function prepareContribution(
             property: declaration.property, ...identifyAssetValue(declaration.value, bindings), important: declaration.important,
             ...(rule.path.length > 1 ? { ownership: { moduleId, path: targetPath, specificity: rule.path.length } } : {})
           };
-          const className = createReadableAtomicName(identity);
+          const className = nameAllocator.createAtomicName(identity);
           scope.classNames.add(className);
           rules.push({ kind: sourceIndex < 0 ? 'pure-atom' : 'contextual-atom', identity, className,
             selector: `${`.${className}`.repeat(rule.path.length)}${suffix}`, wrappers, layer, relationRank });
@@ -506,7 +508,7 @@ function prepareContribution(
           ...identifyAssetValue(declaration.value, bindings),
           important: declaration.important
         };
-        const className = createReadableAtomicName(identity);
+        const className = nameAllocator.createAtomicName(identity);
         scope.classNames.add(className);
         rules.push({
           kind: 'pure-atom',
@@ -539,7 +541,7 @@ function prepareContribution(
         important: declaration.important,
         ...(rule.path.length > 1 ? { ownership: { moduleId, path: targetPath, specificity: rule.path.length } } : {})
       };
-      const className = createReadableAtomicName(identity);
+      const className = nameAllocator.createAtomicName(identity);
       scope.classNames.add(className);
       rules.push({
         kind: state === 'self' ? 'pure-atom' : 'contextual-atom',
@@ -577,11 +579,11 @@ function prepareContribution(
           ? { observedResidual: observation.observedResidual }
           : {})
       };
-      const subjectMarker = createReadableHasSubjectMarker(relationIdentity);
+      const subjectMarker = nameAllocator.createHasSubjectMarker(relationIdentity);
       ensureScopePath(roots, rule.path).classNames.add(subjectMarker);
       const observedSelector = observation.observedClass
         ? (() => {
-          const observedMarker = createReadableObservedMarker(relationIdentity);
+          const observedMarker = nameAllocator.createObservedMarker(relationIdentity);
           ensureScopePath(roots, [observation.observedClass]).classNames.add(observedMarker);
           return `.${observedMarker}${observation.observedState ? `:${observation.observedState}` : ''}`;
         })()
@@ -629,7 +631,7 @@ function prepareContribution(
     const sourceAttribute = sourceAttributeCondition
       ? canonicalAttributeCondition(sourceAttributeCondition)
       : undefined;
-    const sourceMarker = createReadableSourceMarker(moduleId, sourcePath, condition, layer);
+    const sourceMarker = nameAllocator.createSourceMarker(moduleId, sourcePath, condition, layer);
     const relationIdentity: ContextualRelationIdentity = {
       moduleId,
       layer,
@@ -640,14 +642,14 @@ function prepareContribution(
       sourcePath,
       targetPath: rule.path
     };
-    const targetMarker = createReadableTargetMarker(relationIdentity);
+    const targetMarker = nameAllocator.createTargetMarker(relationIdentity);
     const markers = runtimePaths.map((_, index) => {
       const path = rule.path.slice(0, firstRuntimeRelation + index + 1);
       const marker = index === 0
         ? sourceMarker
         : index === runtimePaths.length - 1
           ? targetMarker
-          : createReadableContextMarker(relationIdentity, index, path);
+          : nameAllocator.createContextMarker(relationIdentity, index, path);
       ensureScopePath(roots, path).classNames.add(marker);
       return marker;
     });
@@ -696,7 +698,7 @@ function prepareContribution(
     fallbackReasons: []
   };
 
-  const resources = parsed.resources.map((resource) => planResource(resource, moduleId, bindings));
+  const resources = parsed.resources.map((resource) => planResource(resource, moduleId, bindings, nameAllocator));
   return {
     artifact,
     rules,
@@ -713,17 +715,18 @@ function preparePreservedContribution(input: {
   rules: readonly ParsedStyleRule[];
   conditionDiagnostics: readonly GssDiagnostic[];
   fallbackProperties: readonly string[];
+  nameAllocator: NameAllocatorPort;
 }): ModuleContribution {
   const roots = new Map<string, MutableScopeNode>();
   for (const rule of input.rules) {
     for (let index = 0; index < rule.path.length; index += 1) {
       const path = rule.path.slice(0, index + 1);
-      ensureScopePath(roots, path).classNames.add(createReadableScopeMarker(input.moduleId, path));
+      ensureScopePath(roots, path).classNames.add(input.nameAllocator.createScopeMarker(input.moduleId, path));
     }
     for (const observation of rule.observations.flat()) {
       if (!observation.observedClass) continue;
       const path = [observation.observedClass];
-      ensureScopePath(roots, path).classNames.add(createReadableScopeMarker(input.moduleId, path));
+      ensureScopePath(roots, path).classNames.add(input.nameAllocator.createScopeMarker(input.moduleId, path));
     }
   }
 
@@ -732,7 +735,7 @@ function preparePreservedContribution(input: {
   );
   const css = [...input.rules]
     .sort((left, right) => left.sourceOrdinal - right.sourceOrdinal)
-    .map((rule) => renderPreservedRule(rule, input.moduleId))
+    .map((rule) => renderPreservedRule(rule, input.moduleId, input.nameAllocator))
     .join('\n\n');
   const fallbackReasons = input.fallbackProperties.map((property) => ({
     property,
@@ -750,7 +753,7 @@ function preparePreservedContribution(input: {
   };
   const bindings = new Map((input.input.assetReferences ?? []).map(({ url, identity }) => [url, identity]));
   const resources = input.parsed.resources.map((resource) =>
-    planResource(resource, input.moduleId, bindings)
+    planResource(resource, input.moduleId, bindings, input.nameAllocator)
   );
   return {
     artifact,
@@ -772,19 +775,23 @@ function preparePreservedContribution(input: {
   };
 }
 
-function renderPreservedRule(rule: ParsedStyleRule, moduleId: string): string {
+function renderPreservedRule(
+  rule: ParsedStyleRule,
+  moduleId: string,
+  nameAllocator: NameAllocatorPort
+): string {
   const selector = selectorParser((root) => {
     for (const branch of root.nodes) {
       let pathIndex = 0;
       for (const node of branch.nodes) {
         if (node.type === 'class') {
           pathIndex += 1;
-          node.value = createReadableScopeMarker(moduleId, rule.path.slice(0, pathIndex));
+          node.value = nameAllocator.createScopeMarker(moduleId, rule.path.slice(0, pathIndex));
           continue;
         }
         if (node.type !== 'pseudo' || node.value !== ':has') continue;
         node.walkClasses((observed) => {
-          observed.value = createReadableScopeMarker(moduleId, [observed.value]);
+          observed.value = nameAllocator.createScopeMarker(moduleId, [observed.value]);
         });
       }
     }
@@ -825,9 +832,14 @@ function rewriteKeyframeReferences(
   }));
 }
 
-function planResource(resource: ParsedGlobalResource, moduleId: string, bindings: AssetBindings): PlannedResource {
+function planResource(
+  resource: ParsedGlobalResource,
+  moduleId: string,
+  bindings: AssetBindings,
+  nameAllocator: NameAllocatorPort
+): PlannedResource {
   const planned = resource.kind === 'property' ? planPropertyRegistration(resource)
-    : resource.kind === 'keyframes' ? planKeyframesRegistration(resource, moduleId)
+    : resource.kind === 'keyframes' ? planKeyframesRegistration(resource, moduleId, nameAllocator)
     : planFontFaceResource(resource);
   const assets = bindCssAssets(planned.css, bindings);
   return assets.assetIdentity && assets.renderCss
@@ -879,9 +891,10 @@ function planFontFaceResource(resource: ParsedFontFaceResource): PlannedResource
 
 function planKeyframesRegistration(
   resource: ParsedKeyframesRegistration,
-  moduleId: string
+  moduleId: string,
+  nameAllocator: NameAllocatorPort
 ): PlannedResource {
-  const generatedName = createReadableKeyframesName(moduleId, resource.name);
+  const generatedName = nameAllocator.createKeyframesName(moduleId, resource.name);
   const frames = resource.frames.map((frame) => {
     const declarations = frame.declarations
       .map(({ property, value }) => `    ${property}: ${value};`)
