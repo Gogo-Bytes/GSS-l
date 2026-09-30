@@ -34,7 +34,9 @@ it('routes resource, preserved, and contextual marker names through the allocato
       createKeyframesName: () => 'test-keyframes',
       createScopeMarker: () => 'test-scope',
       createSourceMarker: () => 'test-source',
-      createTargetMarker: () => 'test-target'
+      createTargetMarker: () => 'test-target',
+      createHasSubjectMarker: () => 'test-has-subject',
+      createObservedMarker: () => 'test-observed'
     }
   );
 
@@ -56,4 +58,10 @@ it('routes resource, preserved, and contextual marker names through the allocato
   }).committed).toBe(true);
   expect(compiler.finalize().css).toContain('.test-source + .');
   expect(compiler.finalize().css).toContain('.test-target');
+
+  expect(compiler.replaceStylesheet({
+    id: '/project/src/observed.gss',
+    source: '.card:has(> .error) { color: red; }'
+  }).committed).toBe(true);
+  expect(compiler.finalize().css).toContain('.test-has-subject:has(> .test-observed)');
 });
