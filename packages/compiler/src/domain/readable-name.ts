@@ -195,6 +195,57 @@ export function encodeReadableNamePart(value: string): string {
 
 const encodeNamePart = encodeReadableNamePart;
 
+export function decodeReadableAtomicName(name: string): PureDeclarationIdentity | undefined {
+  const parts = name.split('--');
+  if (parts.shift() !== 'gss-a') return undefined;
+  const fields = new Map<string, string>();
+  const allowed = new Set([
+    'layer', 'condition', 'state', 'pseudo', 'property', 'value', 'asset-value',
+    'importance', 'module', 'target', 'specificity'
+  ]);
+  for (const part of parts) {
+    const separator = part.indexOf('_');
+    if (separator <= 0) return undefined;
+    const key = part.slice(0, separator);
+    if (!allowed.has(key) || fields.has(key)) return undefined;
+    const value = decodeReadableNamePart(part.slice(separator + 1));
+    if (value === undefined) return undefined;
+    fields.set(key, value);
+  }
+
+  const required = ['layer', 'condition', 'state', 'property', 'importance'];
+  if (required.some((key) => !fields.has(key))) return undefined;
+  const hasValue = fields.has('value');
+  const hasAssetValue = fields.has('asset-value');
+  if (hasValue === hasAssetValue) return undefined;
+  const importance = fields.get('importance');
+  if (importance !== 'normal' && importance !== 'important') return undefined;
+  const ownershipKeys = ['module', 'target', 'specificity'];
+  const ownershipCount = ownershipKeys.filter((key) => fields.has(key)).length;
+  if (ownershipCount !== 0 && ownershipCount !== ownershipKeys.length) return undefined;
+  const specificity = fields.get('specificity');
+  if (specificity !== undefined && !/^(?:0|[1-9][0-9]*)$/.test(specificity)) return undefined;
+
+  const identity: PureDeclarationIdentity = {
+    layer: fields.get('layer')!,
+    condition: fields.get('condition')!,
+    state: fields.get('state')!,
+    property: fields.get('property')!,
+    value: (hasAssetValue ? fields.get('asset-value') : fields.get('value'))!,
+    important: importance === 'important',
+    ...(fields.has('pseudo') ? { pseudoElement: fields.get('pseudo')! } : {}),
+    ...(hasAssetValue ? { assetValue: true as const } : {}),
+    ...(ownershipCount === ownershipKeys.length ? {
+      ownership: {
+        moduleId: fields.get('module')!,
+        path: fields.get('target') === '' ? [] : fields.get('target')!.split('/'),
+        specificity: Number(specificity)
+      }
+    } : {})
+  };
+  return identity;
+}
+
 export function decodeReadableNamePart(encoded: string): string | undefined {
   if (encoded === '_') return '';
   if (!encoded || !/^[A-Za-z0-9_]+$/.test(encoded)) return undefined;
