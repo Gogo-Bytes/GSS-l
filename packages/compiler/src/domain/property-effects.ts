@@ -70,7 +70,9 @@ const families: readonly PropertyFamily[] = [
   ['overflow', ['overflow-x', 'overflow-y']],
   ['overscroll-behavior', ['overscroll-behavior-x', 'overscroll-behavior-y']],
   ['gap', ['row-gap', 'column-gap']],
-  ['grid-gap', ['grid-row-gap', 'grid-column-gap']],
+  ['grid-gap', ['row-gap', 'column-gap']],
+  ['grid-row-gap', ['row-gap']],
+  ['grid-column-gap', ['column-gap']],
   ['grid', [
     'grid-template-rows',
     'grid-template-columns',

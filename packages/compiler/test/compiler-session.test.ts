@@ -50,6 +50,20 @@ describe('GssCompilerSession', () => {
     });
   });
 
+  it.each([
+    ['.box { grid-gap: 2px; gap: 1px; }', 'gap: 1px;', 'grid-gap: 2px;'],
+    ['.box { gap: 1px; grid-gap: 2px; }', 'grid-gap: 2px;', 'gap: 1px;'],
+    ['.box { row-gap: 1px; grid-row-gap: 2px; }', 'grid-row-gap: 2px;', 'row-gap: 1px;'],
+    ['.box { grid-column-gap: 2px; column-gap: 1px; }', 'column-gap: 1px;', 'grid-column-gap: 2px;']
+  ])('resolves registered legacy gap aliases before emission: %s', (source, winner, loser) => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const result = compiler.replaceStylesheet({ id: '/project/gap.gss', source });
+    expect(result.committed).toBe(true);
+    const css = compiler.finalize().css;
+    expect(css).toContain(`\n  ${winner}\n`);
+    expect(css).not.toContain(`\n  ${loser}\n`);
+  });
+
   it('emits declarations using the public branded scope object type', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 
