@@ -44,7 +44,9 @@ const registeredShorthandEffects = {
   overflow: ['overflow-x', 'overflow-y'],
   'overscroll-behavior': ['overscroll-behavior-x', 'overscroll-behavior-y'],
   gap: ['row-gap', 'column-gap'],
-  'grid-gap': ['grid-row-gap', 'grid-column-gap'],
+  'grid-gap': ['row-gap', 'column-gap'],
+  'grid-row-gap': ['row-gap'],
+  'grid-column-gap': ['column-gap'],
   grid: ['grid-template-rows', 'grid-template-columns', 'grid-template-areas', 'grid-auto-rows', 'grid-auto-columns', 'grid-auto-flow'],
   'grid-template': ['grid-template-rows', 'grid-template-columns', 'grid-template-areas'],
   'grid-area': ['grid-row-start', 'grid-column-start', 'grid-row-end', 'grid-column-end'],
@@ -87,8 +89,8 @@ describe('PropertyEffectRegistry', () => {
     ['flex', 'flex-basis'],
     ['grid', 'grid-template-columns'],
     ['grid-area', 'grid-column-end'],
-    ['grid-gap', 'grid-row-gap'],
-    ['grid-gap', 'grid-row-gap']
+    ['grid-gap', 'row-gap'],
+    ['grid-gap', 'row-gap']
   ])('%s exposes the effect of %s', (property, effect) => {
     expect(effectsOfProperty(property)).toContain(effect);
   });
