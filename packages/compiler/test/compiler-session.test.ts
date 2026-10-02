@@ -587,6 +587,18 @@ describe('GssCompilerSession', () => {
     expect(compiler.finalize().css).not.toContain('border-top-color: red;');
   });
 
+  it.each([
+    ['.box { border-image: none 1; border: 1px solid blue; }', false],
+    ['.box { border: 1px solid blue; border-image: none 1; }', true]
+  ])('audits border shorthand reset of border-image effects: %s', (source, keepsBorderImage) => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const result = compiler.replaceStylesheet({ id: '/project/src/border-image.gss', source });
+    expect(result.committed).toBe(true);
+    const css = compiler.finalize().css;
+    expect(css).toContain(`\n  border: 1px solid blue;\n`);
+    expect(css.includes(`\n  border-image: none 1;\n`)).toBe(keepsBorderImage);
+  });
+
   it('lets font shorthand reset the represented font-variant family', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 
