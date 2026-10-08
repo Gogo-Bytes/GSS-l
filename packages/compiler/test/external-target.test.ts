@@ -67,6 +67,44 @@ describe('anchored external declaration target', () => {
     expect(JSON.stringify(schema)).not.toContain('ProseMirror-focused');
   });
 
+  it('retains registered media and authored layer around an external target', () => {
+    const session = createGssCompilerSession({
+      projectRoot: '/project', layers: ['base'], conditions: { media: ['(min-width: 400px)'] }
+    });
+    const result = session.replaceStylesheet({ id, source:
+      '@layer base { @media (min-width: 400px) { .editor :global(.ProseMirror-focused) { color: red; } } }'
+    });
+    expect(result).toMatchObject({ committed: true, diagnostics: [] });
+    expect(session.getScopeSchema(id)!.exports.editor!.selfClassName).not.toBe('');
+    const css = session.finalize().css;
+    expect(css).toContain('@layer base;');
+    expect(css).toContain('@layer base {\n  @media (min-width: 400px) {');
+    expect(css).toContain(' .ProseMirror-focused {\n      color: red;');
+    expect(css).not.toContain(':global(');
+  });
+
+  it('warns on an unregistered media query without inventing precedence', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    const result = session.replaceStylesheet({ id, source:
+      '@media (min-width: 400px) { .editor :global(.ProseMirror-focused) { color: red; } }'
+    });
+    expect(result).toMatchObject({ committed: true,
+      diagnostics: [{ code: 'GSS1102', severity: 'warning', reason: 'condition-not-registered' }] });
+    expect(session.finalize().css).toContain('@media (min-width: 400px) {');
+  });
+
+  it('keeps competing external effects across conditions fail-closed', () => {
+    const session = createGssCompilerSession({
+      projectRoot: '/project', conditions: { media: ['(min-width: 400px)', '(min-width: 600px)'] }
+    });
+    const result = session.replaceStylesheet({ id, source: [
+      '@media (min-width: 400px) { .editor :global(.ProseMirror-focused) { color: red; } }',
+      '@media (min-width: 600px) { .editor :global(.ProseMirror-focused) { color: blue; } }'
+    ].join(' ') });
+    expect(result).toMatchObject({ committed: false, generation: 0,
+      diagnostics: [{ code: 'GSS1205', reason: 'ambiguous-coactive-state-conflict' }] });
+  });
+
   it('rejects overlapping external effects without a proved winner', () => {
     const session = createGssCompilerSession({ projectRoot: '/project' });
     const result = session.replaceStylesheet({ id, source: source +
@@ -86,8 +124,7 @@ describe('anchored external declaration target', () => {
       ':global(.ProseMirror-focused) { color: blue; }',
       '.editor :global(.ProseMirror-focused):hover { color: blue; }',
       '.editor :global(.ProseMirror-focused) .child { color: blue; }',
-      '.editor :global(.ProseMirror-focused) { unregistered-shorthand: blue; }',
-      '@media (min-width: 400px) { .editor :global(.ProseMirror-focused) { color: blue; } }'
+      '.editor :global(.ProseMirror-focused) { unregistered-shorthand: blue; }'
     ]) {
       const result = session.replaceStylesheet({ id, source: unsupported });
       expect(result).toMatchObject({ committed: false, generation: 1,

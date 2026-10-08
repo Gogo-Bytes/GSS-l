@@ -61,4 +61,30 @@ export const externalAnchorFixtures: readonly (ReferenceFixture & {
       expected: { competitor: {}, outer: {}, editor: {}, 'nested-external': { color: 'rgb(255, 0, 0)' },
         'outside-editor': { color: 'rgb(0, 0, 255)' } } }
   ]
+}, {
+  name: 'external-descendant-registered-media-layer',
+  config: { layers: ['base'], conditions: { media: ['(min-width: 400px)'] } },
+  modules: [{ id: 'ConditionedExternal.gss', source:
+    '@layer base { @media (min-width: 400px) { .editor :global(.ProseMirror-focused) { color: red; } } }' }],
+  reference: {
+    css: '@layer base; @layer base { @media (min-width: 400px) { .native-editor-anchor .ProseMirror-focused { color: red; } } }',
+    scopeSchemas: { 'ConditionedExternal.gss': { moduleId: 'ConditionedExternal.gss', exports: {
+      editor: { selfClassName: 'native-editor-anchor', targets: {} }
+    } } }
+  },
+  nodes: [
+    { id: 'editor', moduleId: 'ConditionedExternal.gss', path: ['editor'], expected: {} },
+    { id: 'conditioned-inside', parent: 'editor', moduleId: 'ConditionedExternal.gss', path: [],
+      externalClassName: 'ProseMirror-focused', expected: { color: 'rgb(255, 0, 0)' } },
+    { id: 'conditioned-outside', moduleId: 'ConditionedExternal.gss', path: [],
+      externalClassName: 'ProseMirror-focused', expected: { color: 'rgb(0, 0, 0)' } }
+  ],
+  phases: [
+    { name: 'media-off', viewportWidth: 300, changes: [],
+      expected: { editor: {}, 'conditioned-inside': { color: 'rgb(0, 0, 0)' },
+        'conditioned-outside': { color: 'rgb(0, 0, 0)' } } },
+    { name: 'media-restored', viewportWidth: 640, changes: [],
+      expected: { editor: {}, 'conditioned-inside': { color: 'rgb(255, 0, 0)' },
+        'conditioned-outside': { color: 'rgb(0, 0, 0)' } } }
+  ]
 }];

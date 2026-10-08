@@ -11,7 +11,7 @@ type Reading = {
   subject: 'element' | '::before' | '::after'; property: string; value: string; expected: string;
 };
 
-async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'nested-layer' | 'asset' | 'keyframes' | 'relation' | 'interleaved' | 'interleaved-depth' | 'interleaved-prefix' | 'interleaved-general-prefix' | 'interleaved-general-root' | 'interleaved-child-root' | 'interleaved-child-prefix' | 'cross-layer-specificity' | 'font-reset' | 'has-specificity' | 'has-specificity-dedup' | 'external-anchor' | 'external-ancestor'): Promise<Reading[]> {
+async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'nested-layer' | 'asset' | 'keyframes' | 'relation' | 'interleaved' | 'interleaved-depth' | 'interleaved-prefix' | 'interleaved-general-prefix' | 'interleaved-general-root' | 'interleaved-child-root' | 'interleaved-child-prefix' | 'cross-layer-specificity' | 'font-reset' | 'has-specificity' | 'has-specificity-dedup' | 'external-anchor' | 'external-ancestor' | 'external-media'): Promise<Reading[]> {
   const frame = document.createElement('iframe');
   frame.title = `${fixture.name}: ${side}${corrupt ? ' negative control' : ''}`;
   frame.width = '640';
@@ -64,6 +64,17 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
     style.textContent = changed;
   }
   doc.head.append(style);
+  if (corrupt === 'external-media') {
+    const layer = [...style.sheet!.cssRules].find((rule) => rule.cssText.startsWith('@layer base {')) as CSSGroupingRule | undefined;
+    const media = layer?.cssRules[0];
+    if (!layer || !(media instanceof (frame.contentWindow as Window & typeof globalThis).CSSMediaRule) ||
+      media.conditionText !== '(min-width: 400px)' || media.cssRules.length !== 1) {
+      throw new Error('External media control requires one registered media rule inside the authored layer');
+    }
+    const css = media.cssRules[0]!.cssText;
+    layer.deleteRule(0);
+    layer.insertRule(css, 0);
+  }
   if (corrupt === 'has-specificity-dedup') {
     const sheet = style.sheet!;
     const rule = [...sheet.cssRules].map((item, index) => ({ item, index })).find(({ item }) =>
@@ -554,7 +565,20 @@ async function run() {
     externalAncestorDifferences.every((difference) => difference.node === 'nested-external' &&
       difference.property === 'color' && ['baseline', 'class-restored'].includes(difference.phase) &&
       difference.reference === 'rgb(255, 0, 0)' && difference.atomic === 'rgb(0, 0, 255)');
+  const externalMediaFixture = fixtures.find((fixture) => fixture.name === 'external-descendant-registered-media-layer')!;
+  const externalMediaReference = await readDocument(externalMediaFixture, 'reference');
+  const externalMediaAtomic = await readDocument(externalMediaFixture, 'atomic');
+  const externalMediaCorrupted = await readDocument(externalMediaFixture, 'atomic', 'external-media');
+  const externalMediaDifferences = compare(externalMediaReference, externalMediaCorrupted);
+  const externalMediaChanges = compare(externalMediaAtomic, externalMediaCorrupted);
+  const externalMediaDetected = compare(externalMediaReference, externalMediaAtomic).length === 0 &&
+    externalMediaChanges.length === 1 && externalMediaDifferences.length === 1 &&
+    externalMediaDifferences[0]!.node === 'conditioned-inside' &&
+    externalMediaDifferences[0]!.phase === 'media-off' && externalMediaDifferences[0]!.property === 'color' &&
+    externalMediaDifferences[0]!.reference === 'rgb(0, 0, 0)' &&
+    externalMediaDifferences[0]!.atomic === 'rgb(255, 0, 0)';
   publish({
+    externalMediaNegativeControl: { detected: externalMediaDetected, wrapperRemoved: true, differences: externalMediaDifferences },
     externalAncestorNegativeControl: { detected: externalAncestorDetected, prefixRemoved: true, differences: externalAncestorDifferences },
     externalAnchorNegativeControl: { detected: externalAnchorDetected, anchorRemoved: true, differences: externalDifferences },
     relationNegativeControl: { detected: relationDetected, controlsUnchanged: relationControlsUnchanged, ruleReordered: true, differences: relationDifferences },
@@ -570,7 +594,7 @@ async function run() {
     hasSpecificityDedup: { fixtures: hasSpecificityDedupResults, negativeControl: { detected: hasSpecificityDedupControl, qualifierRemoved: true, differences: hasSpecificityDedupDifferences } },
     status: results.every((result) => result.comparisons > 0 && !result.differences.length && !result.expectedFailures.length) &&
       hasSpecificityDedupResults.every((result) => result.differences.length === 0) && hasSpecificityDedupControl &&
-      detected && pseudoDetected && conditionDetected && layerDetected && nestedLayerDetected && assetDetected && keyframesDetected && relationDetected && interleavedDetected && interleavedDepthDetected && interleavedPrefixDetected && interleavedGeneralPrefixDetected && interleavedGeneralRootDetected && interleavedChildRootDetected && interleavedChildPrefixDetected && crossLayerSpecificityDetected && hasSpecificityDetected && fontResetNegativeControl && externalAnchorDetected && externalAncestorDetected
+      detected && pseudoDetected && conditionDetected && layerDetected && nestedLayerDetected && assetDetected && keyframesDetected && relationDetected && interleavedDetected && interleavedDepthDetected && interleavedPrefixDetected && interleavedGeneralPrefixDetected && interleavedGeneralRootDetected && interleavedChildRootDetected && interleavedChildPrefixDetected && crossLayerSpecificityDetected && hasSpecificityDetected && fontResetNegativeControl && externalAnchorDetected && externalAncestorDetected && externalMediaDetected
       ? 'passed' : 'failed',
     results,
     negativeControl: { detected, differences },

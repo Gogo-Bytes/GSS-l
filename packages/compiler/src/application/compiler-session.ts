@@ -205,8 +205,7 @@ function prepareContribution(
   const localRules = semanticRules.filter((rule) => rule.externalTarget === undefined);
   // External descendants require a pure owned path of descendant relations;
   // other placements/compositions remain fail-closed.
-  if (externalRules.some((rule) => rule.conditions.length > 0 || rule.layer !== 'unlayered' ||
-    rule.relations.some((relation) => relation !== 'descendant') ||
+  if (externalRules.some((rule) => rule.relations.some((relation) => relation !== 'descendant') ||
     rule.states.some((states) => states.length > 0) ||
     rule.attributes.some((attributes) => attributes.length > 0) ||
     rule.observations.some((observations) => observations.length > 0) ||
@@ -214,7 +213,7 @@ function prepareContribution(
     return { diagnostics: [{
       code: 'GSS1101', severity: 'error', phase: 'validate', id: input.id,
       reason: 'capability-not-registered',
-      message: 'External targets currently require a pure owned anchor and an external class descendant.'
+      message: 'External targets currently require a pure owned descendant path and an external class descendant.'
     }] };
   }
   const conditionDiagnostics = validateRegisteredConditions(
