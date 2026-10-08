@@ -423,7 +423,7 @@ For relative base, URLs are relative to the emitted CSS file, not the source Mod
 The ports keep infrastructure replaceable:
 
 - parser implementation can change without changing domain IR;
-- browserslist lowering stays outside authored declaration resolution;
+- compatibility lowering stays outside authored declaration resolution; effective CSS targets come from the host per [ADR-0054](adr/0054-take-compatibility-targets-from-the-host.md), not an independent Compiler Browserslist read;
 - Vite/Rollup URL emission stays outside the Compiler domain;
 - readable first-version names can later be replaced by short/hash names.
 

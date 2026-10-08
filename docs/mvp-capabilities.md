@@ -61,7 +61,7 @@
 - Versioned、data-driven shorthand/longhand property effects；v1覆盖 box、border、background、typography、flex/grid layout、alignment、transition、animation和mask family；unknown property不会被假定为singleton longhand。
 - Custom property provider、inheritance 与 `var(...)` consumer。
 - `@property` 全局 registration。
-- Browserslist transformer生成的兼容 declaration sequence。
+- 由宿主有效 CSS target 驱动的兼容 transformer 生成的不可拆 declaration sequence（目标来源见 [ADR-0054](adr/0054-take-compatibility-targets-from-the-host.md)；实现仍未完成）。
 - 对selector/scope可证明安全、但property effect或compatibility sequence无法安全atomize的输入，自动整Module preserved；不得逐rule/declaration混合fallback。
 
 ## Global resources
