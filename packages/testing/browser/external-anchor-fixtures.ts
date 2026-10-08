@@ -28,4 +28,37 @@ export const externalAnchorFixtures: readonly (ReferenceFixture & {
       expected: { editor: {}, 'external-inside': { color: 'rgb(255, 0, 0)' },
         'external-outside': { color: 'rgb(0, 0, 0)' } } }
   ]
+}, {
+  name: 'external-descendant-owned-ancestor-specificity',
+  modules: [{ id: 'NestedExternal.gss', source:
+    '.outer .editor :global(.ProseMirror-focused) { color: red; }' }],
+  // This competitor is authored independently and has three class selectors.
+  // A compiled selector that drops the owned ancestor has only two and loses.
+  setupCss: '.competitor.competitor .ProseMirror-focused { color: blue; }',
+  reference: {
+    css: '.native-outer .native-editor .ProseMirror-focused { color: red; }',
+    scopeSchemas: { 'NestedExternal.gss': { moduleId: 'NestedExternal.gss', exports: {
+      outer: { selfClassName: 'native-outer', targets: {
+        editor: { selfClassName: 'native-editor', targets: {} }
+      } }
+    } } }
+  },
+  nodes: [
+    { id: 'competitor', moduleId: 'NestedExternal.gss', path: [],
+      externalClassName: 'competitor', expected: {} },
+    { id: 'outer', parent: 'competitor', moduleId: 'NestedExternal.gss', path: ['outer'], expected: {} },
+    { id: 'editor', parent: 'outer', moduleId: 'NestedExternal.gss', path: ['outer', 'editor'], expected: {} },
+    { id: 'nested-external', parent: 'editor', moduleId: 'NestedExternal.gss', path: [],
+      externalClassName: 'ProseMirror-focused', expected: { color: 'rgb(255, 0, 0)' } },
+    { id: 'outside-editor', parent: 'competitor', moduleId: 'NestedExternal.gss', path: [],
+      externalClassName: 'ProseMirror-focused', expected: { color: 'rgb(0, 0, 255)' } }
+  ],
+  phases: [
+    { name: 'class-removed', changes: [{ node: 'nested-external', externalClassName: '' }],
+      expected: { competitor: {}, outer: {}, editor: {}, 'nested-external': { color: 'rgb(0, 0, 0)' },
+        'outside-editor': { color: 'rgb(0, 0, 255)' } } },
+    { name: 'class-restored', changes: [{ node: 'nested-external', externalClassName: 'ProseMirror-focused' }],
+      expected: { competitor: {}, outer: {}, editor: {}, 'nested-external': { color: 'rgb(255, 0, 0)' },
+        'outside-editor': { color: 'rgb(0, 0, 255)' } } }
+  ]
 }];

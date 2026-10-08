@@ -48,6 +48,25 @@ describe('anchored external declaration target', () => {
       diagnostics: [{ code: 'GSS1206', reason: 'logical-physical-property-conflict' }] });
   });
 
+  it('retains every owned ancestor and authored class specificity before the external target', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    const result = session.replaceStylesheet({ id, source:
+      '.outer .editor :global(.ProseMirror-focused) { color: red; }'
+    });
+    expect(result).toMatchObject({ committed: true, diagnostics: [] });
+    const schema = session.getScopeSchema(id)!;
+    expect(Object.keys(schema.exports)).toEqual(['outer']);
+    const outer = schema.exports.outer!;
+    const editor = outer.targets.editor!;
+    expect(outer.selfClassName).not.toBe('');
+    expect(editor.selfClassName).not.toBe('');
+    expect(editor.targets).toEqual({});
+    expect(session.finalize().css).toContain(
+      `.${outer.selfClassName} .${editor.selfClassName} .ProseMirror-focused {\n  color: red;\n}`
+    );
+    expect(JSON.stringify(schema)).not.toContain('ProseMirror-focused');
+  });
+
   it('rejects overlapping external effects without a proved winner', () => {
     const session = createGssCompilerSession({ projectRoot: '/project' });
     const result = session.replaceStylesheet({ id, source: source +
@@ -67,7 +86,6 @@ describe('anchored external declaration target', () => {
       ':global(.ProseMirror-focused) { color: blue; }',
       '.editor :global(.ProseMirror-focused):hover { color: blue; }',
       '.editor :global(.ProseMirror-focused) .child { color: blue; }',
-      '.outer .editor :global(.ProseMirror-focused) { color: blue; }',
       '.editor :global(.ProseMirror-focused) { unregistered-shorthand: blue; }',
       '@media (min-width: 400px) { .editor :global(.ProseMirror-focused) { color: blue; } }'
     ]) {

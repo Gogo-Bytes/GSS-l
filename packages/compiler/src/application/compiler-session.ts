@@ -203,9 +203,9 @@ function prepareContribution(
   const semanticRules = rewriteKeyframeReferences(parsed.rules, keyframeNames);
   const externalRules = semanticRules.filter((rule) => rule.externalTarget !== undefined);
   const localRules = semanticRules.filter((rule) => rule.externalTarget === undefined);
-  // The first anchored-target slice has one pure owned anchor and a class-only
-  // external descendant. Other placements/compositions remain fail-closed.
-  if (externalRules.some((rule) => rule.path.length !== 1 || rule.conditions.length > 0 || rule.layer !== 'unlayered' ||
+  // External descendants require a pure owned path of descendant relations;
+  // other placements/compositions remain fail-closed.
+  if (externalRules.some((rule) => rule.conditions.length > 0 || rule.layer !== 'unlayered' ||
     rule.relations.some((relation) => relation !== 'descendant') ||
     rule.states.some((states) => states.length > 0) ||
     rule.attributes.some((attributes) => attributes.length > 0) ||
@@ -706,6 +706,12 @@ function prepareContribution(
   const externalEffects = new Set<string>();
   for (const rule of externalRules) {
     const scope = ensureScopePath(roots, rule.path);
+    const ancestorMarkers = rule.path.slice(0, -1).map((_, index) => {
+      const path = rule.path.slice(0, index + 1);
+      const marker = nameAllocator.createScopeMarker(moduleId, path);
+      ensureScopePath(roots, path).classNames.add(marker);
+      return marker;
+    });
     for (const declaration of rule.declarations) {
       const effects = classifyPropertyEffect(declaration.property).effects;
       if (effects.some((effect) => externalEffects.has(effect))) {
@@ -728,7 +734,7 @@ function prepareContribution(
       scope.classNames.add(className);
       rules.push({
         kind: 'contextual-atom', identity, className,
-        selector: `.${className} ${rule.externalTarget}`,
+        selector: `${[...ancestorMarkers, className].map((marker) => `.${marker}`).join(' ')} ${rule.externalTarget}`,
         wrappers: rule.conditions, layer: rule.layer
       });
     }
