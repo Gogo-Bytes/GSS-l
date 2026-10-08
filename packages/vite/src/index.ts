@@ -2,6 +2,7 @@ import { readFile, realpath } from 'node:fs/promises';
 import {
   createGssCompilerSession,
   type GssCompilerSession,
+  type GssCompilerConfig,
   type GssSourceAdapter,
   type ReplaceStylesheetResult
 } from '@gss-l/compiler';
@@ -15,6 +16,7 @@ import { emitProductionAssets, isProductionStylesheet, type ProductionStylesheet
 import { readStylesheetAssets, type StylesheetAsset } from './stylesheet-assets.js';
 import { createDevAssetOwner } from './dev-assets.js';
 import { reportDiagnostics } from './diagnostics.js';
+import { resolveViteCssTargets } from './css-targets.js';
 
 export type GssOptions = { adapter: GssSourceAdapter };
 
@@ -25,6 +27,10 @@ export function gss({ adapter }: GssOptions): Plugin {
   let session: GssCompilerSession;
   let projectRoot = '';
   let publicDir = '';
+  let compatibilityStages: GssCompilerConfig['compatibilityTargetStages'];
+  let compatibilityError: string | undefined;
+  const newSession = () => createGssCompilerSession({ projectRoot,
+    ...(compatibilityStages ? { compatibilityTargetStages: compatibilityStages } : {}) });
   let development = false;
   let devServer: ViteDevServer | undefined;
   let centralCssHref = CENTRAL_CSS_URL;
@@ -55,6 +61,7 @@ export function gss({ adapter }: GssOptions): Plugin {
       let assets: StylesheetAsset[] = [];
       const paths = new Set<string>();
       try {
+        if (compatibilityError) throw new Error(`GSS cannot follow Vite CSS targets: ${compatibilityError}`);
         if (devServer && !isFileLoadingAllowed(devServer.config, physicalId)) {
           throw new Error(`Vite denied GSS file access: ${physicalId}`);
         }
@@ -117,7 +124,10 @@ export function gss({ adapter }: GssOptions): Plugin {
       centralCssHref = `${base}${CENTRAL_CSS_URL.slice(1)}`;
       projectRoot = normalizePath(await realpath(config.root));
       publicDir = config.publicDir;
-      session = createGssCompilerSession({ projectRoot });
+      const compatibility = resolveViteCssTargets(config);
+      compatibilityStages = compatibility.stages;
+      compatibilityError = compatibility.error;
+      session = newSession();
       trackedStylesheets.clear();
       sourceDependencies.clear();
       latest.clear();
@@ -133,7 +143,7 @@ export function gss({ adapter }: GssOptions): Plugin {
     },
     buildStart() {
       if (development) return;
-      session = createGssCompilerSession({ projectRoot });
+      session = newSession();
       latest.clear();
       trackedStylesheets.clear();
       sourceDependencies.clear();
@@ -151,8 +161,11 @@ export function gss({ adapter }: GssOptions): Plugin {
         if (development) return;
         // Replay only the final graph's source snapshots, including Rollup-cached Modules.
         // Do not read files here: CSS must match the JavaScript generated for this build.
-        session = createGssCompilerSession({ projectRoot });
+        session = newSession();
         let count = 0;
+        if (compatibilityError && reachableModuleIds(this).some((id) => fromVirtualGssId(id))) {
+          this.error(`GSS cannot follow Vite CSS targets: ${compatibilityError}`);
+        }
         const assets: StylesheetAsset[] = [];
         for (const id of reachableModuleIds(this)) {
           const physicalId = fromVirtualGssId(id);
