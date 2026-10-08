@@ -10,6 +10,7 @@ import { nestedLayerFixtures } from './nested-layer-fixtures.js';
 import { interleavedChainFixtures } from './interleaved-chain-fixtures.js';
 import { crossLayerSpecificityFixtures } from './cross-layer-specificity-fixtures.js';
 import { externalAnchorFixtures } from './external-anchor-fixtures.js';
+import { sameNodeRefinementFixtures } from './same-node-refinement-fixtures.js';
 
 // Host-only compilation. The browser receives CSS/mappings, never either compiler.
 export default defineConfig({
@@ -70,7 +71,8 @@ export default defineConfig({
         ...nestedLayerFixtures.map((fixture) => compile(fixture, fixture.reference)),
         ...interleavedChainFixtures.map((fixture) => compile(fixture, fixture.reference)),
         ...crossLayerSpecificityFixtures.map((fixture) => compile(fixture, fixture.reference)),
-        ...externalAnchorFixtures.map((fixture) => compile(fixture, fixture.reference))
+        ...externalAnchorFixtures.map((fixture) => compile(fixture, fixture.reference)),
+        ...sameNodeRefinementFixtures.map((fixture) => compile(fixture, fixture.reference))
       ];
       const first = compiled.find((fixture) => fixture.name === 'asset-module-isolation-one')!;
       const second = compiled.find((fixture) => fixture.name === 'asset-module-isolation-two')!;

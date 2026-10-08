@@ -624,7 +624,19 @@ async function run() {
       difference.atomic === 'rgb(255, 0, 0)') &&
     sameNodeDifferences.some((difference) => difference.node === 'editor-focused' &&
       difference.phase === 'owned-focus-removed');
+  const refinementFixture = fixtures.find((fixture) => fixture.name === 'same-node-refinement-base-first')!;
+  const refinementReference = await readDocument(refinementFixture, 'reference');
+  const refinementAtomic = await readDocument(refinementFixture, 'atomic');
+  const refinementCorrupted = await readDocument(refinementFixture, 'atomic', 'owned-external-condition');
+  const refinementDifferences = compare(refinementReference, refinementCorrupted);
+  const refinementChanges = compare(refinementAtomic, refinementCorrupted);
+  const refinementDetected = compare(refinementReference, refinementAtomic).length === 0 &&
+    refinementChanges.length === 2 && refinementDifferences.length === 2 &&
+    refinementDifferences.every((difference) => difference.node === 'editor-focused' &&
+      difference.property === 'color' && ['baseline', 'owned-focus-restored'].includes(difference.phase) &&
+      difference.reference === 'rgb(255, 0, 0)' && difference.atomic === 'rgb(0, 0, 255)');
   publish({
+    ownedExternalRefinementNegativeControl: { detected: refinementDetected, qualifierRemoved: true, differences: refinementDifferences },
     ownedExternalConditionNegativeControl: { detected: sameNodeDetected, qualifierRemoved: true, differences: sameNodeDifferences },
     externalCompoundNegativeControl: { detected: externalCompoundDetected, qualifierRemoved: true, differences: externalCompoundDifferences },
     externalMediaNegativeControl: { detected: externalMediaDetected, wrapperRemoved: true, differences: externalMediaDifferences },
@@ -643,7 +655,7 @@ async function run() {
     hasSpecificityDedup: { fixtures: hasSpecificityDedupResults, negativeControl: { detected: hasSpecificityDedupControl, qualifierRemoved: true, differences: hasSpecificityDedupDifferences } },
     status: results.every((result) => result.comparisons > 0 && !result.differences.length && !result.expectedFailures.length) &&
       hasSpecificityDedupResults.every((result) => result.differences.length === 0) && hasSpecificityDedupControl &&
-      detected && pseudoDetected && conditionDetected && layerDetected && nestedLayerDetected && assetDetected && keyframesDetected && relationDetected && interleavedDetected && interleavedDepthDetected && interleavedPrefixDetected && interleavedGeneralPrefixDetected && interleavedGeneralRootDetected && interleavedChildRootDetected && interleavedChildPrefixDetected && crossLayerSpecificityDetected && hasSpecificityDetected && fontResetNegativeControl && externalAnchorDetected && externalAncestorDetected && externalMediaDetected && externalCompoundDetected && sameNodeDetected
+      detected && pseudoDetected && conditionDetected && layerDetected && nestedLayerDetected && assetDetected && keyframesDetected && relationDetected && interleavedDetected && interleavedDepthDetected && interleavedPrefixDetected && interleavedGeneralPrefixDetected && interleavedGeneralRootDetected && interleavedChildRootDetected && interleavedChildPrefixDetected && crossLayerSpecificityDetected && hasSpecificityDetected && fontResetNegativeControl && externalAnchorDetected && externalAncestorDetected && externalMediaDetected && externalCompoundDetected && sameNodeDetected && refinementDetected
       ? 'passed' : 'failed',
     results,
     negativeControl: { detected, differences },

@@ -65,12 +65,31 @@ describe('anchored external declaration target', () => {
     );
   });
 
+  it.each([
+    '.editor { color: blue; } .editor:global(.ProseMirror-focused) { color: red; }',
+    '.editor:global(.ProseMirror-focused) { color: red; } .editor { color: blue; }'
+  ])('lets a proven same-node external class refine one normal base property in either source order: %s', (source) => {
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    const result = session.replaceStylesheet({ id, source });
+    expect(result).toMatchObject({ committed: true, diagnostics: [] });
+    const schema = session.getScopeSchema(id)!;
+    expect(Object.keys(schema.exports)).toEqual(['editor']);
+    const classes = schema.exports.editor!.selfClassName.split(' ');
+    expect(classes).toHaveLength(2);
+    const css = session.finalize().css;
+    expect(css).toContain('color: blue;');
+    expect(css).toContain('color: red;');
+    expect(css).toContain('.ProseMirror-focused {');
+  });
+
   it('rejects unproved mixed same-node external conditions transactionally', () => {
     const session = createGssCompilerSession({ projectRoot: '/project' });
     expect(session.replaceStylesheet({ id, source }).committed).toBe(true);
     const previous = session.finalize();
     for (const unsupported of [
-      '.editor { color: blue; } .editor:global(.ProseMirror-focused) { color: red; }',
+      '.editor { margin: 1px; } .editor:global(.ProseMirror-focused) { margin-left: 2px; }',
+      '.editor { color: blue !important; } .editor:global(.ProseMirror-focused) { color: red; }',
+      '.outer .editor { color: blue; } .outer .editor:global(.ProseMirror-focused) { color: red; }',
       '.editor:global(.ProseMirror-focused) { unregistered-shorthand: value; }',
       '.editor:global(.ProseMirror-focused) .child { color: red; }',
       '.editor:global(.ProseMirror-focused):hover { color: red; }'
