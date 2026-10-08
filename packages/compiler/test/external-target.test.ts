@@ -20,6 +20,22 @@ describe('anchored external declaration target', () => {
     expect(schema.exports).not.toHaveProperty('ProseMirror-focused');
   });
 
+  it('keeps an externally supplied compound class as one native target without exporting either class', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    const result = session.replaceStylesheet({ id, source:
+      '.editor :global(.ProseMirror.ProseMirror-focused) { color: red; }'
+    });
+    expect(result).toMatchObject({ committed: true, diagnostics: [] });
+    const schema = session.getScopeSchema(id)!;
+    expect(Object.keys(schema.exports)).toEqual(['editor']);
+    expect(schema.exports.editor!.targets).toEqual({});
+    const anchor = schema.exports.editor!.selfClassName;
+    expect(session.finalize().css).toContain(
+      `.${anchor} .ProseMirror.ProseMirror-focused {\n  color: red;\n}`
+    );
+    expect(JSON.stringify(schema)).not.toContain('ProseMirror-focused');
+  });
+
   it('keeps owned declarations and external targets separate in one Module', () => {
     const session = createGssCompilerSession({ projectRoot: '/project' });
     const result = session.replaceStylesheet({ id, source:

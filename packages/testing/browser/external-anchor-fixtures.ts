@@ -87,4 +87,31 @@ export const externalAnchorFixtures: readonly (ReferenceFixture & {
       expected: { editor: {}, 'conditioned-inside': { color: 'rgb(255, 0, 0)' },
         'conditioned-outside': { color: 'rgb(0, 0, 0)' } } }
   ]
+}, {
+  name: 'external-descendant-compound-class',
+  modules: [{ id: 'CompoundExternal.gss', source:
+    '.editor :global(.ProseMirror.ProseMirror-focused) { color: red; }' }],
+  reference: {
+    css: '.native-editor-anchor .ProseMirror.ProseMirror-focused { color: red; }',
+    scopeSchemas: { 'CompoundExternal.gss': { moduleId: 'CompoundExternal.gss', exports: {
+      editor: { selfClassName: 'native-editor-anchor', targets: {} }
+    } } }
+  },
+  nodes: [
+    { id: 'editor', moduleId: 'CompoundExternal.gss', path: ['editor'], expected: {} },
+    { id: 'compound-inside', parent: 'editor', moduleId: 'CompoundExternal.gss', path: [],
+      externalClassName: 'ProseMirror ProseMirror-focused', expected: { color: 'rgb(255, 0, 0)' } },
+    { id: 'compound-outside', moduleId: 'CompoundExternal.gss', path: [],
+      externalClassName: 'ProseMirror ProseMirror-focused', expected: { color: 'rgb(0, 0, 0)' } },
+    { id: 'focused-only', parent: 'editor', moduleId: 'CompoundExternal.gss', path: [],
+      externalClassName: 'ProseMirror-focused', expected: { color: 'rgb(0, 0, 0)' } }
+  ],
+  phases: [
+    { name: 'focus-class-removed', changes: [{ node: 'compound-inside', externalClassName: 'ProseMirror' }],
+      expected: { editor: {}, 'compound-inside': { color: 'rgb(0, 0, 0)' },
+        'compound-outside': { color: 'rgb(0, 0, 0)' }, 'focused-only': { color: 'rgb(0, 0, 0)' } } },
+    { name: 'focus-class-restored', changes: [{ node: 'compound-inside', externalClassName: 'ProseMirror ProseMirror-focused' }],
+      expected: { editor: {}, 'compound-inside': { color: 'rgb(255, 0, 0)' },
+        'compound-outside': { color: 'rgb(0, 0, 0)' }, 'focused-only': { color: 'rgb(0, 0, 0)' } } }
+  ]
 }];
