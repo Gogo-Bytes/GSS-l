@@ -11,7 +11,7 @@ type Reading = {
   subject: 'element' | '::before' | '::after'; property: string; value: string; expected: string;
 };
 
-async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'nested-layer' | 'asset' | 'keyframes' | 'relation' | 'interleaved' | 'interleaved-depth' | 'interleaved-prefix' | 'interleaved-general-prefix' | 'interleaved-general-root' | 'interleaved-child-root' | 'interleaved-child-prefix' | 'cross-layer-specificity' | 'font-reset' | 'has-specificity' | 'has-specificity-dedup' | 'external-anchor' | 'external-ancestor' | 'external-media' | 'external-compound' | 'owned-external-condition' | 'external-observation' | 'functional-external' | 'compatibility-sequence'): Promise<Reading[]> {
+async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'nested-layer' | 'asset' | 'keyframes' | 'relation' | 'interleaved' | 'interleaved-depth' | 'interleaved-prefix' | 'interleaved-general-prefix' | 'interleaved-general-root' | 'interleaved-child-root' | 'interleaved-child-prefix' | 'cross-layer-specificity' | 'font-reset' | 'has-specificity' | 'has-specificity-dedup' | 'external-anchor' | 'external-ancestor' | 'external-media' | 'external-compound' | 'owned-external-condition' | 'external-observation' | 'functional-external' | 'compatibility-sequence' | 'compatibility-asset' | 'compatibility-property'): Promise<Reading[]> {
   const frame = document.createElement('iframe');
   frame.title = `${fixture.name}: ${side}${corrupt ? ' negative control' : ''}`;
   frame.width = '640';
@@ -91,6 +91,17 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
       throw new Error('Compatibility control requires the three physical display declarations');
     }
     style.textContent = style.textContent.replace(declarations, '');
+  }
+  if (corrupt === 'compatibility-asset') {
+    const changed = style.textContent.replace('url("/__reference_assets__/one-a.svg")',
+      'url("/__reference_assets__/wrong.svg")');
+    if (changed === style.textContent) throw new Error('Compatibility Asset control did not substitute the URL');
+    style.textContent = changed;
+  }
+  if (corrupt === 'compatibility-property') {
+    const changed = style.textContent.replace(/@property --tone \{[^}]*\}/, '');
+    if (changed === style.textContent) throw new Error('Compatibility resource control did not remove the property registration');
+    style.textContent = changed;
   }
   doc.head.append(style);
   if (corrupt === 'external-media') {
@@ -687,7 +698,27 @@ async function run() {
     compatibilityDifferences.length === 1 && compatibilityDifferences[0]?.node === 'card' &&
     compatibilityDifferences[0]?.property === 'display' &&
     compatibilityDifferences[0]?.reference === 'flex' && compatibilityDifferences[0]?.atomic === 'block';
+  const resourceFixture = fixtures.find((fixture) => fixture.name === 'host-target-asset-property-resource')!;
+  const resourceReference = await readDocument(resourceFixture, 'reference');
+  const resourceAtomic = await readDocument(resourceFixture, 'atomic');
+  const compatAssetCorrupted = await readDocument(resourceFixture, 'atomic', 'compatibility-asset');
+  const compatPropertyCorrupted = await readDocument(resourceFixture, 'atomic', 'compatibility-property');
+  const compatAssetDifferences = compare(resourceReference, compatAssetCorrupted);
+  const compatPropertyDifferences = compare(resourceReference, compatPropertyCorrupted);
+  const resourceBaseline = compare(resourceReference, resourceAtomic).length === 0;
+  const compatAssetDetected = resourceBaseline && compare(resourceAtomic, compatAssetCorrupted).length === 2 &&
+    compatAssetDifferences.length === 2 && compatAssetDifferences.every((difference) => difference.node === 'resource-card') &&
+    compatAssetDifferences.some((difference) => difference.property === 'background-image' &&
+      difference.atomic.includes('/__reference_assets__/wrong.svg')) &&
+    compatAssetDifferences.some((difference) => difference.property === 'background-image:decoded-dimensions' &&
+      difference.reference === '3x2' && difference.atomic === '11x7');
+  const compatPropertyDetected = resourceBaseline && compare(resourceAtomic, compatPropertyCorrupted).length === 1 &&
+    compatPropertyDifferences.length === 1 && compatPropertyDifferences[0]?.node === 'resource-card' &&
+    compatPropertyDifferences[0]?.property === 'color' && compatPropertyDifferences[0]?.reference === 'rgb(255, 0, 0)' &&
+    compatPropertyDifferences[0]?.atomic === 'rgb(0, 0, 0)';
   publish({
+    compatibilityAssetNegativeControl: { detected: compatAssetDetected, differences: compatAssetDifferences },
+    compatibilityPropertyNegativeControl: { detected: compatPropertyDetected, differences: compatPropertyDifferences },
     compatibilitySequenceNegativeControl: { detected: compatibilityDetected, declarationsRemoved: 3, differences: compatibilityDifferences },
     functionalExternalNegativeControl: { detected: functionalDetected, predicatesRemoved: 3, differences: functionalDifferences },
     externalObservationNegativeControl: { detected: externalObservationDetected, predicateRemoved: true, differences: externalObservationDifferences },
@@ -710,7 +741,7 @@ async function run() {
     hasSpecificityDedup: { fixtures: hasSpecificityDedupResults, negativeControl: { detected: hasSpecificityDedupControl, qualifierRemoved: true, differences: hasSpecificityDedupDifferences } },
     status: results.every((result) => result.comparisons > 0 && !result.differences.length && !result.expectedFailures.length) &&
       hasSpecificityDedupResults.every((result) => result.differences.length === 0) && hasSpecificityDedupControl &&
-      detected && pseudoDetected && conditionDetected && layerDetected && nestedLayerDetected && assetDetected && keyframesDetected && relationDetected && interleavedDetected && interleavedDepthDetected && interleavedPrefixDetected && interleavedGeneralPrefixDetected && interleavedGeneralRootDetected && interleavedChildRootDetected && interleavedChildPrefixDetected && crossLayerSpecificityDetected && hasSpecificityDetected && fontResetNegativeControl && externalAnchorDetected && externalAncestorDetected && externalMediaDetected && externalCompoundDetected && sameNodeDetected && refinementDetected && externalObservationDetected && functionalDetected && compatibilityDetected
+      detected && pseudoDetected && conditionDetected && layerDetected && nestedLayerDetected && assetDetected && keyframesDetected && relationDetected && interleavedDetected && interleavedDepthDetected && interleavedPrefixDetected && interleavedGeneralPrefixDetected && interleavedGeneralRootDetected && interleavedChildRootDetected && interleavedChildPrefixDetected && crossLayerSpecificityDetected && hasSpecificityDetected && fontResetNegativeControl && externalAnchorDetected && externalAncestorDetected && externalMediaDetected && externalCompoundDetected && sameNodeDetected && refinementDetected && externalObservationDetected && functionalDetected && compatibilityDetected && compatAssetDetected && compatPropertyDetected
       ? 'passed' : 'failed',
     results,
     negativeControl: { detected, differences },

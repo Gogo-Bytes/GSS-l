@@ -1,7 +1,8 @@
 import selectorParser from 'postcss-selector-parser';
+import postcss from 'postcss';
 import type { CompatibilityTransformer, PhysicalDeclaration } from '../infrastructure/lightning-compatibility-transformer.js';
 import { bindCssAssets, identifyAssetValue, renderAssetValue, type AssetBindings, type AssetUrlResolver } from './asset-values.js';
-import { collectAssetDependencies } from './stylesheet-assets.js';
+import { assetOccurrences, collectAssetDependencies } from './stylesheet-assets.js';
 import { toLogicalModuleId } from './module-identity.js';
 import valueParser from 'postcss-value-parser';
 import {
@@ -209,6 +210,25 @@ function prepareContribution(
       .map((resource) => [resource.name, nameAllocator.createKeyframesName(moduleId, resource.name)])
   );
   const semanticRules = rewriteKeyframeReferences(parsed.rules, keyframeNames);
+  const plannedResources = parsed.resources.map((resource) =>
+    planResource(resource, moduleId, bindings, nameAllocator, compatibility));
+  if (plannedResources.some((resource) => resource === undefined)) {
+    return { diagnostics: [{ code: 'GSS1101', severity: 'error', phase: 'validate', id: input.id,
+      reason: 'capability-not-registered', message: 'Compatibility transformation cannot preserve a resource shape or Asset identity.' }] };
+  }
+  const resources = plannedResources as PlannedResource[];
+  const keyframeRegistrations = new Map<string, string>();
+  for (const [index, resource] of parsed.resources.entries()) {
+    if (resource.kind !== 'keyframes') continue;
+    const identity = resources[index]!.identity;
+    const previous = keyframeRegistrations.get(resource.name);
+    if (previous && previous !== identity) return { diagnostics: [{
+      code: 'GSS1301', severity: 'error', phase: 'registry', id: input.id,
+      reason: 'conflicting-global-resource',
+      message: `Keyframe ${resource.name} has incompatible registrations in one Module; authored precedence cannot be preserved.`
+    }] };
+    keyframeRegistrations.set(resource.name, identity);
+  }
   const externalRules = semanticRules.filter((rule) => rule.externalTarget !== undefined);
   const sameNodeRules = semanticRules.filter((rule) => rule.externalCondition !== undefined);
   const hasExplicitGlobal = semanticRules.some((rule) => {
@@ -471,16 +491,11 @@ function prepareContribution(
     reason: 'ambiguous-coactive-state-conflict', message: plannedPseudos.ambiguity
   }] };
 
-  if (compatibility && (parsed.resources.length > 0 || semanticRules.some((rule) =>
-    rule.declarations.some((declaration) => identifyAssetValue(declaration.value, bindings).assetValue)))) {
-    return { diagnostics: [{ code: 'GSS1101', severity: 'error', phase: 'validate', id: input.id,
-      reason: 'capability-not-registered',
-      message: 'Compatibility transformation of resources or bound Assets is not yet proved safe.' }] };
-  }
   const physicalDeclarations = semanticRules.flatMap((rule) => rule.declarations.map((declaration) => ({
     declaration, physical: compatibility?.expand(declaration)
   })));
-  if (compatibility && physicalDeclarations.some(({ physical }) => physical === undefined)) {
+  if (compatibility && physicalDeclarations.some(({ declaration, physical }) =>
+    physical === undefined || !physicalAssetsPreserved(declaration.value, physical))) {
     return { diagnostics: [{ code: 'GSS1101', severity: 'error', phase: 'validate', id: input.id,
       reason: 'capability-not-registered', message: 'Compatibility transformation cannot preserve this declaration shape.' }] };
   }
@@ -489,6 +504,12 @@ function prepareContribution(
     return { diagnostics: [{ code: 'GSS1101', severity: 'error', phase: 'validate', id: input.id,
       reason: 'capability-not-registered', message: 'Compatibility transformation changed declaration importance.' }] };
   }
+  const physicalByDeclaration = new Map(physicalDeclarations.filter(({ physical }) => physical !== undefined)
+    .map(({ declaration, physical }) => {
+      const identified = identifyAssetValue(declaration.value, bindings);
+      return [JSON.stringify([declaration.property, identified.value, identified.assetValue === true, declaration.important]),
+        physical!.map((entry) => ({ ...entry, ...identifyAssetValue(entry.value, bindings) }))] as const;
+    }));
   const compatibilityFallback = [...new Set(physicalDeclarations.filter(({ declaration, physical }) =>
     physical?.some((entry) => entry.property !== declaration.property))
     .map(({ declaration }) => declaration.property))].sort();
@@ -499,7 +520,7 @@ function prepareContribution(
     }
     return preparePreservedContribution({ input, moduleId, parsed, rules: semanticRules,
       conditionDiagnostics, fallbackProperties: [], fallbackCompatibilityProperties: compatibilityFallback,
-      nameAllocator, compatibility });
+      nameAllocator, compatibility, resources });
   }
 
   const unsupportedProperties = [...new Set(
@@ -530,7 +551,8 @@ function prepareContribution(
       conditionDiagnostics,
       fallbackProperties: unsupportedProperties,
       nameAllocator,
-      compatibility
+      compatibility,
+      resources
     });
   }
 
@@ -868,12 +890,11 @@ function prepareContribution(
     fallbackReasons: []
   };
 
-  const resources = parsed.resources.map((resource) => planResource(resource, moduleId, bindings, nameAllocator));
   return {
     artifact,
     rules: compatibility ? rules.map((rule) => ({ ...rule,
-      physicalDeclarations: compatibility.expand({ property: rule.identity.property,
-        value: rule.identity.value, important: rule.identity.important })! })) : rules,
+      physicalDeclarations: physicalByDeclaration.get(JSON.stringify([rule.identity.property,
+        rule.identity.value, rule.identity.assetValue === true, rule.identity.important]))! })) : rules,
     preservedBlocks: [],
     resources,
     diagnostics: conditionDiagnostics
@@ -890,6 +911,7 @@ function preparePreservedContribution(input: {
   fallbackCompatibilityProperties?: readonly string[];
   nameAllocator: NameAllocatorPort;
   compatibility?: CompatibilityTransformer | undefined;
+  resources: readonly PlannedResource[];
 }): ModuleContribution {
   const roots = new Map<string, MutableScopeNode>();
   for (const rule of input.rules) {
@@ -927,14 +949,11 @@ function preparePreservedContribution(input: {
     fallbackReasons
   };
   const bindings = new Map((input.input.assetReferences ?? []).map(({ url, identity }) => [url, identity]));
-  const resources = input.parsed.resources.map((resource) =>
-    planResource(resource, input.moduleId, bindings, input.nameAllocator)
-  );
   return {
     artifact,
     rules: [],
     preservedBlocks: [{ moduleId: input.moduleId, css, ...bindCssAssets(css, bindings) }],
-    resources,
+    resources: input.resources,
     diagnostics: [
       ...input.conditionDiagnostics,
       {
@@ -1015,11 +1034,15 @@ function planResource(
   resource: ParsedGlobalResource,
   moduleId: string,
   bindings: AssetBindings,
-  nameAllocator: NameAllocatorPort
-): PlannedResource {
-  const planned = resource.kind === 'property' ? planPropertyRegistration(resource)
+  nameAllocator: NameAllocatorPort,
+  compatibility?: CompatibilityTransformer
+): PlannedResource | undefined {
+  const base = resource.kind === 'property' ? planPropertyRegistration(resource)
     : resource.kind === 'keyframes' ? planKeyframesRegistration(resource, moduleId, nameAllocator)
     : planFontFaceResource(resource);
+  const physical = compatibility?.expandResource(base.css, resource.kind);
+  if (compatibility && (!physical || !resourceAssetsPreserved(base.css, physical))) return undefined;
+  const planned = physical ? { ...base, css: physical } : base;
   const assets = bindCssAssets(planned.css, bindings);
   return assets.assetIdentity && assets.renderCss
     ? { ...planned, identity: assets.assetIdentity, renderCss: assets.renderCss }
@@ -1418,12 +1441,33 @@ function renderRelationCombinator(
   return '';
 }
 
+function resourceAssetsPreserved(authored: string, physical: string): boolean {
+  const urls = (css: string) => {
+    const found = new Set<string>();
+    postcss.parse(css).walkDecls((declaration) => {
+      for (const { url } of assetOccurrences(declaration.value)) found.add(url);
+    });
+    return found;
+  };
+  const original = urls(authored);
+  const transformed = urls(physical);
+  return original.size === transformed.size && [...original].every((url) => transformed.has(url));
+}
+
+function physicalAssetsPreserved(
+  authored: string, physical: readonly PhysicalDeclaration[]
+): boolean {
+  const original = new Set(assetOccurrences(authored).map(({ url }) => url));
+  const transformed = new Set(physical.flatMap(({ value }) => assetOccurrences(value).map(({ url }) => url)));
+  return original.size === transformed.size && [...original].every((url) => transformed.has(url));
+}
+
 function renderRule(rule: PlannedDeclaration, resolve: AssetUrlResolver): string {
   const { property, important } = rule.identity;
   const value = renderAssetValue(rule.identity, resolve);
   const declarations = rule.physicalDeclarations ?? [{ property, value, important }];
   let css = `${rule.selector} {\n${declarations.map((declaration) =>
-    `  ${declaration.property}: ${declaration.value}${declaration.important ? ' !important' : ''};`).join('\n')}\n}`;
+    `  ${declaration.property}: ${renderAssetValue(declaration, resolve)}${declaration.important ? ' !important' : ''};`).join('\n')}\n}`;
   for (const wrapper of [...(rule.wrappers ?? [])].reverse()) {
     css = `@${wrapper.kind} ${wrapper.query} {\n${indentCss(css)}\n}`;
   }

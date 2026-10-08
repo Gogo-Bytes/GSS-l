@@ -88,13 +88,82 @@ describe('host-resolved compatibility targets', () => {
     expect(session.finalize().css).toContain('display: -webkit-box;');
   });
 
-  it('rejects target-enabled resource and bound Asset Modules without partial output', () => {
+  it('retains bound Asset identity through target transformation and final URL rendering', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project', compatibilityTargetStages: oldSafari });
+    const result = session.replaceStylesheet({ id, source: '.card { background-image: url("./a.svg"); }',
+      assetReferences: [{ url: './a.svg', identity: 'asset-a' }] });
+    expect(result).toMatchObject({ committed: true, module: { compilationMode: 'atomic', dependencies: ['./a.svg'] } });
+    const first = session.finalize({ resolveAssetUrl: () => '/assets/one.svg' });
+    const second = session.finalize({ resolveAssetUrl: () => '/assets/two.svg' });
+    expect(first.css).toContain('url("/assets/one.svg")');
+    expect(second.css).toContain('url("/assets/two.svg")');
+    expect(first.manifest.rules.map(({ className, selector, property, sources }) =>
+      ({ className, selector, property, sources }))).toEqual(second.manifest.rules.map(
+      ({ className, selector, property, sources }) => ({ className, selector, property, sources })));
+    expect(first.css).not.toContain('./a.svg');
+  });
+
+  it('preserves target-expanded keyframe resources and their references', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project', compatibilityTargetStages: oldSafari });
+    const result = session.replaceStylesheet({ id, source:
+      '@keyframes move { to { opacity: 1; } } .card { animation-name: move; }' });
+    expect(result).toMatchObject({ committed: true });
+    const css = session.finalize().css;
+    expect(css).toContain('@-webkit-keyframes');
+    expect(css).toContain('@keyframes');
+    expect(css).toContain('-webkit-animation-name:');
+    expect(css).not.toContain('animation-name: move;');
+    expect(session.finalize().manifest.resources).toHaveLength(1);
+  });
+
+  it('keeps prefixed resource pairs stable across ordered host stages', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project',
+      compatibilityTargetStages: [{ safari: '17.0' }, { safari: '6.0' }] });
+    const result = session.replaceStylesheet({ id, source:
+      '@keyframes move { to { opacity: 1; } } .card { animation-name: move; }' });
+    expect(result.committed).toBe(true);
+    const css = session.finalize().css;
+    expect(css).toContain('@-webkit-keyframes');
+    expect(css).toContain('@keyframes');
+  });
+
+  it.each([undefined, oldSafari])('rejects duplicate conditional keyframe names before identity sorting (%s)', (stages) => {
+    const session = createGssCompilerSession({ projectRoot: '/project',
+      conditions: { media: ['(min-width: 0px)', '(max-width: 1000px)'] },
+      ...(stages ? { compatibilityTargetStages: stages } : {}) });
+    expect(session.replaceStylesheet({ id, source: '.card { color: red; }' }).committed).toBe(true);
+    const previous = session.finalize();
+    const result = session.replaceStylesheet({ id, source: `
+      @media (min-width: 0px) { @keyframes spin { to { opacity: 0; } } }
+      @media (max-width: 1000px) { @keyframes spin { to { opacity: 1; } } }
+      .card { animation-name: spin; }
+    ` });
+    expect(result).toMatchObject({ committed: false, generation: 1,
+      diagnostics: [{ code: 'GSS1301', reason: 'conflicting-global-resource' }] });
+    expect(session.finalize()).toEqual(previous);
+  });
+
+  it('retains target-expanded font and custom-property resources', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project', compatibilityTargetStages: oldSafari });
+    const result = session.replaceStylesheet({ id, source:
+      '@font-face { font-family: "X"; src: url("./x.woff2") format("woff2"); } @property --theme { syntax: "<color>"; inherits: false; initial-value: red; } .card { color: var(--theme); }',
+      assetReferences: [{ url: './x.woff2', identity: 'font-x' }] });
+    expect(result).toMatchObject({ committed: true });
+    const css = session.finalize({ resolveAssetUrl: () => '/assets/x.woff2' }).css;
+    expect(css).toContain('@font-face');
+    expect(css).toContain('url("/assets/x.woff2")');
+    expect(css).toContain('@property --theme');
+    expect(css).toContain('color: var(--theme);');
+    expect(session.finalize({ resolveAssetUrl: () => '/assets/x.woff2' }).manifest.resources).toHaveLength(2);
+  });
+
+  it('rejects unproved preserved selectors with target-expanded resources or Assets without partial output', () => {
     const session = createGssCompilerSession({ projectRoot: '/project', compatibilityTargetStages: oldSafari });
     expect(session.replaceStylesheet({ id, source: '.card { color: red; }' }).committed).toBe(true);
     const previous = session.finalize();
     for (const input of [
-      { id, source: '@keyframes move { to { opacity: 1; } } .card { animation-name: move; }' },
-      { id, source: '.card { background-image: url("./a.svg"); }',
+      { id, source: '@keyframes move { to { opacity: 1; } } .card:not(:global(.external)) { flex-direction: column; animation-name: move; }' },
+      { id, source: '.card:not(:global(.external)) { flex-direction: column; background-image: url("./a.svg"); }',
         assetReferences: [{ url: './a.svg', identity: 'asset-a' }] }
     ]) {
       expect(session.replaceStylesheet(input)).toMatchObject({ committed: false, generation: 1,

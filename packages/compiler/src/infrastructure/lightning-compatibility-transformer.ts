@@ -4,6 +4,7 @@ import { transform, type Targets } from 'lightningcss';
 export type PhysicalDeclaration = { property: string; value: string; important: boolean };
 export type CompatibilityTransformer = {
   expand(declaration: PhysicalDeclaration): readonly PhysicalDeclaration[] | undefined;
+  expandResource(css: string, kind: 'property' | 'keyframes' | 'font-face'): string | undefined;
 };
 
 const supportedBrowsers = new Set(['chrome', 'edge', 'firefox', 'safari', 'ios_saf']);
@@ -53,6 +54,39 @@ export function createCompatibilityTransformer(
       } catch { physical = undefined; /* Never silently emit untransformed CSS. */ }
       cache.set(key, physical);
       return physical;
+    },
+    expandResource(css, kind) {
+      try {
+        const root = postcss.parse(css);
+        const wrappers: { name: string; params: string }[] = [];
+        let current = root.nodes[0];
+        if (root.nodes.length !== 1) return undefined;
+        while (current?.type === 'atrule' && ['layer', 'media', 'supports', 'container'].includes(current.name)) {
+          if (current.nodes?.length !== 1) return undefined;
+          wrappers.push({ name: current.name, params: current.params });
+          current = current.nodes[0];
+        }
+        if (current?.type !== 'atrule' || current.name !== kind) return undefined;
+        let transformed = current.toString();
+        for (const targets of targetStages) {
+          const result = transform({ filename: 'resource.css', code: new TextEncoder().encode(transformed),
+            targets, minify: false });
+          if (result.warnings.length) return undefined;
+          const output = postcss.parse(result.code.toString());
+          if (!output.nodes.length || !output.nodes.every((node) => node.type === 'atrule' &&
+            (node.name === kind || (kind === 'keyframes' && node.name === '-webkit-keyframes')) &&
+            node.params === current.params && node.nodes?.length &&
+            (kind === 'keyframes' ? node.nodes.every((frame) => frame.type === 'rule' &&
+              frame.nodes.every((decl) => decl.type === 'decl')) : node.nodes.every((decl) => decl.type === 'decl')))) {
+            return undefined;
+          }
+          transformed = output.toString();
+        }
+        for (const wrapper of wrappers.reverse()) {
+          transformed = `@${wrapper.name} ${wrapper.params} {\n${transformed.split('\n').map((line) => `  ${line}`).join('\n')}\n}`;
+        }
+        return transformed;
+      } catch { return undefined; }
     }
   };
 }
