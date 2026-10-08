@@ -11,7 +11,7 @@ type Reading = {
   subject: 'element' | '::before' | '::after'; property: string; value: string; expected: string;
 };
 
-async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'nested-layer' | 'asset' | 'keyframes' | 'relation' | 'interleaved' | 'interleaved-depth' | 'interleaved-prefix' | 'interleaved-general-prefix' | 'interleaved-general-root' | 'interleaved-child-root' | 'interleaved-child-prefix' | 'cross-layer-specificity' | 'font-reset' | 'has-specificity' | 'has-specificity-dedup' | 'external-anchor' | 'external-ancestor' | 'external-media' | 'external-compound'): Promise<Reading[]> {
+async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'nested-layer' | 'asset' | 'keyframes' | 'relation' | 'interleaved' | 'interleaved-depth' | 'interleaved-prefix' | 'interleaved-general-prefix' | 'interleaved-general-root' | 'interleaved-child-root' | 'interleaved-child-prefix' | 'cross-layer-specificity' | 'font-reset' | 'has-specificity' | 'has-specificity-dedup' | 'external-anchor' | 'external-ancestor' | 'external-media' | 'external-compound' | 'owned-external-condition'): Promise<Reading[]> {
   const frame = document.createElement('iframe');
   frame.title = `${fixture.name}: ${side}${corrupt ? ' negative control' : ''}`;
   frame.width = '640';
@@ -66,6 +66,11 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
   if (corrupt === 'external-compound') {
     const changed = style.textContent.replace('.ProseMirror.ProseMirror-focused {', '.ProseMirror {');
     if (changed === style.textContent) throw new Error('External compound control did not remove the focus qualifier');
+    style.textContent = changed;
+  }
+  if (corrupt === 'owned-external-condition') {
+    const changed = style.textContent.replace(/\.ProseMirror-focused(?=\s*\{)/, '');
+    if (changed === style.textContent) throw new Error('Owned external condition control did not remove the qualifier');
     style.textContent = changed;
   }
   doc.head.append(style);
@@ -159,7 +164,11 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
     sheet.deleteRule(index);
     sheet.insertRule(`${weakened} { ${declarations} }`, index);
   }
+  const ownedClasses = new Map<string, string>();
   for (const node of fixture.nodes) {
+    if (node.externalClassName !== undefined && node.extraClassName !== undefined) {
+      throw new Error('An external fixture node cannot also claim an owned scope');
+    }
     let scope: ScopeNodeSchema | undefined;
     if (node.externalClassName === undefined) {
       let targets = fixture[side].scopeSchemas[node.moduleId]!.exports;
@@ -172,7 +181,8 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
     const element = doc.createElement(node.tag ?? 'div');
     if (element.tagName === 'INPUT') (element as HTMLInputElement).type = 'checkbox';
     element.id = node.id;
-    element.className = node.externalClassName ?? scope!.selfClassName;
+    if (scope) ownedClasses.set(node.id, scope.selfClassName);
+    element.className = node.externalClassName ?? [scope!.selfClassName, node.extraClassName ?? ''].filter(Boolean).join(' ');
     if (element.tagName !== 'INPUT') element.textContent = node.id;
     const parent = node.parent ? doc.getElementById(node.parent) : doc.body;
     if (!parent) throw new Error(`Missing fixture parent: ${node.parent}`);
@@ -217,6 +227,13 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
           throw new Error('Only fixture-owned external nodes may change their classes');
         }
         element.className = change.externalClassName;
+      }
+      if (change.extraClassName !== undefined) {
+        const ownedClass = ownedClasses.get(change.node);
+        if (!ownedClass || !fixture.nodes.some((node) => node.id === change.node && node.extraClassName !== undefined)) {
+          throw new Error('Only fixture-owned GSS nodes may change their third-party class');
+        }
+        element.className = [ownedClass, change.extraClassName].filter(Boolean).join(' ');
       }
       for (const [name, value] of Object.entries(change.attributes ?? {})) {
         if (!/^(data|aria)-/.test(name)) throw new Error(`Not a fixture state attribute: ${name}`);
@@ -594,7 +611,21 @@ async function run() {
     externalCompoundDifferences[0]!.phase === 'focus-class-removed' && externalCompoundDifferences[0]!.property === 'color' &&
     externalCompoundDifferences[0]!.reference === 'rgb(0, 0, 0)' &&
     externalCompoundDifferences[0]!.atomic === 'rgb(255, 0, 0)';
+  const sameNodeFixture = fixtures.find((fixture) => fixture.name === 'owned-node-external-class-condition')!;
+  const sameNodeReference = await readDocument(sameNodeFixture, 'reference');
+  const sameNodeAtomic = await readDocument(sameNodeFixture, 'atomic');
+  const sameNodeCorrupted = await readDocument(sameNodeFixture, 'atomic', 'owned-external-condition');
+  const sameNodeDifferences = compare(sameNodeReference, sameNodeCorrupted);
+  const sameNodeChanges = compare(sameNodeAtomic, sameNodeCorrupted);
+  const sameNodeDetected = compare(sameNodeReference, sameNodeAtomic).length === 0 &&
+    sameNodeChanges.length === 4 && sameNodeDifferences.length === 4 &&
+    sameNodeDifferences.every((difference) => ['editor-focused', 'editor-unfocused'].includes(difference.node) &&
+      difference.property === 'color' && difference.reference === 'rgb(0, 0, 0)' &&
+      difference.atomic === 'rgb(255, 0, 0)') &&
+    sameNodeDifferences.some((difference) => difference.node === 'editor-focused' &&
+      difference.phase === 'owned-focus-removed');
   publish({
+    ownedExternalConditionNegativeControl: { detected: sameNodeDetected, qualifierRemoved: true, differences: sameNodeDifferences },
     externalCompoundNegativeControl: { detected: externalCompoundDetected, qualifierRemoved: true, differences: externalCompoundDifferences },
     externalMediaNegativeControl: { detected: externalMediaDetected, wrapperRemoved: true, differences: externalMediaDifferences },
     externalAncestorNegativeControl: { detected: externalAncestorDetected, prefixRemoved: true, differences: externalAncestorDifferences },
@@ -612,7 +643,7 @@ async function run() {
     hasSpecificityDedup: { fixtures: hasSpecificityDedupResults, negativeControl: { detected: hasSpecificityDedupControl, qualifierRemoved: true, differences: hasSpecificityDedupDifferences } },
     status: results.every((result) => result.comparisons > 0 && !result.differences.length && !result.expectedFailures.length) &&
       hasSpecificityDedupResults.every((result) => result.differences.length === 0) && hasSpecificityDedupControl &&
-      detected && pseudoDetected && conditionDetected && layerDetected && nestedLayerDetected && assetDetected && keyframesDetected && relationDetected && interleavedDetected && interleavedDepthDetected && interleavedPrefixDetected && interleavedGeneralPrefixDetected && interleavedGeneralRootDetected && interleavedChildRootDetected && interleavedChildPrefixDetected && crossLayerSpecificityDetected && hasSpecificityDetected && fontResetNegativeControl && externalAnchorDetected && externalAncestorDetected && externalMediaDetected && externalCompoundDetected
+      detected && pseudoDetected && conditionDetected && layerDetected && nestedLayerDetected && assetDetected && keyframesDetected && relationDetected && interleavedDetected && interleavedDepthDetected && interleavedPrefixDetected && interleavedGeneralPrefixDetected && interleavedGeneralRootDetected && interleavedChildRootDetected && interleavedChildPrefixDetected && crossLayerSpecificityDetected && hasSpecificityDetected && fontResetNegativeControl && externalAnchorDetected && externalAncestorDetected && externalMediaDetected && externalCompoundDetected && sameNodeDetected
       ? 'passed' : 'failed',
     results,
     negativeControl: { detected, differences },

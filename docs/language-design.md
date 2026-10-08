@@ -152,8 +152,11 @@ Property chaining represents descendant paths only. Same-node local class compou
 External class contracts are explicit:
 
 ```gss
-.editor :global(.ProseMirror-focused) {}
+.editor:global(.ProseMirror-focused) {}  /* owned editor when its external class matches */
+.editor :global(.ProseMirror-focused) {} /* external descendant under the owned editor */
 ```
+
+The space changes the declaration target. GSS never adds or removes `ProseMirror-focused`; the same-node form currently has bounded fail-closed composition with other authored rules.
 
 Selector lists are expanded into independent semantic branches. Every branch must pass capability validation or the complete authored rule fails.
 

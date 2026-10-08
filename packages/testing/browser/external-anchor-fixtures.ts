@@ -114,4 +114,30 @@ export const externalAnchorFixtures: readonly (ReferenceFixture & {
       expected: { editor: {}, 'compound-inside': { color: 'rgb(255, 0, 0)' },
         'compound-outside': { color: 'rgb(0, 0, 0)' }, 'focused-only': { color: 'rgb(0, 0, 0)' } } }
   ]
+}, {
+  name: 'owned-node-external-class-condition',
+  modules: [{ id: 'SameNode.gss', source:
+    '.editor:global(.ProseMirror-focused) { color: red; }' }],
+  reference: {
+    css: '.native-editor.ProseMirror-focused { color: red; }',
+    scopeSchemas: { 'SameNode.gss': { moduleId: 'SameNode.gss', exports: {
+      editor: { selfClassName: 'native-editor', targets: {} }
+    } } }
+  },
+  nodes: [
+    { id: 'editor-focused', moduleId: 'SameNode.gss', path: ['editor'],
+      extraClassName: 'ProseMirror-focused', expected: { color: 'rgb(255, 0, 0)' } },
+    { id: 'editor-unfocused', moduleId: 'SameNode.gss', path: ['editor'],
+      extraClassName: '', expected: { color: 'rgb(0, 0, 0)' } },
+    { id: 'external-only', moduleId: 'SameNode.gss', path: [],
+      externalClassName: 'ProseMirror-focused', expected: { color: 'rgb(0, 0, 0)' } }
+  ],
+  phases: [
+    { name: 'owned-focus-removed', changes: [{ node: 'editor-focused', extraClassName: '' }],
+      expected: { 'editor-focused': { color: 'rgb(0, 0, 0)' },
+        'editor-unfocused': { color: 'rgb(0, 0, 0)' }, 'external-only': { color: 'rgb(0, 0, 0)' } } },
+    { name: 'owned-focus-restored', changes: [{ node: 'editor-focused', extraClassName: 'ProseMirror-focused' }],
+      expected: { 'editor-focused': { color: 'rgb(255, 0, 0)' },
+        'editor-unfocused': { color: 'rgb(0, 0, 0)' }, 'external-only': { color: 'rgb(0, 0, 0)' } } }
+  ]
 }];

@@ -202,7 +202,10 @@ function prepareContribution(
   );
   const semanticRules = rewriteKeyframeReferences(parsed.rules, keyframeNames);
   const externalRules = semanticRules.filter((rule) => rule.externalTarget !== undefined);
-  const localRules = semanticRules.filter((rule) => rule.externalTarget === undefined);
+  const sameNodeRules = semanticRules.filter((rule) => rule.externalCondition !== undefined);
+  const localRules = semanticRules.filter((rule) =>
+    rule.externalTarget === undefined && rule.externalCondition === undefined
+  );
   // External descendants require a pure owned path of descendant relations;
   // other placements/compositions remain fail-closed.
   if (externalRules.some((rule) => rule.relations.some((relation) => relation !== 'descendant') ||
@@ -214,6 +217,22 @@ function prepareContribution(
       code: 'GSS1101', severity: 'error', phase: 'validate', id: input.id,
       reason: 'capability-not-registered',
       message: 'External targets currently require a pure owned descendant path and an external class descendant.'
+    }] };
+  }
+  // A same-node external class is a condition on the owned target, not a
+  // separate ownership path. Mixed declarations need a proof of precedence
+  // against that target before admission; reject the whole replacement on failure.
+  if (sameNodeRules.length > 0 && (sameNodeRules.length !== 1 || semanticRules.length !== 1 ||
+    sameNodeRules[0]!.conditions.length > 0 || sameNodeRules[0]!.layer !== 'unlayered' ||
+    sameNodeRules[0]!.relations.some((relation) => relation !== 'descendant') ||
+    sameNodeRules[0]!.states.some((states) => states.length > 0) ||
+    sameNodeRules[0]!.attributes.some((attributes) => attributes.length > 0) ||
+    sameNodeRules[0]!.observations.some((observations) => observations.length > 0) ||
+    sameNodeRules[0]!.pseudoElements.some((pseudo) => pseudo !== null))) {
+    return { diagnostics: [{
+      code: 'GSS1101', severity: 'error', phase: 'validate', id: input.id,
+      reason: 'capability-not-registered',
+      message: 'A same-node external condition currently requires one pure owned selector rule.'
     }] };
   }
   const conditionDiagnostics = validateRegisteredConditions(
@@ -433,7 +452,7 @@ function prepareContribution(
   )].sort();
   if (unsupportedProperties.length > 0) {
     // Preserved-mode selector rewriting cannot safely lower :global() yet.
-    if (externalRules.length > 0 || config.atomizationFallback === 'error') {
+    if (externalRules.length > 0 || sameNodeRules.length > 0 || config.atomizationFallback === 'error') {
       return {
         diagnostics: [{
           code: 'GSS1101',
@@ -695,6 +714,44 @@ function prepareContribution(
         wrappers,
         layer,
         relationRank
+      });
+    }
+  }
+
+  for (const rule of sameNodeRules) {
+    const scope = ensureScopePath(roots, rule.path);
+    const ancestorMarkers = rule.path.slice(0, -1).map((_, index) => {
+      const path = rule.path.slice(0, index + 1);
+      const marker = nameAllocator.createScopeMarker(moduleId, path);
+      ensureScopePath(roots, path).classNames.add(marker);
+      return marker;
+    });
+    const effects = new Set<string>();
+    for (const declaration of rule.declarations) {
+      const declarationEffects = classifyPropertyEffect(declaration.property).effects;
+      if (declarationEffects.some((effect) => effects.has(effect))) {
+        return { diagnostics: [{
+          code: 'GSS1205', severity: 'error', phase: 'resolve', id: input.id,
+          reason: 'ambiguous-coactive-state-conflict',
+          message: 'Same-node external condition declarations have overlapping property effects.'
+        }] };
+      }
+      declarationEffects.forEach((effect) => effects.add(effect));
+      const identity: PureDeclarationIdentity = {
+        layer: rule.layer, condition: canonicalCondition(rule.conditions),
+        state: `external-condition:${rule.externalCondition!}`,
+        ownership: { moduleId, path: rule.path, specificity: rule.path.length },
+        property: declaration.property,
+        ...identifyAssetValue(declaration.value, bindings),
+        important: declaration.important
+      };
+      const className = nameAllocator.createAtomicName(identity);
+      scope.classNames.add(className);
+      const ownedSelector = [...ancestorMarkers, className].map((marker) => `.${marker}`).join(' ');
+      rules.push({
+        kind: 'contextual-atom', identity, className,
+        selector: `${ownedSelector}${rule.externalCondition}`,
+        wrappers: rule.conditions, layer: rule.layer
       });
     }
   }

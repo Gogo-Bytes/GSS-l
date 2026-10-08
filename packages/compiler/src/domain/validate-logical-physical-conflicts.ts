@@ -24,6 +24,7 @@ const conflictingPhysicalProperties: Readonly<Record<string, readonly string[]>>
 type RuleCandidate = {
   path: readonly string[];
   externalTarget?: string;
+  externalCondition?: string;
   layer: string;
   conditions: readonly unknown[];
   relations: readonly string[];
@@ -43,6 +44,7 @@ export function validateLogicalPhysicalConflicts(
     const key = JSON.stringify([
       rule.path,
       rule.externalTarget ?? null,
+      rule.externalCondition ?? null,
       rule.layer,
       rule.conditions,
       rule.relations,
@@ -59,7 +61,9 @@ export function validateLogicalPhysicalConflicts(
   const ownershipRules = rules.filter(isPureOwnershipRule);
   const targetPaths = new Map<string, readonly string[]>();
   for (const rule of rules) {
-    if (rule.externalTarget === undefined) targetPaths.set(JSON.stringify(rule.path), rule.path);
+    if (rule.externalTarget === undefined && rule.externalCondition === undefined) {
+      targetPaths.set(JSON.stringify(rule.path), rule.path);
+    }
   }
   for (const targetPath of targetPaths.values()) {
     for (const candidate of ownershipRules) {
@@ -99,7 +103,7 @@ export function validateLogicalPhysicalConflicts(
 }
 
 function isPureOwnershipRule(rule: RuleCandidate): boolean {
-  return rule.externalTarget === undefined && rule.relations.every((relation) => relation === 'descendant') &&
+  return rule.externalTarget === undefined && rule.externalCondition === undefined && rule.relations.every((relation) => relation === 'descendant') &&
     rule.states.every((states) => states.length === 0) &&
     rule.attributes.every((attributes) => attributes.length === 0) &&
     rule.observations.every((observations) => observations.length === 0) &&

@@ -12,3 +12,6 @@ A browser element matched by an explicit global selector anchored to an owned sc
 
 **Anchor**:
 An owned scope whose class restricts where an external-target selector can match. The anchor is not itself the declaration target in a descendant selector.
+
+**External condition**:
+An externally supplied class tested on an owned scope node. The owned node remains the declaration target; GSS neither exports nor changes the external class.

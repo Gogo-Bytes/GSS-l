@@ -19,7 +19,7 @@ const controls = [
   'interleavedChildPrefixNegativeControl', 'crossLayerSpecificityNegativeControl',
   'hasSpecificityNegativeControl', 'externalAnchorNegativeControl',
   'externalAncestorNegativeControl', 'externalMediaNegativeControl',
-  'externalCompoundNegativeControl'
+  'externalCompoundNegativeControl', 'ownedExternalConditionNegativeControl'
 ];
 const server = spawn('corepack', ['pnpm', '--filter', '@gss-l/testing', 'browser:reference'], {
   cwd: root, stdio: ['ignore', 'pipe', 'pipe']
@@ -58,7 +58,7 @@ try {
   await mkdir(path.dirname(artifact), { recursive: true });
   await writeFile(artifact, JSON.stringify({ result, errors }, null, 2));
   const comparisons = result.results?.reduce((sum, fixture) => sum + fixture.comparisons, 0);
-  const failed = result.status !== 'passed' || result.results?.length !== 104 || comparisons !== 1082 ||
+  const failed = result.status !== 'passed' || result.results?.length !== 105 || comparisons !== 1091 ||
     result.results.some((fixture) => fixture.comparisons <= 0 || fixture.differences.length || fixture.expectedFailures.length) ||
     controls.some((key) => result[key]?.detected !== true) ||
     result.hasSpecificityDedup?.negativeControl?.detected !== true ||

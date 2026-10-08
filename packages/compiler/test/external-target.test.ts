@@ -36,6 +36,52 @@ describe('anchored external declaration target', () => {
     expect(JSON.stringify(schema)).not.toContain('ProseMirror-focused');
   });
 
+  it('uses an external class on the owned node as a condition, not as an external declaration target', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    const result = session.replaceStylesheet({ id, source:
+      '.editor:global(.ProseMirror-focused) { color: red; }'
+    });
+    expect(result).toMatchObject({ committed: true, diagnostics: [] });
+    const schema = session.getScopeSchema(id)!;
+    expect(Object.keys(schema.exports)).toEqual(['editor']);
+    expect(schema.exports.editor!.targets).toEqual({});
+    const ownedClass = schema.exports.editor!.selfClassName;
+    expect(session.finalize().css).toContain(
+      `.${ownedClass}.ProseMirror-focused {\n  color: red;\n}`
+    );
+    expect(JSON.stringify(schema)).not.toContain('ProseMirror-focused');
+  });
+
+  it('preserves owned ancestors and same-node class specificity without adding a class to external nodes', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    const result = session.replaceStylesheet({ id, source:
+      '.outer .editor:global(.ProseMirror-focused) { color: red; }'
+    });
+    expect(result).toMatchObject({ committed: true, diagnostics: [] });
+    const outer = session.getScopeSchema(id)!.exports.outer!;
+    const editor = outer.targets.editor!;
+    expect(session.finalize().css).toContain(
+      `.${outer.selfClassName} .${editor.selfClassName}.ProseMirror-focused {\n  color: red;\n}`
+    );
+  });
+
+  it('rejects unproved mixed same-node external conditions transactionally', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    expect(session.replaceStylesheet({ id, source }).committed).toBe(true);
+    const previous = session.finalize();
+    for (const unsupported of [
+      '.editor { color: blue; } .editor:global(.ProseMirror-focused) { color: red; }',
+      '.editor:global(.ProseMirror-focused) { unregistered-shorthand: value; }',
+      '.editor:global(.ProseMirror-focused) .child { color: red; }',
+      '.editor:global(.ProseMirror-focused):hover { color: red; }'
+    ]) {
+      const result = session.replaceStylesheet({ id, source: unsupported });
+      expect(result).toMatchObject({ committed: false, generation: 1,
+        diagnostics: [{ code: 'GSS1101', reason: 'capability-not-registered' }] });
+      expect(session.finalize()).toEqual(previous);
+    }
+  });
+
   it('keeps owned declarations and external targets separate in one Module', () => {
     const session = createGssCompilerSession({ projectRoot: '/project' });
     const result = session.replaceStylesheet({ id, source:
