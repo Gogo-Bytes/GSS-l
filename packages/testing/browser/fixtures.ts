@@ -20,6 +20,8 @@ export type ReferenceFixture = {
     id: string;
     moduleId: string;
     path: readonly string[];
+    /** Fixture-owned third-party class, never supplied by a GSS ScopeSchema. */
+    externalClassName?: string;
     parent?: string;
     tag?: 'div' | 'span' | 'input' | 'fieldset' | 'button';
     expected: Readonly<Record<string, string>>;
@@ -34,6 +36,7 @@ export type ReferenceFixture = {
       node: string;
       checked?: boolean;
       disabled?: boolean;
+      externalClassName?: string;
       attributes?: Readonly<Record<string, string | null>>;
     }[];
     expected: Readonly<Record<string, Readonly<Record<string, string>>>>;

@@ -12,7 +12,7 @@ import {
   createDefaultNameAllocator,
   type NameAllocatorPort
 } from './name-allocator.js';
-import { isRegisteredPropertyEffect } from '../domain/property-effects.js';
+import { classifyPropertyEffect, isRegisteredPropertyEffect } from '../domain/property-effects.js';
 import { planDescendantConditions } from '../domain/plan-descendant-conditions.js';
 import { planStructuralRelations } from '../domain/plan-structural-relations.js';
 import { resolveTargetDeclarations } from '../domain/resolve-target-declarations.js';
@@ -201,6 +201,22 @@ function prepareContribution(
       .map((resource) => [resource.name, nameAllocator.createKeyframesName(moduleId, resource.name)])
   );
   const semanticRules = rewriteKeyframeReferences(parsed.rules, keyframeNames);
+  const externalRules = semanticRules.filter((rule) => rule.externalTarget !== undefined);
+  const localRules = semanticRules.filter((rule) => rule.externalTarget === undefined);
+  // The first anchored-target slice has one pure owned anchor and a class-only
+  // external descendant. Other placements/compositions remain fail-closed.
+  if (externalRules.some((rule) => rule.path.length !== 1 || rule.conditions.length > 0 || rule.layer !== 'unlayered' ||
+    rule.relations.some((relation) => relation !== 'descendant') ||
+    rule.states.some((states) => states.length > 0) ||
+    rule.attributes.some((attributes) => attributes.length > 0) ||
+    rule.observations.some((observations) => observations.length > 0) ||
+    rule.pseudoElements.some((pseudo) => pseudo !== null))) {
+    return { diagnostics: [{
+      code: 'GSS1101', severity: 'error', phase: 'validate', id: input.id,
+      reason: 'capability-not-registered',
+      message: 'External targets currently require a pure owned anchor and an external class descendant.'
+    }] };
+  }
   const conditionDiagnostics = validateRegisteredConditions(
     config,
     input.id,
@@ -353,11 +369,11 @@ function prepareContribution(
 
   const roots = new Map<string, MutableScopeNode>();
   const rules: PlannedDeclaration[] = [];
-  const ownershipRules = semanticRules.filter(isPureOwnershipRule);
-  const hasRules = semanticRules.filter(({ observations }) =>
+  const ownershipRules = localRules.filter(isPureOwnershipRule);
+  const hasRules = localRules.filter(({ observations }) =>
     observations.at(-1)?.length
   );
-  const contextualRules = semanticRules.filter(({ relations }) =>
+  const contextualRules = localRules.filter(({ relations }) =>
     relations.some((relation) => relation !== 'descendant')
   );
   const unsupportedRelation = contextualRules.find(({ path, relations }) => {
@@ -387,7 +403,7 @@ function prepareContribution(
     };
   }
 
-  const descendantRules = semanticRules.filter((rule) =>
+  const descendantRules = localRules.filter((rule) =>
     isPureOwnershipRule(rule) || isCurrentStateRule(rule) || isCurrentAttributeRule(rule) ||
     isAncestorStateRule(rule) || isAncestorAttributeRule(rule)
   );
@@ -405,7 +421,7 @@ function prepareContribution(
     reason: 'ambiguous-coactive-state-conflict', message: plannedStructural.ambiguity
   }] };
 
-  const plannedPseudos = planPseudoElementConditions(semanticRules);
+  const plannedPseudos = planPseudoElementConditions(localRules);
   if (plannedPseudos.ambiguity) return { diagnostics: [{
     code: 'GSS1205', severity: 'error', phase: 'resolve', id: input.id,
     reason: 'ambiguous-coactive-state-conflict', message: plannedPseudos.ambiguity
@@ -417,7 +433,8 @@ function prepareContribution(
       .filter((property) => !isRegisteredPropertyEffect(property))
   )].sort();
   if (unsupportedProperties.length > 0) {
-    if (config.atomizationFallback === 'error') {
+    // Preserved-mode selector rewriting cannot safely lower :global() yet.
+    if (externalRules.length > 0 || config.atomizationFallback === 'error') {
       return {
         diagnostics: [{
           code: 'GSS1101',
@@ -442,7 +459,7 @@ function prepareContribution(
   }
 
   if (plannedDescendants) {
-    for (const rule of semanticRules) ensureScopePath(roots, rule.path);
+    for (const rule of localRules) ensureScopePath(roots, rule.path);
     for (const instance of plannedStructural.descendants) {
       const { rule, targetPath, sourcePath, sourceIndex, relationRank } = instance;
       const wrappers = rule.conditions;
@@ -492,7 +509,7 @@ function prepareContribution(
     const wrappers = groupedRules[0]!.conditions;
     const condition = canonicalCondition(wrappers);
     const layer = groupedRules[0]!.layer;
-    const declaredPaths = semanticRules
+    const declaredPaths = localRules
       .filter((rule) =>
         rule.layer === layer && canonicalCondition(rule.conditions) === condition
       )
@@ -523,7 +540,7 @@ function prepareContribution(
   }
 
   // Declared pseudo paths remain public scopes even when no declarations survive planning.
-  for (const rule of semanticRules) {
+  for (const rule of localRules) {
     if (isPseudoElementRule(rule)) ensureScopePath(roots, rule.path);
   }
   for (const { rule, targetPath, declarations, relationRank } of plannedPseudos.instances) {
@@ -679,6 +696,40 @@ function prepareContribution(
         wrappers,
         layer,
         relationRank
+      });
+    }
+  }
+
+  // External descendants receive CSS but no exported scope or generated DOM class.
+  // Keep overlapping effect families fail-closed until the contextual cascade
+  // planner can prove a winner across external selector branches.
+  const externalEffects = new Set<string>();
+  for (const rule of externalRules) {
+    const scope = ensureScopePath(roots, rule.path);
+    for (const declaration of rule.declarations) {
+      const effects = classifyPropertyEffect(declaration.property).effects;
+      if (effects.some((effect) => externalEffects.has(effect))) {
+        return { diagnostics: [{
+          code: 'GSS1205', severity: 'error', phase: 'resolve', id: input.id,
+          reason: 'ambiguous-coactive-state-conflict',
+          message: 'External target declarations have overlapping property effects.'
+        }] };
+      }
+      effects.forEach((effect) => externalEffects.add(effect));
+      const identity: PureDeclarationIdentity = {
+        layer: rule.layer, condition: canonicalCondition(rule.conditions),
+        state: `external:${rule.externalTarget!}`,
+        ownership: { moduleId, path: rule.path, specificity: rule.path.length },
+        property: declaration.property,
+        ...identifyAssetValue(declaration.value, bindings),
+        important: declaration.important
+      };
+      const className = nameAllocator.createAtomicName(identity);
+      scope.classNames.add(className);
+      rules.push({
+        kind: 'contextual-atom', identity, className,
+        selector: `.${className} ${rule.externalTarget}`,
+        wrappers: rule.conditions, layer: rule.layer
       });
     }
   }

@@ -11,7 +11,7 @@ type Reading = {
   subject: 'element' | '::before' | '::after'; property: string; value: string; expected: string;
 };
 
-async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'nested-layer' | 'asset' | 'keyframes' | 'relation' | 'interleaved' | 'interleaved-depth' | 'interleaved-prefix' | 'interleaved-general-prefix' | 'interleaved-general-root' | 'interleaved-child-root' | 'interleaved-child-prefix' | 'cross-layer-specificity' | 'font-reset' | 'has-specificity' | 'has-specificity-dedup'): Promise<Reading[]> {
+async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'nested-layer' | 'asset' | 'keyframes' | 'relation' | 'interleaved' | 'interleaved-depth' | 'interleaved-prefix' | 'interleaved-general-prefix' | 'interleaved-general-root' | 'interleaved-child-root' | 'interleaved-child-prefix' | 'cross-layer-specificity' | 'font-reset' | 'has-specificity' | 'has-specificity-dedup' | 'external-anchor'): Promise<Reading[]> {
   const frame = document.createElement('iframe');
   frame.title = `${fixture.name}: ${side}${corrupt ? ' negative control' : ''}`;
   frame.width = '640';
@@ -51,6 +51,11 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
   if (corrupt === 'cross-layer-specificity') {
     const changed = style.textContent.replace('@layer base, override;', '@layer override, base;');
     if (changed === style.textContent) throw new Error('Cross-layer specificity control did not change the configured prelude');
+    style.textContent = changed;
+  }
+  if (corrupt === 'external-anchor') {
+    const changed = style.textContent.replace(/\.[^\s{]+ \.ProseMirror-focused(?=\s*\{)/, '.ProseMirror-focused');
+    if (changed === style.textContent) throw new Error('External control did not remove the owned anchor');
     style.textContent = changed;
   }
   doc.head.append(style);
@@ -134,17 +139,19 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
     sheet.insertRule(`${weakened} { ${declarations} }`, index);
   }
   for (const node of fixture.nodes) {
-    let targets = fixture[side].scopeSchemas[node.moduleId]!.exports;
     let scope: ScopeNodeSchema | undefined;
-    for (const segment of node.path) {
-      scope = targets[segment];
-      if (!scope) throw new Error(`Missing ${side} mapping: ${node.moduleId}:${node.path.join('.')}`);
-      targets = scope.targets;
-    }
+    if (node.externalClassName === undefined) {
+      let targets = fixture[side].scopeSchemas[node.moduleId]!.exports;
+      for (const segment of node.path) {
+        scope = targets[segment];
+        if (!scope) throw new Error(`Missing ${side} mapping: ${node.moduleId}:${node.path.join('.')}`);
+        targets = scope.targets;
+      }
+    } else if (node.path.length > 0) throw new Error('An external fixture node must not have an owned scope path');
     const element = doc.createElement(node.tag ?? 'div');
     if (element.tagName === 'INPUT') (element as HTMLInputElement).type = 'checkbox';
     element.id = node.id;
-    element.className = scope!.selfClassName;
+    element.className = node.externalClassName ?? scope!.selfClassName;
     if (element.tagName !== 'INPUT') element.textContent = node.id;
     const parent = node.parent ? doc.getElementById(node.parent) : doc.body;
     if (!parent) throw new Error(`Missing fixture parent: ${node.parent}`);
@@ -183,6 +190,12 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
       if (change.disabled !== undefined) {
         if (!['INPUT', 'FIELDSET', 'BUTTON'].includes(element.tagName)) throw new Error('Disabled requires a native input, fieldset or button');
         (element as HTMLInputElement | HTMLFieldSetElement | HTMLButtonElement).disabled = change.disabled;
+      }
+      if (change.externalClassName !== undefined) {
+        if (!fixture.nodes.some((node) => node.id === change.node && node.externalClassName !== undefined)) {
+          throw new Error('Only fixture-owned external nodes may change their classes');
+        }
+        element.className = change.externalClassName;
       }
       for (const [name, value] of Object.entries(change.attributes ?? {})) {
         if (!/^(data|aria)-/.test(name)) throw new Error(`Not a fixture state attribute: ${name}`);
@@ -514,7 +527,19 @@ async function run() {
     interleavedChildPrefixDifferences[0]!.node === 'icon' && interleavedChildPrefixDifferences[0]!.property === 'color' &&
     interleavedChildPrefixDifferences[0]!.reference === 'rgb(255, 0, 0)' &&
     interleavedChildPrefixDifferences[0]!.atomic === 'rgb(0, 0, 0)';
+  const externalFixture = fixtures.find((fixture) => fixture.name === 'external-descendant-anchored-dynamic-class')!;
+  const externalReference = await readDocument(externalFixture, 'reference');
+  const externalAtomic = await readDocument(externalFixture, 'atomic');
+  const externalCorrupted = await readDocument(externalFixture, 'atomic', 'external-anchor');
+  const externalChanges = compare(externalAtomic, externalCorrupted);
+  const externalDifferences = compare(externalReference, externalCorrupted);
+  const externalAnchorDetected = compare(externalReference, externalAtomic).length === 0 &&
+    externalChanges.length === 3 && externalDifferences.length === 3 &&
+    externalDifferences.every((difference) => difference.node === 'external-outside' &&
+      difference.property === 'color' && difference.reference === 'rgb(0, 0, 0)' &&
+      difference.atomic === 'rgb(255, 0, 0)');
   publish({
+    externalAnchorNegativeControl: { detected: externalAnchorDetected, anchorRemoved: true, differences: externalDifferences },
     relationNegativeControl: { detected: relationDetected, controlsUnchanged: relationControlsUnchanged, ruleReordered: true, differences: relationDifferences },
     interleavedChainNegativeControl: { detected: interleavedDetected, controlsUnchanged: interleavedChanges.length === 1, adjacentEdgeRemoved: true, differences: interleavedDifferences },
     interleavedDepthNegativeControl: { detected: interleavedDepthDetected, controlsUnchanged: interleavedDepthChanges.length === 1, finalDescendantEdgeCollapsed: true, differences: interleavedDepthDifferences },
@@ -528,7 +553,7 @@ async function run() {
     hasSpecificityDedup: { fixtures: hasSpecificityDedupResults, negativeControl: { detected: hasSpecificityDedupControl, qualifierRemoved: true, differences: hasSpecificityDedupDifferences } },
     status: results.every((result) => result.comparisons > 0 && !result.differences.length && !result.expectedFailures.length) &&
       hasSpecificityDedupResults.every((result) => result.differences.length === 0) && hasSpecificityDedupControl &&
-      detected && pseudoDetected && conditionDetected && layerDetected && nestedLayerDetected && assetDetected && keyframesDetected && relationDetected && interleavedDetected && interleavedDepthDetected && interleavedPrefixDetected && interleavedGeneralPrefixDetected && interleavedGeneralRootDetected && interleavedChildRootDetected && interleavedChildPrefixDetected && crossLayerSpecificityDetected && hasSpecificityDetected && fontResetNegativeControl
+      detected && pseudoDetected && conditionDetected && layerDetected && nestedLayerDetected && assetDetected && keyframesDetected && relationDetected && interleavedDetected && interleavedDepthDetected && interleavedPrefixDetected && interleavedGeneralPrefixDetected && interleavedGeneralRootDetected && interleavedChildRootDetected && interleavedChildPrefixDetected && crossLayerSpecificityDetected && hasSpecificityDetected && fontResetNegativeControl && externalAnchorDetected
       ? 'passed' : 'failed',
     results,
     negativeControl: { detected, differences },

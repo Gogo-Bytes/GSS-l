@@ -38,6 +38,8 @@ export type ParsedCondition = {
 export type ParsedStyleRule = {
   source: SourceSpan;
   selector: string;
+  /** A browser-matched external descendant; path remains the GSS-owned anchor. */
+  externalTarget?: string;
   path: readonly string[];
   relations: readonly SelectorRelation[];
   states: readonly (readonly string[])[];

@@ -324,6 +324,7 @@ function parsePropertyRegistration(
 
 type ParsedSelectorPath = {
   path: readonly string[];
+  externalTarget?: string;
   relations: readonly SelectorRelation[];
   states: readonly (readonly string[])[];
   attributes: readonly (readonly ParsedAttributeCondition[])[];
@@ -362,7 +363,16 @@ function parseClassPath(nodes: readonly Node[]): ParsedSelectorPath | undefined 
   const observations: ParsedHasCondition[][] = [];
   const pseudoElements: (string | null)[] = [];
   let expectClass = true;
-  for (const node of nodes) {
+  for (const [index, node] of nodes.entries()) {
+    if (expectClass && path.length > 0 && index === nodes.length - 1 &&
+      relations.at(-1) === 'descendant' && node.type === 'pseudo' && node.value === ':global' &&
+      node.nodes.length === 1 && node.nodes[0]!.nodes.length > 0 &&
+      node.nodes[0]!.nodes.every((part) => part.type === 'class')) {
+      return {
+        path, relations: relations.slice(0, -1), states, attributes, observations, pseudoElements,
+        externalTarget: node.nodes[0]!.toString()
+      };
+    }
     if (expectClass && node.type === 'class') {
       path.push((node as ClassName).value);
       states.push([]);
