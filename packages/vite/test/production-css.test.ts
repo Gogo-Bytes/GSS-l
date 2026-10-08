@@ -2,9 +2,10 @@ import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promi
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, expect, it } from 'vitest';
-import { build, normalizePath, type InlineConfig, type Rollup } from 'vite';
+import { build, normalizePath, resolveConfig, type InlineConfig, type Rollup } from 'vite';
 import { react } from '@gss-l/react';
 import { gss } from '../src/index.js';
+import { resolveViteCssTargets } from '../src/css-targets.js';
 
 const roots: string[] = [];
 const watchers: Rollup.RollupWatcher[] = [];
@@ -55,6 +56,92 @@ it('emits one central CSS asset and injects its final name into built HTML', asy
   expect(html).toContain(`href="/${cssName}"`);
   expect(html).toContain('<meta name="preserve-me" content="yes">');
   expect(html).not.toContain('/@gss-l/central.css');
+});
+
+it('takes compatibility targets from the resolved Vite CSS build settings', async () => {
+  const root = await fixture({ 'Card.gss': '.card { display: flex; }' });
+  const old = await bundle(root, { build: { minify: true, cssTarget: 'safari6' } });
+  const modern = await bundle(root, { build: { minify: true, cssTarget: 'safari17' } });
+  const oldCss = asset(old, JSON.parse(asset(old, 'gss-manifest.json')).cssAsset);
+  const modernCss = asset(modern, JSON.parse(asset(modern, 'gss-manifest.json')).cssAsset);
+  expect(oldCss).toContain('display: -webkit-box;\n  display: -webkit-flex;\n  display: flex;');
+  expect(modernCss).toContain('display: flex;');
+  expect(modernCss).not.toContain('display: -webkit-box;');
+  expect(JSON.parse(asset(old, 'gss-manifest.json')).compiler.rules[0].className)
+    .toBe(JSON.parse(asset(modern, 'gss-manifest.json')).compiler.rules[0].className);
+});
+
+it('retains both ordered Vite Lightning CSS transformation and CSS minification targets', async () => {
+  const root = await fixture({ 'Card.gss': '.card { display: flex; }' });
+  const output = await bundle(root, {
+    css: { transformer: 'lightningcss', lightningcss: { targets: { safari: 17 << 16 } } },
+    build: { minify: true, cssMinify: 'lightningcss', cssTarget: 'safari6' }
+  });
+  const css = asset(output, JSON.parse(asset(output, 'gss-manifest.json')).cssAsset);
+  expect(css).toContain('display: -webkit-box;\n  display: -webkit-flex;\n  display: flex;');
+});
+
+it('uses Vite’s oldest supported version when one CSS browser target is repeated', async () => {
+  const root = await fixture({ 'Card.gss': '.card { display: flex; }' });
+  const output = await bundle(root, {
+    build: { minify: true, cssMinify: 'lightningcss', cssTarget: ['safari17', 'safari6'] }
+  });
+  const css = asset(output, JSON.parse(asset(output, 'gss-manifest.json')).cssAsset);
+  expect(css).toContain('display: -webkit-box;');
+});
+
+it('ignores esnext alongside concrete CSS browser targets as Vite does', async () => {
+  const root = await fixture({ 'Card.gss': '.card { display: flex; }' });
+  const output = await bundle(root, { build: { minify: true, cssMinify: 'lightningcss',
+    cssTarget: ['esnext', 'safari6'] } });
+  const css = asset(output, JSON.parse(asset(output, 'gss-manifest.json')).cssAsset);
+  expect(css).toContain('display: -webkit-box;');
+});
+
+it('ignores non-browser Vite CSS targets without weakening a concrete browser target', async () => {
+  const root = await fixture({ 'Card.gss': '.card { display: flex; }' });
+  const output = await bundle(root, { build: { minify: true, cssMinify: 'lightningcss',
+    cssTarget: ['node20', 'safari6'] } });
+  const css = asset(output, JSON.parse(asset(output, 'gss-manifest.json')).cssAsset);
+  expect(css).toContain('display: -webkit-box;');
+});
+
+it('normalizes Lightning CSS minifier patch targets exactly as Vite resolves them', async () => {
+  const root = await fixture({ 'Card.gss': '.card { display: flex; }' });
+  const config = await resolveConfig({ root, configFile: false,
+    build: { minify: true, cssMinify: 'lightningcss', cssTarget: 'safari6.0.1' }
+  }, 'build');
+  expect(resolveViteCssTargets(config)).toEqual({ stages: [{ safari: '6.0.0' }] });
+  const output = await bundle(root, { build: { minify: true, cssMinify: 'lightningcss', cssTarget: 'safari6.0.1' } });
+  expect(asset(output, JSON.parse(asset(output, 'gss-manifest.json')).cssAsset)).toContain('display: -webkit-box;');
+});
+
+it('fails closed for a CSS target that has no browser-version mapping', async () => {
+  const root = await fixture({ 'Card.gss': '.card { display: flex; }' });
+  await expect(bundle(root, { build: { minify: true, cssTarget: 'es2015' } }))
+    .rejects.toThrow(/GSS cannot follow Vite CSS targets: Cannot map Vite CSS target es2015/);
+});
+
+it('keeps transformed resources and bound Assets in the Vite target-aware final census', async () => {
+  const root = await fixture({
+    'icon.svg': '<svg xmlns="http://www.w3.org/2000/svg" width="3" height="2"/>',
+    'Card.gss': `
+      @keyframes move { to { opacity: 1; } }
+      @property --tone { syntax: "<color>"; inherits: false; initial-value: red; }
+      .card { animation-name: move; background-image: url("./icon.svg"); color: var(--tone); display: flex; }
+    `
+  });
+  const output = await bundle(root, { build: { minify: true, cssTarget: 'safari6' } });
+  const manifest = JSON.parse(asset(output, 'gss-manifest.json'));
+  const css = asset(output, manifest.cssAsset);
+  expect(manifest.compiler.moduleDetails).toMatchObject([{ compilationMode: 'preserved',
+    fallbackReasons: [{ property: 'animation-name', reason: 'compatibility-sequence-unatomizable' }] }]);
+  expect(css).toContain('@-webkit-keyframes');
+  expect(css).toContain('@keyframes');
+  expect(css).toContain('@property --tone');
+  expect(css).toContain('-webkit-animation-name:');
+  expect(css).toMatch(/background-image: url\("\/assets\/icon-[^";]+\.svg"\)/);
+  expect(css).toContain('display: -webkit-box;');
 });
 
 it('includes lazy Modules in one asset and exports matching manifest/report snapshots', async () => {
@@ -240,6 +327,30 @@ function nextWatchBuild(watcher: Rollup.RollupWatcher): Promise<void> {
     watcher.on('event', receive);
   });
 }
+
+it('rebuilds target-derived compatibility CSS from the current watch census', async () => {
+  const root = await fixture({ 'Card.gss': '.card { display: flex; }' });
+  const watcher = await build({ root, configFile: false, plugins: [gss({ adapter: react() })], logLevel: 'silent',
+    build: { minify: true, cssTarget: 'safari6', watch: { buildDelay: 20 } } });
+  if (!('on' in watcher)) throw new Error('Expected Rollup watcher.');
+  watchers.push(watcher);
+  await nextWatchBuild(watcher);
+  const readCss = async () => {
+    const manifest = JSON.parse(await readFile(join(root, 'dist/gss-manifest.json'), 'utf8'));
+    return readFile(join(root, 'dist', manifest.cssAsset), 'utf8');
+  };
+  const initial = await readCss();
+  expect(initial).toContain('display: -webkit-box;');
+  const changed = nextWatchBuild(watcher);
+  await writeFile(join(root, 'Card.gss'), '.card { display: block; }');
+  await changed;
+  expect(await readCss()).toContain('display: block;');
+  expect(await readCss()).not.toContain('display: -webkit-box;');
+  const restored = nextWatchBuild(watcher);
+  await writeFile(join(root, 'Card.gss'), '.card { display: flex; }');
+  await restored;
+  expect(await readCss()).toBe(initial);
+}, 15000);
 
 it('rebuilds from the current census without retaining removed contributions', async () => {
   const root = await fixture({

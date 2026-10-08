@@ -147,11 +147,14 @@ export function planStructuralRelations(
   resolveEquivalentGroups(structural);
   const candidates = [...inherited, ...structural];
   // Observed branches remain opaque: no general :has implication or ordering.
-  // Their emitted grammar is one class (+ optional state), attribute, state or tag.
+  // Their emitted grammar is one local class (+ optional state), an explicit
+  // external class compound, attribute, state or tag.
   const observedCandidates: Candidate[] = observed.flatMap((rule) => rule.observations.at(-1)!.map((observation) => {
     const isTag = observation.observedResidual !== undefined &&
+      observation.observedResidualClassCount === undefined &&
       !observation.observedResidual.startsWith(':') && !observation.observedResidual.startsWith('[');
-    const argumentClasses = observation.observedClass ? 1 + Number(Boolean(observation.observedState)) : Number(!isTag);
+    const argumentClasses = observation.observedClass ? 1 + Number(Boolean(observation.observedState))
+      : observation.observedResidualClassCount ?? Number(!isTag);
     return {
       instance: { rule, targetPath: rule.path, sourceIndex: -1, specificity: rule.path.length + argumentClasses,
         relationRank: 0, declarations: rule.declarations },

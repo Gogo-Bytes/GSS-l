@@ -1,6 +1,8 @@
 import selectorParser from 'postcss-selector-parser';
+import postcss from 'postcss';
+import type { CompatibilityTransformer, PhysicalDeclaration } from '../infrastructure/lightning-compatibility-transformer.js';
 import { bindCssAssets, identifyAssetValue, renderAssetValue, type AssetBindings, type AssetUrlResolver } from './asset-values.js';
-import { collectAssetDependencies } from './stylesheet-assets.js';
+import { assetOccurrences, collectAssetDependencies } from './stylesheet-assets.js';
 import { toLogicalModuleId } from './module-identity.js';
 import valueParser from 'postcss-value-parser';
 import {
@@ -12,7 +14,7 @@ import {
   createDefaultNameAllocator,
   type NameAllocatorPort
 } from './name-allocator.js';
-import { isRegisteredPropertyEffect } from '../domain/property-effects.js';
+import { classifyPropertyEffect, isRegisteredPropertyEffect } from '../domain/property-effects.js';
 import { planDescendantConditions } from '../domain/plan-descendant-conditions.js';
 import { planStructuralRelations } from '../domain/plan-structural-relations.js';
 import { resolveTargetDeclarations } from '../domain/resolve-target-declarations.js';
@@ -64,6 +66,7 @@ type PlannedDeclaration = {
   wrappers?: readonly ParsedCondition[];
   layer?: string;
   relationRank?: number;
+  physicalDeclarations?: readonly PhysicalDeclaration[];
 };
 
 type PlannedResource = {
@@ -97,14 +100,15 @@ type MutableScopeNode = {
 export function createCompilerSession(
   config: GssCompilerConfig,
   cssParser: CssParserPort,
-  nameAllocator: NameAllocatorPort = createDefaultNameAllocator()
+  nameAllocator: NameAllocatorPort = createDefaultNameAllocator(),
+  compatibility?: CompatibilityTransformer
 ): GssCompilerSession {
   const modules = new Map<string, ModuleContribution>();
   let generation = 0;
 
   return {
     replaceStylesheet(input) {
-      const prepared = prepareContribution(config, input, cssParser, nameAllocator);
+      const prepared = prepareContribution(config, input, cssParser, nameAllocator, compatibility);
       if (!('artifact' in prepared)) {
         return {
           id: input.id,
@@ -163,8 +167,13 @@ function prepareContribution(
   config: GssCompilerConfig,
   input: ReplaceStylesheetInput,
   cssParser: CssParserPort,
-  nameAllocator: NameAllocatorPort
+  nameAllocator: NameAllocatorPort,
+  compatibility?: CompatibilityTransformer
 ): ModuleContribution | { diagnostics: readonly GssDiagnostic[] } {
+  if (config.compatibilityTargetStages !== undefined && compatibility === undefined) return { diagnostics: [{
+    code: 'GSS1101', severity: 'error', phase: 'validate', id: input.id,
+    reason: 'invalid-compatibility-target', message: 'Host CSS compatibility targets are invalid or unsupported.'
+  }] };
   const parsed = cssParser.parseStylesheet(input.id, input.source);
   if (parsed.diagnostics.some(({ severity }) => severity === 'error')) {
     return { diagnostics: parsed.diagnostics };
@@ -201,6 +210,77 @@ function prepareContribution(
       .map((resource) => [resource.name, nameAllocator.createKeyframesName(moduleId, resource.name)])
   );
   const semanticRules = rewriteKeyframeReferences(parsed.rules, keyframeNames);
+  const plannedResources = parsed.resources.map((resource) =>
+    planResource(resource, moduleId, bindings, nameAllocator, compatibility));
+  if (plannedResources.some((resource) => resource === undefined)) {
+    return { diagnostics: [{ code: 'GSS1101', severity: 'error', phase: 'validate', id: input.id,
+      reason: 'capability-not-registered', message: 'Compatibility transformation cannot preserve a resource shape or Asset identity.' }] };
+  }
+  const resources = plannedResources as PlannedResource[];
+  const keyframeRegistrations = new Map<string, string>();
+  for (const [index, resource] of parsed.resources.entries()) {
+    if (resource.kind !== 'keyframes') continue;
+    const identity = resources[index]!.identity;
+    const previous = keyframeRegistrations.get(resource.name);
+    if (previous && previous !== identity) return { diagnostics: [{
+      code: 'GSS1301', severity: 'error', phase: 'registry', id: input.id,
+      reason: 'conflicting-global-resource',
+      message: `Keyframe ${resource.name} has incompatible registrations in one Module; authored precedence cannot be preserved.`
+    }] };
+    keyframeRegistrations.set(resource.name, identity);
+  }
+  const externalRules = semanticRules.filter((rule) => rule.externalTarget !== undefined);
+  const sameNodeRules = semanticRules.filter((rule) => rule.externalCondition !== undefined);
+  const hasExplicitGlobal = semanticRules.some((rule) => {
+    let found = false;
+    selectorParser((root) => root.walkPseudos((pseudo) => {
+      if (pseudo.value === ':global') found = true;
+    })).processSync(rule.selector);
+    return found;
+  });
+  const localRules = semanticRules.filter((rule) =>
+    rule.externalTarget === undefined && rule.externalCondition === undefined
+  );
+  // External descendants require a pure owned path of descendant relations;
+  // other placements/compositions remain fail-closed.
+  if (externalRules.some((rule) => rule.relations.some((relation) => relation !== 'descendant') ||
+    rule.states.some((states) => states.length > 0) ||
+    rule.attributes.some((attributes) => attributes.length > 0) ||
+    rule.observations.some((observations) => observations.length > 0) ||
+    rule.pseudoElements.some((pseudo) => pseudo !== null))) {
+    return { diagnostics: [{
+      code: 'GSS1101', severity: 'error', phase: 'validate', id: input.id,
+      reason: 'capability-not-registered',
+      message: 'External targets currently require a pure owned descendant path and an external class descendant.'
+    }] };
+  }
+  // A same-node external class is a condition on the owned target, not a
+  // separate ownership path. Mixed declarations need a proof of precedence
+  // against that target before admission; reject the whole replacement on failure.
+  const sameNode = sameNodeRules[0];
+  const base = localRules[0];
+  const simpleBaseRefinement = sameNode !== undefined && base !== undefined &&
+    semanticRules.length === 2 && localRules.length === 1 && externalRules.length === 0 &&
+    sameNode.path.length === 1 && base.path.length === 1 && base.path[0] === sameNode.path[0] &&
+    isPureOwnershipRule(base) && base.conditions.length === 0 && base.layer === 'unlayered' &&
+    base.declarations.length === 1 && sameNode.declarations.length === 1 &&
+    base.declarations[0]!.property === sameNode.declarations[0]!.property &&
+    classifyPropertyEffect(base.declarations[0]!.property).kind === 'longhand' &&
+    !base.declarations[0]!.important && !sameNode.declarations[0]!.important;
+  if (sameNodeRules.length > 0 && (sameNodeRules.length !== 1 ||
+    (semanticRules.length !== 1 && !simpleBaseRefinement) ||
+    sameNode!.conditions.length > 0 || sameNode!.layer !== 'unlayered' ||
+    sameNode!.relations.some((relation) => relation !== 'descendant') ||
+    sameNode!.states.some((states) => states.length > 0) ||
+    sameNode!.attributes.some((attributes) => attributes.length > 0) ||
+    sameNode!.observations.some((observations) => observations.length > 0) ||
+    sameNode!.pseudoElements.some((pseudo) => pseudo !== null))) {
+    return { diagnostics: [{
+      code: 'GSS1101', severity: 'error', phase: 'validate', id: input.id,
+      reason: 'capability-not-registered',
+      message: 'A same-node external condition requires one pure owned rule or a proven single-property base refinement.'
+    }] };
+  }
   const conditionDiagnostics = validateRegisteredConditions(
     config,
     input.id,
@@ -353,11 +433,11 @@ function prepareContribution(
 
   const roots = new Map<string, MutableScopeNode>();
   const rules: PlannedDeclaration[] = [];
-  const ownershipRules = semanticRules.filter(isPureOwnershipRule);
-  const hasRules = semanticRules.filter(({ observations }) =>
+  const ownershipRules = localRules.filter(isPureOwnershipRule);
+  const hasRules = localRules.filter(({ observations }) =>
     observations.at(-1)?.length
   );
-  const contextualRules = semanticRules.filter(({ relations }) =>
+  const contextualRules = localRules.filter(({ relations }) =>
     relations.some((relation) => relation !== 'descendant')
   );
   const unsupportedRelation = contextualRules.find(({ path, relations }) => {
@@ -387,7 +467,7 @@ function prepareContribution(
     };
   }
 
-  const descendantRules = semanticRules.filter((rule) =>
+  const descendantRules = localRules.filter((rule) =>
     isPureOwnershipRule(rule) || isCurrentStateRule(rule) || isCurrentAttributeRule(rule) ||
     isAncestorStateRule(rule) || isAncestorAttributeRule(rule)
   );
@@ -405,11 +485,43 @@ function prepareContribution(
     reason: 'ambiguous-coactive-state-conflict', message: plannedStructural.ambiguity
   }] };
 
-  const plannedPseudos = planPseudoElementConditions(semanticRules);
+  const plannedPseudos = planPseudoElementConditions(localRules);
   if (plannedPseudos.ambiguity) return { diagnostics: [{
     code: 'GSS1205', severity: 'error', phase: 'resolve', id: input.id,
     reason: 'ambiguous-coactive-state-conflict', message: plannedPseudos.ambiguity
   }] };
+
+  const physicalDeclarations = semanticRules.flatMap((rule) => rule.declarations.map((declaration) => ({
+    declaration, physical: compatibility?.expand(declaration)
+  })));
+  if (compatibility && physicalDeclarations.some(({ declaration, physical }) =>
+    physical === undefined || !physicalAssetsPreserved(declaration.value, physical))) {
+    return { diagnostics: [{ code: 'GSS1101', severity: 'error', phase: 'validate', id: input.id,
+      reason: 'capability-not-registered', message: 'Compatibility transformation cannot preserve this declaration shape.' }] };
+  }
+  if (compatibility && physicalDeclarations.some(({ declaration, physical }) =>
+    physical?.some((entry) => entry.important !== declaration.important))) {
+    return { diagnostics: [{ code: 'GSS1101', severity: 'error', phase: 'validate', id: input.id,
+      reason: 'capability-not-registered', message: 'Compatibility transformation changed declaration importance.' }] };
+  }
+  const physicalByDeclaration = new Map(physicalDeclarations.filter(({ physical }) => physical !== undefined)
+    .map(({ declaration, physical }) => {
+      const identified = identifyAssetValue(declaration.value, bindings);
+      return [JSON.stringify([declaration.property, identified.value, identified.assetValue === true, declaration.important]),
+        physical!.map((entry) => ({ ...entry, ...identifyAssetValue(entry.value, bindings) }))] as const;
+    }));
+  const compatibilityFallback = [...new Set(physicalDeclarations.filter(({ declaration, physical }) =>
+    physical?.some((entry) => entry.property !== declaration.property))
+    .map(({ declaration }) => declaration.property))].sort();
+  if (compatibilityFallback.length > 0) {
+    if (hasExplicitGlobal || config.atomizationFallback === 'error') {
+      return { diagnostics: [{ code: 'GSS1101', severity: 'error', phase: 'validate', id: input.id,
+        reason: 'capability-not-registered', message: 'Compatibility sequence cannot be safely atomized.' }] };
+    }
+    return preparePreservedContribution({ input, moduleId, parsed, rules: semanticRules,
+      conditionDiagnostics, fallbackProperties: [], fallbackCompatibilityProperties: compatibilityFallback,
+      nameAllocator, compatibility, resources });
+  }
 
   const unsupportedProperties = [...new Set(
     semanticRules
@@ -417,7 +529,8 @@ function prepareContribution(
       .filter((property) => !isRegisteredPropertyEffect(property))
   )].sort();
   if (unsupportedProperties.length > 0) {
-    if (config.atomizationFallback === 'error') {
+    // Preserved-mode selector rewriting cannot safely lower :global() yet.
+    if (hasExplicitGlobal || config.atomizationFallback === 'error') {
       return {
         diagnostics: [{
           code: 'GSS1101',
@@ -437,12 +550,14 @@ function prepareContribution(
       rules: semanticRules,
       conditionDiagnostics,
       fallbackProperties: unsupportedProperties,
-      nameAllocator
+      nameAllocator,
+      compatibility,
+      resources
     });
   }
 
   if (plannedDescendants) {
-    for (const rule of semanticRules) ensureScopePath(roots, rule.path);
+    for (const rule of localRules) ensureScopePath(roots, rule.path);
     for (const instance of plannedStructural.descendants) {
       const { rule, targetPath, sourcePath, sourceIndex, relationRank } = instance;
       const wrappers = rule.conditions;
@@ -492,7 +607,7 @@ function prepareContribution(
     const wrappers = groupedRules[0]!.conditions;
     const condition = canonicalCondition(wrappers);
     const layer = groupedRules[0]!.layer;
-    const declaredPaths = semanticRules
+    const declaredPaths = localRules
       .filter((rule) =>
         rule.layer === layer && canonicalCondition(rule.conditions) === condition
       )
@@ -523,7 +638,7 @@ function prepareContribution(
   }
 
   // Declared pseudo paths remain public scopes even when no declarations survive planning.
-  for (const rule of semanticRules) {
+  for (const rule of localRules) {
     if (isPseudoElementRule(rule)) ensureScopePath(roots, rule.path);
   }
   for (const { rule, targetPath, declarations, relationRank } of plannedPseudos.instances) {
@@ -560,9 +675,8 @@ function prepareContribution(
     const observations = rule.observations.at(-1)!;
     const observedSpecificity = (observation: ParsedHasCondition) => observation.observedClass
       ? 1 + Number(Boolean(observation.observedState))
-      : observation.observedResidual?.startsWith(':') || observation.observedResidual?.startsWith('[')
-        ? 1
-        : 0;
+      : observation.observedResidualClassCount ??
+        (observation.observedResidual?.startsWith(':') || observation.observedResidual?.startsWith('[') ? 1 : 0);
     const selectorListSpecificity = observations.length > 1
       ? Math.max(...observations.map(observedSpecificity))
       : undefined;
@@ -683,6 +797,84 @@ function prepareContribution(
     }
   }
 
+  for (const rule of sameNodeRules) {
+    const scope = ensureScopePath(roots, rule.path);
+    const ancestorMarkers = rule.path.slice(0, -1).map((_, index) => {
+      const path = rule.path.slice(0, index + 1);
+      const marker = nameAllocator.createScopeMarker(moduleId, path);
+      ensureScopePath(roots, path).classNames.add(marker);
+      return marker;
+    });
+    const effects = new Set<string>();
+    for (const declaration of rule.declarations) {
+      const declarationEffects = classifyPropertyEffect(declaration.property).effects;
+      if (declarationEffects.some((effect) => effects.has(effect))) {
+        return { diagnostics: [{
+          code: 'GSS1205', severity: 'error', phase: 'resolve', id: input.id,
+          reason: 'ambiguous-coactive-state-conflict',
+          message: 'Same-node external condition declarations have overlapping property effects.'
+        }] };
+      }
+      declarationEffects.forEach((effect) => effects.add(effect));
+      const identity: PureDeclarationIdentity = {
+        layer: rule.layer, condition: canonicalCondition(rule.conditions),
+        state: `external-condition:${rule.externalCondition!}`,
+        ownership: { moduleId, path: rule.path, specificity: rule.path.length },
+        property: declaration.property,
+        ...identifyAssetValue(declaration.value, bindings),
+        important: declaration.important
+      };
+      const className = nameAllocator.createAtomicName(identity);
+      scope.classNames.add(className);
+      const ownedSelector = [...ancestorMarkers, className].map((marker) => `.${marker}`).join(' ');
+      rules.push({
+        kind: 'contextual-atom', identity, className,
+        selector: `${ownedSelector}${rule.externalCondition}`,
+        wrappers: rule.conditions, layer: rule.layer
+      });
+    }
+  }
+
+  // External descendants receive CSS but no exported scope or generated DOM class.
+  // Keep overlapping effect families fail-closed until the contextual cascade
+  // planner can prove a winner across external selector branches.
+  const externalEffects = new Set<string>();
+  for (const rule of externalRules) {
+    const scope = ensureScopePath(roots, rule.path);
+    const ancestorMarkers = rule.path.slice(0, -1).map((_, index) => {
+      const path = rule.path.slice(0, index + 1);
+      const marker = nameAllocator.createScopeMarker(moduleId, path);
+      ensureScopePath(roots, path).classNames.add(marker);
+      return marker;
+    });
+    for (const declaration of rule.declarations) {
+      const effects = classifyPropertyEffect(declaration.property).effects;
+      if (effects.some((effect) => externalEffects.has(effect))) {
+        return { diagnostics: [{
+          code: 'GSS1205', severity: 'error', phase: 'resolve', id: input.id,
+          reason: 'ambiguous-coactive-state-conflict',
+          message: 'External target declarations have overlapping property effects.'
+        }] };
+      }
+      effects.forEach((effect) => externalEffects.add(effect));
+      const identity: PureDeclarationIdentity = {
+        layer: rule.layer, condition: canonicalCondition(rule.conditions),
+        state: `external:${rule.externalTarget!}`,
+        ownership: { moduleId, path: rule.path, specificity: rule.path.length },
+        property: declaration.property,
+        ...identifyAssetValue(declaration.value, bindings),
+        important: declaration.important
+      };
+      const className = nameAllocator.createAtomicName(identity);
+      scope.classNames.add(className);
+      rules.push({
+        kind: 'contextual-atom', identity, className,
+        selector: `${[...ancestorMarkers, className].map((marker) => `.${marker}`).join(' ')} ${rule.externalTarget}`,
+        wrappers: rule.conditions, layer: rule.layer
+      });
+    }
+  }
+
   const exports = Object.fromEntries(
     [...roots.entries()].map(([name, scope]) => [name, toScopeSchema(scope)])
   );
@@ -698,10 +890,11 @@ function prepareContribution(
     fallbackReasons: []
   };
 
-  const resources = parsed.resources.map((resource) => planResource(resource, moduleId, bindings, nameAllocator));
   return {
     artifact,
-    rules,
+    rules: compatibility ? rules.map((rule) => ({ ...rule,
+      physicalDeclarations: physicalByDeclaration.get(JSON.stringify([rule.identity.property,
+        rule.identity.value, rule.identity.assetValue === true, rule.identity.important]))! })) : rules,
     preservedBlocks: [],
     resources,
     diagnostics: conditionDiagnostics
@@ -715,7 +908,10 @@ function preparePreservedContribution(input: {
   rules: readonly ParsedStyleRule[];
   conditionDiagnostics: readonly GssDiagnostic[];
   fallbackProperties: readonly string[];
+  fallbackCompatibilityProperties?: readonly string[];
   nameAllocator: NameAllocatorPort;
+  compatibility?: CompatibilityTransformer | undefined;
+  resources: readonly PlannedResource[];
 }): ModuleContribution {
   const roots = new Map<string, MutableScopeNode>();
   for (const rule of input.rules) {
@@ -735,12 +931,13 @@ function preparePreservedContribution(input: {
   );
   const css = [...input.rules]
     .sort((left, right) => left.sourceOrdinal - right.sourceOrdinal)
-    .map((rule) => renderPreservedRule(rule, input.moduleId, input.nameAllocator))
+    .map((rule) => renderPreservedRule(rule, input.moduleId, input.nameAllocator, input.compatibility))
     .join('\n\n');
-  const fallbackReasons = input.fallbackProperties.map((property) => ({
-    property,
-    reason: 'property-effect-not-registered' as const
-  }));
+  const fallbackReasons = [
+    ...input.fallbackProperties.map((property) => ({ property, reason: 'property-effect-not-registered' as const })),
+    ...(input.fallbackCompatibilityProperties ?? []).map((property) =>
+      ({ property, reason: 'compatibility-sequence-unatomizable' as const }))
+  ];
   const scopeSchema = { moduleId: input.moduleId, exports };
   const artifact: StyleModuleArtifact = {
     id: input.input.id,
@@ -752,21 +949,20 @@ function preparePreservedContribution(input: {
     fallbackReasons
   };
   const bindings = new Map((input.input.assetReferences ?? []).map(({ url, identity }) => [url, identity]));
-  const resources = input.parsed.resources.map((resource) =>
-    planResource(resource, input.moduleId, bindings, input.nameAllocator)
-  );
   return {
     artifact,
     rules: [],
     preservedBlocks: [{ moduleId: input.moduleId, css, ...bindCssAssets(css, bindings) }],
-    resources,
+    resources: input.resources,
     diagnostics: [
       ...input.conditionDiagnostics,
       {
         code: 'GSS1104',
         severity: 'warning',
         phase: 'plan',
-        message: `Module was preserved because property effects are not registered: ${input.fallbackProperties.join(', ')}.`,
+        message: input.fallbackCompatibilityProperties?.length
+          ? `Module was preserved because compatibility sequences cannot be atomized: ${input.fallbackCompatibilityProperties.join(', ')}.`
+          : `Module was preserved because property effects are not registered: ${input.fallbackProperties.join(', ')}.`,
         id: input.input.id,
         reason: 'module-preserved-fallback',
         suggestion: 'Verify the property name or register its complete effect family.'
@@ -778,7 +974,8 @@ function preparePreservedContribution(input: {
 function renderPreservedRule(
   rule: ParsedStyleRule,
   moduleId: string,
-  nameAllocator: NameAllocatorPort
+  nameAllocator: NameAllocatorPort,
+  compatibility?: CompatibilityTransformer
 ): string {
   const selector = selectorParser((root) => {
     for (const branch of root.nodes) {
@@ -797,6 +994,7 @@ function renderPreservedRule(
     }
   }).processSync(rule.selector);
   const declarations = rule.declarations
+    .flatMap((declaration) => compatibility ? compatibility.expand(declaration)! : [declaration])
     .map(({ property, value, important }) =>
       `  ${property}: ${value}${important ? ' !important' : ''};`
     )
@@ -836,11 +1034,15 @@ function planResource(
   resource: ParsedGlobalResource,
   moduleId: string,
   bindings: AssetBindings,
-  nameAllocator: NameAllocatorPort
-): PlannedResource {
-  const planned = resource.kind === 'property' ? planPropertyRegistration(resource)
+  nameAllocator: NameAllocatorPort,
+  compatibility?: CompatibilityTransformer
+): PlannedResource | undefined {
+  const base = resource.kind === 'property' ? planPropertyRegistration(resource)
     : resource.kind === 'keyframes' ? planKeyframesRegistration(resource, moduleId, nameAllocator)
     : planFontFaceResource(resource);
+  const physical = compatibility?.expandResource(base.css, resource.kind);
+  if (compatibility && (!physical || !resourceAssetsPreserved(base.css, physical))) return undefined;
+  const planned = physical ? { ...base, css: physical } : base;
   const assets = bindCssAssets(planned.css, bindings);
   return assets.assetIdentity && assets.renderCss
     ? { ...planned, identity: assets.assetIdentity, renderCss: assets.renderCss }
@@ -1239,10 +1441,33 @@ function renderRelationCombinator(
   return '';
 }
 
+function resourceAssetsPreserved(authored: string, physical: string): boolean {
+  const urls = (css: string) => {
+    const found = new Set<string>();
+    postcss.parse(css).walkDecls((declaration) => {
+      for (const { url } of assetOccurrences(declaration.value)) found.add(url);
+    });
+    return found;
+  };
+  const original = urls(authored);
+  const transformed = urls(physical);
+  return original.size === transformed.size && [...original].every((url) => transformed.has(url));
+}
+
+function physicalAssetsPreserved(
+  authored: string, physical: readonly PhysicalDeclaration[]
+): boolean {
+  const original = new Set(assetOccurrences(authored).map(({ url }) => url));
+  const transformed = new Set(physical.flatMap(({ value }) => assetOccurrences(value).map(({ url }) => url)));
+  return original.size === transformed.size && [...original].every((url) => transformed.has(url));
+}
+
 function renderRule(rule: PlannedDeclaration, resolve: AssetUrlResolver): string {
   const { property, important } = rule.identity;
   const value = renderAssetValue(rule.identity, resolve);
-  let css = `${rule.selector} {\n  ${property}: ${value}${important ? ' !important' : ''};\n}`;
+  const declarations = rule.physicalDeclarations ?? [{ property, value, important }];
+  let css = `${rule.selector} {\n${declarations.map((declaration) =>
+    `  ${declaration.property}: ${renderAssetValue(declaration, resolve)}${declaration.important ? ' !important' : ''};`).join('\n')}\n}`;
   for (const wrapper of [...(rule.wrappers ?? [])].reverse()) {
     css = `@${wrapper.kind} ${wrapper.query} {\n${indentCss(css)}\n}`;
   }

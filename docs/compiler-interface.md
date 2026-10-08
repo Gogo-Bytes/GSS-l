@@ -423,7 +423,7 @@ For relative base, URLs are relative to the emitted CSS file, not the source Mod
 The ports keep infrastructure replaceable:
 
 - parser implementation can change without changing domain IR;
-- browserslist lowering stays outside authored declaration resolution;
+- compatibility lowering stays outside authored declaration resolution; the opt-in standalone Compiler accepts ordered, snapshotted `compatibilityTargetStages` (resolved minimum browser versions) per [ADR-0054](adr/0054-take-compatibility-targets-from-the-host.md), not an independent Browserslist read. A same-property generated sequence remains one atom; generated vendor properties trigger an entire preserved Module or strict rejection. A bounded Compiler follow-up verifies prefixed keyframe/font/property resource shapes and bound Asset identities before commit; incompatible same-Module keyframe registrations reject until conditional precedence is proved. Vite 7 now translates supported resolved CSS target stages in dev/build into that contract, including the final build census; unsupported target mappings and active Lightning CSS feature overrides fail closed. Broader host settings/resource/Asset coverage and complete proof remain open;
 - Vite/Rollup URL emission stays outside the Compiler domain;
 - readable first-version names can later be replaced by short/hash names.
 

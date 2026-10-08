@@ -9,7 +9,7 @@ export type PseudoExpectations = Partial<Record<'::before' | '::after', Readonly
 export type ReferenceFixture = {
   name: string;
   modules: readonly ReplaceStylesheetInput[];
-  config?: Pick<GssCompilerConfig, 'conditions' | 'layers'>;
+  config?: Pick<GssCompilerConfig, 'conditions' | 'layers' | 'compatibilityTargetStages'>;
   setupCss?: string;
   animationSymbols?: readonly { moduleId: string; symbol: string; probe: string }[];
   assetUrls?: Readonly<Record<string, string>>;
@@ -20,6 +20,10 @@ export type ReferenceFixture = {
     id: string;
     moduleId: string;
     path: readonly string[];
+    /** Fixture-owned third-party class, never supplied by a GSS ScopeSchema. */
+    externalClassName?: string;
+    /** Third-party class on an owned node, in addition to its GSS scope class. */
+    extraClassName?: string;
     parent?: string;
     tag?: 'div' | 'span' | 'input' | 'fieldset' | 'button';
     expected: Readonly<Record<string, string>>;
@@ -34,6 +38,8 @@ export type ReferenceFixture = {
       node: string;
       checked?: boolean;
       disabled?: boolean;
+      externalClassName?: string;
+      extraClassName?: string;
       attributes?: Readonly<Record<string, string | null>>;
     }[];
     expected: Readonly<Record<string, Readonly<Record<string, string>>>>;

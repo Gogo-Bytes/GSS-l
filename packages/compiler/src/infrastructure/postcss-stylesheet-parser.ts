@@ -324,6 +324,8 @@ function parsePropertyRegistration(
 
 type ParsedSelectorPath = {
   path: readonly string[];
+  externalTarget?: string;
+  externalCondition?: string;
   relations: readonly SelectorRelation[];
   states: readonly (readonly string[])[];
   attributes: readonly (readonly ParsedAttributeCondition[])[];
@@ -362,7 +364,24 @@ function parseClassPath(nodes: readonly Node[]): ParsedSelectorPath | undefined 
   const observations: ParsedHasCondition[][] = [];
   const pseudoElements: (string | null)[] = [];
   let expectClass = true;
-  for (const node of nodes) {
+  for (const [index, node] of nodes.entries()) {
+    if (expectClass && path.length > 0 && index === nodes.length - 1 &&
+      relations.at(-1) === 'descendant' && node.type === 'pseudo' && node.value === ':global' &&
+      node.nodes.length === 1 && node.nodes[0]!.nodes.length > 0 &&
+      node.nodes[0]!.nodes.every((part) => part.type === 'class')) {
+      return {
+        path, relations: relations.slice(0, -1), states, attributes, observations, pseudoElements,
+        externalTarget: node.nodes[0]!.toString()
+      };
+    }
+    if (!expectClass && index === nodes.length - 1 && node.type === 'pseudo' && node.value === ':global' &&
+      node.nodes.length === 1 && node.nodes[0]!.nodes.length > 0 &&
+      node.nodes[0]!.nodes.every((part) => part.type === 'class')) {
+      return {
+        path, relations, states, attributes, observations, pseudoElements,
+        externalCondition: node.nodes[0]!.toString()
+      };
+    }
     if (expectClass && node.type === 'class') {
       path.push((node as ClassName).value);
       states.push([]);
@@ -440,7 +459,11 @@ function parseHasConditions(pseudo: Pseudo): readonly ParsedHasCondition[] | und
     if (!condition) return undefined;
     conditions.push(condition);
   }
-  return conditions.length > 0 ? conditions : undefined;
+  // An external class in a selector list needs a list-maximum specificity
+  // proof before it can share the existing observed-branch lowering.
+  return conditions.length > 0 && !(conditions.length > 1 &&
+    conditions.some((condition) => condition.observedResidual?.startsWith('.')))
+    ? conditions : undefined;
 }
 
 function parseHasSelector(nodes: readonly Node[]): ParsedHasCondition | undefined {
@@ -476,6 +499,12 @@ function parseHasSelector(nodes: readonly Node[]): ParsedHasCondition | undefine
   }
 
   if (index !== nodes.length) return undefined;
+  if (observed.type === 'pseudo' && observed.value === ':global' &&
+    observed.nodes.length === 1 && observed.nodes[0]!.nodes.length > 0 &&
+    observed.nodes[0]!.nodes.every((part) => part.type === 'class')) {
+    return { relation, observedResidual: observed.nodes[0]!.toString(),
+      observedResidualClassCount: observed.nodes[0]!.nodes.length };
+  }
   if (observed.type === 'attribute') {
     const condition = parseAttributeCondition(observed as Attribute);
     return condition
@@ -515,6 +544,12 @@ function parseFunctionalState(pseudo: Pseudo): string | undefined {
       const state = branch.value.slice(1);
       if (!isSupportedPseudoState(state)) return undefined;
       branches.push(`:${state}`);
+      continue;
+    }
+    if (branch.type === 'pseudo' && branch.value === ':global' &&
+      branch.nodes.length === 1 && branch.nodes[0]!.nodes.length === 1 &&
+      branch.nodes[0]!.nodes[0]!.type === 'class') {
+      branches.push(branch.nodes[0]!.toString());
       continue;
     }
     if (branch.type === 'attribute') {

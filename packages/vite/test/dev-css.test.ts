@@ -2,10 +2,11 @@ import { mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, expect, it, vi } from 'vitest';
-import { build, createServer, normalizePath, type Plugin, type ViteDevServer } from 'vite';
+import { build, createServer, normalizePath, type InlineConfig, type Plugin, type ViteDevServer } from 'vite';
 import { react } from '@gss-l/react';
 import { gss } from '../src/index.js';
 import WebSocket from 'ws';
+import { Features } from 'lightningcss';
 
 const servers: ViteDevServer[] = [];
 const roots: string[] = [];
@@ -16,7 +17,8 @@ afterEach(async () => {
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
 
-async function fixture(base = '/', observers: Plugin[] = [], listen = false, linkedRoot = false) {
+async function fixture(base = '/', observers: Plugin[] = [], listen = false, linkedRoot = false,
+  css?: InlineConfig['css']) {
   const root = normalizePath(await realpath(await mkdtemp(join(tmpdir(), 'gss-dev-css-'))));
   roots.push(root);
   await writeFile(join(root, 'Card.gss'), '.card { color: red; }');
@@ -32,7 +34,8 @@ async function fixture(base = '/', observers: Plugin[] = [], listen = false, lin
       // Vite's own FS allowlist must permit the canonical target of an explicit symlink root.
       ...(linkedRoot ? { fs: { allow: [root] } } : {})
     },
-    appType: 'mpa', logLevel: 'silent', optimizeDeps: { noDiscovery: true, include: [] }
+    appType: 'mpa', logLevel: 'silent', optimizeDeps: { noDiscovery: true, include: [] },
+    ...(css ? { css } : {})
   });
   servers.push(server);
   if (listen) await server.listen();
@@ -51,6 +54,26 @@ it('serves the entire committed snapshot as a Vite virtual CSS module', async ()
   expect(result?.code).toContain('color: red;');
   expect(result?.code).toContain('display: flex;');
   expect(result?.code).not.toContain('__vite__updateStyle');
+});
+
+it('uses the resolved Lightning CSS transform target in a development session', async () => {
+  const { root, server, container } = await fixture('/', [], false, false,
+    { transformer: 'lightningcss', lightningcss: { targets: { safari: 6 << 16 } } });
+  await writeFile(join(root, 'Card.gss'), '.card { display: flex; }');
+  const id = (await container.resolveId('./Card.gss', `${root}/entry.ts`))!.id;
+  await container.load(id);
+  const css = (await server.transformRequest('/@gss-l/central.css?direct'))?.code;
+  expect(css).toContain('display: -webkit-box;');
+  expect(css).toContain('display: -webkit-flex;');
+  expect(css).toContain('display: flex;');
+});
+
+it('fails closed when Vite Lightning CSS feature overrides cannot be mirrored', async () => {
+  const { root, container } = await fixture('/', [], false, false,
+    { transformer: 'lightningcss', lightningcss: { targets: { safari: 6 << 16 }, exclude: Features.VendorPrefixes } });
+  await writeFile(join(root, 'Card.gss'), '.card { display: flex; }');
+  const id = (await container.resolveId('./Card.gss', `${root}/entry.ts`))!.id;
+  await expect(container.load(id)).rejects.toThrow(/GSS cannot follow Vite CSS targets.*feature/);
 });
 
 it('invalidates an early empty CSS response when a stylesheet is discovered later', async () => {

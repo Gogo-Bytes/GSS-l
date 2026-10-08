@@ -28,6 +28,8 @@ export type ParsedHasCondition = {
   observedClass?: string;
   observedState?: string;
   observedResidual?: string;
+  /** Number of externally supplied classes in a class-only residual compound. */
+  observedResidualClassCount?: number;
 };
 
 export type ParsedCondition = {
@@ -38,6 +40,10 @@ export type ParsedCondition = {
 export type ParsedStyleRule = {
   source: SourceSpan;
   selector: string;
+  /** A browser-matched external descendant; path remains the GSS-owned anchor. */
+  externalTarget?: string;
+  /** An externally supplied class condition on the owned declaration target. */
+  externalCondition?: string;
   path: readonly string[];
   relations: readonly SelectorRelation[];
   states: readonly (readonly string[])[];
