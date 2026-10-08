@@ -5,6 +5,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { chromium } from 'playwright';
+import { checkViteHostCompatibility } from './vite-host-check.mjs';
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 const url = 'http://127.0.0.1:4178/';
@@ -57,16 +58,23 @@ try {
     { timeout: 120_000 }
   );
   const result = await page.evaluate(() => window.__GSS_REFERENCE_RESULT__);
+  let hostCompatibility;
+  try {
+    hostCompatibility = await checkViteHostCompatibility(browser);
+  } catch (error) {
+    hostCompatibility = { detected: false, error: String(error) };
+  }
   await mkdir(path.dirname(artifact), { recursive: true });
-  await writeFile(artifact, JSON.stringify({ result, errors }, null, 2));
+  await writeFile(artifact, JSON.stringify({ result, hostCompatibility, errors }, null, 2));
   const comparisons = result.results?.reduce((sum, fixture) => sum + fixture.comparisons, 0);
   const failed = result.status !== 'passed' || result.results?.length !== 111 || comparisons !== 1151 ||
     result.results.some((fixture) => fixture.comparisons <= 0 || fixture.differences.length || fixture.expectedFailures.length) ||
     controls.some((key) => result[key]?.detected !== true) ||
     result.hasSpecificityDedup?.negativeControl?.detected !== true ||
-    result.hasSpecificityDedup?.fixtures?.some((fixture) => fixture.differences.length) || errors.length;
-  if (failed) throw new Error(`Browser oracle gate failed: status=${result.status}, fixtures=${result.results?.length}, comparisons=${comparisons}, errors=${errors.length}. See ${artifact}`);
-  console.log(`Browser oracle passed: ${result.results.length} fixtures, ${comparisons} comparisons, ${controls.length} controls. ${artifact}`);
+    result.hasSpecificityDedup?.fixtures?.some((fixture) => fixture.differences.length) || errors.length ||
+    hostCompatibility.detected !== true || hostCompatibility.pageErrors?.length;
+  if (failed) throw new Error(`Browser oracle gate failed: status=${result.status}, fixtures=${result.results?.length}, comparisons=${comparisons}, errors=${errors.length}, host=${hostCompatibility.error ?? hostCompatibility.detected}. See ${artifact}`);
+  console.log(`Browser oracle passed: ${result.results.length} fixtures, ${comparisons} comparisons, ${controls.length} controls; Vite host artifact/control passed. ${artifact}`);
 } finally {
   await browser?.close();
   server.kill('SIGTERM');

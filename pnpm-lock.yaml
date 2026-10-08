@@ -82,6 +82,12 @@ importers:
       '@gss-l/compiler':
         specifier: workspace:*
         version: link:../compiler
+      '@gss-l/react':
+        specifier: workspace:^
+        version: link:../react
+      '@gss-l/vite':
+        specifier: workspace:^
+        version: link:../vite
       playwright:
         specifier: 1.58.2
         version: 1.58.2
