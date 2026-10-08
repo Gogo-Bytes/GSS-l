@@ -546,6 +546,12 @@ function parseFunctionalState(pseudo: Pseudo): string | undefined {
       branches.push(`:${state}`);
       continue;
     }
+    if (branch.type === 'pseudo' && branch.value === ':global' &&
+      branch.nodes.length === 1 && branch.nodes[0]!.nodes.length === 1 &&
+      branch.nodes[0]!.nodes[0]!.type === 'class') {
+      branches.push(branch.nodes[0]!.toString());
+      continue;
+    }
     if (branch.type === 'attribute') {
       const condition = parseAttributeCondition(branch as Attribute);
       if (!condition) return undefined;

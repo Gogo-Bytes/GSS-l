@@ -141,6 +141,34 @@ describe('anchored external declaration target', () => {
     expect(session.finalize()).toEqual(previous);
   });
 
+  it.each([
+    [':not(:global(.external))', ':not(.external)'],
+    [':is(:global(.external))', ':is(.external)'],
+    [':where(:global(.external))', ':where(.external)'],
+    [':is(:global(.external), :global(.another))', ':is(.another,.external)']
+  ])('keeps a single external class inside %s as a browser-matched owned-node condition', (authored, native) => {
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    const result = session.replaceStylesheet({ id, source: `.editor${authored} { color: red; }` });
+    expect(result).toMatchObject({ committed: true, diagnostics: [] });
+    const schema = session.getScopeSchema(id)!;
+    expect(Object.keys(schema.exports)).toEqual(['editor']);
+    expect(schema.exports.editor!.targets).toEqual({});
+    expect(session.finalize().css).toContain(`${native} {\n  color: red;\n}`);
+    expect(session.finalize().css).not.toContain(':global(');
+  });
+
+  it('rejects an unproved external compound inside a functional condition with rollback', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    expect(session.replaceStylesheet({ id, source }).committed).toBe(true);
+    const previous = session.finalize();
+    const result = session.replaceStylesheet({ id, source:
+      '.editor:not(:global(.external.active)) { color: blue; }'
+    });
+    expect(result).toMatchObject({ committed: false, generation: 1,
+      diagnostics: [{ code: 'GSS1101', reason: 'capability-not-registered' }] });
+    expect(session.finalize()).toEqual(previous);
+  });
+
   it('keeps owned declarations and external targets separate in one Module', () => {
     const session = createGssCompilerSession({ projectRoot: '/project' });
     const result = session.replaceStylesheet({ id, source:

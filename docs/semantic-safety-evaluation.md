@@ -173,7 +173,7 @@ Key safety decisions:
 - selector lists normalize into independent branches and fail as a whole if one branch is invalid;
 - emitted branches of an accepted `:has()` selector list retain the authored list's maximum argument specificity through target-qualified subject markers; `:where()` neutralizes each separately emitted observed argument when class/pseudo specificity is carried by those markers, while type-only lists retain their type specificity;
 - `:not()`, `:is()`, and `:where()` preserve negative, OR, and zero-specificity semantics;
-- `:has()` remains a browser-evaluated observed relation; one bounded `:has(:global(.external))` branch observes an externally supplied class without exporting or changing that node; its normalized class count participates in structural/observed ambiguity detection, while unproved global selector lists remain fail-closed;
+- `:has()` remains a browser-evaluated observed relation; one bounded `:has(:global(.external))` branch observes an externally supplied class without exporting or changing that node; its normalized class count participates in structural/observed ambiguity detection, while unproved observed global selector lists remain fail-closed; single class-only explicit-global arguments of `:not()`, `:is()` and `:where()` are owned-node browser conditions, with functional external class compounds still rejected;
 - supported pseudo-elements remain part of selector identity;
 - standard CSS nesting expands before semantic analysis.
 

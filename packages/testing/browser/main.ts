@@ -11,7 +11,7 @@ type Reading = {
   subject: 'element' | '::before' | '::after'; property: string; value: string; expected: string;
 };
 
-async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'nested-layer' | 'asset' | 'keyframes' | 'relation' | 'interleaved' | 'interleaved-depth' | 'interleaved-prefix' | 'interleaved-general-prefix' | 'interleaved-general-root' | 'interleaved-child-root' | 'interleaved-child-prefix' | 'cross-layer-specificity' | 'font-reset' | 'has-specificity' | 'has-specificity-dedup' | 'external-anchor' | 'external-ancestor' | 'external-media' | 'external-compound' | 'owned-external-condition' | 'external-observation'): Promise<Reading[]> {
+async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'nested-layer' | 'asset' | 'keyframes' | 'relation' | 'interleaved' | 'interleaved-depth' | 'interleaved-prefix' | 'interleaved-general-prefix' | 'interleaved-general-root' | 'interleaved-child-root' | 'interleaved-child-prefix' | 'cross-layer-specificity' | 'font-reset' | 'has-specificity' | 'has-specificity-dedup' | 'external-anchor' | 'external-ancestor' | 'external-media' | 'external-compound' | 'owned-external-condition' | 'external-observation' | 'functional-external'): Promise<Reading[]> {
   const frame = document.createElement('iframe');
   frame.title = `${fixture.name}: ${side}${corrupt ? ' negative control' : ''}`;
   frame.width = '640';
@@ -77,6 +77,13 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
     const changed = style.textContent.replace(/:has\(\.ProseMirror-focused\)(?=\s*\{)/, '');
     if (changed === style.textContent) throw new Error('External observation control did not remove the :has condition');
     style.textContent = changed;
+  }
+  if (corrupt === 'functional-external') {
+    const predicate = /:(?:not|is|where)\(\.external\)(?=\s*\{)/g;
+    if ([...style.textContent.matchAll(predicate)].length !== 3) {
+      throw new Error('Functional external control did not find all three qualifiers');
+    }
+    style.textContent = style.textContent.replace(predicate, '');
   }
   doc.head.append(style);
   if (corrupt === 'external-media') {
@@ -653,7 +660,18 @@ async function run() {
       difference.atomic === 'rgb(255, 0, 0)') &&
     externalObservationDifferences.some((difference) => difference.node === 'editor' &&
       difference.phase === 'observed-class-removed');
+  const functionalFixture = fixtures.find((fixture) => fixture.name === 'functional-external-owned-conditions')!;
+  const functionalReference = await readDocument(functionalFixture, 'reference');
+  const functionalAtomic = await readDocument(functionalFixture, 'atomic');
+  const functionalCorrupted = await readDocument(functionalFixture, 'atomic', 'functional-external');
+  const functionalDifferences = compare(functionalReference, functionalCorrupted);
+  const functionalDetected = compare(functionalReference, functionalAtomic).length === 0 &&
+    compare(functionalAtomic, functionalCorrupted).length === 10 && functionalDifferences.length === 10 &&
+    ['not-with-class', 'is-without-class', 'where-without-class'].every((node) =>
+      functionalDifferences.some((difference) => difference.node === node)) &&
+    functionalDifferences.every((difference) => difference.property === 'background-color');
   publish({
+    functionalExternalNegativeControl: { detected: functionalDetected, predicatesRemoved: 3, differences: functionalDifferences },
     externalObservationNegativeControl: { detected: externalObservationDetected, predicateRemoved: true, differences: externalObservationDifferences },
     ownedExternalRefinementNegativeControl: { detected: refinementDetected, qualifierRemoved: true, differences: refinementDifferences },
     ownedExternalConditionNegativeControl: { detected: sameNodeDetected, qualifierRemoved: true, differences: sameNodeDifferences },
@@ -674,7 +692,7 @@ async function run() {
     hasSpecificityDedup: { fixtures: hasSpecificityDedupResults, negativeControl: { detected: hasSpecificityDedupControl, qualifierRemoved: true, differences: hasSpecificityDedupDifferences } },
     status: results.every((result) => result.comparisons > 0 && !result.differences.length && !result.expectedFailures.length) &&
       hasSpecificityDedupResults.every((result) => result.differences.length === 0) && hasSpecificityDedupControl &&
-      detected && pseudoDetected && conditionDetected && layerDetected && nestedLayerDetected && assetDetected && keyframesDetected && relationDetected && interleavedDetected && interleavedDepthDetected && interleavedPrefixDetected && interleavedGeneralPrefixDetected && interleavedGeneralRootDetected && interleavedChildRootDetected && interleavedChildPrefixDetected && crossLayerSpecificityDetected && hasSpecificityDetected && fontResetNegativeControl && externalAnchorDetected && externalAncestorDetected && externalMediaDetected && externalCompoundDetected && sameNodeDetected && refinementDetected && externalObservationDetected
+      detected && pseudoDetected && conditionDetected && layerDetected && nestedLayerDetected && assetDetected && keyframesDetected && relationDetected && interleavedDetected && interleavedDepthDetected && interleavedPrefixDetected && interleavedGeneralPrefixDetected && interleavedGeneralRootDetected && interleavedChildRootDetected && interleavedChildPrefixDetected && crossLayerSpecificityDetected && hasSpecificityDetected && fontResetNegativeControl && externalAnchorDetected && externalAncestorDetected && externalMediaDetected && externalCompoundDetected && sameNodeDetected && refinementDetected && externalObservationDetected && functionalDetected
       ? 'passed' : 'failed',
     results,
     negativeControl: { detected, differences },

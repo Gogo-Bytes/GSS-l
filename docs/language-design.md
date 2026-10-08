@@ -160,7 +160,7 @@ The space changes the declaration target. GSS never adds or removes `ProseMirror
 
 Selector lists are expanded into independent semantic branches. Every branch must pass capability validation or the complete authored rule fails.
 
-Supported functional conditions include `:not()`, `:is()`, and `:where()` over supported pseudo, attribute, and explicit-global arguments. `:where()` retains zero specificity.
+Supported functional conditions include `:not()`, `:is()`, and `:where()` over supported pseudo and attribute arguments, or a single explicit-global class per argument (for example, `.editor:is(:global(.focused), :global(.active))`). These are browser-matched conditions on the owned node: GSS neither exports nor mutates the external class. External class compounds inside these functions remain unsupported until their specificity proof is implemented. `:where()` retains zero specificity.
 
 `:has()` is an observed contextual relation:
 
