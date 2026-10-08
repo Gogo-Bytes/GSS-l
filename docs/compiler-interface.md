@@ -527,7 +527,7 @@ Current coverage: plain ASCII local classes (`[A-Za-z_][A-Za-z0-9_-]*`), whitesp
 
 The reference uses PostCSS but no atomic compiler implementation, winner/pruning logic, atom identity, `RulePlanner`, `RuleOrderPlanner`, or `NameAllocator`. The public production API is used only on the atomic side of the browser harness.
 
-The bounded harness renders the same DOM with substituted mappings in isolated documents and compares touched properties/physical longhands for ownership, descendant accumulation and shorthand order/importance, with literal expectations and a corrupted-atomic negative control. See [`packages/testing/README.md`](../packages/testing/README.md) for startup and machine-readable acceptance. The broader state/condition/resource corpus, browser CI and Pilot remain incomplete.
+The bounded harness renders the same DOM with substituted mappings in isolated documents and compares touched properties/physical longhands for ownership, descendant accumulation and shorthand order/importance, with literal expectations and a corrupted-atomic negative control. See [`packages/testing/README.md`](../packages/testing/README.md) for startup and machine-readable acceptance. The broader state/condition/resource corpus and Pilot remain incomplete; the bounded browser gate runs locally without requiring GitHub CI/CD.
 
 ## Determinism and invariants
 

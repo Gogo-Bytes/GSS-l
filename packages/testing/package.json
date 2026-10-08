@@ -3,15 +3,14 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "exports": {
-    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" }
-  },
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
   "files": ["dist"],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "browser:reference": "vite browser --host 127.0.0.1 --port 4178 --strictPort"
+    "browser:reference": "vite browser --host 127.0.0.1 --port 4178 --strictPort",
+    "browser:check": "node browser/check.mjs"
   },
   "dependencies": {
     "postcss": "^8.4.49",
@@ -19,6 +18,7 @@
   },
   "devDependencies": {
     "@gss-l/compiler": "workspace:*",
+    "playwright": "1.58.2",
     "vite": "^7.3.6"
   }
 }
