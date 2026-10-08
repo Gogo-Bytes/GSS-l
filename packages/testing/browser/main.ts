@@ -11,7 +11,7 @@ type Reading = {
   subject: 'element' | '::before' | '::after'; property: string; value: string; expected: string;
 };
 
-async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'nested-layer' | 'asset' | 'keyframes' | 'relation' | 'interleaved' | 'interleaved-depth' | 'interleaved-prefix' | 'interleaved-general-prefix' | 'interleaved-general-root' | 'interleaved-child-root' | 'interleaved-child-prefix' | 'cross-layer-specificity' | 'font-reset' | 'has-specificity' | 'has-specificity-dedup' | 'external-anchor' | 'external-ancestor' | 'external-media' | 'external-compound' | 'owned-external-condition' | 'external-observation' | 'functional-external'): Promise<Reading[]> {
+async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'nested-layer' | 'asset' | 'keyframes' | 'relation' | 'interleaved' | 'interleaved-depth' | 'interleaved-prefix' | 'interleaved-general-prefix' | 'interleaved-general-root' | 'interleaved-child-root' | 'interleaved-child-prefix' | 'cross-layer-specificity' | 'font-reset' | 'has-specificity' | 'has-specificity-dedup' | 'external-anchor' | 'external-ancestor' | 'external-media' | 'external-compound' | 'owned-external-condition' | 'external-observation' | 'functional-external' | 'compatibility-sequence'): Promise<Reading[]> {
   const frame = document.createElement('iframe');
   frame.title = `${fixture.name}: ${side}${corrupt ? ' negative control' : ''}`;
   frame.width = '640';
@@ -84,6 +84,13 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
       throw new Error('Functional external control did not find all three qualifiers');
     }
     style.textContent = style.textContent.replace(predicate, '');
+  }
+  if (corrupt === 'compatibility-sequence') {
+    const declarations = /^ {2}display: [^;]+;\n/gm;
+    if ([...style.textContent.matchAll(declarations)].length !== 3) {
+      throw new Error('Compatibility control requires the three physical display declarations');
+    }
+    style.textContent = style.textContent.replace(declarations, '');
   }
   doc.head.append(style);
   if (corrupt === 'external-media') {
@@ -670,7 +677,18 @@ async function run() {
     ['not-with-class', 'is-without-class', 'where-without-class'].every((node) =>
       functionalDifferences.some((difference) => difference.node === node)) &&
     functionalDifferences.every((difference) => difference.property === 'background-color');
+  const compatibilityFixture = fixtures.find((fixture) => fixture.name === 'host-target-indivisible-flex-sequence')!;
+  const compatibilityReference = await readDocument(compatibilityFixture, 'reference');
+  const compatibilityAtomic = await readDocument(compatibilityFixture, 'atomic');
+  const compatibilityCorrupted = await readDocument(compatibilityFixture, 'atomic', 'compatibility-sequence');
+  const compatibilityDifferences = compare(compatibilityReference, compatibilityCorrupted);
+  const compatibilityDetected = compare(compatibilityReference, compatibilityAtomic).length === 0 &&
+    compare(compatibilityAtomic, compatibilityCorrupted).length === 1 &&
+    compatibilityDifferences.length === 1 && compatibilityDifferences[0]?.node === 'card' &&
+    compatibilityDifferences[0]?.property === 'display' &&
+    compatibilityDifferences[0]?.reference === 'flex' && compatibilityDifferences[0]?.atomic === 'block';
   publish({
+    compatibilitySequenceNegativeControl: { detected: compatibilityDetected, declarationsRemoved: 3, differences: compatibilityDifferences },
     functionalExternalNegativeControl: { detected: functionalDetected, predicatesRemoved: 3, differences: functionalDifferences },
     externalObservationNegativeControl: { detected: externalObservationDetected, predicateRemoved: true, differences: externalObservationDifferences },
     ownedExternalRefinementNegativeControl: { detected: refinementDetected, qualifierRemoved: true, differences: refinementDifferences },
@@ -692,7 +710,7 @@ async function run() {
     hasSpecificityDedup: { fixtures: hasSpecificityDedupResults, negativeControl: { detected: hasSpecificityDedupControl, qualifierRemoved: true, differences: hasSpecificityDedupDifferences } },
     status: results.every((result) => result.comparisons > 0 && !result.differences.length && !result.expectedFailures.length) &&
       hasSpecificityDedupResults.every((result) => result.differences.length === 0) && hasSpecificityDedupControl &&
-      detected && pseudoDetected && conditionDetected && layerDetected && nestedLayerDetected && assetDetected && keyframesDetected && relationDetected && interleavedDetected && interleavedDepthDetected && interleavedPrefixDetected && interleavedGeneralPrefixDetected && interleavedGeneralRootDetected && interleavedChildRootDetected && interleavedChildPrefixDetected && crossLayerSpecificityDetected && hasSpecificityDetected && fontResetNegativeControl && externalAnchorDetected && externalAncestorDetected && externalMediaDetected && externalCompoundDetected && sameNodeDetected && refinementDetected && externalObservationDetected && functionalDetected
+      detected && pseudoDetected && conditionDetected && layerDetected && nestedLayerDetected && assetDetected && keyframesDetected && relationDetected && interleavedDetected && interleavedDepthDetected && interleavedPrefixDetected && interleavedGeneralPrefixDetected && interleavedGeneralRootDetected && interleavedChildRootDetected && interleavedChildPrefixDetected && crossLayerSpecificityDetected && hasSpecificityDetected && fontResetNegativeControl && externalAnchorDetected && externalAncestorDetected && externalMediaDetected && externalCompoundDetected && sameNodeDetected && refinementDetected && externalObservationDetected && functionalDetected && compatibilityDetected
       ? 'passed' : 'failed',
     results,
     negativeControl: { detected, differences },

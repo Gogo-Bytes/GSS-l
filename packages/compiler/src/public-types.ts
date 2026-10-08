@@ -25,7 +25,7 @@ export type ScopeSchema = {
 
 export type GssFallbackReason = {
   property: string;
-  reason: 'property-effect-not-registered';
+  reason: 'property-effect-not-registered' | 'compatibility-sequence-unatomizable';
 };
 
 export type StyleModuleArtifact = {
@@ -102,6 +102,8 @@ export type GssCompilerConfig = {
   projectRoot: string;
   layers?: readonly string[];
   atomizationFallback?: 'preserve-module' | 'error';
+  /** Ordered host CSS transform/minification stages, each with resolved minimum browser versions. */
+  compatibilityTargetStages?: readonly Readonly<Record<string, string>>[];
   conditions?: {
     media?: readonly string[];
     supports?: readonly string[];

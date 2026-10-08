@@ -1,4 +1,5 @@
 import selectorParser from 'postcss-selector-parser';
+import type { CompatibilityTransformer, PhysicalDeclaration } from '../infrastructure/lightning-compatibility-transformer.js';
 import { bindCssAssets, identifyAssetValue, renderAssetValue, type AssetBindings, type AssetUrlResolver } from './asset-values.js';
 import { collectAssetDependencies } from './stylesheet-assets.js';
 import { toLogicalModuleId } from './module-identity.js';
@@ -64,6 +65,7 @@ type PlannedDeclaration = {
   wrappers?: readonly ParsedCondition[];
   layer?: string;
   relationRank?: number;
+  physicalDeclarations?: readonly PhysicalDeclaration[];
 };
 
 type PlannedResource = {
@@ -97,14 +99,15 @@ type MutableScopeNode = {
 export function createCompilerSession(
   config: GssCompilerConfig,
   cssParser: CssParserPort,
-  nameAllocator: NameAllocatorPort = createDefaultNameAllocator()
+  nameAllocator: NameAllocatorPort = createDefaultNameAllocator(),
+  compatibility?: CompatibilityTransformer
 ): GssCompilerSession {
   const modules = new Map<string, ModuleContribution>();
   let generation = 0;
 
   return {
     replaceStylesheet(input) {
-      const prepared = prepareContribution(config, input, cssParser, nameAllocator);
+      const prepared = prepareContribution(config, input, cssParser, nameAllocator, compatibility);
       if (!('artifact' in prepared)) {
         return {
           id: input.id,
@@ -163,8 +166,13 @@ function prepareContribution(
   config: GssCompilerConfig,
   input: ReplaceStylesheetInput,
   cssParser: CssParserPort,
-  nameAllocator: NameAllocatorPort
+  nameAllocator: NameAllocatorPort,
+  compatibility?: CompatibilityTransformer
 ): ModuleContribution | { diagnostics: readonly GssDiagnostic[] } {
+  if (config.compatibilityTargetStages !== undefined && compatibility === undefined) return { diagnostics: [{
+    code: 'GSS1101', severity: 'error', phase: 'validate', id: input.id,
+    reason: 'invalid-compatibility-target', message: 'Host CSS compatibility targets are invalid or unsupported.'
+  }] };
   const parsed = cssParser.parseStylesheet(input.id, input.source);
   if (parsed.diagnostics.some(({ severity }) => severity === 'error')) {
     return { diagnostics: parsed.diagnostics };
@@ -203,6 +211,13 @@ function prepareContribution(
   const semanticRules = rewriteKeyframeReferences(parsed.rules, keyframeNames);
   const externalRules = semanticRules.filter((rule) => rule.externalTarget !== undefined);
   const sameNodeRules = semanticRules.filter((rule) => rule.externalCondition !== undefined);
+  const hasExplicitGlobal = semanticRules.some((rule) => {
+    let found = false;
+    selectorParser((root) => root.walkPseudos((pseudo) => {
+      if (pseudo.value === ':global') found = true;
+    })).processSync(rule.selector);
+    return found;
+  });
   const localRules = semanticRules.filter((rule) =>
     rule.externalTarget === undefined && rule.externalCondition === undefined
   );
@@ -456,6 +471,37 @@ function prepareContribution(
     reason: 'ambiguous-coactive-state-conflict', message: plannedPseudos.ambiguity
   }] };
 
+  if (compatibility && (parsed.resources.length > 0 || semanticRules.some((rule) =>
+    rule.declarations.some((declaration) => identifyAssetValue(declaration.value, bindings).assetValue)))) {
+    return { diagnostics: [{ code: 'GSS1101', severity: 'error', phase: 'validate', id: input.id,
+      reason: 'capability-not-registered',
+      message: 'Compatibility transformation of resources or bound Assets is not yet proved safe.' }] };
+  }
+  const physicalDeclarations = semanticRules.flatMap((rule) => rule.declarations.map((declaration) => ({
+    declaration, physical: compatibility?.expand(declaration)
+  })));
+  if (compatibility && physicalDeclarations.some(({ physical }) => physical === undefined)) {
+    return { diagnostics: [{ code: 'GSS1101', severity: 'error', phase: 'validate', id: input.id,
+      reason: 'capability-not-registered', message: 'Compatibility transformation cannot preserve this declaration shape.' }] };
+  }
+  if (compatibility && physicalDeclarations.some(({ declaration, physical }) =>
+    physical?.some((entry) => entry.important !== declaration.important))) {
+    return { diagnostics: [{ code: 'GSS1101', severity: 'error', phase: 'validate', id: input.id,
+      reason: 'capability-not-registered', message: 'Compatibility transformation changed declaration importance.' }] };
+  }
+  const compatibilityFallback = [...new Set(physicalDeclarations.filter(({ declaration, physical }) =>
+    physical?.some((entry) => entry.property !== declaration.property))
+    .map(({ declaration }) => declaration.property))].sort();
+  if (compatibilityFallback.length > 0) {
+    if (hasExplicitGlobal || config.atomizationFallback === 'error') {
+      return { diagnostics: [{ code: 'GSS1101', severity: 'error', phase: 'validate', id: input.id,
+        reason: 'capability-not-registered', message: 'Compatibility sequence cannot be safely atomized.' }] };
+    }
+    return preparePreservedContribution({ input, moduleId, parsed, rules: semanticRules,
+      conditionDiagnostics, fallbackProperties: [], fallbackCompatibilityProperties: compatibilityFallback,
+      nameAllocator, compatibility });
+  }
+
   const unsupportedProperties = [...new Set(
     semanticRules
       .flatMap(({ declarations }) => declarations.map(({ property }) => property))
@@ -463,7 +509,7 @@ function prepareContribution(
   )].sort();
   if (unsupportedProperties.length > 0) {
     // Preserved-mode selector rewriting cannot safely lower :global() yet.
-    if (externalRules.length > 0 || sameNodeRules.length > 0 || config.atomizationFallback === 'error') {
+    if (hasExplicitGlobal || config.atomizationFallback === 'error') {
       return {
         diagnostics: [{
           code: 'GSS1101',
@@ -483,7 +529,8 @@ function prepareContribution(
       rules: semanticRules,
       conditionDiagnostics,
       fallbackProperties: unsupportedProperties,
-      nameAllocator
+      nameAllocator,
+      compatibility
     });
   }
 
@@ -824,7 +871,9 @@ function prepareContribution(
   const resources = parsed.resources.map((resource) => planResource(resource, moduleId, bindings, nameAllocator));
   return {
     artifact,
-    rules,
+    rules: compatibility ? rules.map((rule) => ({ ...rule,
+      physicalDeclarations: compatibility.expand({ property: rule.identity.property,
+        value: rule.identity.value, important: rule.identity.important })! })) : rules,
     preservedBlocks: [],
     resources,
     diagnostics: conditionDiagnostics
@@ -838,7 +887,9 @@ function preparePreservedContribution(input: {
   rules: readonly ParsedStyleRule[];
   conditionDiagnostics: readonly GssDiagnostic[];
   fallbackProperties: readonly string[];
+  fallbackCompatibilityProperties?: readonly string[];
   nameAllocator: NameAllocatorPort;
+  compatibility?: CompatibilityTransformer | undefined;
 }): ModuleContribution {
   const roots = new Map<string, MutableScopeNode>();
   for (const rule of input.rules) {
@@ -858,12 +909,13 @@ function preparePreservedContribution(input: {
   );
   const css = [...input.rules]
     .sort((left, right) => left.sourceOrdinal - right.sourceOrdinal)
-    .map((rule) => renderPreservedRule(rule, input.moduleId, input.nameAllocator))
+    .map((rule) => renderPreservedRule(rule, input.moduleId, input.nameAllocator, input.compatibility))
     .join('\n\n');
-  const fallbackReasons = input.fallbackProperties.map((property) => ({
-    property,
-    reason: 'property-effect-not-registered' as const
-  }));
+  const fallbackReasons = [
+    ...input.fallbackProperties.map((property) => ({ property, reason: 'property-effect-not-registered' as const })),
+    ...(input.fallbackCompatibilityProperties ?? []).map((property) =>
+      ({ property, reason: 'compatibility-sequence-unatomizable' as const }))
+  ];
   const scopeSchema = { moduleId: input.moduleId, exports };
   const artifact: StyleModuleArtifact = {
     id: input.input.id,
@@ -889,7 +941,9 @@ function preparePreservedContribution(input: {
         code: 'GSS1104',
         severity: 'warning',
         phase: 'plan',
-        message: `Module was preserved because property effects are not registered: ${input.fallbackProperties.join(', ')}.`,
+        message: input.fallbackCompatibilityProperties?.length
+          ? `Module was preserved because compatibility sequences cannot be atomized: ${input.fallbackCompatibilityProperties.join(', ')}.`
+          : `Module was preserved because property effects are not registered: ${input.fallbackProperties.join(', ')}.`,
         id: input.input.id,
         reason: 'module-preserved-fallback',
         suggestion: 'Verify the property name or register its complete effect family.'
@@ -901,7 +955,8 @@ function preparePreservedContribution(input: {
 function renderPreservedRule(
   rule: ParsedStyleRule,
   moduleId: string,
-  nameAllocator: NameAllocatorPort
+  nameAllocator: NameAllocatorPort,
+  compatibility?: CompatibilityTransformer
 ): string {
   const selector = selectorParser((root) => {
     for (const branch of root.nodes) {
@@ -920,6 +975,7 @@ function renderPreservedRule(
     }
   }).processSync(rule.selector);
   const declarations = rule.declarations
+    .flatMap((declaration) => compatibility ? compatibility.expand(declaration)! : [declaration])
     .map(({ property, value, important }) =>
       `  ${property}: ${value}${important ? ' !important' : ''};`
     )
@@ -1365,7 +1421,9 @@ function renderRelationCombinator(
 function renderRule(rule: PlannedDeclaration, resolve: AssetUrlResolver): string {
   const { property, important } = rule.identity;
   const value = renderAssetValue(rule.identity, resolve);
-  let css = `${rule.selector} {\n  ${property}: ${value}${important ? ' !important' : ''};\n}`;
+  const declarations = rule.physicalDeclarations ?? [{ property, value, important }];
+  let css = `${rule.selector} {\n${declarations.map((declaration) =>
+    `  ${declaration.property}: ${declaration.value}${declaration.important ? ' !important' : ''};`).join('\n')}\n}`;
   for (const wrapper of [...(rule.wrappers ?? [])].reverse()) {
     css = `@${wrapper.kind} ${wrapper.query} {\n${indentCss(css)}\n}`;
   }

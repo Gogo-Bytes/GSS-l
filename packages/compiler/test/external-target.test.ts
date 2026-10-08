@@ -157,6 +157,17 @@ describe('anchored external declaration target', () => {
     expect(session.finalize().css).not.toContain(':global(');
   });
 
+  it('rejects preserved fallback when an explicit-global observed selector cannot be lowered', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    expect(session.replaceStylesheet({ id, source }).committed).toBe(true);
+    const previous = session.finalize();
+    expect(session.replaceStylesheet({ id, source:
+      '.editor:has(:global(.external)) { unregistered-property: value; }'
+    })).toMatchObject({ committed: false, generation: 1,
+      diagnostics: [{ code: 'GSS1101', reason: 'capability-not-registered' }] });
+    expect(session.finalize()).toEqual(previous);
+  });
+
   it('rejects an unproved external compound inside a functional condition with rollback', () => {
     const session = createGssCompilerSession({ projectRoot: '/project' });
     expect(session.replaceStylesheet({ id, source }).committed).toBe(true);

@@ -20,7 +20,8 @@ const controls = [
   'hasSpecificityNegativeControl', 'externalAnchorNegativeControl',
   'externalAncestorNegativeControl', 'externalMediaNegativeControl',
   'externalCompoundNegativeControl', 'ownedExternalConditionNegativeControl',
-  'ownedExternalRefinementNegativeControl', 'externalObservationNegativeControl', 'functionalExternalNegativeControl'
+  'ownedExternalRefinementNegativeControl', 'externalObservationNegativeControl', 'functionalExternalNegativeControl',
+  'compatibilitySequenceNegativeControl'
 ];
 const server = spawn('corepack', ['pnpm', '--filter', '@gss-l/testing', 'browser:reference'], {
   cwd: root, stdio: ['ignore', 'pipe', 'pipe']
@@ -59,7 +60,7 @@ try {
   await mkdir(path.dirname(artifact), { recursive: true });
   await writeFile(artifact, JSON.stringify({ result, errors }, null, 2));
   const comparisons = result.results?.reduce((sum, fixture) => sum + fixture.comparisons, 0);
-  const failed = result.status !== 'passed' || result.results?.length !== 109 || comparisons !== 1142 ||
+  const failed = result.status !== 'passed' || result.results?.length !== 110 || comparisons !== 1144 ||
     result.results.some((fixture) => fixture.comparisons <= 0 || fixture.differences.length || fixture.expectedFailures.length) ||
     controls.some((key) => result[key]?.detected !== true) ||
     result.hasSpecificityDedup?.negativeControl?.detected !== true ||
