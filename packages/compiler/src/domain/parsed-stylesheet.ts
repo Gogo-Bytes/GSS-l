@@ -28,6 +28,8 @@ export type ParsedHasCondition = {
   observedClass?: string;
   observedState?: string;
   observedResidual?: string;
+  /** Number of externally supplied classes in a class-only residual compound. */
+  observedResidualClassCount?: number;
 };
 
 export type ParsedCondition = {

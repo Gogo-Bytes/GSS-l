@@ -606,9 +606,8 @@ function prepareContribution(
     const observations = rule.observations.at(-1)!;
     const observedSpecificity = (observation: ParsedHasCondition) => observation.observedClass
       ? 1 + Number(Boolean(observation.observedState))
-      : observation.observedResidual?.startsWith(':') || observation.observedResidual?.startsWith('[')
-        ? 1
-        : 0;
+      : observation.observedResidualClassCount ??
+        (observation.observedResidual?.startsWith(':') || observation.observedResidual?.startsWith('[') ? 1 : 0);
     const selectorListSpecificity = observations.length > 1
       ? Math.max(...observations.map(observedSpecificity))
       : undefined;

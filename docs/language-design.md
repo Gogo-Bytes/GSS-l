@@ -170,7 +170,13 @@ Supported functional conditions include `:not()`, `:is()`, and `:where()` over s
 }
 ```
 
-The subject and observed node use independent references:
+For a third-party observed class, the explicit global form keeps only the subject owned by GSS:
+
+```gss
+.card:has(:global(.external-error)) { border-color: red; }
+```
+
+The subject and a **local** observed node use independent references:
 
 ```tsx
 <div className={styles.card}>

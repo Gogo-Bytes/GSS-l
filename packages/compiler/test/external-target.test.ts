@@ -101,6 +101,46 @@ describe('anchored external declaration target', () => {
     }
   });
 
+  it('observes an explicit external class inside :has without exporting or classing that node', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    const result = session.replaceStylesheet({ id, source:
+      '.editor:has(:global(.ProseMirror-focused)) { color: red; }'
+    });
+    expect(result).toMatchObject({ committed: true, diagnostics: [] });
+    const schema = session.getScopeSchema(id)!;
+    expect(Object.keys(schema.exports)).toEqual(['editor']);
+    expect(schema.exports.editor!.targets).toEqual({});
+    const css = session.finalize().css;
+    expect(css).toContain(':has(.ProseMirror-focused)');
+    expect(css).not.toContain(':global(');
+    expect(JSON.stringify(schema)).not.toContain('ProseMirror-focused');
+  });
+
+  it.each([
+    '.input:checked + .label { color: red; } .input .label:has(:global(.external)) { color: blue; }',
+    '.input:checked:disabled + .label { color: red; } .input .label:has(:global(.external.active)) { color: blue; }'
+  ])('rejects coactive structural and external observations at equal native specificity: %s', (unsafe) => {
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    expect(session.replaceStylesheet({ id, source: '.label { color: green; }' }).committed).toBe(true);
+    const previous = session.finalize();
+    const result = session.replaceStylesheet({ id, source: unsafe });
+    expect(result).toMatchObject({ committed: false, generation: 1,
+      diagnostics: [{ code: 'GSS1205', reason: 'ambiguous-coactive-state-conflict' }] });
+    expect(session.finalize()).toEqual(previous);
+  });
+
+  it('rejects an unsupported external :has list without a specificity proof transactionally', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    expect(session.replaceStylesheet({ id, source }).committed).toBe(true);
+    const previous = session.finalize();
+    const result = session.replaceStylesheet({ id, source:
+      '.editor:has(:global(.ProseMirror-focused), .owned) { color: red; }'
+    });
+    expect(result).toMatchObject({ committed: false, generation: 1,
+      diagnostics: [{ code: 'GSS1101', reason: 'capability-not-registered' }] });
+    expect(session.finalize()).toEqual(previous);
+  });
+
   it('keeps owned declarations and external targets separate in one Module', () => {
     const session = createGssCompilerSession({ projectRoot: '/project' });
     const result = session.replaceStylesheet({ id, source:

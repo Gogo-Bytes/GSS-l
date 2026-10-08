@@ -459,7 +459,11 @@ function parseHasConditions(pseudo: Pseudo): readonly ParsedHasCondition[] | und
     if (!condition) return undefined;
     conditions.push(condition);
   }
-  return conditions.length > 0 ? conditions : undefined;
+  // An external class in a selector list needs a list-maximum specificity
+  // proof before it can share the existing observed-branch lowering.
+  return conditions.length > 0 && !(conditions.length > 1 &&
+    conditions.some((condition) => condition.observedResidual?.startsWith('.')))
+    ? conditions : undefined;
 }
 
 function parseHasSelector(nodes: readonly Node[]): ParsedHasCondition | undefined {
@@ -495,6 +499,12 @@ function parseHasSelector(nodes: readonly Node[]): ParsedHasCondition | undefine
   }
 
   if (index !== nodes.length) return undefined;
+  if (observed.type === 'pseudo' && observed.value === ':global' &&
+    observed.nodes.length === 1 && observed.nodes[0]!.nodes.length > 0 &&
+    observed.nodes[0]!.nodes.every((part) => part.type === 'class')) {
+    return { relation, observedResidual: observed.nodes[0]!.toString(),
+      observedResidualClassCount: observed.nodes[0]!.nodes.length };
+  }
   if (observed.type === 'attribute') {
     const condition = parseAttributeCondition(observed as Attribute);
     return condition
