@@ -36,6 +36,12 @@ positive capability matrix and ADRs. An unsafe combination that is deliberately
 outside accepted semantics should keep failing closed; a construct inside the
 accepted matrix is an MVP defect and needs a public-seam regression.
 
+The hyphenated-root-key finding was subsequently fixed in the GSS-l Compiler:
+invalid JavaScript identifiers now use private generated bindings while the
+exported object retains the authored quoted key. A public Compiler regression
+covers `.button-primary`; the other observations remain classification leads,
+not silently expanded support.
+
 The pilot's successful modules did not cover `@supports`, `@container`,
 `@layer`, `@font-face`, CSS asset `url()`, or all eight original Stage 9
 inventory areas. No size benefit, author feedback, or full migration acceptance

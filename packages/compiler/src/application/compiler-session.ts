@@ -1483,10 +1483,17 @@ function indentCss(css: string): string {
 
 function renderModuleCode(exports: Readonly<Record<string, ScopeNodeSchema>>): string {
   const names = Object.keys(exports).sort();
-  const declarations = names.map((name) =>
-    `const ${name} = ${renderScopeObject(exports[name]!)};`
+  const bindings = names.map((name, index) => ({
+    name,
+    binding: /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name) ? name : `__gss_scope_${index}`
+  }));
+  const declarations = bindings.map(({ name, binding }) =>
+    `const ${binding} = ${renderScopeObject(exports[name]!)};`
   );
-  declarations.push(`export default { ${names.join(', ')} };`);
+  const exported = bindings.map(({ name, binding }) => name === binding
+    ? name
+    : `${JSON.stringify(name)}: ${binding}`);
+  declarations.push(`export default { ${exported.join(', ')} };`);
   return `${declarations.join('\n')}\n`;
 }
 

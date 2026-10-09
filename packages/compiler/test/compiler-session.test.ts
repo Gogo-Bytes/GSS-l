@@ -64,6 +64,19 @@ describe('GssCompilerSession', () => {
     expect(css).not.toContain(`\n  ${loser}\n`);
   });
 
+  it('renders hyphenated root scopes as valid JavaScript object keys', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/button.gss',
+      source: '.button-primary { color: red; }'
+    });
+
+    expect(replacement.module?.moduleCode).toMatch(
+      /^const __gss_scope_0 = \{ self: "[^"]+" \};\nexport default \{ "button-primary": __gss_scope_0 \};\n$/
+    );
+  });
+
   it('emits declarations using the public branded scope object type', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 
