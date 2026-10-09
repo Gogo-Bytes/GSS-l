@@ -369,4 +369,4 @@ These are dependency groups over the original labels and stage criteria, **not n
 
 ## After the MVP
 
-Use pilot evidence—not assumptions—to prioritize deferred work in [`deferred-capabilities.md`](deferred-capabilities.md), including additional framework Adapters, CSS code splitting, editor integration, broader raw escape capabilities, and short/hash naming.
+Use pilot evidence—not assumptions—to prioritize deferred work in [`deferred-capabilities.md`](deferred-capabilities.md), including additional framework Adapters, CSS code splitting, editor integration, broader raw escape capabilities, short/hash naming, and separate final-byte GSS CSS minification.
