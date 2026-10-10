@@ -21,6 +21,26 @@ it.each([
   expect(decodeReadableAtomicName(name)).toEqual(identity);
 });
 
+it('keeps every canonical identity field collision-free', () => {
+  const base: PureDeclarationIdentity = {
+    layer: 'base', condition: 'media:x', state: 'hover', pseudoElement: 'before',
+    property: 'color', value: 'red', important: false,
+    ownership: { moduleId: 'module.gss', path: ['card', 'icon'], specificity: 2 }
+  };
+  const variants: PureDeclarationIdentity[] = [
+    { ...base, layer: 'base-x' }, { ...base, condition: 'media_y' },
+    { ...base, state: 'hover-x' }, { ...base, pseudoElement: 'after' },
+    { ...base, property: 'background-color' }, { ...base, value: 'red-x' },
+    { ...base, important: true },
+    { ...base, ownership: { ...base.ownership!, moduleId: 'module-x.gss' } },
+    { ...base, ownership: { ...base.ownership!, path: ['card-x', 'icon'] } },
+    { ...base, ownership: { ...base.ownership!, specificity: 3 } }
+  ];
+  const names = new Set(variants.map((identity) => createReadableAtomicName(identity)));
+  expect(names.size).toBe(variants.length);
+  for (const identity of variants) expect(decodeReadableAtomicName(createReadableAtomicName(identity))).toEqual(identity);
+});
+
 it.each([
   'gss-s--layer_unlayered--path_card',
   'gss-a--layer_unlayered--condition_base--state_self--property_color--value_red--importance_normal--module_x',
