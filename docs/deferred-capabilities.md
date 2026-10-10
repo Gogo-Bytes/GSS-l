@@ -137,6 +137,34 @@
 - **重新评估**：MVP 验收完成后，逐项依据真实源码、accepted matrix、public-seam 回归、独立浏览器参考和回滚证据重新评估。该项不是 Stage 9 通过记录，也不表示所有观察到的构造具有相同的产品决策。
 - **依据**：[Click UI pilot evidence](click-ui-pilot-evidence.md)；owner decision recorded during MVP execution。
 
+### D019 — Multiple interleaved runtime relations
+
+- **当前行为**：支持一个 runtime relation 后接一个或多个 ownership-descendant edges 的 bounded 结构；在 ownership descendant 之后再次出现 runtime relation，或包含多个交错 runtime witnesses 的 selector，继续 fail closed。
+- **原因**：多个 runtime witness 的绑定、ownership 与 runtime edge 的优先级，以及 implication/ambiguity 规则尚未形成 accepted product semantics。本轮不通过代码推断这些规则。
+- **重新评估**：MVP 完成后单独讨论并决定是否扩大语义；若接受，必须先记录 witness 绑定、cascade precedence、ambiguity、ScopeSchema 与 browser-oracle 契约，再实现 public regressions 和 hand-authored native fixtures。
+- **依据**：owner decision during MVP execution；现有 bounded interleaved implementation 与 [ADR-0013](adr/0013-prefer-logically-narrower-runtime-relations.md)。该项不是 Stage 9 通过记录。
+
+### D020 — Cross-kind condition precedence
+
+- **当前行为**：已注册的同 kind `@media`、`@supports`、`@container` 使用各自配置顺序；不同 condition kind 的组合保持当前确定性排序，但不宣称这是完整产品 cascade precedence。
+- **原因**：跨 kind 的全局优先级、nested condition 比较、source order 与 configured order 的关系，以及跨 kind implication/ambiguity 尚未形成 accepted semantics。本轮不修改 public config 或凭实现推断语义。
+- **重新评估**：MVP 完成后单独讨论并记录 kind precedence 与 nested-condition contract，再补充 ADR、Compiler regressions 和 hand-authored browser fixtures。
+- **依据**：owner decision during MVP execution；[ADR-0027](adr/0027-condition-order-and-coactivity.md)；现有 bounded rule-order planner。该项不是 Stage 9 通过记录。
+
+### D021 — Compiler output tracing and report API expansion
+
+- **当前行为**：Compiler 继续提供当前 v1 CSS、manifest、report、Module artifact 和 diagnostics；不新增 CSS source map、source-to-rule tracing 或 declaration/class/size cost 字段。
+- **原因**：这些字段会扩大 `FinalizedGssSnapshot`、`StyleModuleArtifact` 和 Adapter 消费的 public contract。本轮先完成既有 MVP 语义与确定性验证，不在未定义字段语义时修改 API。
+- **重新评估**：MVP 核心安全边界、兼容性和宿主验证完成后，单独设计字段 schema、版本兼容、source attribution 和 Vite consumption，再记录 ADR 并实现。
+- **依据**：owner decision during MVP execution；[compiler interface](compiler-interface.md)。该项不是 Stage 9 通过记录。
+
+### D022 — Cross-file typed React provenance
+
+- **当前行为**：React Adapter 仅降低本文件内已证明的 GSS scope reference、local type alias 和 direct parent-to-child typed props；无法证明的 imported/shared type reference 保持不变，不猜测跨文件 provenance。
+- **原因**：跨文件 multi-hop forwarding 需要额外的 TypeScript source/type graph 输入，会扩大 Adapter port 与安全边界。本轮不修改 transform input contract，也不把未验证的类型推断当作安全 lowering。
+- **重新评估**：MVP 核心 Compiler/Vite/oracle 验证完成后，单独设计 provenance port、multi-hop 限制、negative fixtures 和 source invalidation contract，再实现 S6.11/S6.13。
+- **依据**：owner decision during MVP execution；现有 bounded React Adapter contract。该项不是 Stage 9 通过记录。
+
 ## Intentional non-goals and guarantee boundaries
 
 ### N001 — 任意消费侧 class composition winner

@@ -67,13 +67,20 @@ try {
   await mkdir(path.dirname(artifact), { recursive: true });
   await writeFile(artifact, JSON.stringify({ result, hostCompatibility, errors }, null, 2));
   const comparisons = result.results?.reduce((sum, fixture) => sum + fixture.comparisons, 0);
-  const failed = result.status !== 'passed' || result.results?.length !== 111 || comparisons !== 1151 ||
+  const readings = result.results?.flatMap(({ reference, atomic }) => [...reference, ...atomic]) ?? [];
+  const attributionErrors = readings.filter((reading) =>
+    typeof reading.phase !== 'string' || typeof reading.node !== 'string' ||
+    typeof reading.moduleId !== 'string' || !Array.isArray(reading.path) ||
+    typeof reading.property !== 'string' || typeof reading.subject !== 'string' ||
+    typeof reading.value !== 'string' || typeof reading.expected !== 'string'
+  ).length;
+  const failed = result.status !== 'passed' || result.results?.length !== 112 || comparisons !== 1159 || attributionErrors > 0 ||
     result.results.some((fixture) => fixture.comparisons <= 0 || fixture.differences.length || fixture.expectedFailures.length) ||
     controls.some((key) => result[key]?.detected !== true) ||
     result.hasSpecificityDedup?.negativeControl?.detected !== true ||
     result.hasSpecificityDedup?.fixtures?.some((fixture) => fixture.differences.length) || errors.length ||
     hostCompatibility.detected !== true || hostCompatibility.pageErrors?.length;
-  if (failed) throw new Error(`Browser oracle gate failed: status=${result.status}, fixtures=${result.results?.length}, comparisons=${comparisons}, errors=${errors.length}, host=${hostCompatibility.error ?? hostCompatibility.detected}. See ${artifact}`);
+  if (failed) throw new Error(`Browser oracle gate failed: status=${result.status}, fixtures=${result.results?.length}, comparisons=${comparisons}, attributionErrors=${attributionErrors}, errors=${errors.length}, host=${hostCompatibility.error ?? hostCompatibility.detected}. See ${artifact}`);
   console.log(`Browser oracle passed: ${result.results.length} fixtures, ${comparisons} comparisons, ${controls.length} controls; Vite host artifact/control passed. ${artifact}`);
 } finally {
   await browser?.close();

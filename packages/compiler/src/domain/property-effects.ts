@@ -169,7 +169,8 @@ const families: readonly PropertyFamily[] = [
 ];
 
 function createPropertyEffects(): Readonly<Record<string, readonly string[]>> {
-  const registry: Record<string, readonly string[]> = {};
+  // Authored CSS property names must never inherit entries from Object.prototype.
+  const registry: Record<string, readonly string[]> = Object.create(null);
   for (const [shorthand, longhands] of families) {
     registry[shorthand] = longhands;
     for (const longhand of longhands) registry[longhand] ??= [longhand];

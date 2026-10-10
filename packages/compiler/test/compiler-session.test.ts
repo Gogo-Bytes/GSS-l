@@ -613,6 +613,21 @@ describe('GssCompilerSession', () => {
     );
   });
 
+  it.each(['constructor', 'tostring'])('fails closed for inherited object keys used as unknown properties: %s', (property) => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const id = '/project/src/properties.gss';
+    expect(compiler.replaceStylesheet({ id, source: '.card { color: red; }' }).committed).toBe(true);
+    const previous = compiler.finalize();
+    const schema = compiler.getScopeSchema(id);
+    const result = compiler.replaceStylesheet({ id, source: `.card { ${property}: 1; }` });
+    expect(result).toMatchObject({ committed: true, module: { compilationMode: 'preserved' } });
+    expect(result.module!.fallbackReasons).toEqual([{ property, reason: 'property-effect-not-registered' }]);
+    expect(compiler.finalize().css).toContain(`${property}: 1;`);
+    expect(compiler.replaceStylesheet({ id, source: '.card { color: red; }' }).committed).toBe(true);
+    expect(compiler.finalize().css).toBe(previous.css);
+    expect(compiler.getScopeSchema(id)).toEqual(schema);
+  });
+
   it('resolves grid family shorthand and longhand effects', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 
