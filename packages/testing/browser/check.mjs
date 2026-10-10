@@ -67,7 +67,7 @@ try {
   await mkdir(path.dirname(artifact), { recursive: true });
   await writeFile(artifact, JSON.stringify({ result, hostCompatibility, errors }, null, 2));
   const comparisons = result.results?.reduce((sum, fixture) => sum + fixture.comparisons, 0);
-  const failed = result.status !== 'passed' || result.results?.length !== 111 || comparisons !== 1151 ||
+  const failed = result.status !== 'passed' || result.results?.length !== 112 || comparisons !== 1159 ||
     result.results.some((fixture) => fixture.comparisons <= 0 || fixture.differences.length || fixture.expectedFailures.length) ||
     controls.some((key) => result[key]?.detected !== true) ||
     result.hasSpecificityDedup?.negativeControl?.detected !== true ||

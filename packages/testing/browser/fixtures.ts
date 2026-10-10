@@ -74,6 +74,31 @@ export const fixtures: readonly ReferenceFixture[] = [
     ]
   },
   {
+    name: 'native-empty-attribute-module-isolation',
+    modules: [
+      { id: 'EmptyA.gss', source: '.card { color: black; } .card[data-mode=""] { color: red; }' },
+      { id: 'EmptyB.gss', source: '.card { color: black; } .card[aria-label=""] { color: blue; }' }
+    ],
+    nodes: [
+      { id: 'a', moduleId: 'EmptyA.gss', path: ['card'], expected: { color: 'rgb(0, 0, 0)' } },
+      { id: 'b', moduleId: 'EmptyB.gss', path: ['card'], expected: { color: 'rgb(0, 0, 0)' } }
+    ],
+    phases: [
+      { name: 'empty-values', changes: [
+        { node: 'a', attributes: { 'data-mode': '' } },
+        { node: 'b', attributes: { 'aria-label': '' } }
+      ], expected: { a: { color: 'rgb(255, 0, 0)' }, b: { color: 'rgb(0, 0, 255)' } } },
+      { name: 'nonempty-values', changes: [
+        { node: 'a', attributes: { 'data-mode': 'ready' } },
+        { node: 'b', attributes: { 'aria-label': 'ready' } }
+      ], expected: { a: { color: 'rgb(0, 0, 0)' }, b: { color: 'rgb(0, 0, 0)' } } },
+      { name: 'restored', changes: [
+        { node: 'a', attributes: { 'data-mode': null } },
+        { node: 'b', attributes: { 'aria-label': null } }
+      ], expected: { a: { color: 'rgb(0, 0, 0)' }, b: { color: 'rgb(0, 0, 0)' } } }
+    ]
+  },
+  {
     name: 'descendant-ordered-subsequence',
     modules: [{ id: 'Tree.gss', source: [
       '.icon { display: block; color: green; }',
