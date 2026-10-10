@@ -137,6 +137,13 @@
 - **重新评估**：MVP 验收完成后，逐项依据真实源码、accepted matrix、public-seam 回归、独立浏览器参考和回滚证据重新评估。该项不是 Stage 9 通过记录，也不表示所有观察到的构造具有相同的产品决策。
 - **依据**：[Click UI pilot evidence](click-ui-pilot-evidence.md)；owner decision recorded during MVP execution。
 
+### D019 — Multiple interleaved runtime relations
+
+- **当前行为**：支持一个 runtime relation 后接一个或多个 ownership-descendant edges 的 bounded 结构；在 ownership descendant 之后再次出现 runtime relation，或包含多个交错 runtime witnesses 的 selector，继续 fail closed。
+- **原因**：多个 runtime witness 的绑定、ownership 与 runtime edge 的优先级，以及 implication/ambiguity 规则尚未形成 accepted product semantics。本轮不通过代码推断这些规则。
+- **重新评估**：MVP 完成后单独讨论并决定是否扩大语义；若接受，必须先记录 witness 绑定、cascade precedence、ambiguity、ScopeSchema 与 browser-oracle 契约，再实现 public regressions 和 hand-authored native fixtures。
+- **依据**：owner decision during MVP execution；现有 bounded interleaved implementation 与 [ADR-0013](adr/0013-prefer-logically-narrower-runtime-relations.md)。该项不是 Stage 9 通过记录。
+
 ## Intentional non-goals and guarantee boundaries
 
 ### N001 — 任意消费侧 class composition winner
