@@ -1481,12 +1481,26 @@ function indentCss(css: string): string {
   return css.split('\n').map((line) => `  ${line}`).join('\n');
 }
 
+const reservedBindings = new Set([
+  'await', 'break', 'case', 'catch', 'class', 'const', 'continue', 'debugger',
+  'default', 'delete', 'do', 'else', 'enum', 'export', 'extends', 'false',
+  'finally', 'for', 'function', 'if', 'import', 'in', 'instanceof', 'new',
+  'null', 'return', 'super', 'switch', 'this', 'throw', 'true', 'try', 'typeof',
+  'var', 'void', 'while', 'with', 'yield', 'implements', 'interface', 'let',
+  'package', 'private', 'protected', 'public', 'static', 'arguments', 'eval'
+]);
+
 function renderModuleCode(exports: Readonly<Record<string, ScopeNodeSchema>>): string {
   const names = Object.keys(exports).sort();
-  const bindings = names.map((name, index) => ({
-    name,
-    binding: /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name) ? name : `__gss_scope_${index}`
-  }));
+  const authoredNames = new Set(names);
+  const bindings = names.map((name, index) => {
+    if (/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name) && !reservedBindings.has(name)) {
+      return { name, binding: name };
+    }
+    let binding = `__gss_scope_${index}`;
+    while (authoredNames.has(binding)) binding += '_';
+    return { name, binding };
+  });
   const declarations = bindings.map(({ name, binding }) =>
     `const ${binding} = ${renderScopeObject(exports[name]!)};`
   );

@@ -77,6 +77,20 @@ describe('GssCompilerSession', () => {
     );
   });
 
+  it('emits valid and collision-free JavaScript for reserved and generated-looking scope names', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const result = compiler.replaceStylesheet({
+      id: '/project/keys.gss',
+      source: '.__gss_scope_2 { color: red; } .default { color: blue; } .z-bad { color: green; }'
+    });
+
+    expect(result.committed).toBe(true);
+    const code = result.module!.moduleCode;
+    const styles = new Function(`${code.replace('export default', 'return')}`)() as Record<string, { self: string }>;
+    expect(Object.keys(styles).sort()).toEqual(['__gss_scope_2', 'default', 'z-bad']);
+    expect(new Set(Object.values(styles).map(({ self }) => self)).size).toBe(3);
+  });
+
   it('emits declarations using the public branded scope object type', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 

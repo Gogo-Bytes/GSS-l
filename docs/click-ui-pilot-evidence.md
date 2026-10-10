@@ -38,9 +38,11 @@ accepted matrix is an MVP defect and needs a public-seam regression.
 
 The hyphenated-root-key finding was subsequently fixed in the GSS-l Compiler:
 invalid JavaScript identifiers now use private generated bindings while the
-exported object retains the authored quoted key. A public Compiler regression
-covers `.button-primary`; the other observations remain classification leads,
-not silently expanded support.
+exported object retains the authored quoted key. Public Compiler regressions
+cover `.button-primary`, reserved words, and generated-binding collisions.
+The owner explicitly chose to postpone the top-level comment question and the
+other Click UI observations until after MVP work; current fail-closed semantics
+and the original MVP acceptance gates remain unchanged.
 
 The pilot's successful modules did not cover `@supports`, `@container`,
 `@layer`, `@font-face`, CSS asset `url()`, or all eight original Stage 9
