@@ -124,6 +124,14 @@ describe('PropertyEffectRegistry', () => {
       .toBe(PROPERTY_EFFECT_INDEPENDENT_PROPERTIES.length);
   });
 
+  it.each(['constructor', 'toString', '__proto__', 'hasOwnProperty'])(
+    'does not inherit an apparent property effect from the object prototype: %s', (property) => {
+      expect(classifyPropertyEffect(property)).toEqual({ kind: 'unknown', effects: [] });
+      expect(isRegisteredPropertyEffect(property)).toBe(false);
+      expect(effectsOfProperty(property)).toEqual([property]);
+    }
+  );
+
   it('keeps unknown properties outside the registered completeness invariant', () => {
     expect(classifyPropertyEffect('definitely-unknown-property')).toEqual({ kind: 'unknown', effects: [] });
     expect(isRegisteredPropertyEffect('definitely-unknown-property')).toBe(false);
