@@ -123,6 +123,20 @@
 - **重新评估**：产品语义和 NameAllocator port稳定，并获得 CSS、JavaScript、SSR HTML 的 raw/gzip/Brotli 与增量 churn数据后。
 - **依据**：[ADR-0029](adr/0029-use-reversible-readable-names-for-the-first-version.md)。
 
+### D017 — Production GSS CSS final minification
+
+- **当前行为**：GSS 的中央 CSS asset 已按宿主有效目标进行受约束的兼容转换，但由 GSS 独立输出、未经过 Vite 普通 CSS asset 的最终 minifier；保留可读空白/格式。这与 D016 的 class/resource 短名策略是两个独立问题。
+- **原因**：不能直接把该 asset 送入可能再次变换声明、重排规则或改写 URL 的宿主流水线；当前先保证语义顺序、Asset URL、最终内容 hash、manifest/report 和 source attribution。试点已测得中央 GSS CSS 36,376 B raw / 4,453 B gzip / 3,890 B Brotli；全站 CSS 相比原版 +20,759 B raw / +383 B gzip / +515 B Brotli，不能把所有增量都归因于空白或短名缺失。
+- **重新评估**：在可证明只压缩格式、不改变已验证的物理声明序列、cascade、资源、URL 与 source mapping 的边界上，做目标一致的 final-byte minification；重复干净/增量构建与真实浏览器对照，并分别测 raw/gzip/Brotli、初始 HTML 直接引用 CSS 与懒加载成本。不得把该项的完成等同于 D016 短名或 D015 分包已完成。
+- **依据**：[ADR-0054](adr/0054-take-compatibility-targets-from-the-host.md)、[ADR-0028](adr/0028-use-one-central-css-asset-and-snapshot-hmr.md)、本地真实项目试点 `collaborative-document` 的 `docs/gss-l-pilot.md`（仅本地测试分支，非已验收产物）。
+
+### D018 — Click UI follow-up syntax and composition gaps
+
+- **当前行为**：Click UI 试点中发现的顶层 CSS 注释、复杂属性/后代选择器、条件冲突和动态 scope 使用等场景，暂不在本轮 MVP 中扩大支持；当前不满足 accepted capability matrix 的输入继续 fail closed。
+- **原因**：本轮优先完成原定 MVP 的既有 S2–S8 验证路径，不根据单个真实项目试点结果临时扩展语言语义或 fallback 范围。
+- **重新评估**：MVP 验收完成后，逐项依据真实源码、accepted matrix、public-seam 回归、独立浏览器参考和回滚证据重新评估。该项不是 Stage 9 通过记录，也不表示所有观察到的构造具有相同的产品决策。
+- **依据**：[Click UI pilot evidence](click-ui-pilot-evidence.md)；owner decision recorded during MVP execution。
+
 ## Intentional non-goals and guarantee boundaries
 
 ### N001 — 任意消费侧 class composition winner

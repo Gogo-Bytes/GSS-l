@@ -64,6 +64,58 @@ describe('GssCompilerSession', () => {
     expect(css).not.toContain(`\n  ${loser}\n`);
   });
 
+  it('renders hyphenated root scopes as valid JavaScript object keys', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/button.gss',
+      source: '.button-primary { color: red; }'
+    });
+
+    expect(replacement.module?.moduleCode).toMatch(
+      /^const __gss_scope_0 = \{ self: "[^"]+" \};\nexport default \{ "button-primary": __gss_scope_0 \};\n$/
+    );
+  });
+
+  it('emits valid and collision-free JavaScript for reserved and generated-looking scope names', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const result = compiler.replaceStylesheet({
+      id: '/project/keys.gss',
+      source: '.__gss_scope_2 { color: red; } .default { color: blue; } .z-bad { color: green; }'
+    });
+
+    expect(result.committed).toBe(true);
+    const code = result.module!.moduleCode;
+    const styles = new Function(`${code.replace('export default', 'return')}`)() as Record<string, { self: string }>;
+    expect(Object.keys(styles).sort()).toEqual(['__gss_scope_2', 'default', 'z-bad']);
+    expect(new Set(Object.values(styles).map(({ self }) => self)).size).toBe(3);
+  });
+
+  it('preserves prototype-named root and nested scopes as own exported properties', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const result = compiler.replaceStylesheet({
+      id: '/project/keys.gss',
+      source: '.__proto__ { color: red; } .constructor { color: blue; } ' +
+        '.card { width: 1px; } .card .__proto__ { color: green; }'
+    });
+    expect(result.committed).toBe(true);
+    const schema = result.module!.scopeSchema.exports;
+    expect(Object.hasOwn(schema, '__proto__')).toBe(true);
+    expect(Object.hasOwn(schema, 'constructor')).toBe(true);
+    expect(Object.hasOwn(schema.card!.targets, '__proto__')).toBe(true);
+
+    const code = result.module!.moduleCode;
+    const styles = new Function(code.replace('export default', 'return'))() as Record<string, {
+      self: string; __proto__: { self: string };
+    }>;
+    expect(Object.hasOwn(styles, '__proto__')).toBe(true);
+    expect(Object.hasOwn(styles, 'constructor')).toBe(true);
+    expect(Object.hasOwn(styles.card!, '__proto__')).toBe(true);
+    expect(styles.__proto__!.self).toBe(schema.__proto__!.selfClassName);
+    expect(styles.card!.__proto__!.self).toBe(schema.card!.targets.__proto__!.selfClassName);
+    expect(compiler.finalize().css).toContain('color: green;');
+  });
+
   it('emits declarations using the public branded scope object type', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 
@@ -823,6 +875,28 @@ describe('GssCompilerSession', () => {
     );
   });
 
+  it('retains normal and important declarations across configured layers', () => {
+    const compiler = createGssCompilerSession({
+      projectRoot: '/project',
+      layers: ['base', 'components']
+    });
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/layered-priority.gss',
+      source: [
+        '@layer components { .card { color: red !important; } }',
+        '@layer base { .card { color: blue; } }'
+      ].join('\n')
+    });
+
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    const snapshot = compiler.finalize();
+    expect(snapshot.css).toContain('@layer base, components;');
+    expect(snapshot.manifest.rules).toEqual(expect.arrayContaining([
+      expect.objectContaining({ value: 'red', important: true, selector: expect.stringContaining('--layer_components') }),
+      expect.objectContaining({ value: 'blue', important: false, selector: expect.stringContaining('--layer_base') })
+    ]));
+  });
+
   it('preserves a registered condition around an ancestor-state atom', () => {
     const compiler = createGssCompilerSession({
       projectRoot: '/project',
@@ -1430,6 +1504,33 @@ describe('GssCompilerSession', () => {
 
     expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
     expect(compiler.finalize().report.rules).toBe(2);
+  });
+
+  it('applies zero specificity to a where-wrapped attribute condition', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/where-attribute.gss',
+      source: [
+        '.control:where([data-mode=ready]) { color: red; }',
+        '.control:focus { color: blue; }'
+      ].join('\n')
+    });
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+  });
+
+  it('counts an is-wrapped attribute condition toward specificity', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/is-attribute.gss',
+      source: [
+        '.control:is([data-mode=ready]) { color: red; }',
+        '.control:focus { color: blue; }'
+      ].join('\n')
+    });
+    expect(replacement).toMatchObject({
+      committed: false,
+      diagnostics: [{ code: 'GSS1205', reason: 'ambiguous-coactive-state-conflict' }]
+    });
   });
 
   it('accepts mutually exclusive positive and negative state conditions', () => {

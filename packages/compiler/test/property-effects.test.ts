@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  PROPERTY_EFFECT_INDEPENDENT_PROPERTIES,
   PROPERTY_EFFECT_REGISTRY_VERSION,
   classifyPropertyEffect,
   comparePropertyRenderOrder,
@@ -90,12 +91,14 @@ describe('PropertyEffectRegistry', () => {
     ['grid', 'grid-template-columns'],
     ['grid-area', 'grid-column-end'],
     ['grid-gap', 'row-gap'],
-    ['grid-gap', 'row-gap']
+    ['mask', 'mask-composite']
   ])('%s exposes the effect of %s', (property, effect) => {
     expect(effectsOfProperty(property)).toContain(effect);
   });
 
   it('keeps every registered shorthand relationship represented and duplicate-free', () => {
+    expect(new Set(Object.keys(registeredShorthandEffects)).size)
+      .toBe(Object.keys(registeredShorthandEffects).length);
     for (const [shorthand, expectedEffects] of Object.entries(registeredShorthandEffects)) {
       const effects = effectsOfProperty(shorthand);
       expect(effects).toEqual(expectedEffects);
@@ -107,6 +110,18 @@ describe('PropertyEffectRegistry', () => {
         expect(classifyPropertyEffect(effect)).toEqual({ kind: 'longhand', effects: [effect] });
       }
     }
+  });
+
+  it('classifies every accepted independent property explicitly', () => {
+    for (const property of PROPERTY_EFFECT_INDEPENDENT_PROPERTIES) {
+      expect(classifyPropertyEffect(property)).toEqual({ kind: 'longhand', effects: [property] });
+      expect(isRegisteredPropertyEffect(property)).toBe(true);
+    }
+  });
+
+  it('keeps the independent property inventory duplicate-free', () => {
+    expect(new Set(PROPERTY_EFFECT_INDEPENDENT_PROPERTIES).size)
+      .toBe(PROPERTY_EFFECT_INDEPENDENT_PROPERTIES.length);
   });
 
   it('keeps unknown properties outside the registered completeness invariant', () => {

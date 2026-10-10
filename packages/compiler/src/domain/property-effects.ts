@@ -179,7 +179,7 @@ function createPropertyEffects(): Readonly<Record<string, readonly string[]>> {
 
 const propertyEffects = createPropertyEffects();
 
-const independentProperties = new Set([
+export const PROPERTY_EFFECT_INDEPENDENT_PROPERTIES = [
   'color',
   'content',
   'cursor',
@@ -205,7 +205,9 @@ const independentProperties = new Set([
   'text-overflow',
   'visibility',
   'z-index'
-]);
+] as const;
+
+const independentProperties = new Set<string>(PROPERTY_EFFECT_INDEPENDENT_PROPERTIES);
 
 export type PropertyEffectClassification =
   | { kind: 'custom-property'; effects: readonly string[] }
