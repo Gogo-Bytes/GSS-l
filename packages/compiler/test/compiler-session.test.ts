@@ -875,6 +875,28 @@ describe('GssCompilerSession', () => {
     );
   });
 
+  it('retains normal and important declarations across configured layers', () => {
+    const compiler = createGssCompilerSession({
+      projectRoot: '/project',
+      layers: ['base', 'components']
+    });
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/layered-priority.gss',
+      source: [
+        '@layer components { .card { color: red !important; } }',
+        '@layer base { .card { color: blue; } }'
+      ].join('\n')
+    });
+
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    const snapshot = compiler.finalize();
+    expect(snapshot.css).toContain('@layer base, components;');
+    expect(snapshot.manifest.rules).toEqual(expect.arrayContaining([
+      expect.objectContaining({ value: 'red', important: true, selector: expect.stringContaining('--layer_components') }),
+      expect.objectContaining({ value: 'blue', important: false, selector: expect.stringContaining('--layer_base') })
+    ]));
+  });
+
   it('preserves a registered condition around an ancestor-state atom', () => {
     const compiler = createGssCompilerSession({
       projectRoot: '/project',
