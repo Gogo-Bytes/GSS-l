@@ -1506,6 +1506,33 @@ describe('GssCompilerSession', () => {
     expect(compiler.finalize().report.rules).toBe(2);
   });
 
+  it('applies zero specificity to a where-wrapped attribute condition', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/where-attribute.gss',
+      source: [
+        '.control:where([data-mode=ready]) { color: red; }',
+        '.control:focus { color: blue; }'
+      ].join('\n')
+    });
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+  });
+
+  it('counts an is-wrapped attribute condition toward specificity', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/is-attribute.gss',
+      source: [
+        '.control:is([data-mode=ready]) { color: red; }',
+        '.control:focus { color: blue; }'
+      ].join('\n')
+    });
+    expect(replacement).toMatchObject({
+      committed: false,
+      diagnostics: [{ code: 'GSS1205', reason: 'ambiguous-coactive-state-conflict' }]
+    });
+  });
+
   it('accepts mutually exclusive positive and negative state conditions', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 
