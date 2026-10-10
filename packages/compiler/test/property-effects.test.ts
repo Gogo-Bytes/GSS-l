@@ -91,12 +91,14 @@ describe('PropertyEffectRegistry', () => {
     ['grid', 'grid-template-columns'],
     ['grid-area', 'grid-column-end'],
     ['grid-gap', 'row-gap'],
-    ['grid-gap', 'row-gap']
+    ['mask', 'mask-composite']
   ])('%s exposes the effect of %s', (property, effect) => {
     expect(effectsOfProperty(property)).toContain(effect);
   });
 
   it('keeps every registered shorthand relationship represented and duplicate-free', () => {
+    expect(new Set(Object.keys(registeredShorthandEffects)).size)
+      .toBe(Object.keys(registeredShorthandEffects).length);
     for (const [shorthand, expectedEffects] of Object.entries(registeredShorthandEffects)) {
       const effects = effectsOfProperty(shorthand);
       expect(effects).toEqual(expectedEffects);
