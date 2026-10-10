@@ -1514,7 +1514,10 @@ function renderModuleCode(exports: Readonly<Record<string, ScopeNodeSchema>>): s
 function renderScopeObject(scope: ScopeNodeSchema): string {
   const fields = [`self: ${JSON.stringify(scope.selfClassName)}`];
   for (const name of Object.keys(scope.targets).sort()) {
-    fields.push(`${JSON.stringify(name)}: ${renderScopeObject(scope.targets[name]!)}`);
+    // A quoted __proto__ key in an object literal changes its prototype instead
+    // of defining the authored target. A computed key always creates an own field.
+    const key = name === '__proto__' ? `[${JSON.stringify(name)}]` : JSON.stringify(name);
+    fields.push(`${key}: ${renderScopeObject(scope.targets[name]!)}`);
   }
   return `{ ${fields.join(', ')} }`;
 }

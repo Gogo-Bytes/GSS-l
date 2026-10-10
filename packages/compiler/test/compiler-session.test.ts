@@ -91,6 +91,31 @@ describe('GssCompilerSession', () => {
     expect(new Set(Object.values(styles).map(({ self }) => self)).size).toBe(3);
   });
 
+  it('preserves prototype-named root and nested scopes as own exported properties', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const result = compiler.replaceStylesheet({
+      id: '/project/keys.gss',
+      source: '.__proto__ { color: red; } .constructor { color: blue; } ' +
+        '.card { width: 1px; } .card .__proto__ { color: green; }'
+    });
+    expect(result.committed).toBe(true);
+    const schema = result.module!.scopeSchema.exports;
+    expect(Object.hasOwn(schema, '__proto__')).toBe(true);
+    expect(Object.hasOwn(schema, 'constructor')).toBe(true);
+    expect(Object.hasOwn(schema.card!.targets, '__proto__')).toBe(true);
+
+    const code = result.module!.moduleCode;
+    const styles = new Function(code.replace('export default', 'return'))() as Record<string, {
+      self: string; __proto__: { self: string };
+    }>;
+    expect(Object.hasOwn(styles, '__proto__')).toBe(true);
+    expect(Object.hasOwn(styles, 'constructor')).toBe(true);
+    expect(Object.hasOwn(styles.card!, '__proto__')).toBe(true);
+    expect(styles.__proto__!.self).toBe(schema.__proto__!.selfClassName);
+    expect(styles.card!.__proto__!.self).toBe(schema.card!.targets.__proto__!.selfClassName);
+    expect(compiler.finalize().css).toContain('color: green;');
+  });
+
   it('emits declarations using the public branded scope object type', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 
