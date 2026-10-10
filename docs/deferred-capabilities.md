@@ -151,6 +151,13 @@
 - **重新评估**：MVP 完成后单独讨论并记录 kind precedence 与 nested-condition contract，再补充 ADR、Compiler regressions 和 hand-authored browser fixtures。
 - **依据**：owner decision during MVP execution；[ADR-0027](adr/0027-condition-order-and-coactivity.md)；现有 bounded rule-order planner。该项不是 Stage 9 通过记录。
 
+### D021 — Compiler output tracing and report API expansion
+
+- **当前行为**：Compiler 继续提供当前 v1 CSS、manifest、report、Module artifact 和 diagnostics；不新增 CSS source map、source-to-rule tracing 或 declaration/class/size cost 字段。
+- **原因**：这些字段会扩大 `FinalizedGssSnapshot`、`StyleModuleArtifact` 和 Adapter 消费的 public contract。本轮先完成既有 MVP 语义与确定性验证，不在未定义字段语义时修改 API。
+- **重新评估**：MVP 核心安全边界、兼容性和宿主验证完成后，单独设计字段 schema、版本兼容、source attribution 和 Vite consumption，再记录 ADR 并实现。
+- **依据**：owner decision during MVP execution；[compiler interface](compiler-interface.md)。该项不是 Stage 9 通过记录。
+
 ## Intentional non-goals and guarantee boundaries
 
 ### N001 — 任意消费侧 class composition winner
