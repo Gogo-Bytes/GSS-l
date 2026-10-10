@@ -130,6 +130,13 @@
 - **重新评估**：在可证明只压缩格式、不改变已验证的物理声明序列、cascade、资源、URL 与 source mapping 的边界上，做目标一致的 final-byte minification；重复干净/增量构建与真实浏览器对照，并分别测 raw/gzip/Brotli、初始 HTML 直接引用 CSS 与懒加载成本。不得把该项的完成等同于 D016 短名或 D015 分包已完成。
 - **依据**：[ADR-0054](adr/0054-take-compatibility-targets-from-the-host.md)、[ADR-0028](adr/0028-use-one-central-css-asset-and-snapshot-hmr.md)、本地真实项目试点 `collaborative-document` 的 `docs/gss-l-pilot.md`（仅本地测试分支，非已验收产物）。
 
+### D018 — Click UI follow-up syntax and composition gaps
+
+- **当前行为**：Click UI 试点中发现的顶层 CSS 注释、复杂属性/后代选择器、条件冲突和动态 scope 使用等场景，暂不在本轮 MVP 中扩大支持；当前不满足 accepted capability matrix 的输入继续 fail closed。
+- **原因**：本轮优先完成原定 MVP 的既有 S2–S8 验证路径，不根据单个真实项目试点结果临时扩展语言语义或 fallback 范围。
+- **重新评估**：MVP 验收完成后，逐项依据真实源码、accepted matrix、public-seam 回归、独立浏览器参考和回滚证据重新评估。该项不是 Stage 9 通过记录，也不表示所有观察到的构造具有相同的产品决策。
+- **依据**：[Click UI pilot evidence](click-ui-pilot-evidence.md)；owner decision recorded during MVP execution。
+
 ## Intentional non-goals and guarantee boundaries
 
 ### N001 — 任意消费侧 class composition winner
