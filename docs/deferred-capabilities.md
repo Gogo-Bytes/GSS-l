@@ -158,6 +158,13 @@
 - **重新评估**：MVP 核心安全边界、兼容性和宿主验证完成后，单独设计字段 schema、版本兼容、source attribution 和 Vite consumption，再记录 ADR 并实现。
 - **依据**：owner decision during MVP execution；[compiler interface](compiler-interface.md)。该项不是 Stage 9 通过记录。
 
+### D022 — Cross-file typed React provenance
+
+- **当前行为**：React Adapter 仅降低本文件内已证明的 GSS scope reference、local type alias 和 direct parent-to-child typed props；无法证明的 imported/shared type reference 保持不变，不猜测跨文件 provenance。
+- **原因**：跨文件 multi-hop forwarding 需要额外的 TypeScript source/type graph 输入，会扩大 Adapter port 与安全边界。本轮不修改 transform input contract，也不把未验证的类型推断当作安全 lowering。
+- **重新评估**：MVP 核心 Compiler/Vite/oracle 验证完成后，单独设计 provenance port、multi-hop 限制、negative fixtures 和 source invalidation contract，再实现 S6.11/S6.13。
+- **依据**：owner decision during MVP execution；现有 bounded React Adapter contract。该项不是 Stage 9 通过记录。
+
 ## Intentional non-goals and guarantee boundaries
 
 ### N001 — 任意消费侧 class composition winner
