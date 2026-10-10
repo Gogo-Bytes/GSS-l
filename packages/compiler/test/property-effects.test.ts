@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  PROPERTY_EFFECT_INDEPENDENT_PROPERTIES,
   PROPERTY_EFFECT_REGISTRY_VERSION,
   classifyPropertyEffect,
   comparePropertyRenderOrder,
@@ -107,6 +108,18 @@ describe('PropertyEffectRegistry', () => {
         expect(classifyPropertyEffect(effect)).toEqual({ kind: 'longhand', effects: [effect] });
       }
     }
+  });
+
+  it('classifies every accepted independent property explicitly', () => {
+    for (const property of PROPERTY_EFFECT_INDEPENDENT_PROPERTIES) {
+      expect(classifyPropertyEffect(property)).toEqual({ kind: 'longhand', effects: [property] });
+      expect(isRegisteredPropertyEffect(property)).toBe(true);
+    }
+  });
+
+  it('keeps the independent property inventory duplicate-free', () => {
+    expect(new Set(PROPERTY_EFFECT_INDEPENDENT_PROPERTIES).size)
+      .toBe(PROPERTY_EFFECT_INDEPENDENT_PROPERTIES.length);
   });
 
   it('keeps unknown properties outside the registered completeness invariant', () => {
