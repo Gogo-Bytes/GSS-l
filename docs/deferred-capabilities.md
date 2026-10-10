@@ -144,6 +144,13 @@
 - **重新评估**：MVP 完成后单独讨论并决定是否扩大语义；若接受，必须先记录 witness 绑定、cascade precedence、ambiguity、ScopeSchema 与 browser-oracle 契约，再实现 public regressions 和 hand-authored native fixtures。
 - **依据**：owner decision during MVP execution；现有 bounded interleaved implementation 与 [ADR-0013](adr/0013-prefer-logically-narrower-runtime-relations.md)。该项不是 Stage 9 通过记录。
 
+### D020 — Cross-kind condition precedence
+
+- **当前行为**：已注册的同 kind `@media`、`@supports`、`@container` 使用各自配置顺序；不同 condition kind 的组合保持当前确定性排序，但不宣称这是完整产品 cascade precedence。
+- **原因**：跨 kind 的全局优先级、nested condition 比较、source order 与 configured order 的关系，以及跨 kind implication/ambiguity 尚未形成 accepted semantics。本轮不修改 public config 或凭实现推断语义。
+- **重新评估**：MVP 完成后单独讨论并记录 kind precedence 与 nested-condition contract，再补充 ADR、Compiler regressions 和 hand-authored browser fixtures。
+- **依据**：owner decision during MVP execution；[ADR-0027](adr/0027-condition-order-and-coactivity.md)；现有 bounded rule-order planner。该项不是 Stage 9 通过记录。
+
 ## Intentional non-goals and guarantee boundaries
 
 ### N001 — 任意消费侧 class composition winner
