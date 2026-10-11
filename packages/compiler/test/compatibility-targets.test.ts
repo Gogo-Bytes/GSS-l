@@ -193,6 +193,23 @@ describe('host-resolved compatibility targets', () => {
     expect(snapshot.css).toContain('asset-b.svg');
   });
 
+  it('preserves registered condition wrappers around target-expanded keyframe Assets', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project', compatibilityTargetStages: oldSafari,
+      conditions: { media: ['(min-width: 1px)'] } });
+    const result = session.replaceStylesheet({ id, source: `
+      @media (min-width: 1px) {
+        @keyframes move { to { background-image: url("./a.svg"); } }
+      }
+      .card { animation-name: move; }
+    `, assetReferences: [{ url: './a.svg', identity: 'asset-a' }] });
+    expect(result.committed).toBe(true);
+    const snapshot = session.finalize({ resolveAssetUrl: () => '/assets/asset-a.svg' });
+    const mediaBlock = snapshot.css.slice(snapshot.css.indexOf('@media (min-width: 1px)'));
+    expect(mediaBlock).toContain('@media (min-width: 1px) {\n  @-webkit-keyframes');
+    expect(mediaBlock).toContain('    background-image: url("/assets/asset-a.svg");');
+    expect(snapshot.manifest.resources).toHaveLength(1);
+  });
+
   it.each([undefined, oldSafari])('rejects duplicate conditional keyframe names before identity sorting (%s)', (stages) => {
     const session = createGssCompilerSession({ projectRoot: '/project',
       conditions: { media: ['(min-width: 0px)', '(max-width: 1000px)'] },
