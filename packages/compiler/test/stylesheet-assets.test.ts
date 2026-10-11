@@ -24,6 +24,29 @@ describe('stylesheet Asset references', () => {
     expect(second.manifest.rules.map((rule) => rule.className)).toEqual(first.manifest.rules.map((rule) => rule.className));
     expect(session.getScopeSchema('/project/a/Card.gss')).toEqual(a.module?.scopeSchema);
   });
+  it('updates shared Asset ownership when one Module changes identity', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    const source = (url: string) => `.card { background-image: url(${url}); }`;
+    const asset = (url: string, identity: string) => [{ url, identity }] as const;
+    expect(session.replaceStylesheet({ id: '/project/a.gss', source: source('icon.svg'),
+      assetReferences: asset('icon.svg', 'icons/one.svg') }).committed).toBe(true);
+    expect(session.replaceStylesheet({ id: '/project/b.gss', source: source('icon.svg'),
+      assetReferences: asset('icon.svg', 'icons/one.svg') }).committed).toBe(true);
+    expect(session.replaceStylesheet({ id: '/project/a.gss', source: source('other.svg'),
+      assetReferences: asset('other.svg', 'icons/two.svg') }).committed).toBe(true);
+
+    let snapshot = session.finalize({ resolveAssetUrl: (identity) => `/out/${identity}` });
+    expect(snapshot.manifest.rules.find((rule) => rule.value.includes('icons/one.svg'))?.sources).toEqual(['b.gss']);
+    expect(snapshot.manifest.rules.find((rule) => rule.value.includes('icons/two.svg'))?.sources).toEqual(['a.gss']);
+    expect(snapshot.css).toContain('url("/out/icons/one.svg")');
+    expect(snapshot.css).toContain('url("/out/icons/two.svg")');
+
+    session.invalidate('/project/b.gss');
+    snapshot = session.finalize({ resolveAssetUrl: (identity) => `/out/${identity}` });
+    expect(snapshot.css).toContain('url("/out/icons/two.svg")');
+    expect(snapshot.css).not.toContain('url("/out/icons/one.svg")');
+  });
+
   it('detects global font conflicts by resolved identity rather than equal authored src', () => {
     const session = createGssCompilerSession({ projectRoot: '/project' });
     const source = '@font-face { font-family: "Demo"; src: url(./font.woff2); }';
