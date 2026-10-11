@@ -44,6 +44,23 @@ describe('host-resolved compatibility targets', () => {
     expect(snapshot.css).toContain('background: linear-gradient(');
   });
 
+  it('isolates compatibility preserved fallback to one Module in a multi-Module census', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project', compatibilityTargetStages: oldSafari });
+    expect(session.replaceStylesheet({ id: '/project/fallback.gss', source: '.card { flex-direction: column; color: red; }' })).toMatchObject({
+      committed: true, module: { compilationMode: 'preserved' }
+    });
+    expect(session.replaceStylesheet({ id: '/project/atomic.gss', source: '.card { color: blue; }' })).toMatchObject({
+      committed: true, module: { compilationMode: 'atomic' }
+    });
+    const snapshot = session.finalize();
+    expect(snapshot.manifest.moduleDetails).toEqual([
+      expect.objectContaining({ id: 'atomic.gss', compilationMode: 'atomic' }),
+      expect.objectContaining({ id: 'fallback.gss', compilationMode: 'preserved' })
+    ]);
+    expect(snapshot.css).toContain('.gss-s--module_fallback_2e_gss--path_card');
+    expect(snapshot.css).toContain('gss-a--layer_unlayered--condition_base--state_self--property_color--value_blue');
+  });
+
   it('preserves the entire Module when a generated vendor property cannot be proved atomizable', () => {
     const session = createGssCompilerSession({ projectRoot: '/project', compatibilityTargetStages: oldSafari });
     const result = session.replaceStylesheet({ id, source: '.card { flex-direction: column; color: red; }' });
