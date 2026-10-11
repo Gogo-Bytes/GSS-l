@@ -148,6 +148,22 @@ describe('stylesheet Asset references', () => {
     expect(snapshot.css).not.toContain('url("/out/fonts/a.woff2")');
   });
 
+  it('retains shared resource ownership after a failed replacement', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    const source = '@font-face { font-family: "Demo"; src: url("./demo.woff2"); }';
+    const assetReferences = [{ url: './demo.woff2', identity: 'fonts/demo.woff2' }] as const;
+    expect(session.replaceStylesheet({ id: '/project/a.gss', source, assetReferences }).committed).toBe(true);
+    expect(session.replaceStylesheet({ id: '/project/b.gss', source, assetReferences }).committed).toBe(true);
+    const previous = session.finalize({ resolveAssetUrl: (identity) => `/out/${identity}` });
+
+    const failed = session.replaceStylesheet({ id: '/project/a.gss',
+      source: '.card { color: red; color: blue; }' });
+    expect(failed).toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1204' }] });
+    expect(session.finalize({ resolveAssetUrl: (identity) => `/out/${identity}` })).toEqual(previous);
+    expect(session.finalize({ resolveAssetUrl: (identity) => `/out/${identity}` }).manifest.resources[0]?.sources)
+      .toEqual(['a.gss', 'b.gss']);
+  });
+
   it.each([
     '.card { background-image: url(icon.svg); }',
     '.card { future-paint: url(icon.svg); }',
