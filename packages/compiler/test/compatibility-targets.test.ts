@@ -18,7 +18,7 @@ describe('host-resolved compatibility targets', () => {
     expect(session.finalize().css).toBe(snapshot.css);
   });
 
-  it('uses the supplied modern target instead of ambient project or process configuration', () => {
+  it('uses the supplied modern target for the bounded result', () => {
     const session = createGssCompilerSession({ projectRoot: '/project',
       compatibilityTargetStages: [{ safari: '17.0' }] });
     expect(session.replaceStylesheet({ id, source: '.card { display: flex; }' }).committed).toBe(true);
@@ -44,6 +44,23 @@ describe('host-resolved compatibility targets', () => {
     expect(snapshot.css).toContain('background: linear-gradient(');
   });
 
+  it('isolates compatibility preserved fallback to one Module in a multi-Module census', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project', compatibilityTargetStages: oldSafari });
+    expect(session.replaceStylesheet({ id: '/project/fallback.gss', source: '.card { flex-direction: column; color: red; }' })).toMatchObject({
+      committed: true, module: { compilationMode: 'preserved' }
+    });
+    expect(session.replaceStylesheet({ id: '/project/atomic.gss', source: '.card { color: blue; }' })).toMatchObject({
+      committed: true, module: { compilationMode: 'atomic' }
+    });
+    const snapshot = session.finalize();
+    expect(snapshot.manifest.moduleDetails).toEqual([
+      expect.objectContaining({ id: 'atomic.gss', compilationMode: 'atomic' }),
+      expect.objectContaining({ id: 'fallback.gss', compilationMode: 'preserved' })
+    ]);
+    expect(snapshot.css).toContain('.gss-s--module_fallback_2e_gss--path_card');
+    expect(snapshot.css).toContain('gss-a--layer_unlayered--condition_base--state_self--property_color--value_blue');
+  });
+
   it('preserves the entire Module when a generated vendor property cannot be proved atomizable', () => {
     const session = createGssCompilerSession({ projectRoot: '/project', compatibilityTargetStages: oldSafari });
     const result = session.replaceStylesheet({ id, source: '.card { flex-direction: column; color: red; }' });
@@ -55,6 +72,25 @@ describe('host-resolved compatibility targets', () => {
     expect(css).toContain('-webkit-flex-direction: column;');
     expect(css).toContain('flex-direction: column;');
     expect(css.indexOf('color: red;')).toBeGreaterThan(css.indexOf('flex-direction: column;'));
+  });
+
+  it('retains transformed preserved fallback declarations alongside bound Assets', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project', compatibilityTargetStages: oldSafari });
+    const result = session.replaceStylesheet({ id, source:
+      '.card { flex-direction: column; background-image: url("./a.svg"); }',
+      assetReferences: [{ url: './a.svg', identity: 'asset-a' }] });
+    expect(result).toMatchObject({ committed: true, module: { compilationMode: 'preserved',
+      fallbackReasons: [{ property: 'flex-direction', reason: 'compatibility-sequence-unatomizable' }] } });
+    const snapshot = session.finalize({ resolveAssetUrl: (identity) => {
+      expect(identity).toBe('asset-a');
+      return '/assets/asset-a.svg';
+    } });
+    expect(snapshot.css).toContain('-webkit-flex-direction: column;');
+    expect(snapshot.css).toContain('url("/assets/asset-a.svg")');
+    expect(snapshot.manifest.moduleDetails).toEqual([expect.objectContaining({
+      id: 'card.gss', compilationMode: 'preserved',
+      fallbackReasons: [{ property: 'flex-direction', reason: 'compatibility-sequence-unatomizable' }]
+    })]);
   });
 
   it.each([
@@ -93,8 +129,14 @@ describe('host-resolved compatibility targets', () => {
     const result = session.replaceStylesheet({ id, source: '.card { background-image: url("./a.svg"); }',
       assetReferences: [{ url: './a.svg', identity: 'asset-a' }] });
     expect(result).toMatchObject({ committed: true, module: { compilationMode: 'atomic', dependencies: ['./a.svg'] } });
-    const first = session.finalize({ resolveAssetUrl: () => '/assets/one.svg' });
-    const second = session.finalize({ resolveAssetUrl: () => '/assets/two.svg' });
+    const first = session.finalize({ resolveAssetUrl: (identity) => {
+      expect(identity).toBe('asset-a');
+      return '/assets/one.svg';
+    } });
+    const second = session.finalize({ resolveAssetUrl: (identity) => {
+      expect(identity).toBe('asset-a');
+      return '/assets/two.svg';
+    } });
     expect(first.css).toContain('url("/assets/one.svg")');
     expect(second.css).toContain('url("/assets/two.svg")');
     expect(first.manifest.rules.map(({ className, selector, property, sources }) =>
@@ -125,6 +167,30 @@ describe('host-resolved compatibility targets', () => {
     const css = session.finalize().css;
     expect(css).toContain('@-webkit-keyframes');
     expect(css).toContain('@keyframes');
+  });
+
+  it('keeps target-expanded keyframe Assets isolated across Modules and cleans them up', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project', compatibilityTargetStages: oldSafari });
+    const source = (url: string) =>
+      `@keyframes move { to { background-image: url("${url}"); } } .card { animation-name: move; }`;
+    expect(session.replaceStylesheet({ id: '/project/a.gss', source: source('./a.svg'),
+      assetReferences: [{ url: './a.svg', identity: 'asset-a' }] }).committed).toBe(true);
+    expect(session.replaceStylesheet({ id: '/project/b.gss', source: source('./b.svg'),
+      assetReferences: [{ url: './b.svg', identity: 'asset-b' }] }).committed).toBe(true);
+
+    let snapshot = session.finalize({ resolveAssetUrl: (identity) => `/assets/${identity}.svg` });
+    expect(snapshot.manifest.resources).toHaveLength(2);
+    expect(snapshot.css).toContain('url("/assets/asset-a.svg")');
+    expect(snapshot.css).toContain('url("/assets/asset-b.svg")');
+    expect(snapshot.css).toContain('-webkit-animation-name:');
+    expect(snapshot.manifest.resources.map(({ sources }) => sources)).toEqual([['a.gss'], ['b.gss']]);
+
+    expect(session.invalidate('/project/a.gss')).toMatchObject({ changed: true });
+    snapshot = session.finalize({ resolveAssetUrl: (identity) => `/assets/${identity}.svg` });
+    expect(snapshot.manifest.resources).toHaveLength(1);
+    expect(snapshot.manifest.resources[0]?.sources).toEqual(['b.gss']);
+    expect(snapshot.css).not.toContain('asset-a.svg');
+    expect(snapshot.css).toContain('asset-b.svg');
   });
 
   it.each([undefined, oldSafari])('rejects duplicate conditional keyframe names before identity sorting (%s)', (stages) => {

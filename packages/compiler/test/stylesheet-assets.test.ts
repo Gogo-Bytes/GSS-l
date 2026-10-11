@@ -24,6 +24,29 @@ describe('stylesheet Asset references', () => {
     expect(second.manifest.rules.map((rule) => rule.className)).toEqual(first.manifest.rules.map((rule) => rule.className));
     expect(session.getScopeSchema('/project/a/Card.gss')).toEqual(a.module?.scopeSchema);
   });
+  it('updates shared Asset ownership when one Module changes identity', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    const source = (url: string) => `.card { background-image: url(${url}); }`;
+    const asset = (url: string, identity: string) => [{ url, identity }] as const;
+    expect(session.replaceStylesheet({ id: '/project/a.gss', source: source('icon.svg'),
+      assetReferences: asset('icon.svg', 'icons/one.svg') }).committed).toBe(true);
+    expect(session.replaceStylesheet({ id: '/project/b.gss', source: source('icon.svg'),
+      assetReferences: asset('icon.svg', 'icons/one.svg') }).committed).toBe(true);
+    expect(session.replaceStylesheet({ id: '/project/a.gss', source: source('other.svg'),
+      assetReferences: asset('other.svg', 'icons/two.svg') }).committed).toBe(true);
+
+    let snapshot = session.finalize({ resolveAssetUrl: (identity) => `/out/${identity}` });
+    expect(snapshot.manifest.rules.find((rule) => rule.value.includes('icons/one.svg'))?.sources).toEqual(['b.gss']);
+    expect(snapshot.manifest.rules.find((rule) => rule.value.includes('icons/two.svg'))?.sources).toEqual(['a.gss']);
+    expect(snapshot.css).toContain('url("/out/icons/one.svg")');
+    expect(snapshot.css).toContain('url("/out/icons/two.svg")');
+
+    session.invalidate('/project/b.gss');
+    snapshot = session.finalize({ resolveAssetUrl: (identity) => `/out/${identity}` });
+    expect(snapshot.css).toContain('url("/out/icons/two.svg")');
+    expect(snapshot.css).not.toContain('url("/out/icons/one.svg")');
+  });
+
   it('detects global font conflicts by resolved identity rather than equal authored src', () => {
     const session = createGssCompilerSession({ projectRoot: '/project' });
     const source = '@font-face { font-family: "Demo"; src: url(./font.woff2); }';
@@ -119,6 +142,49 @@ describe('stylesheet Asset references', () => {
     expect(snapshot.report.resources).toBe(1);
     expect(snapshot.manifest.resources[0]?.sources).toEqual(['a.gss', 'b.gss']);
     expect(snapshot.css).toContain(`src: url("/out/demo.woff2") format('woff2');`);
+  });
+
+  it('moves one shared font owner to a new identity without stale resource ownership', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    const source = (family: string, url: string) => `@font-face { font-family: "${family}"; src: url('${url}') format('woff2'); }`;
+    expect(session.replaceStylesheet({ id: '/project/a.gss', source: source('DemoA', './a.woff2'),
+      assetReferences: [{ url: './a.woff2', identity: 'fonts/a.woff2' }] }).committed).toBe(true);
+    expect(session.replaceStylesheet({ id: '/project/b.gss', source: source('DemoA', './a.woff2'),
+      assetReferences: [{ url: './a.woff2', identity: 'fonts/a.woff2' }] }).committed).toBe(true);
+
+    expect(session.replaceStylesheet({ id: '/project/a.gss', source: source('DemoB', './b.woff2'),
+      assetReferences: [{ url: './b.woff2', identity: 'fonts/b.woff2' }] }).committed).toBe(true);
+    let snapshot = session.finalize({ resolveAssetUrl: (identity) => `/out/${identity}` });
+    expect(snapshot.manifest.resources).toEqual([
+      { kind: 'font-face', name: '"DemoA"|normal|normal|normal|all', sources: ['b.gss'] },
+      { kind: 'font-face', name: '"DemoB"|normal|normal|normal|all', sources: ['a.gss'] }
+    ]);
+    expect(snapshot.css).toContain('url("/out/fonts/a.woff2")');
+    expect(snapshot.css).toContain('url("/out/fonts/b.woff2")');
+
+    expect(session.invalidate('/project/b.gss')).toMatchObject({ changed: true });
+    snapshot = session.finalize({ resolveAssetUrl: (identity) => `/out/${identity}` });
+    expect(snapshot.manifest.resources).toEqual([
+      { kind: 'font-face', name: '"DemoB"|normal|normal|normal|all', sources: ['a.gss'] }
+    ]);
+    expect(snapshot.css).toContain('url("/out/fonts/b.woff2")');
+    expect(snapshot.css).not.toContain('url("/out/fonts/a.woff2")');
+  });
+
+  it('retains shared resource ownership after a failed replacement', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    const source = '@font-face { font-family: "Demo"; src: url("./demo.woff2"); }';
+    const assetReferences = [{ url: './demo.woff2', identity: 'fonts/demo.woff2' }] as const;
+    expect(session.replaceStylesheet({ id: '/project/a.gss', source, assetReferences }).committed).toBe(true);
+    expect(session.replaceStylesheet({ id: '/project/b.gss', source, assetReferences }).committed).toBe(true);
+    const previous = session.finalize({ resolveAssetUrl: (identity) => `/out/${identity}` });
+
+    const failed = session.replaceStylesheet({ id: '/project/a.gss',
+      source: '.card { color: red; color: blue; }' });
+    expect(failed).toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1204' }] });
+    expect(session.finalize({ resolveAssetUrl: (identity) => `/out/${identity}` })).toEqual(previous);
+    expect(session.finalize({ resolveAssetUrl: (identity) => `/out/${identity}` }).manifest.resources[0]?.sources)
+      .toEqual(['a.gss', 'b.gss']);
   });
 
   it.each([

@@ -4,6 +4,8 @@
 
 After a coherent implementation or documentation stage is complete, run the relevant checks. When they pass and there are no known blockers or unresolved defects in that stage, commit and push the branch directly without requesting additional approval. Report the branch, commit, checks, and push result.
 
+**Execution loop:** Keep working through the dependency-ordered MVP plan after each successful commit/push. Do not stop merely to provide a progress summary. Continue until a concrete product/API/config/fallback/scope decision, an owner approval request, an actual blocker, or the requested work is complete. When a decision is required, stop with the exact options, consequences, and current clean/partial-worktree state. A passing slice or pushed commit is a checkpoint, not an instruction to end the work session.
+
 Keep incomplete or knowingly failing work unpushed. Do not publish packages or create releases unless the user explicitly requests it.
 
 ## Decision boundary
