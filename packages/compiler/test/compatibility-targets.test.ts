@@ -74,6 +74,25 @@ describe('host-resolved compatibility targets', () => {
     expect(css.indexOf('color: red;')).toBeGreaterThan(css.indexOf('flex-direction: column;'));
   });
 
+  it('retains transformed preserved fallback declarations alongside bound Assets', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project', compatibilityTargetStages: oldSafari });
+    const result = session.replaceStylesheet({ id, source:
+      '.card { flex-direction: column; background-image: url("./a.svg"); }',
+      assetReferences: [{ url: './a.svg', identity: 'asset-a' }] });
+    expect(result).toMatchObject({ committed: true, module: { compilationMode: 'preserved',
+      fallbackReasons: [{ property: 'flex-direction', reason: 'compatibility-sequence-unatomizable' }] } });
+    const snapshot = session.finalize({ resolveAssetUrl: (identity) => {
+      expect(identity).toBe('asset-a');
+      return '/assets/asset-a.svg';
+    } });
+    expect(snapshot.css).toContain('-webkit-flex-direction: column;');
+    expect(snapshot.css).toContain('url("/assets/asset-a.svg")');
+    expect(snapshot.manifest.moduleDetails).toEqual([expect.objectContaining({
+      id: 'card.gss', compilationMode: 'preserved',
+      fallbackReasons: [{ property: 'flex-direction', reason: 'compatibility-sequence-unatomizable' }]
+    })]);
+  });
+
   it.each([
     '.editor:has(:global(.external)) { flex-direction: column; }',
     '.editor:not(:global(.external)) { flex-direction: column; }'
