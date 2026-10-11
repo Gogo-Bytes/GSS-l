@@ -18,7 +18,7 @@ describe('host-resolved compatibility targets', () => {
     expect(session.finalize().css).toBe(snapshot.css);
   });
 
-  it('uses the supplied modern target instead of ambient project or process configuration', () => {
+  it('uses the supplied modern target for the bounded result', () => {
     const session = createGssCompilerSession({ projectRoot: '/project',
       compatibilityTargetStages: [{ safari: '17.0' }] });
     expect(session.replaceStylesheet({ id, source: '.card { display: flex; }' }).committed).toBe(true);
@@ -110,8 +110,14 @@ describe('host-resolved compatibility targets', () => {
     const result = session.replaceStylesheet({ id, source: '.card { background-image: url("./a.svg"); }',
       assetReferences: [{ url: './a.svg', identity: 'asset-a' }] });
     expect(result).toMatchObject({ committed: true, module: { compilationMode: 'atomic', dependencies: ['./a.svg'] } });
-    const first = session.finalize({ resolveAssetUrl: () => '/assets/one.svg' });
-    const second = session.finalize({ resolveAssetUrl: () => '/assets/two.svg' });
+    const first = session.finalize({ resolveAssetUrl: (identity) => {
+      expect(identity).toBe('asset-a');
+      return '/assets/one.svg';
+    } });
+    const second = session.finalize({ resolveAssetUrl: (identity) => {
+      expect(identity).toBe('asset-a');
+      return '/assets/two.svg';
+    } });
     expect(first.css).toContain('url("/assets/one.svg")');
     expect(second.css).toContain('url("/assets/two.svg")');
     expect(first.manifest.rules.map(({ className, selector, property, sources }) =>
@@ -142,6 +148,30 @@ describe('host-resolved compatibility targets', () => {
     const css = session.finalize().css;
     expect(css).toContain('@-webkit-keyframes');
     expect(css).toContain('@keyframes');
+  });
+
+  it('keeps target-expanded keyframe Assets isolated across Modules and cleans them up', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project', compatibilityTargetStages: oldSafari });
+    const source = (url: string) =>
+      `@keyframes move { to { background-image: url("${url}"); } } .card { animation-name: move; }`;
+    expect(session.replaceStylesheet({ id: '/project/a.gss', source: source('./a.svg'),
+      assetReferences: [{ url: './a.svg', identity: 'asset-a' }] }).committed).toBe(true);
+    expect(session.replaceStylesheet({ id: '/project/b.gss', source: source('./b.svg'),
+      assetReferences: [{ url: './b.svg', identity: 'asset-b' }] }).committed).toBe(true);
+
+    let snapshot = session.finalize({ resolveAssetUrl: (identity) => `/assets/${identity}.svg` });
+    expect(snapshot.manifest.resources).toHaveLength(2);
+    expect(snapshot.css).toContain('url("/assets/asset-a.svg")');
+    expect(snapshot.css).toContain('url("/assets/asset-b.svg")');
+    expect(snapshot.css).toContain('-webkit-animation-name:');
+    expect(snapshot.manifest.resources.map(({ sources }) => sources)).toEqual([['a.gss'], ['b.gss']]);
+
+    expect(session.invalidate('/project/a.gss')).toMatchObject({ changed: true });
+    snapshot = session.finalize({ resolveAssetUrl: (identity) => `/assets/${identity}.svg` });
+    expect(snapshot.manifest.resources).toHaveLength(1);
+    expect(snapshot.manifest.resources[0]?.sources).toEqual(['b.gss']);
+    expect(snapshot.css).not.toContain('asset-a.svg');
+    expect(snapshot.css).toContain('asset-b.svg');
   });
 
   it.each([undefined, oldSafari])('rejects duplicate conditional keyframe names before identity sorting (%s)', (stages) => {
