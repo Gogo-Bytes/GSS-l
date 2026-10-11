@@ -203,11 +203,16 @@ describe('host-resolved compatibility targets', () => {
       .card { animation-name: move; }
     `, assetReferences: [{ url: './a.svg', identity: 'asset-a' }] });
     expect(result.committed).toBe(true);
-    const snapshot = session.finalize({ resolveAssetUrl: () => '/assets/asset-a.svg' });
+    let snapshot = session.finalize({ resolveAssetUrl: () => '/assets/asset-a.svg' });
     const mediaBlock = snapshot.css.slice(snapshot.css.indexOf('@media (min-width: 1px)'));
     expect(mediaBlock).toContain('@media (min-width: 1px) {\n  @-webkit-keyframes');
     expect(mediaBlock).toContain('    background-image: url("/assets/asset-a.svg");');
     expect(snapshot.manifest.resources).toHaveLength(1);
+
+    expect(session.invalidate(id)).toMatchObject({ changed: true });
+    snapshot = session.finalize({ resolveAssetUrl: () => '/assets/asset-a.svg' });
+    expect(snapshot.css).toBe('');
+    expect(snapshot.manifest.resources).toHaveLength(0);
   });
 
   it.each([undefined, oldSafari])('rejects duplicate conditional keyframe names before identity sorting (%s)', (stages) => {
