@@ -121,6 +121,33 @@ describe('stylesheet Asset references', () => {
     expect(snapshot.css).toContain(`src: url("/out/demo.woff2") format('woff2');`);
   });
 
+  it('moves one shared font owner to a new identity without stale resource ownership', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    const source = (family: string, url: string) => `@font-face { font-family: "${family}"; src: url('${url}') format('woff2'); }`;
+    expect(session.replaceStylesheet({ id: '/project/a.gss', source: source('DemoA', './a.woff2'),
+      assetReferences: [{ url: './a.woff2', identity: 'fonts/a.woff2' }] }).committed).toBe(true);
+    expect(session.replaceStylesheet({ id: '/project/b.gss', source: source('DemoA', './a.woff2'),
+      assetReferences: [{ url: './a.woff2', identity: 'fonts/a.woff2' }] }).committed).toBe(true);
+
+    expect(session.replaceStylesheet({ id: '/project/a.gss', source: source('DemoB', './b.woff2'),
+      assetReferences: [{ url: './b.woff2', identity: 'fonts/b.woff2' }] }).committed).toBe(true);
+    let snapshot = session.finalize({ resolveAssetUrl: (identity) => `/out/${identity}` });
+    expect(snapshot.manifest.resources).toEqual([
+      { kind: 'font-face', name: '"DemoA"|normal|normal|normal|all', sources: ['b.gss'] },
+      { kind: 'font-face', name: '"DemoB"|normal|normal|normal|all', sources: ['a.gss'] }
+    ]);
+    expect(snapshot.css).toContain('url("/out/fonts/a.woff2")');
+    expect(snapshot.css).toContain('url("/out/fonts/b.woff2")');
+
+    expect(session.invalidate('/project/b.gss')).toMatchObject({ changed: true });
+    snapshot = session.finalize({ resolveAssetUrl: (identity) => `/out/${identity}` });
+    expect(snapshot.manifest.resources).toEqual([
+      { kind: 'font-face', name: '"DemoB"|normal|normal|normal|all', sources: ['a.gss'] }
+    ]);
+    expect(snapshot.css).toContain('url("/out/fonts/b.woff2")');
+    expect(snapshot.css).not.toContain('url("/out/fonts/a.woff2")');
+  });
+
   it.each([
     '.card { background-image: url(icon.svg); }',
     '.card { future-paint: url(icon.svg); }',
