@@ -26,6 +26,18 @@ describe('host-resolved compatibility targets', () => {
     expect(session.finalize().css).not.toContain('display: -webkit-');
   });
 
+  it.each([
+    [{ chrome: '40.0' }, 'display: flex;'],
+    [{ firefox: '30.0' }, 'display: flex;'],
+    [{ ios_saf: '9.0' }, 'display: flex;']
+  ])('supports the bounded host target families without ambient discovery: %j', (target, expected) => {
+    const session = createGssCompilerSession({ projectRoot: '/project', compatibilityTargetStages: [target] });
+    expect(session.replaceStylesheet({ id, source: '.card { display: flex; }' })).toMatchObject({
+      committed: true, module: { compilationMode: 'atomic' }
+    });
+    expect(session.finalize().css).toContain(expected);
+  });
+
   it('keeps important physical alternatives together and leaves authored identity semantic', () => {
     const session = createGssCompilerSession({ projectRoot: '/project', compatibilityTargetStages: oldSafari });
     expect(session.replaceStylesheet({ id, source: '.card { display: flex !important; }' }).committed).toBe(true);
