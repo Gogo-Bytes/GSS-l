@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import {
   createReadableAtomicName, createReadableContextMarker, createReadableHasSubjectMarker,
-  createReadableObservedMarker, createReadableSourceMarker, createReadableTargetMarker
+  createReadableObservedMarker, createReadableScopeMarker, createReadableSourceMarker, createReadableTargetMarker
 } from '../src/domain/readable-name.js';
 
 const atomic = (value: string) => createReadableAtomicName({
@@ -72,6 +72,18 @@ it('keeps contextual marker identity fields collision-free', () => {
 
   const hasSubjects = observedVariants.map((identity) => createReadableHasSubjectMarker(identity));
   expect(new Set(hasSubjects).size).toBe(hasSubjects.length);
+});
+
+it('separates ownership path boundaries from escaped punctuation inside a class', () => {
+  const left = ['a.b', 'c'];
+  const right = ['a', 'b.c'];
+  expect(createReadableScopeMarker('tree.gss', left)).not.toBe(createReadableScopeMarker('tree.gss', right));
+  const slashLeft = ['a/b', 'c'];
+  const slashRight = ['a', 'b/c'];
+  expect(createReadableSourceMarker('tree.gss', slashLeft)).not.toBe(createReadableSourceMarker('tree.gss', slashRight));
+  const base = { moduleId: 'tree.gss', relations: ['child'] as const,
+    sourcePath: ['a'], targetPath: slashLeft };
+  expect(createReadableTargetMarker(base)).not.toBe(createReadableTargetMarker({ ...base, targetPath: slashRight }));
 });
 
 it.each([

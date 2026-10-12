@@ -37,7 +37,7 @@ export function createReadableScopeMarker(moduleId: string, path: readonly strin
   return [
     'gss-s',
     `module_${encodeNamePart(moduleId)}`,
-    `path_${path.map(encodeNamePart).join('_2e_')}`
+    `path_${path.length ? encodeNamePart(path.map((segment) => escapePathSegment(segment, '.')).join('.')) : ''}`
   ].join('--');
 }
 
@@ -178,8 +178,35 @@ function encodeRelations(relations: ContextualRelationIdentity['relations']): st
   return encodeNamePart(relations.join('/'));
 }
 
+function escapePathSegment(segment: string, separator: string): string {
+  return segment.replaceAll('\\', '\\\\').replaceAll(separator, `\\${separator}`);
+}
+
 function encodePath(path: readonly string[]): string {
-  return encodeNamePart(path.join('/'));
+  return encodeNamePart(path.map((segment) => escapePathSegment(segment, '/')).join('/'));
+}
+
+function decodePath(value: string): string[] | undefined {
+  if (value === '') return [];
+  const path: string[] = [];
+  let segment = '';
+  for (let index = 0; index < value.length; index++) {
+    const character = value[index]!;
+    if (character === '\\') {
+      const escaped = value[++index];
+      if (escaped !== '\\' && escaped !== '/') return undefined;
+      segment += escaped;
+    } else if (character === '/') {
+      if (!segment) return undefined;
+      path.push(segment);
+      segment = '';
+    } else {
+      segment += character;
+    }
+  }
+  if (!segment) return undefined;
+  path.push(segment);
+  return path;
 }
 
 export function encodeReadableNamePart(value: string): string {
@@ -225,6 +252,8 @@ export function decodeReadableAtomicName(name: string): PureDeclarationIdentity 
   if (ownershipCount !== 0 && ownershipCount !== ownershipKeys.length) return undefined;
   const specificity = fields.get('specificity');
   if (specificity !== undefined && !/^(?:0|[1-9][0-9]*)$/.test(specificity)) return undefined;
+  const targetPath = fields.has('target') ? decodePath(fields.get('target')!) : undefined;
+  if (fields.has('target') && targetPath === undefined) return undefined;
 
   const identity: PureDeclarationIdentity = {
     layer: fields.get('layer')!,
@@ -238,7 +267,7 @@ export function decodeReadableAtomicName(name: string): PureDeclarationIdentity 
     ...(ownershipCount === ownershipKeys.length ? {
       ownership: {
         moduleId: fields.get('module')!,
-        path: fields.get('target') === '' ? [] : fields.get('target')!.split('/'),
+        path: targetPath!,
         specificity: Number(specificity)
       }
     } : {})
