@@ -68,6 +68,20 @@ it('uses the resolved Lightning CSS transform target in a development session', 
   expect(css).toContain('display: flex;');
 });
 
+it('retains target-expanded preserved fallback and bound Asset in a dev snapshot', async () => {
+  const { root, server, container } = await fixture('/', [], false, false,
+    { transformer: 'lightningcss', lightningcss: { targets: { safari: 6 << 16 } } });
+  await writeFile(join(root, 'Card.gss'),
+    '.card { flex-direction: column; background-image: url("./icon.svg"); }');
+  await writeFile(join(root, 'icon.svg'), '<svg xmlns="http://www.w3.org/2000/svg"/>');
+  const id = (await container.resolveId('./Card.gss', `${root}/entry.ts`))!.id;
+  await container.load(id);
+  const css = (await server.transformRequest('/@gss-l/central.css?direct'))?.code;
+  expect(css).toContain('-webkit-flex-direction: column;');
+  expect(css).toContain('flex-direction: column;');
+  expect(css).toMatch(/background-image: url\("[^";]*icon\.svg\?[^";]+"\)/);
+});
+
 it('fails closed when Vite Lightning CSS feature overrides cannot be mirrored', async () => {
   const { root, container } = await fixture('/', [], false, false,
     { transformer: 'lightningcss', lightningcss: { targets: { safari: 6 << 16 }, exclude: Features.VendorPrefixes } });
