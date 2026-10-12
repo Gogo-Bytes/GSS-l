@@ -116,6 +116,16 @@ it('normalizes Lightning CSS minifier patch targets exactly as Vite resolves the
   expect(asset(output, JSON.parse(asset(output, 'gss-manifest.json')).cssAsset)).toContain('display: -webkit-box;');
 });
 
+it('maps the supported Vite browser target families into one effective stage', async () => {
+  const root = await fixture();
+  const config = await resolveConfig({ root, configFile: false,
+    build: { minify: true, cssMinify: 'lightningcss', cssTarget: ['chrome40', 'firefox30', 'ios9'] }
+  }, 'build');
+  expect(resolveViteCssTargets(config)).toEqual({ stages: [{
+    chrome: '40.0.0', firefox: '30.0.0', ios_saf: '9.0.0'
+  }] });
+});
+
 it('fails closed for a CSS target that has no browser-version mapping', async () => {
   const root = await fixture({ 'Card.gss': '.card { display: flex; }' });
   await expect(bundle(root, { build: { minify: true, cssTarget: 'es2015' } }))
