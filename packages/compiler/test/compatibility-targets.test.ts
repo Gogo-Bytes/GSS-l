@@ -26,6 +26,18 @@ describe('host-resolved compatibility targets', () => {
     expect(session.finalize().css).not.toContain('display: -webkit-');
   });
 
+  it.each([
+    [{ chrome: '40.0' }, 'display: flex;'],
+    [{ firefox: '30.0' }, 'display: flex;'],
+    [{ ios_saf: '9.0' }, 'display: flex;']
+  ])('supports the bounded host target families without ambient discovery: %j', (target, expected) => {
+    const session = createGssCompilerSession({ projectRoot: '/project', compatibilityTargetStages: [target] });
+    expect(session.replaceStylesheet({ id, source: '.card { display: flex; }' })).toMatchObject({
+      committed: true, module: { compilationMode: 'atomic' }
+    });
+    expect(session.finalize().css).toContain(expected);
+  });
+
   it('keeps important physical alternatives together and leaves authored identity semantic', () => {
     const session = createGssCompilerSession({ projectRoot: '/project', compatibilityTargetStages: oldSafari });
     expect(session.replaceStylesheet({ id, source: '.card { display: flex !important; }' }).committed).toBe(true);
@@ -122,6 +134,18 @@ describe('host-resolved compatibility targets', () => {
     stages[1]!.safari = '17.0';
     expect(session.replaceStylesheet({ id, source: '.card { display: flex; }' }).committed).toBe(true);
     expect(session.finalize().css).toContain('display: -webkit-box;');
+  });
+
+  it.each([
+    [{ opera: '80.0' }],
+    [{}],
+    [{ safari: '256.0' }]
+  ])('rejects unsupported or out-of-range host targets transactionally: %j', (target) => {
+    const session = createGssCompilerSession({ projectRoot: '/project', compatibilityTargetStages: [target] });
+    expect(session.replaceStylesheet({ id, source: '.card { display: flex; }' })).toMatchObject({
+      committed: false, generation: 0, diagnostics: [{ code: 'GSS1101', reason: 'invalid-compatibility-target' }]
+    });
+    expect(session.finalize().css).toBe('');
   });
 
   it('retains bound Asset identity through target transformation and final URL rendering', () => {

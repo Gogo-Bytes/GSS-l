@@ -79,9 +79,10 @@ try {
     controls.some((key) => result[key]?.detected !== true) ||
     result.hasSpecificityDedup?.negativeControl?.detected !== true ||
     result.hasSpecificityDedup?.fixtures?.some((fixture) => fixture.differences.length) || errors.length ||
-    hostCompatibility.detected !== true || hostCompatibility.pageErrors?.length;
+    hostCompatibility.detected !== true || hostCompatibility.resourceDetected !== true ||
+    hostCompatibility.fallbackDetected !== true || hostCompatibility.pageErrors?.length;
   if (failed) throw new Error(`Browser oracle gate failed: status=${result.status}, fixtures=${result.results?.length}, comparisons=${comparisons}, attributionErrors=${attributionErrors}, errors=${errors.length}, host=${hostCompatibility.error ?? hostCompatibility.detected}. See ${artifact}`);
-  console.log(`Browser oracle passed: ${result.results.length} fixtures, ${comparisons} comparisons, ${controls.length} controls; Vite host artifact/control passed. ${artifact}`);
+  console.log(`Browser oracle passed: ${result.results.length} fixtures, ${comparisons} comparisons, ${controls.length} controls; Vite host artifact/two controls passed. ${artifact}`);
 } finally {
   await browser?.close();
   server.kill('SIGTERM');

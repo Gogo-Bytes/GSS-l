@@ -68,6 +68,73 @@ it('uses the resolved Lightning CSS transform target in a development session', 
   expect(css).toContain('display: flex;');
 });
 
+it('retains target-expanded preserved fallback and bound Asset in a dev snapshot', async () => {
+  const { root, server, container } = await fixture('/', [], false, false,
+    { transformer: 'lightningcss', lightningcss: { targets: { safari: 6 << 16 } } });
+  await writeFile(join(root, 'Card.gss'),
+    '.card { flex-direction: column; background-image: url("./icon.svg"); }');
+  await writeFile(join(root, 'icon.svg'), '<svg xmlns="http://www.w3.org/2000/svg"/>');
+  const id = (await container.resolveId('./Card.gss', `${root}/entry.ts`))!.id;
+  await container.load(id);
+  const css = (await server.transformRequest('/@gss-l/central.css?direct'))?.code;
+  expect(css).toContain('-webkit-flex-direction: column;');
+  expect(css).toContain('flex-direction: column;');
+  expect(css).toMatch(/background-image: url\("[^";]*icon\.svg\?[^";]+"\)/);
+});
+
+it('replaces target fallback and Asset contributions together after a dev source change', async () => {
+  const { root, server, container } = await fixture('/', [], false, false,
+    { transformer: 'lightningcss', lightningcss: { targets: { safari: 6 << 16 } } });
+  await writeFile(join(root, 'Card.gss'),
+    '.card { flex-direction: column; background-image: url("./icon.svg"); }');
+  await writeFile(join(root, 'icon.svg'), '<svg xmlns="http://www.w3.org/2000/svg"/>');
+  const id = (await container.resolveId('./Card.gss', `${root}/entry.ts`))!.id;
+  await container.load(id);
+  const before = (await server.transformRequest('/@gss-l/central.css?direct'))?.code;
+  expect(before).toContain('-webkit-flex-direction: column;');
+  expect(before).toContain('icon.svg');
+
+  const send = vi.spyOn(server.environments.client.hot, 'send');
+  await writeFile(join(root, 'Card.gss'), '.card { color: blue; }');
+  server.watcher.emit('change', `${root}/Card.gss`);
+  await vi.waitFor(() => expect(send).toHaveBeenCalledWith(expect.objectContaining({
+    type: 'update', updates: [expect.objectContaining({ type: 'css-update' })]
+  })));
+  const current = (await server.transformRequest('/@gss-l/central.css?direct'))?.code;
+  expect(current).toContain('color: #00f;');
+  expect(current).not.toContain('flex-direction');
+  expect(current).not.toContain('icon.svg');
+});
+
+it('deletes and recreates target fallback Assets without stale dev CSS', async () => {
+  const { root, server, container } = await fixture('/', [], false, false,
+    { transformer: 'lightningcss', lightningcss: { targets: { safari: 6 << 16 } } });
+  const source = '.card { flex-direction: column; background-image: url("./icon.svg"); }';
+  await writeFile(join(root, 'Card.gss'), source);
+  await writeFile(join(root, 'icon.svg'), '<svg xmlns="http://www.w3.org/2000/svg"/>');
+  const id = (await container.resolveId('./Card.gss', `${root}/entry.ts`))!.id;
+  await container.load(id);
+  expect((await server.transformRequest('/@gss-l/central.css?direct'))?.code).toContain('flex-direction');
+
+  const send = vi.spyOn(server.environments.client.hot, 'send');
+  await rm(join(root, 'Card.gss'));
+  server.watcher.emit('unlink', `${root}/Card.gss`);
+  await vi.waitFor(() => expect(send).toHaveBeenCalledWith(expect.objectContaining({
+    type: 'update', updates: [expect.objectContaining({ type: 'css-update' })]
+  })));
+  expect((await server.transformRequest('/@gss-l/central.css?direct'))?.code.trim()).toBe('');
+
+  send.mockClear();
+  await writeFile(join(root, 'Card.gss'), source);
+  server.watcher.emit('add', `${root}/Card.gss`);
+  await vi.waitFor(() => expect(send).toHaveBeenCalledWith(expect.objectContaining({
+    type: 'update', updates: [expect.objectContaining({ type: 'css-update' })]
+  })));
+  const restored = (await server.transformRequest('/@gss-l/central.css?direct'))?.code;
+  expect(restored).toContain('-webkit-flex-direction: column;');
+  expect(restored).toContain('icon.svg');
+});
+
 it('fails closed when Vite Lightning CSS feature overrides cannot be mirrored', async () => {
   const { root, container } = await fixture('/', [], false, false,
     { transformer: 'lightningcss', lightningcss: { targets: { safari: 6 << 16 }, exclude: Features.VendorPrefixes } });
