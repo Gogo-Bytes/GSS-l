@@ -144,6 +144,30 @@ it('keeps transformed resources and bound Assets in the Vite target-aware final 
   expect(css).toContain('display: -webkit-box;');
 });
 
+it('keeps compatibility fallback isolated while a second Module remains atomic with an Asset', async () => {
+  const root = await fixture({
+    'main.ts': `import card from './Card.gss'; import other from './Other.gss'; document.body.className = card.card.self + ' ' + other.other.self;`,
+    'Card.gss': '.card { flex-direction: column; color: red; }',
+    'Other.gss': '.other { display: flex; background-image: url("./icon.svg"); }',
+    'icon.svg': '<svg xmlns="http://www.w3.org/2000/svg" width="3" height="2"/>'
+  });
+  const output = await bundle(root, { build: { minify: true, cssTarget: 'safari6' } });
+  const manifest = JSON.parse(asset(output, 'gss-manifest.json'));
+  const css = asset(output, manifest.cssAsset);
+  expect(manifest.compiler.moduleDetails).toEqual([
+    { id: 'Card.gss', compilationMode: 'preserved',
+      fallbackReasons: [{ property: 'flex-direction', reason: 'compatibility-sequence-unatomizable' }] },
+    { id: 'Other.gss', compilationMode: 'atomic', fallbackReasons: [] }
+  ]);
+  expect(css).toContain('-webkit-flex-direction: column;');
+  expect(css).toContain('flex-direction: column;');
+  expect(css).toContain('display: -webkit-box;');
+  expect(css).toMatch(/background-image: url\("\/assets\/icon-[^";]+\.svg"\)/);
+  expect(manifest.compiler.rules).toHaveLength(2);
+  expect(manifest.compiler.rules.map((rule: { property: string }) => rule.property).sort())
+    .toEqual(['background-image', 'display']);
+});
+
 it('includes lazy Modules in one asset and exports matching manifest/report snapshots', async () => {
   const root = await fixture({
     'main.ts': `import styles from './Card.gss'; document.body.className = styles.card.self; document.body.onclick = () => import('./lazy');`,
