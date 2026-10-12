@@ -376,6 +376,44 @@ it('rebuilds target-derived compatibility CSS from the current watch census', as
   expect(await readCss()).toBe(initial);
 }, 15000);
 
+it('rebuilds compatibility fallback and bound Assets from the current watch census', async () => {
+  const root = await fixture({
+    'main.ts': `import a from './Card.gss'; import b from './Other.gss'; document.body.className = a.card.self + b.other.self;`,
+    'Card.gss': '.card { flex-direction: column; background-image: url("./icon.svg"); }',
+    'Other.gss': '.other { display: flex; }',
+    'icon.svg': '<svg xmlns="http://www.w3.org/2000/svg"/>'
+  });
+  const watcher = await build({ root, configFile: false, plugins: [gss({ adapter: react() })], logLevel: 'silent',
+    build: { minify: true, cssTarget: 'safari6', watch: { buildDelay: 20 } } });
+  if (!('on' in watcher)) throw new Error('Expected Rollup watcher.');
+  watchers.push(watcher);
+  await nextWatchBuild(watcher);
+  const readSnapshot = async () => {
+    const manifest = JSON.parse(await readFile(join(root, 'dist/gss-manifest.json'), 'utf8'));
+    const css = await readFile(join(root, 'dist', manifest.cssAsset), 'utf8');
+    return { manifest, css };
+  };
+  const initial = await readSnapshot();
+  expect(initial.manifest.compiler.moduleDetails).toMatchObject([
+    { id: 'Card.gss', compilationMode: 'preserved' }, { id: 'Other.gss', compilationMode: 'atomic' }
+  ]);
+  expect(initial.css).toContain('-webkit-flex-direction: column;');
+  expect(initial.css).toMatch(/background-image: url\("\/assets\/icon-[^";]+\.svg"\)/);
+
+  const changed = nextWatchBuild(watcher);
+  await writeFile(join(root, 'main.ts'), `import b from './Other.gss'; document.body.className = b.other.self;`);
+  await changed;
+  const remaining = await readSnapshot();
+  expect(remaining.manifest.compiler.modules).toEqual(['Other.gss']);
+  expect(remaining.css).toContain('display: -webkit-box;');
+  expect(remaining.css).not.toMatch(/flex-direction|icon\.svg/);
+
+  const restored = nextWatchBuild(watcher);
+  await writeFile(join(root, 'main.ts'), `import a from './Card.gss'; import b from './Other.gss'; document.body.className = a.card.self + b.other.self;`);
+  await restored;
+  expect(await readSnapshot()).toEqual(initial);
+}, 15000);
+
 it('rebuilds from the current census without retaining removed contributions', async () => {
   const root = await fixture({
     'main.ts': `import a from './Card.gss'; import b from './Other.gss'; document.body.className = a.card.self + b.other.self;`,
