@@ -136,6 +136,18 @@ describe('host-resolved compatibility targets', () => {
     expect(session.finalize().css).toContain('display: -webkit-box;');
   });
 
+  it.each([
+    [{ opera: '80.0' }],
+    [{}],
+    [{ safari: '256.0' }]
+  ])('rejects unsupported or out-of-range host targets transactionally: %j', (target) => {
+    const session = createGssCompilerSession({ projectRoot: '/project', compatibilityTargetStages: [target] });
+    expect(session.replaceStylesheet({ id, source: '.card { display: flex; }' })).toMatchObject({
+      committed: false, generation: 0, diagnostics: [{ code: 'GSS1101', reason: 'invalid-compatibility-target' }]
+    });
+    expect(session.finalize().css).toBe('');
+  });
+
   it('retains bound Asset identity through target transformation and final URL rendering', () => {
     const session = createGssCompilerSession({ projectRoot: '/project', compatibilityTargetStages: oldSafari });
     const result = session.replaceStylesheet({ id, source: '.card { background-image: url("./a.svg"); }',
