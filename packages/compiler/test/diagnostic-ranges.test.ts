@@ -184,7 +184,10 @@ it('retains successful output, names, manifest and resource identity when origin
     const compiler = session();
     const relocated = shifted + source.replace('color:red;', 'color:/*😀*/ red;');
     expect(compiler.replaceStylesheet({ id, source: relocated })).toEqual(expected);
-    expect(compiler.finalize()).toEqual(baseline.finalize());
+    const current = compiler.finalize();
+    const original = baseline.finalize();
+    expect(current).toMatchObject({ css: original.css, manifest: original.manifest, report: original.report });
+    expect(current.sourceMap.sourcesContent).toEqual([relocated]);
   }
 });
 

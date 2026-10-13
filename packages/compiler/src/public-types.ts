@@ -1,3 +1,5 @@
+import type { SourceMapArtifact } from './application/source-adapter.js';
+
 /** Zero-based UTF-16 offsets into the original caller CSS, with an exclusive end. */
 export type GssSourceRange = { start: number; end: number };
 
@@ -66,6 +68,8 @@ export type ReplaceStylesheetResult = {
 export type FinalizedGssSnapshot = {
   generation: number;
   css: string;
+  /** Source map v3 for generated CSS; shared rules choose a stable primary origin. */
+  sourceMap: SourceMapArtifact & { version: 3 };
   manifest: {
     modules: readonly string[];
     moduleDetails: readonly {

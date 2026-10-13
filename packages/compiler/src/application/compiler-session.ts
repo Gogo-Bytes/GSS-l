@@ -3,6 +3,7 @@ import postcss from 'postcss';
 import type { CompatibilityTransformer, PhysicalDeclaration } from '../infrastructure/lightning-compatibility-transformer.js';
 import { bindCssAssets, identifyAssetValue, renderAssetValue, type AssetBindings, type AssetUrlResolver } from './asset-values.js';
 import { assetOccurrences, collectAssetDependencies } from './stylesheet-assets.js';
+import { renderCssWithSourceMap, type CssMapBlock } from './css-source-map.js';
 import { toLogicalModuleId } from './module-identity.js';
 import valueParser from 'postcss-value-parser';
 import {
@@ -30,7 +31,8 @@ import type {
   ParsedHasCondition,
   ParsedKeyframesRegistration,
   ParsedPropertyRegistration,
-  ParsedStyleRule
+  ParsedStyleRule,
+  SourceSpan
 } from '../domain/parsed-stylesheet.js';
 import type { CssParserPort, ParsedStylesheet } from './css-parser-port.js';
 import type {
@@ -67,6 +69,7 @@ type PlannedDeclaration = {
   layer?: string;
   relationRank?: number;
   physicalDeclarations?: readonly PhysicalDeclaration[];
+  source: SourceSpan;
 };
 
 type PlannedResource = {
@@ -76,10 +79,12 @@ type PlannedResource = {
   identity: string;
   css: string;
   renderCss?: (resolve: AssetUrlResolver) => string;
+  source: SourceSpan;
 };
 
 type PlannedPreservedBlock = {
   moduleId: string;
+  source: SourceSpan;
   css: string;
   renderCss?: (resolve: AssetUrlResolver) => string;
 };
@@ -90,6 +95,7 @@ type ModuleContribution = {
   preservedBlocks: readonly PlannedPreservedBlock[];
   resources: readonly PlannedResource[];
   diagnostics: readonly GssDiagnostic[];
+  sourceText: string;
 };
 
 type MutableScopeNode = {
@@ -583,7 +589,7 @@ function prepareContribution(
         const selector = `.${sourceMarker}${suffix} ${`.${targetMarker}`.repeat(rule.path.length - 1)}`;
         for (const declaration of instance.declarations) rules.push({
           kind: 'contextual-atom', className: targetMarker, selector, wrappers, layer, relationRank,
-          identity: { ...relationIdentity, property: declaration.property,
+          source: declaration.source, identity: { ...relationIdentity, property: declaration.property,
             ...identifyAssetValue(declaration.value, bindings), important: declaration.important }
         });
       } else {
@@ -596,7 +602,8 @@ function prepareContribution(
           const className = nameAllocator.createAtomicName(identity);
           scope.classNames.add(className);
           rules.push({ kind: sourceIndex < 0 ? 'pure-atom' : 'contextual-atom', identity, className,
-            selector: `${`.${className}`.repeat(rule.path.length)}${suffix}`, wrappers, layer, relationRank });
+            selector: `${`.${className}`.repeat(rule.path.length)}${suffix}`, wrappers, layer, relationRank,
+            source: declaration.source });
         }
       }
     }
@@ -631,7 +638,8 @@ function prepareContribution(
           className,
           selector: `.${className}`,
           wrappers,
-          layer
+          layer,
+          source: declaration.source
         });
       }
     }
@@ -663,7 +671,7 @@ function prepareContribution(
         identity, className,
         // Keep authored class specificity on this target-qualified atom, not a shared weaker atom.
         selector: `${`.${className}`.repeat(rule.path.length)}${state === 'self' ? '' : `:${state}`}::${pseudoElement}`,
-        wrappers, layer, relationRank
+        wrappers, layer, relationRank, source: declaration.source
       });
     }
   }
@@ -724,7 +732,8 @@ function prepareContribution(
           className: subjectMarker,
           selector,
           wrappers,
-          layer
+          layer,
+          source: declaration.source
         });
       }
     }
@@ -792,7 +801,8 @@ function prepareContribution(
         selector,
         wrappers,
         layer,
-        relationRank
+        relationRank,
+        source: declaration.source
       });
     }
   }
@@ -830,7 +840,7 @@ function prepareContribution(
       rules.push({
         kind: 'contextual-atom', identity, className,
         selector: `${ownedSelector}${rule.externalCondition}`,
-        wrappers: rule.conditions, layer: rule.layer
+        wrappers: rule.conditions, layer: rule.layer, source: declaration.source
       });
     }
   }
@@ -870,7 +880,7 @@ function prepareContribution(
       rules.push({
         kind: 'contextual-atom', identity, className,
         selector: `${[...ancestorMarkers, className].map((marker) => `.${marker}`).join(' ')} ${rule.externalTarget}`,
-        wrappers: rule.conditions, layer: rule.layer
+        wrappers: rule.conditions, layer: rule.layer, source: declaration.source
       });
     }
   }
@@ -897,7 +907,8 @@ function prepareContribution(
         rule.identity.value, rule.identity.assetValue === true, rule.identity.important]))! })) : rules,
     preservedBlocks: [],
     resources,
-    diagnostics: conditionDiagnostics
+    diagnostics: conditionDiagnostics,
+    sourceText: input.source
   };
 }
 
@@ -929,10 +940,14 @@ function preparePreservedContribution(input: {
   const exports = Object.fromEntries(
     [...roots.entries()].map(([name, scope]) => [name, toScopeSchema(scope)])
   );
-  const css = [...input.rules]
+  const bindings = new Map((input.input.assetReferences ?? []).map(({ url, identity }) => [url, identity]));
+  const preservedBlocks = [...input.rules]
     .sort((left, right) => left.sourceOrdinal - right.sourceOrdinal)
-    .map((rule) => renderPreservedRule(rule, input.moduleId, input.nameAllocator, input.compatibility))
-    .join('\n\n');
+    .map((rule) => {
+      const css = renderPreservedRule(rule, input.moduleId, input.nameAllocator, input.compatibility);
+      return { moduleId: input.moduleId, source: rule.source, css,
+        ...bindCssAssets(css, bindings) };
+    });
   const fallbackReasons = [
     ...input.fallbackProperties.map((property) => ({ property, reason: 'property-effect-not-registered' as const })),
     ...(input.fallbackCompatibilityProperties ?? []).map((property) =>
@@ -948,11 +963,10 @@ function preparePreservedContribution(input: {
     compilationMode: 'preserved',
     fallbackReasons
   };
-  const bindings = new Map((input.input.assetReferences ?? []).map(({ url, identity }) => [url, identity]));
   return {
     artifact,
     rules: [],
-    preservedBlocks: [{ moduleId: input.moduleId, css, ...bindCssAssets(css, bindings) }],
+    preservedBlocks,
     resources: input.resources,
     diagnostics: [
       ...input.conditionDiagnostics,
@@ -967,7 +981,8 @@ function preparePreservedContribution(input: {
         reason: 'module-preserved-fallback',
         suggestion: 'Verify the property name or register its complete effect family.'
       }
-    ]
+    ],
+    sourceText: input.input.source
   };
 }
 
@@ -1042,14 +1057,14 @@ function planResource(
     : planFontFaceResource(resource);
   const physical = compatibility?.expandResource(base.css, resource.kind);
   if (compatibility && (!physical || !resourceAssetsPreserved(base.css, physical))) return undefined;
-  const planned = physical ? { ...base, css: physical } : base;
+  const planned = { ...base, ...(physical ? { css: physical } : {}), source: resource.source };
   const assets = bindCssAssets(planned.css, bindings);
   return assets.assetIdentity && assets.renderCss
     ? { ...planned, identity: assets.assetIdentity, renderCss: assets.renderCss }
     : planned;
 }
 
-function planPropertyRegistration(resource: ParsedPropertyRegistration): PlannedResource {
+function planPropertyRegistration(resource: ParsedPropertyRegistration): Omit<PlannedResource, 'source'> {
   const declarations = resource.declarations
     .map(({ property, value }) => `  ${property}: ${value};`)
     .join('\n');
@@ -1066,7 +1081,7 @@ function planPropertyRegistration(resource: ParsedPropertyRegistration): Planned
   };
 }
 
-function planFontFaceResource(resource: ParsedFontFaceResource): PlannedResource {
+function planFontFaceResource(resource: ParsedFontFaceResource): Omit<PlannedResource, 'source'> {
   const descriptor = (name: string, fallback: string): string =>
     resource.declarations.find(({ property }) => property === name)?.value ?? fallback;
   const signature = [
@@ -1095,7 +1110,7 @@ function planKeyframesRegistration(
   resource: ParsedKeyframesRegistration,
   moduleId: string,
   nameAllocator: NameAllocatorPort
-): PlannedResource {
+): Omit<PlannedResource, 'source'> {
   const generatedName = nameAllocator.createKeyframesName(moduleId, resource.name);
   const frames = resource.frames.map((frame) => {
     const declarations = frame.declarations
@@ -1318,29 +1333,31 @@ function finalizeSnapshot(
     urls.set(identity, url);
     return url;
   };
+  const sourceTexts = new Map([...modules.values()].map(({ artifact, sourceText }) =>
+    [artifact.scopeSchema.moduleId, sourceText] as const));
   const uniqueResources = new Map<string, {
     resource: PlannedResource;
     sources: Set<string>;
+    origins: { moduleId: string; offset: number }[];
   }>();
   for (const contribution of modules.values()) {
     for (const resource of contribution.resources) {
       const registered = uniqueResources.get(resource.identity) ?? {
         resource,
-        sources: new Set<string>()
+        sources: new Set<string>(),
+        origins: []
       };
       registered.sources.add(contribution.artifact.scopeSchema.moduleId);
+      registered.origins.push({ moduleId: contribution.artifact.scopeSchema.moduleId, offset: resource.source.start });
       uniqueResources.set(resource.identity, registered);
     }
   }
   const orderedResources = [...uniqueResources.values()]
     .sort((left, right) => left.resource.identity.localeCompare(right.resource.identity));
-  const renderedResources = orderedResources
-    .map(({ resource }) => resource.renderCss?.(resolve) ?? resource.css)
-    .join('\n\n');
-
   const uniqueRules = new Map<string, {
     rule: PlannedDeclaration;
     sources: Set<string>;
+    origins: { moduleId: string; offset: number }[];
   }>();
   for (const contribution of modules.values()) {
     for (const rule of contribution.rules) {
@@ -1350,8 +1367,9 @@ function finalizeSnapshot(
       const key = 'subjectPath' in rule.identity
         ? JSON.stringify([identity, rule.selector])
         : identity;
-      const registered = uniqueRules.get(key) ?? { rule, sources: new Set<string>() };
+      const registered = uniqueRules.get(key) ?? { rule, sources: new Set<string>(), origins: [] };
       registered.sources.add(contribution.artifact.scopeSchema.moduleId);
+      registered.origins.push({ moduleId: contribution.artifact.scopeSchema.moduleId, offset: rule.source.start });
       uniqueRules.set(key, registered);
     }
   }
@@ -1359,21 +1377,31 @@ function finalizeSnapshot(
   const orderedRules = [...uniqueRules.values()].sort((left, right) =>
     compareRuleOrder(left.rule, right.rule, config)
   );
-  const renderedRules = orderedRules.map(({ rule }) => renderRule(rule, resolve)).join('\n\n');
   const orderedPreservedBlocks = [...modules.values()]
     .flatMap(({ preservedBlocks }) => preservedBlocks)
     .sort((left, right) => left.moduleId.localeCompare(right.moduleId));
-  const renderedPreservedBlocks = orderedPreservedBlocks
-    .map(({ css, renderCss }) => renderCss?.(resolve) ?? css)
-    .join('\n\n');
   const layerPrelude = config.layers?.length
     ? `@layer ${config.layers.join(', ')};`
     : '';
+  const primary = (origins: readonly { moduleId: string; offset: number }[]) =>
+    [...origins].sort((a, b) => a.moduleId.localeCompare(b.moduleId) || a.offset - b.offset)[0]!;
+  const sections: CssMapBlock[][] = [
+    layerPrelude ? [{ css: layerPrelude }] : [],
+    orderedResources.map(({ resource, origins }) => ({
+      css: resource.renderCss?.(resolve) ?? resource.css, origin: primary(origins)
+    })),
+    orderedPreservedBlocks.map(({ css, renderCss, moduleId, source }) => ({
+      css: renderCss?.(resolve) ?? css, origin: { moduleId, offset: source.start }
+    })),
+    orderedRules.map(({ rule, origins }) => ({
+      css: renderRule(rule, resolve), origin: primary(origins), declarationPositions: true
+    }))
+  ];
+  const rendered = renderCssWithSourceMap(sections, sourceTexts);
   return {
     generation,
-    css: [layerPrelude, renderedResources, renderedPreservedBlocks, renderedRules]
-      .filter(Boolean)
-      .join('\n\n'),
+    css: rendered.css,
+    sourceMap: rendered.sourceMap,
     manifest: {
       modules: [...modules.values()].map(({ artifact }) => artifact.scopeSchema.moduleId).sort(),
       moduleDetails: [...modules.values()]
@@ -1405,7 +1433,7 @@ function finalizeSnapshot(
       atomicModules: [...modules.values()].filter(({ artifact }) =>
         artifact.compilationMode === 'atomic'
       ).length,
-      preservedModules: orderedPreservedBlocks.length,
+      preservedModules: [...modules.values()].filter(({ artifact }) => artifact.compilationMode === 'preserved').length,
       atomicCoverage: modules.size === 0
         ? 1
         : [...modules.values()].filter(({ artifact }) =>

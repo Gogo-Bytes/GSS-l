@@ -1,9 +1,11 @@
 import { comparePropertyRenderOrder, effectsOfProperty } from './property-effects.js';
+import type { SourceSpan } from './parsed-stylesheet.js';
 
 type DeclarationCandidate = {
   property: string;
   value: string;
   important: boolean;
+  source: SourceSpan;
 };
 
 type RuleCandidate = {

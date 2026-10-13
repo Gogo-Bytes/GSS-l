@@ -92,7 +92,10 @@ describe('baseline-compatible inline source-map consumption', () => {
     const baseline = createGssCompilerSession({ projectRoot: '/private/project' });
     const plain = baseline.replaceStylesheet({ id, source: '.card { color:blue; background-image:url(image.svg); }' });
     expect(compiler.replaceStylesheet({ id, source })).toEqual(plain);
-    expect(compiler.finalize()).toEqual(baseline.finalize());
+    const annotated = compiler.finalize();
+    const clean = baseline.finalize();
+    expect(annotated).toMatchObject({ css: clean.css, manifest: clean.manifest, report: clean.report });
+    expect(annotated.sourceMap.sourcesContent).toEqual([source]);
     expect(discoverStylesheetAssets({ id, source })).toEqual({ urls: ['image.svg'], diagnostics: [] });
   });
 

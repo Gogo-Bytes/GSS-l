@@ -210,7 +210,7 @@ it('fails closed when custom naming and relative URLs cannot stabilize', async (
   } } } })).rejects.toThrow(/Cannot stabilize GSS CSS asset URL paths/);
 });
 
-it.each(['gss-manifest.json', 'logo.svg'])('rejects generated output collisions with a referenced public file: %s', async (file) => {
+it.each(['gss-manifest.json', 'gss.css.map', 'logo.svg'])('rejects generated output collisions with a referenced public file: %s', async (file) => {
   const root = await fixture({
     'Card.gss': `.card { background-image: url(/${file}); }`,
     [`public/${file}`]: 'public-resource'

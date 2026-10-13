@@ -82,6 +82,28 @@ it('repeats target-aware production CSS, manifest and emitted Asset bytes across
   expect(first.output.some((entry) => entry.type === 'asset' && entry.fileName.endsWith('.svg'))).toBe(true);
 });
 
+it('links the emitted CSS to a map with original GSS contents and logical source ids', async () => {
+  const source = '.card { color: red; }';
+  const output = await bundle(await fixture({ 'Card.gss': source }));
+  const manifest = JSON.parse(asset(output, 'gss-manifest.json'));
+  const css = asset(output, manifest.cssAsset);
+  const map = JSON.parse(asset(output, 'gss.css.map'));
+  expect(map).toMatchObject({ version: 3, file: manifest.cssAsset,
+    sources: ['Card.gss'], sourcesContent: [source] });
+  expect(css).toContain('/*# sourceMappingURL=../gss.css.map */');
+  expect(JSON.stringify(map)).not.toContain('/gss-production-');
+});
+
+it('links a nested CSS filename to the root map without changing the map source ids', async () => {
+  const output = await bundle(await fixture(), {
+    build: { rollupOptions: { output: { assetFileNames: 'static/deep/gss.css' } } }
+  });
+  expect(asset(output, 'static/deep/gss.css')).toContain('sourceMappingURL=../../gss.css.map');
+  expect(JSON.parse(asset(output, 'gss.css.map'))).toMatchObject({
+    file: 'static/deep/gss.css', sources: ['Card.gss']
+  });
+});
+
 it('takes compatibility targets from the resolved Vite CSS build settings', async () => {
   const root = await fixture({ 'Card.gss': '.card { display: flex; }' });
   const old = await bundle(root, { build: { minify: true, cssTarget: 'safari6' } });
@@ -337,6 +359,7 @@ it('emits an empty CSS asset when reachable style Modules contribute no rules', 
   const manifest = JSON.parse(asset(output, 'gss-manifest.json'));
   expect(manifest.compiler.modules).toEqual(['Card.gss']);
   expect(asset(output, manifest.cssAsset)).toBe('');
+  expect(output.output.some((entry) => entry.fileName === 'gss.css.map')).toBe(false);
   expect(JSON.parse(asset(output, 'gss-report.json')).compiler).toMatchObject({ modules: 1, rules: 0 });
 });
 
@@ -360,6 +383,15 @@ it('does not duplicate an existing central link inserted by the Vite HTML pipeli
     build: { rollupOptions: { output: { assetFileNames: 'static/gss.css' } } }
   });
   expect(asset(output, 'index.html').match(/href="\/static\/gss.css"/g)).toHaveLength(1);
+});
+
+it('rejects a collision with its fixed CSS map output instead of overwriting another asset', async () => {
+  const root = await fixture();
+  await expect(bundle(root, { plugins: [gss({ adapter: react() }), {
+    name: 'conflicting-map', generateBundle() {
+      this.emitFile({ type: 'asset', fileName: 'gss.css.map', source: 'not ours' });
+    }
+  }] })).rejects.toThrow(/GSS output.*gss\.css\.map.*already exists/);
 });
 
 it('rejects a collision with its fixed manifest output instead of overwriting another asset', async () => {

@@ -1,0 +1,63 @@
+import { expect, it } from 'vitest';
+import { TraceMap, originalPositionFor } from '@jridgewell/trace-mapping';
+import { createGssCompilerSession } from '../src/index.js';
+
+function generatedPosition(css: string, token: string) {
+  const index = css.indexOf(token);
+  expect(index).toBeGreaterThanOrEqual(0);
+  const lines = css.slice(0, index).split('\n');
+  return { line: lines.length, column: lines.at(-1)!.length };
+}
+
+it('maps shared and compatibility-expanded declarations to a stable primary authored origin', () => {
+  const session = createGssCompilerSession({ projectRoot: '/project',
+    compatibilityTargetStages: [{ safari: '6.0' }] });
+  const b = '.card { display: flex; }';
+  const a = '\r\n.card { display: /*😀*/ flex; }';
+  expect(session.replaceStylesheet({ id: '/project/b.gss', source: b }).committed).toBe(true);
+  expect(session.replaceStylesheet({ id: '/project/a.gss', source: a }).committed).toBe(true);
+  const snapshot = session.finalize();
+  expect(snapshot.sourceMap.sources).toEqual(['a.gss']);
+  expect(snapshot.sourceMap.sourcesContent).toEqual([a]);
+  expect(snapshot.manifest.rules[0]?.sources).toEqual(['a.gss', 'b.gss']);
+  const map = new TraceMap(snapshot.sourceMap);
+  for (const physical of ['display: -webkit-box;', 'display: -webkit-flex;', 'display: flex;']) {
+    expect(originalPositionFor(map, generatedPosition(snapshot.css, physical))).toMatchObject({
+      source: 'a.gss', line: 2, column: a.indexOf('display:') - a.indexOf('\n') - 1
+    });
+  }
+  session.invalidate('/project/a.gss');
+  const remaining = session.finalize();
+  expect(remaining.sourceMap.sources).toEqual(['b.gss']);
+  expect(remaining.sourceMap.sourcesContent).toEqual([b]);
+});
+
+it('tracks generated lines through the unmapped layer prelude and media wrapper', () => {
+  const session = createGssCompilerSession({ projectRoot: '/project', layers: ['base'],
+    conditions: { media: ['(min-width: 400px)'] } });
+  const source = '@layer base { @media (min-width: 400px) { .card { color: red; } } }';
+  expect(session.replaceStylesheet({ id: '/project/card.gss', source }).committed).toBe(true);
+  const snapshot = session.finalize();
+  const map = new TraceMap(snapshot.sourceMap);
+  expect(originalPositionFor(map, generatedPosition(snapshot.css, 'color: red;'))).toMatchObject({
+    source: 'card.gss', line: 1, column: source.indexOf('color: red;')
+  });
+  expect(snapshot.sourceMap.sourcesContent).toEqual([source]);
+});
+
+it('maps preserved and resource blocks without borrowing unrelated Module origins', () => {
+  const session = createGssCompilerSession({ projectRoot: '/project' });
+  const resource = '@font-face { font-family: Demo; src: url(demo.woff2); }';
+  const preserved = '.card { future-paint: red; } .icon { color: blue; }';
+  expect(session.replaceStylesheet({ id: '/project/z.gss', source: resource }).committed).toBe(true);
+  expect(session.replaceStylesheet({ id: '/project/p.gss', source: preserved }).committed).toBe(true);
+  const snapshot = session.finalize();
+  const map = new TraceMap(snapshot.sourceMap);
+  expect(originalPositionFor(map, generatedPosition(snapshot.css, '@font-face'))).toMatchObject({
+    source: 'z.gss', line: 1, column: 0
+  });
+  expect(originalPositionFor(map, generatedPosition(snapshot.css, '.gss-s--module_p_2e_gss--path_icon'))).toMatchObject({
+    source: 'p.gss', line: 1, column: preserved.indexOf('.icon')
+  });
+  expect(snapshot.sourceMap.sourcesContent).toEqual([resource, preserved]);
+});

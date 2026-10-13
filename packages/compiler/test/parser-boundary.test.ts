@@ -54,9 +54,12 @@ describe('parser seam output compatibility', () => {
     const baseline = compile('/one', keyframes);
     expect(baseline.report.resources).toBe(1);
     expect(baseline.manifest.resources).toHaveLength(1);
-    expect(compile('/two', `\r\n${shifted}`)).toEqual(baseline);
+    const relocated = compile('/two', `\r\n${shifted}`);
+    expect(relocated).toMatchObject({ css: baseline.css, manifest: baseline.manifest, report: baseline.report });
+    expect(relocated.sourceMap.sourcesContent).toEqual([`\r\n${shifted}`]);
     // Same local resource at distinct authored offsets must still deduplicate.
-    expect(compile('/three', `${keyframes}\r\n${shifted}`)).toEqual(baseline);
+    const duplicated = compile('/three', `${keyframes}\r\n${shifted}`);
+    expect(duplicated).toMatchObject({ css: baseline.css, manifest: baseline.manifest, report: baseline.report });
     expect(JSON.stringify(baseline)).not.toContain('/one');
   });
 
@@ -87,7 +90,9 @@ it('retains complete pre-seam public output goldens for nesting, resources and p
   for (const fixture of cases) {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
     expect(compiler.replaceStylesheet({ id: '/project/card.gss', source: fixture.source })).toEqual(fixture.result);
-    expect(compiler.finalize()).toEqual(fixture.snapshot);
+    const { sourceMap, ...semantic } = compiler.finalize();
+    expect(semantic).toEqual(fixture.snapshot);
+    expect(sourceMap.sourcesContent).toEqual([fixture.source]);
   }
 });
 
@@ -100,5 +105,8 @@ it.each(['\uFEFF', '\uFFFE'])('keeps public outputs unchanged for a leading %j m
   const expected = baseline.replaceStylesheet({ id, source });
   expect(expected.committed).toBe(true);
   expect(compiler.replaceStylesheet({ id, source: marker + source })).toEqual(expected);
-  expect(compiler.finalize()).toEqual(baseline.finalize());
+  const shifted = compiler.finalize();
+  const original = baseline.finalize();
+  expect(shifted).toMatchObject({ css: original.css, manifest: original.manifest, report: original.report });
+  expect(shifted.sourceMap.sourcesContent).toEqual([marker + source]);
 });
