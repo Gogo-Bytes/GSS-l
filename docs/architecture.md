@@ -240,7 +240,7 @@ source maps
 
 The implemented Vite build emits an asset named `gss.css` through Rollup naming rules, plus `gss-manifest.json` (version 2) and `gss-report.json` (version 1). Both JSON envelopes contain output-relative `cssAsset` and their corresponding Compiler snapshot. Manifest v2 includes all live rule/resource origins and preserved-rule ranges. Nonempty CSS links `gss.css.map` with authored `sourcesContent`; an empty reachable stylesheet has no map. All emitted HTML entries share the CSS asset; deployment base is applied only when creating their links. An empty GSS census emits no GSS asset or metadata.
 
-SSR integrations can read `gss-manifest.json` and link the same CSS asset used by client hydration; no generic SSR response helper is provided. The browser does not create or reorder GSS rules at runtime.
+A bounded Vite-managed React SSG fixture reads the build-linked asset, renders through Vite SSR and verifies matching hydrated class names in a browser; this is not full representative hydration acceptance. SSR integrations can read `gss-manifest.json` and link the same CSS asset used by client hydration; no generic SSR response helper is provided. The browser does not create or reorder GSS rules at runtime.
 
 The first version includes lazy-route CSS in the central asset so network completion cannot alter the cascade. The final Rollup Module census, not precompiled scope lookups or emitted chunk contents, determines production contributions. Source snapshots retained with virtual Modules keep final CSS aligned with generated JS. Watch builds replay the current census into clean registry state and refresh preserved snapshots even when generated JS is byte-identical.
 

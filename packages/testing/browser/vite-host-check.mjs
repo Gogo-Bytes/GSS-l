@@ -1,9 +1,11 @@
-/* global document, getComputedStyle, Image, URL, fetch */
+/* global document, getComputedStyle, Image, URL, fetch, process, window */
 
-import { mkdtemp, mkdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { build, normalizePath, preview } from 'vite';
+import { build, createServer, normalizePath, preview } from 'vite';
+import { createElement } from 'react';
+import { renderToString } from 'react-dom/server';
 import { gss } from '@gss-l/vite';
 import { react } from '@gss-l/react';
 
@@ -145,5 +147,109 @@ export async function checkViteHostCompatibility(browser) {
         await rm(root, { recursive: true, force: true });
       }
     }
+  }
+}
+
+/** A Vite-managed SSG HTML document, real React SSR render, client hydration and CSS link. */
+export async function checkViteSsgHydration(browser) {
+  const root = normalizePath(await realpath(await mkdtemp(join(tmpdir(), 'gss-ssg-browser-'))));
+  let devServer;
+  let previewServer;
+  const contexts = [];
+  try {
+    await symlink(join(process.cwd(), 'node_modules'), join(root, 'node_modules'), 'dir');
+    await writeFile(join(root, 'Card.gss'), '.card { color: red; }');
+    await writeFile(join(root, 'index.html'), '<!doctype html><html><head></head><body><div id="app"><!--ssg--></div><script type="module" src="/main.tsx"></script></body></html>');
+    await writeFile(join(root, 'App.tsx'), `import React, { useEffect } from 'react'; import styles from './Card.gss';
+      export function App() {
+        useEffect(() => {
+          (window as any).__GSS_CLIENT_CLASS__ = styles.card.self;
+          (window as any).__GSS_HYDRATED__ = true;
+        }, []);
+        return <div className={styles.card.self + ' external'}>Hello</div>;
+      }`);
+    await writeFile(join(root, 'entry-server.tsx'), `export { App } from './App';`);
+    await writeFile(join(root, 'main.tsx'), `import React from 'react'; import { hydrateRoot } from 'react-dom/client';
+      import { App } from './App';
+      (window as any).__GSS_HYDRATION_ERRORS__ = [];
+      hydrateRoot(document.getElementById('app')!, <App />, {
+        onRecoverableError(error) { (window as any).__GSS_HYDRATION_ERRORS__.push(String(error)); }
+      });`);
+    devServer = await createServer({ root, configFile: false, plugins: [gss({ adapter: react() })],
+      logLevel: 'silent', server: { middlewareMode: true } });
+    const { App } = await devServer.ssrLoadModule('/entry-server.tsx');
+    const rendered = renderToString(createElement(App));
+    await devServer.close();
+    devServer = undefined;
+    await build({ root, configFile: false, plugins: [gss({ adapter: react() })], logLevel: 'silent',
+      build: { minify: false } });
+    const manifest = JSON.parse(await readFile(join(root, 'dist/gss-manifest.json'), 'utf8'));
+    const css = await readFile(join(root, 'dist', manifest.cssAsset), 'utf8');
+    const htmlFile = join(root, 'dist/index.html');
+    const builtHtml = await readFile(htmlFile, 'utf8');
+    if (!builtHtml.includes('<!--ssg-->')) throw new Error('Vite removed the SSG insertion point.');
+    const html = builtHtml.replace('<!--ssg-->', rendered).replace('</body>',
+      '<script>window.__GSS_SERVER_CLASS__ = document.querySelector("#app > div").className;</script></body>');
+    const ownedClass = /class="([^"]+) external"/.exec(rendered)?.[1];
+    if (!ownedClass || !css.includes(`.${ownedClass} {`) ||
+      !html.includes(`href="/${manifest.cssAsset}"`)) {
+      throw new Error('SSG markup and Vite CSS asset do not agree on the owned class/link.');
+    }
+    await writeFile(htmlFile, html);
+    previewServer = await preview({ root, configFile: false, logLevel: 'silent',
+      preview: { host: '127.0.0.1', port: 0, strictPort: false } });
+    const address = previewServer.httpServer.address();
+    if (!address || typeof address === 'string') throw new Error('No SSG preview address.');
+    const url = `http://127.0.0.1:${address.port}/`;
+    async function readPage() {
+      const context = await browser.newContext();
+      contexts.push(context);
+      const page = await context.newPage();
+      const pageErrors = [];
+      page.on('pageerror', (error) => pageErrors.push(String(error)));
+      page.on('console', (message) => { if (message.type() === 'error') pageErrors.push(message.text()); });
+      await page.goto(url, { waitUntil: 'load' });
+      await page.waitForFunction(() => window.__GSS_HYDRATED__ === true);
+      const state = await page.evaluate(() => ({
+        className: document.querySelector('#app > div')?.className,
+        serverClass: window.__GSS_SERVER_CLASS__, clientClass: window.__GSS_CLIENT_CLASS__,
+        text: document.querySelector('#app > div')?.textContent,
+        color: getComputedStyle(document.querySelector('#app > div')).color,
+        links: [...document.querySelectorAll('link[rel="stylesheet"]')].map((link) => link.getAttribute('href')),
+        recoverable: window.__GSS_HYDRATION_ERRORS__
+      }));
+      return { state, pageErrors };
+    }
+    const baseline = await readPage();
+    if (baseline.state.className !== `${ownedClass} external` || baseline.state.serverClass !== `${ownedClass} external` ||
+      baseline.state.clientClass !== ownedClass ||
+      baseline.state.text !== 'Hello' ||
+      baseline.state.color !== 'rgb(255, 0, 0)' ||
+      JSON.stringify(baseline.state.links) !== JSON.stringify([`/${manifest.cssAsset}`]) ||
+      baseline.state.recoverable.length || baseline.pageErrors.length) {
+      throw new Error(`SSG/hydration baseline differs: ${JSON.stringify(baseline)}`);
+    }
+    const corrupt = html.replace('>Hello</div>', '>Corrupt</div>');
+    if (corrupt === html) throw new Error('Hydration control did not alter server markup.');
+    await writeFile(htmlFile, corrupt);
+    const control = await readPage();
+    const badClass = 'gss-deliberately-wrong';
+    const classCorrupt = html.replace(`class="${ownedClass} external"`, `class="${badClass} external"`);
+    if (classCorrupt === html) throw new Error('Class control did not alter server markup.');
+    await writeFile(htmlFile, classCorrupt);
+    const classControl = await readPage();
+    const textDetected = control.state.recoverable.length > 0 && control.state.text === 'Hello' &&
+      control.state.color === 'rgb(255, 0, 0)';
+    const classDetected = classControl.state.serverClass === `${badClass} external` &&
+      classControl.state.clientClass === ownedClass &&
+      classControl.state.serverClass !== `${classControl.state.clientClass} external`;
+    return { detected: textDetected && classDetected, textDetected, classDetected,
+      baseline, control, classControl, pageErrors: baseline.pageErrors,
+      controlPageErrors: [...control.pageErrors, ...classControl.pageErrors] };
+  } finally {
+    await Promise.all(contexts.map((context) => context.close()));
+    await previewServer?.close();
+    await devServer?.close();
+    await rm(root, { recursive: true, force: true });
   }
 }

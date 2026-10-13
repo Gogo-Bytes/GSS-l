@@ -1,8 +1,10 @@
-import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, expect, it } from 'vitest';
-import { build, normalizePath, resolveConfig, type InlineConfig, type Rollup } from 'vite';
+import { build, createServer, normalizePath, resolveConfig, type InlineConfig, type Rollup } from 'vite';
+import { createElement } from 'react';
+import { renderToString } from 'react-dom/server';
 import { react } from '@gss-l/react';
 import { gss } from '../src/index.js';
 import { resolveViteCssTargets } from '../src/css-targets.js';
@@ -56,6 +58,39 @@ it('emits one central CSS asset and injects its final name into built HTML', asy
   expect(html).toContain(`href="/${cssName}"`);
   expect(html).toContain('<meta name="preserve-me" content="yes">');
   expect(html).not.toContain('/@gss-l/central.css');
+});
+
+it('links a Vite-managed SSG React render to the same production CSS and class names', async () => {
+  const root = await fixture({
+    'index.html': '<!doctype html><html><head></head><body><div id="app"><!--ssg--></div><script type="module" src="/main.tsx"></script></body></html>',
+    'App.tsx': `import React from 'react'; import styles from './Card.gss';
+      export function App() { return <div className={styles.card.self + ' external'}>Hello</div>; }`,
+    'entry-server.tsx': `export { App } from './App';`,
+    'main.tsx': `import React from 'react'; import { hydrateRoot } from 'react-dom/client';
+      import { App } from './App'; hydrateRoot(document.getElementById('app')!, <App />);`
+  });
+  await symlink(join(process.cwd(), 'node_modules'), join(root, 'node_modules'), 'dir');
+  const server = await createServer({ root, configFile: false, plugins: [gss({ adapter: react() })],
+    logLevel: 'silent', server: { middlewareMode: true } });
+  let rendered: string;
+  try {
+    const { App } = await server.ssrLoadModule('/entry-server.tsx');
+    rendered = renderToString(createElement(App));
+  } finally {
+    await server.close();
+  }
+  const output = await bundle(root);
+  const manifest = JSON.parse(asset(output, 'gss-manifest.json'));
+  const html = asset(output, 'index.html').replace('<!--ssg-->', rendered);
+  expect(html).toContain(`href="/${manifest.cssAsset}"`);
+  const className = /class="([^"]+)"/.exec(rendered)?.[1];
+  expect(className).toBeTruthy();
+  expect(className).toContain(' external');
+  const ownedClass = className!.split(' ')[0]!;
+  expect(asset(output, manifest.cssAsset)).toContain(`.${ownedClass} {`);
+  expect(output.output.filter((entry) => entry.type === 'chunk').map((entry) => entry.code).join('\n'))
+    .toContain(ownedClass);
+  expect(html).toContain(rendered);
 });
 
 it('repeats target-aware production CSS, manifest and emitted Asset bytes across clean builds', async () => {

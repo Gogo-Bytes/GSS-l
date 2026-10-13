@@ -5,7 +5,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { chromium } from 'playwright';
-import { checkViteHostCompatibility } from './vite-host-check.mjs';
+import { checkViteHostCompatibility, checkViteSsgHydration } from './vite-host-check.mjs';
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 const url = 'http://127.0.0.1:4178/';
@@ -65,8 +65,14 @@ try {
   } catch (error) {
     hostCompatibility = { detected: false, error: String(error) };
   }
+  let ssgHydration;
+  try {
+    ssgHydration = await checkViteSsgHydration(browser);
+  } catch (error) {
+    ssgHydration = { detected: false, error: String(error) };
+  }
   await mkdir(path.dirname(artifact), { recursive: true });
-  await writeFile(artifact, JSON.stringify({ result, hostCompatibility, errors }, null, 2));
+  await writeFile(artifact, JSON.stringify({ result, hostCompatibility, ssgHydration, errors }, null, 2));
   const comparisons = result.results?.reduce((sum, fixture) => sum + fixture.comparisons, 0);
   const readings = result.results?.flatMap(({ reference, atomic }) => [...reference, ...atomic]) ?? [];
   const attributionErrors = readings.filter((reading) =>
@@ -81,9 +87,10 @@ try {
     result.hasSpecificityDedup?.negativeControl?.detected !== true ||
     result.hasSpecificityDedup?.fixtures?.some((fixture) => fixture.differences.length) || errors.length ||
     hostCompatibility.detected !== true || hostCompatibility.resourceDetected !== true ||
-    hostCompatibility.fallbackDetected !== true || hostCompatibility.pageErrors?.length;
-  if (failed) throw new Error(`Browser oracle gate failed: status=${result.status}, fixtures=${result.results?.length}, comparisons=${comparisons}, attributionErrors=${attributionErrors}, errors=${errors.length}, host=${hostCompatibility.error ?? hostCompatibility.detected}. See ${artifact}`);
-  console.log(`Browser oracle passed: ${result.results.length} fixtures, ${comparisons} comparisons, ${controls.length} controls; Vite host artifact/two controls passed. ${artifact}`);
+    hostCompatibility.fallbackDetected !== true || hostCompatibility.pageErrors?.length ||
+    ssgHydration.detected !== true || ssgHydration.pageErrors?.length;
+  if (failed) throw new Error(`Browser oracle gate failed: status=${result.status}, fixtures=${result.results?.length}, comparisons=${comparisons}, attributionErrors=${attributionErrors}, errors=${errors.length}, host=${hostCompatibility.error ?? hostCompatibility.detected}, ssg=${ssgHydration.error ?? ssgHydration.detected}. See ${artifact}`);
+  console.log(`Browser oracle passed: ${result.results.length} fixtures, ${comparisons} comparisons, ${controls.length} controls; Vite host artifact/two controls and SSG hydration/control passed. ${artifact}`);
 } finally {
   await browser?.close();
   server.kill('SIGTERM');
