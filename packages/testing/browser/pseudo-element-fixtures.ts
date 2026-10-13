@@ -15,6 +15,19 @@ const treePseudos = { 'pseudo-target': deepPseudos, 'direct-pseudo': directPseud
 export const pseudoElementFixtures: readonly ReferenceFixture[] = [
   ...[false, true].flatMap((reverse) => [false, true].map((important) => pseudoPriorityFixture(reverse, important))),
   {
+    name: 'unicode-string-identity-isolation',
+    modules: [
+      { id: 'Composed.gss', source: '.card::before { content: "caf\u00e9"; }' },
+      { id: 'Decomposed.gss', source: '.card::before { content: "cafe\u0301"; }' }
+    ],
+    nodes: [
+      { id: 'composed', moduleId: 'Composed.gss', path: ['card'], expected: {},
+        pseudoExpected: { '::before': { content: '"caf\u00e9"' } } },
+      { id: 'decomposed', moduleId: 'Decomposed.gss', path: ['card'], expected: {},
+        pseudoExpected: { '::before': { content: '"cafe\u0301"' } } }
+    ]
+  },
+  {
     name: 'pseudo-module-isolation',
     modules: [
       { id: 'PseudoA.gss', source: [
