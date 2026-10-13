@@ -45,6 +45,21 @@ it('tracks generated lines through the unmapped layer prelude and media wrapper'
   expect(snapshot.sourceMap.sourcesContent).toEqual([source]);
 });
 
+it('maps a shared property descriptor to the primary owner, not the first registered owner', () => {
+  const session = createGssCompilerSession({ projectRoot: '/project' });
+  const b = '@property --tone { syntax: "<color>"; inherits: false; initial-value: red; }';
+  const a = `\r\n${b}`;
+  expect(session.replaceStylesheet({ id: '/project/b.gss', source: b }).committed).toBe(true);
+  expect(session.replaceStylesheet({ id: '/project/a.gss', source: a }).committed).toBe(true);
+  const snapshot = session.finalize();
+  expect(snapshot.manifest.resources[0]?.sources).toEqual(['a.gss', 'b.gss']);
+  expect(originalPositionFor(new TraceMap(snapshot.sourceMap),
+    generatedPosition(snapshot.css, 'initial-value: red;'))).toMatchObject({
+    source: 'a.gss', line: 2, column: b.indexOf('initial-value:')
+  });
+  expect(snapshot.sourceMap.sourcesContent).toEqual([a]);
+});
+
 it('maps preserved and resource blocks without borrowing unrelated Module origins', () => {
   const session = createGssCompilerSession({ projectRoot: '/project' });
   const resource = '@font-face { font-family: Demo; src: url(demo.woff2); }';
@@ -55,6 +70,9 @@ it('maps preserved and resource blocks without borrowing unrelated Module origin
   const map = new TraceMap(snapshot.sourceMap);
   expect(originalPositionFor(map, generatedPosition(snapshot.css, '@font-face'))).toMatchObject({
     source: 'z.gss', line: 1, column: 0
+  });
+  expect(originalPositionFor(map, generatedPosition(snapshot.css, 'src: url(demo.woff2);'))).toMatchObject({
+    source: 'z.gss', line: 1, column: resource.indexOf('src:')
   });
   expect(originalPositionFor(map, generatedPosition(snapshot.css, '.gss-s--module_p_2e_gss--path_icon'))).toMatchObject({
     source: 'p.gss', line: 1, column: preserved.indexOf('.icon')

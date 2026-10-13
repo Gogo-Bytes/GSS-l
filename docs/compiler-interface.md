@@ -323,7 +323,7 @@ Production emits the finalized CSS as one asset. Development replaces the single
 - One CSS asset emitted with `name: 'gss.css'`; Rollup/Vite `assetFileNames` determines its final path/hash.
 - `gss-manifest.json`: `{ version: 1, cssAsset, compiler: snapshot.manifest }`.
 - `gss-report.json`: `{ version: 1, cssAsset, compiler: snapshot.report }`.
-- `gss.css.map`: source-map v3 with original `.gss` `sourcesContent`, linked by a CSS-relative `sourceMappingURL` comment. Shared output maps to the stable lowest logical Module id/earliest offset; manifest `sources` retains all owners. Atomic physical declarations, resource starts and preserved rule starts have bounded mappings; full per-token/all-origin tracing remains open.
+- `gss.css.map`: source-map v3 with original `.gss` `sourcesContent`, linked by a CSS-relative `sourceMappingURL` comment. Shared output maps to the stable lowest logical Module id/earliest offset; manifest `sources` retains all owners. Atomic physical declarations, resource starts, unique font/property descriptor starts and preserved rule starts have bounded mappings; full per-token/all-origin tracing remains open.
 
 `cssAsset` is an output-directory-relative filename without deployment base or URL encoding. Each emitted HTML entry gets one stylesheet link; absolute/CDN base and HTML-relative base are resolved independently of the JSON value. Existing matching links are not duplicated, and pre-existing assets with either reserved JSON filename cause a build error.
 

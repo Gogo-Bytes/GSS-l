@@ -5,7 +5,7 @@ import type { SourceMapArtifact } from './source-adapter.js';
 export type CssMapBlock = {
   css: string;
   /** One deterministic primary origin; other owners remain in the manifest. */
-  origin?: { moduleId: string; offset: number };
+  origin?: { moduleId: string; offset: number; descriptorOffsets?: ReadonlyMap<string, number> };
   /** Physical alternatives of an atom all point to its authored declaration. */
   declarationPositions?: boolean;
 };
@@ -23,15 +23,18 @@ export function renderCssWithSourceMap(
     if (block.origin) {
       const source = sourceTexts.get(block.origin.moduleId);
       if (source === undefined) throw new Error(`Missing committed GSS source for ${block.origin.moduleId}.`);
-      const before = source.slice(0, block.origin.offset).split(/\r\n|\r|\n/);
-      const originalLine = before.length - 1;
-      const originalColumn = before.at(-1)!.length;
-      addSegment(map, line, 0, block.origin.moduleId, originalLine, originalColumn, undefined, source);
-      if (block.declarationPositions) {
+      const addOrigin = (generatedLine: number, generatedColumn: number, offset: number) => {
+        const before = source.slice(0, offset).split(/\r\n|\r|\n/);
+        addSegment(map, generatedLine, generatedColumn, block.origin!.moduleId,
+          before.length - 1, before.at(-1)!.length, undefined, source);
+      };
+      addOrigin(line, 0, block.origin.offset);
+      if (block.declarationPositions || block.origin.descriptorOffsets) {
         postcss.parse(block.css).walkDecls((declaration) => {
           const start = declaration.source?.start;
-          if (start) addSegment(map, line + start.line - 1, start.column - 1,
-            block.origin!.moduleId, originalLine, originalColumn, undefined, source);
+          const offset = block.declarationPositions ? block.origin!.offset
+            : block.origin!.descriptorOffsets?.get(declaration.prop);
+          if (start && offset !== undefined) addOrigin(line + start.line - 1, start.column - 1, offset);
         });
       }
     } else {

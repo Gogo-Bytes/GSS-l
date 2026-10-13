@@ -80,6 +80,7 @@ type PlannedResource = {
   css: string;
   renderCss?: (resolve: AssetUrlResolver) => string;
   source: SourceSpan;
+  descriptorOffsets?: ReadonlyMap<string, number>;
 };
 
 type PlannedPreservedBlock = {
@@ -1059,9 +1060,15 @@ function planResource(
   if (compatibility && (!physical || !resourceAssetsPreserved(base.css, physical))) return undefined;
   const planned = { ...base, ...(physical ? { css: physical } : {}), source: resource.source };
   const assets = bindCssAssets(planned.css, bindings);
+  const descriptorOffsets = resource.kind === 'keyframes' ? undefined : new Map(
+    resource.declarations.filter((declaration) => resource.declarations.filter((other) =>
+      other.property === declaration.property).length === 1).map((declaration) =>
+      [declaration.property, declaration.source.start] as const)
+  );
+  const sourced = { ...planned, ...(descriptorOffsets ? { descriptorOffsets } : {}) };
   return assets.assetIdentity && assets.renderCss
-    ? { ...planned, identity: assets.assetIdentity, renderCss: assets.renderCss }
-    : planned;
+    ? { ...sourced, identity: assets.assetIdentity, renderCss: assets.renderCss }
+    : sourced;
 }
 
 function planPropertyRegistration(resource: ParsedPropertyRegistration): Omit<PlannedResource, 'source'> {
@@ -1335,10 +1342,11 @@ function finalizeSnapshot(
   };
   const sourceTexts = new Map([...modules.values()].map(({ artifact, sourceText }) =>
     [artifact.scopeSchema.moduleId, sourceText] as const));
+  type Origin = { moduleId: string; offset: number; descriptorOffsets?: ReadonlyMap<string, number> };
   const uniqueResources = new Map<string, {
     resource: PlannedResource;
     sources: Set<string>;
-    origins: { moduleId: string; offset: number }[];
+    origins: Origin[];
   }>();
   for (const contribution of modules.values()) {
     for (const resource of contribution.resources) {
@@ -1348,7 +1356,8 @@ function finalizeSnapshot(
         origins: []
       };
       registered.sources.add(contribution.artifact.scopeSchema.moduleId);
-      registered.origins.push({ moduleId: contribution.artifact.scopeSchema.moduleId, offset: resource.source.start });
+      registered.origins.push({ moduleId: contribution.artifact.scopeSchema.moduleId,
+        offset: resource.source.start, ...(resource.descriptorOffsets ? { descriptorOffsets: resource.descriptorOffsets } : {}) });
       uniqueResources.set(resource.identity, registered);
     }
   }
@@ -1357,7 +1366,7 @@ function finalizeSnapshot(
   const uniqueRules = new Map<string, {
     rule: PlannedDeclaration;
     sources: Set<string>;
-    origins: { moduleId: string; offset: number }[];
+    origins: Origin[];
   }>();
   for (const contribution of modules.values()) {
     for (const rule of contribution.rules) {
@@ -1383,7 +1392,7 @@ function finalizeSnapshot(
   const layerPrelude = config.layers?.length
     ? `@layer ${config.layers.join(', ')};`
     : '';
-  const primary = (origins: readonly { moduleId: string; offset: number }[]) =>
+  const primary = (origins: readonly Origin[]) =>
     [...origins].sort((a, b) => a.moduleId.localeCompare(b.moduleId) || a.offset - b.offset)[0]!;
   const sections: CssMapBlock[][] = [
     layerPrelude ? [{ css: layerPrelude }] : [],
