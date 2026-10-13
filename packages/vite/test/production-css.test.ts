@@ -425,7 +425,14 @@ it('rebuilds compatibility fallback and bound Assets from the current watch cens
   const readSnapshot = async () => {
     const manifest = JSON.parse(await readFile(join(root, 'dist/gss-manifest.json'), 'utf8'));
     const css = await readFile(join(root, 'dist', manifest.cssAsset), 'utf8');
-    return { manifest, css };
+    const report = JSON.parse(await readFile(join(root, 'dist/gss-report.json'), 'utf8'));
+    return { manifest, css, report };
+  };
+  const cleanSnapshot = async () => {
+    const output = await bundle(root, { build: { minify: true, cssTarget: 'safari6' } });
+    const manifest = JSON.parse(asset(output, 'gss-manifest.json'));
+    return { manifest, css: asset(output, manifest.cssAsset),
+      report: JSON.parse(asset(output, 'gss-report.json')) };
   };
   const initial = await readSnapshot();
   expect(initial.manifest.compiler.moduleDetails).toMatchObject([
@@ -433,6 +440,7 @@ it('rebuilds compatibility fallback and bound Assets from the current watch cens
   ]);
   expect(initial.css).toContain('-webkit-flex-direction: column;');
   expect(initial.css).toMatch(/background-image: url\("\/assets\/icon-[^";]+\.svg"\)/);
+  expect(initial).toEqual(await cleanSnapshot());
 
   const changed = nextWatchBuild(watcher);
   await writeFile(join(root, 'main.ts'), `import b from './Other.gss'; document.body.className = b.other.self;`);
@@ -441,11 +449,13 @@ it('rebuilds compatibility fallback and bound Assets from the current watch cens
   expect(remaining.manifest.compiler.modules).toEqual(['Other.gss']);
   expect(remaining.css).toContain('display: -webkit-box;');
   expect(remaining.css).not.toMatch(/flex-direction|icon\.svg/);
+  expect(remaining).toEqual(await cleanSnapshot());
 
   const restored = nextWatchBuild(watcher);
   await writeFile(join(root, 'main.ts'), `import a from './Card.gss'; import b from './Other.gss'; document.body.className = a.card.self + b.other.self;`);
   await restored;
   expect(await readSnapshot()).toEqual(initial);
+  expect(await readSnapshot()).toEqual(await cleanSnapshot());
 }, 15000);
 
 it('rebuilds from the current census without retaining removed contributions', async () => {
