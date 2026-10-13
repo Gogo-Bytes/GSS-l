@@ -117,6 +117,12 @@ it('maps physical declarations in a preserved compatibility Module to authored d
   expect(originalPositionFor(map, generatedPosition(snapshot.css, 'color: red;'))).toMatchObject({
     source: 'card.gss', line: 1, column: source.indexOf('color:')
   });
+  expect(originalPositionFor(map, generatedPosition(snapshot.css, 'vertical;'))).toMatchObject({
+    source: 'card.gss', line: 1, column: source.indexOf('column;')
+  });
+  expect(originalPositionFor(map, generatedPosition(snapshot.css, 'red;'))).toMatchObject({
+    source: 'card.gss', line: 1, column: source.indexOf('red;')
+  });
 });
 
 it('traces an authored keyframe step and its declaration through resource output', () => {
@@ -130,6 +136,9 @@ it('traces an authored keyframe step and its declaration through resource output
   });
   expect(originalPositionFor(map, generatedPosition(snapshot.css, 'opacity: 1;'))).toMatchObject({
     source: 'move.gss', line: 1, column: source.lastIndexOf('opacity:')
+  });
+  expect(originalPositionFor(map, generatedPosition(snapshot.css, '1;'))).toMatchObject({
+    source: 'move.gss', line: 1, column: source.indexOf('1;')
   });
 });
 
@@ -168,6 +177,10 @@ it('maps a shared property descriptor to the primary owner, not the first regist
     source: 'a.gss', line: 2, column: b.indexOf('initial-value:')
   });
   expect(snapshot.sourceMap.sourcesContent).toEqual([a]);
+  expect(originalPositionFor(new TraceMap(snapshot.sourceMap),
+    generatedPosition(snapshot.css, 'red;'))).toMatchObject({
+    source: 'a.gss', line: 2, column: b.indexOf('red;')
+  });
 });
 
 it('maps preserved and resource blocks without borrowing unrelated Module origins', () => {
@@ -183,6 +196,9 @@ it('maps preserved and resource blocks without borrowing unrelated Module origin
   });
   expect(originalPositionFor(map, generatedPosition(snapshot.css, 'src: url(demo.woff2);'))).toMatchObject({
     source: 'z.gss', line: 1, column: resource.indexOf('src:')
+  });
+  expect(originalPositionFor(map, generatedPosition(snapshot.css, 'url(demo.woff2);'))).toMatchObject({
+    source: 'z.gss', line: 1, column: resource.indexOf('url(demo.woff2);')
   });
   expect(originalPositionFor(map, generatedPosition(snapshot.css, '.gss-s--module_p_2e_gss--path_icon'))).toMatchObject({
     source: 'p.gss', line: 1, column: preserved.indexOf('.icon')

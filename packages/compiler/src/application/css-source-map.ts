@@ -5,7 +5,7 @@ import type { SourceMapArtifact } from './source-adapter.js';
 export type CssMapBlock = {
   css: string;
   /** One deterministic primary origin; other owners remain in the manifest. */
-  origin?: { moduleId: string; offset: number; end?: number; descriptorOffsets?: ReadonlyMap<string, number>;
+  origin?: { moduleId: string; offset: number; descriptorOffsets?: ReadonlyMap<string, number>;
     declarationOffsets?: readonly number[];
     frameOffsets?: ReadonlyMap<string, { offset: number; descriptorOffsets: ReadonlyMap<string, number> }> };
   /** Physical alternatives of an atom all point to its authored declaration. */
@@ -30,6 +30,16 @@ export function renderCssWithSourceMap(
         addSegment(map, generatedLine, generatedColumn, block.origin!.moduleId,
           before.length - 1, before.at(-1)!.length, undefined, source);
       };
+      const addSimpleValueOrigin = (declaration: postcss.Declaration, generatedLine: number,
+        generatedColumn: number, offset: number) => {
+        // This is only the first value boundary, not a claim about tokens within the value.
+        // Comments or escaped property syntax make that boundary ambiguous here.
+        if (declaration.raws.between !== ': ') return;
+        const authored = source.slice(offset);
+        const prefix = /^[-_a-zA-Z0-9]+\s*:\s*/.exec(authored)?.[0];
+        if (!prefix || authored[prefix.length] === ';' || authored.slice(prefix.length).startsWith('/*')) return;
+        addOrigin(generatedLine, generatedColumn + declaration.prop.length + 2, offset + prefix.length);
+      };
       addOrigin(line, 0, block.origin.offset);
       if (block.origin.frameOffsets) {
         postcss.parse(block.css).walkRules((rule) => {
@@ -40,18 +50,14 @@ export function renderCssWithSourceMap(
           rule.walkDecls((declaration) => {
             const position = declaration.source?.start;
             const offset = frame.descriptorOffsets.get(declaration.prop);
-            if (position && offset !== undefined) addOrigin(line + position.line - 1, position.column - 1, offset);
+            if (position && offset !== undefined) {
+              addOrigin(line + position.line - 1, position.column - 1, offset);
+              addSimpleValueOrigin(declaration, line + position.line - 1, position.column - 1, offset);
+            }
           });
         });
       }
       if (block.declarationPositions || block.origin.descriptorOffsets || block.origin.declarationOffsets) {
-        // Only the simple authored `property: value` boundary is provable here. Comments,
-        // escapes and complex property trivia keep the existing declaration-start mapping.
-        const authored = source.slice(block.origin.offset, block.origin.end);
-        const prefix = /^[-_a-zA-Z0-9]+\s*:\s*/.exec(authored)?.[0];
-        const authoredValueOffset = block.declarationPositions && prefix &&
-          authored[prefix.length] !== ';' && !authored.slice(prefix.length).startsWith('/*')
-          ? block.origin.offset + prefix.length : undefined;
         let declarationIndex = 0;
         postcss.parse(block.css).walkDecls((declaration) => {
           const start = declaration.source?.start;
@@ -61,10 +67,7 @@ export function renderCssWithSourceMap(
           declarationIndex += 1;
           if (start && offset !== undefined) {
             addOrigin(line + start.line - 1, start.column - 1, offset);
-            if (authoredValueOffset !== undefined && declaration.raws.between === ': ') {
-              addOrigin(line + start.line - 1, start.column - 1 + declaration.prop.length + 2,
-                authoredValueOffset);
-            }
+            addSimpleValueOrigin(declaration, line + start.line - 1, start.column - 1, offset);
           }
         });
       }
