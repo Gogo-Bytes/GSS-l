@@ -14,7 +14,11 @@ it.each([
   '_0_'
 ])('round-trips canonical name component %j', (value) => {
   const encoded = encodeReadableNamePart(value);
-  expect(decodeReadableNamePart(encoded)).toBe(value.normalize('NFC'));
+  expect(decodeReadableNamePart(encoded)).toBe(value);
+});
+
+it('keeps composed and decomposed Unicode sequences distinguishable', () => {
+  expect(encodeReadableNamePart('é')).not.toBe(encodeReadableNamePart('e\u0301'));
 });
 
 it('keeps the empty sentinel distinct from encoded underscore and NUL', () => {

@@ -21,8 +21,12 @@ it('does not encode an empty identity component as the U+0000 escape', () => {
   expect(atomic('')).not.toBe(atomic('\u0000'));
 });
 
-it('normalizes canonically equivalent identity components before naming', () => {
-  expect(atomic('é')).toBe(atomic('e\u0301'));
+it('keeps distinct Unicode scalar sequences distinct in semantic identities', () => {
+  expect(atomic('é')).not.toBe(atomic('e\u0301'));
+  expect(createReadableScopeMarker('café.gss', ['card']))
+    .not.toBe(createReadableScopeMarker('cafe\u0301.gss', ['card']));
+  expect(createReadableScopeMarker('card.gss', ['café']))
+    .not.toBe(createReadableScopeMarker('card.gss', ['cafe\u0301']));
 });
 
 it('keeps contextual marker identity fields collision-free', () => {

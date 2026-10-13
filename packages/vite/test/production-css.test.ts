@@ -58,6 +58,30 @@ it('emits one central CSS asset and injects its final name into built HTML', asy
   expect(html).not.toContain('/@gss-l/central.css');
 });
 
+it('repeats target-aware production CSS, manifest and emitted Asset bytes across clean builds', async () => {
+  const root = await fixture({
+    'icon.svg': '<svg xmlns="http://www.w3.org/2000/svg" width="3" height="2"/>',
+    'Card.gss': '@property --tone { syntax: "<color>"; inherits: false; initial-value: red; } .card { background-image: url(./icon.svg); display: flex; }',
+    'Fallback.gss': '.other { flex-direction: column; color: blue; }',
+    'main.ts': `import card from './Card.gss'; import fallback from './Fallback.gss';
+      document.body.className = card.card.self + ' ' + fallback.other.self;`
+  });
+  const config: InlineConfig = { build: { minify: true, cssTarget: 'safari6' } };
+  const first = await bundle(root, config);
+  const second = await bundle(root, config);
+  const artifacts = (output: Rollup.RollupOutput) => output.output
+    .filter((entry) => entry.type === 'asset')
+    .map((entry) => [entry.fileName, asset(output, entry.fileName)]);
+  expect(artifacts(second)).toEqual(artifacts(first));
+  const manifest = JSON.parse(asset(first, 'gss-manifest.json'));
+  expect(asset(first, manifest.cssAsset)).toContain('display: -webkit-box;');
+  expect(manifest.compiler.moduleDetails).toEqual([
+    expect.objectContaining({ compilationMode: 'atomic' }),
+    expect.objectContaining({ compilationMode: 'preserved' })
+  ]);
+  expect(first.output.some((entry) => entry.type === 'asset' && entry.fileName.endsWith('.svg'))).toBe(true);
+});
+
 it('takes compatibility targets from the resolved Vite CSS build settings', async () => {
   const root = await fixture({ 'Card.gss': '.card { display: flex; }' });
   const old = await bundle(root, { build: { minify: true, cssTarget: 'safari6' } });
@@ -114,6 +138,16 @@ it('normalizes Lightning CSS minifier patch targets exactly as Vite resolves the
   expect(resolveViteCssTargets(config)).toEqual({ stages: [{ safari: '6.0.0' }] });
   const output = await bundle(root, { build: { minify: true, cssMinify: 'lightningcss', cssTarget: 'safari6.0.1' } });
   expect(asset(output, JSON.parse(asset(output, 'gss-manifest.json')).cssAsset)).toContain('display: -webkit-box;');
+});
+
+it('maps the supported Vite browser target families into one effective stage', async () => {
+  const root = await fixture();
+  const config = await resolveConfig({ root, configFile: false,
+    build: { minify: true, cssMinify: 'lightningcss', cssTarget: ['chrome40', 'firefox30', 'ios9'] }
+  }, 'build');
+  expect(resolveViteCssTargets(config)).toEqual({ stages: [{
+    chrome: '40.0.0', firefox: '30.0.0', ios_saf: '9.0.0'
+  }] });
 });
 
 it('fails closed for a CSS target that has no browser-version mapping', async () => {
@@ -391,7 +425,14 @@ it('rebuilds compatibility fallback and bound Assets from the current watch cens
   const readSnapshot = async () => {
     const manifest = JSON.parse(await readFile(join(root, 'dist/gss-manifest.json'), 'utf8'));
     const css = await readFile(join(root, 'dist', manifest.cssAsset), 'utf8');
-    return { manifest, css };
+    const report = JSON.parse(await readFile(join(root, 'dist/gss-report.json'), 'utf8'));
+    return { manifest, css, report };
+  };
+  const cleanSnapshot = async () => {
+    const output = await bundle(root, { build: { minify: true, cssTarget: 'safari6' } });
+    const manifest = JSON.parse(asset(output, 'gss-manifest.json'));
+    return { manifest, css: asset(output, manifest.cssAsset),
+      report: JSON.parse(asset(output, 'gss-report.json')) };
   };
   const initial = await readSnapshot();
   expect(initial.manifest.compiler.moduleDetails).toMatchObject([
@@ -399,6 +440,7 @@ it('rebuilds compatibility fallback and bound Assets from the current watch cens
   ]);
   expect(initial.css).toContain('-webkit-flex-direction: column;');
   expect(initial.css).toMatch(/background-image: url\("\/assets\/icon-[^";]+\.svg"\)/);
+  expect(initial).toEqual(await cleanSnapshot());
 
   const changed = nextWatchBuild(watcher);
   await writeFile(join(root, 'main.ts'), `import b from './Other.gss'; document.body.className = b.other.self;`);
@@ -407,11 +449,13 @@ it('rebuilds compatibility fallback and bound Assets from the current watch cens
   expect(remaining.manifest.compiler.modules).toEqual(['Other.gss']);
   expect(remaining.css).toContain('display: -webkit-box;');
   expect(remaining.css).not.toMatch(/flex-direction|icon\.svg/);
+  expect(remaining).toEqual(await cleanSnapshot());
 
   const restored = nextWatchBuild(watcher);
   await writeFile(join(root, 'main.ts'), `import a from './Card.gss'; import b from './Other.gss'; document.body.className = a.card.self + b.other.self;`);
   await restored;
   expect(await readSnapshot()).toEqual(initial);
+  expect(await readSnapshot()).toEqual(await cleanSnapshot());
 }, 15000);
 
 it('rebuilds from the current census without retaining removed contributions', async () => {

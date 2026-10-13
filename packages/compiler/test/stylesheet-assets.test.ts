@@ -171,6 +171,43 @@ describe('stylesheet Asset references', () => {
     expect(snapshot.css).not.toContain('url("/out/fonts/a.woff2")');
   });
 
+  it('keeps a shared registered-property Asset until its last owner is removed', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    const property = (name: string, url: string) =>
+      `@property ${name} { syntax: "<image>"; inherits: false; initial-value: url(${url}); }`;
+    const shared = { source: property('--image', 'icon.svg'),
+      assetReferences: [{ url: 'icon.svg', identity: 'icons/one.svg' }] };
+    for (const id of ['a.gss', 'b.gss']) {
+      expect(session.replaceStylesheet({ id: `/project/${id}`, ...shared }).committed).toBe(true);
+    }
+    const render = () => session.finalize({ resolveAssetUrl: (identity) => `/out/${identity}` });
+    expect(render().manifest.resources).toEqual([
+      { kind: 'property', name: '--image', sources: ['a.gss', 'b.gss'] }
+    ]);
+
+    expect(session.replaceStylesheet({ id: '/project/a.gss', source: property('--other', 'other.svg'),
+      assetReferences: [{ url: 'other.svg', identity: 'icons/two.svg' }] }).committed).toBe(true);
+    let snapshot = render();
+    expect(snapshot.manifest.resources).toEqual([
+      { kind: 'property', name: '--image', sources: ['b.gss'] },
+      { kind: 'property', name: '--other', sources: ['a.gss'] }
+    ]);
+    expect(snapshot.css).toContain('url("/out/icons/one.svg")');
+    expect(snapshot.css).toContain('url("/out/icons/two.svg")');
+
+    expect(session.invalidate('/project/b.gss')).toMatchObject({ changed: true });
+    snapshot = session.finalize({ resolveAssetUrl: (identity) => {
+      if (identity === 'icons/one.svg') throw new Error('stale Asset requested');
+      return `/out/${identity}`;
+    } });
+    expect(snapshot.manifest.resources).toEqual([{ kind: 'property', name: '--other', sources: ['a.gss'] }]);
+    expect(snapshot.css).not.toContain('icons/one.svg');
+    expect(snapshot.css).toContain('url("/out/icons/two.svg")');
+    session.invalidate('/project/a.gss');
+    expect(session.finalize().css).toBe('');
+    expect(session.finalize().manifest.resources).toEqual([]);
+  });
+
   it('retains shared resource ownership after a failed replacement', () => {
     const session = createGssCompilerSession({ projectRoot: '/project' });
     const source = '@font-face { font-family: "Demo"; src: url("./demo.woff2"); }';

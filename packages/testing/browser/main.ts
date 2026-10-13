@@ -11,7 +11,7 @@ type Reading = {
   subject: 'element' | '::before' | '::after'; property: string; value: string; expected: string;
 };
 
-async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'nested-layer' | 'asset' | 'keyframes' | 'relation' | 'interleaved' | 'interleaved-depth' | 'interleaved-prefix' | 'interleaved-general-prefix' | 'interleaved-general-root' | 'interleaved-child-root' | 'interleaved-child-prefix' | 'cross-layer-specificity' | 'font-reset' | 'has-specificity' | 'has-specificity-dedup' | 'external-anchor' | 'external-ancestor' | 'external-media' | 'external-compound' | 'owned-external-condition' | 'external-observation' | 'functional-external' | 'compatibility-sequence' | 'compatibility-asset' | 'compatibility-property'): Promise<Reading[]> {
+async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'nested-layer' | 'asset' | 'keyframes' | 'relation' | 'interleaved' | 'interleaved-depth' | 'interleaved-prefix' | 'interleaved-general-prefix' | 'interleaved-general-root' | 'interleaved-child-root' | 'interleaved-child-prefix' | 'cross-layer-specificity' | 'font-reset' | 'has-specificity' | 'has-specificity-dedup' | 'external-anchor' | 'external-ancestor' | 'external-media' | 'external-compound' | 'owned-external-condition' | 'external-observation' | 'functional-external' | 'compatibility-sequence' | 'compatibility-asset' | 'compatibility-property' | 'compatibility-fallback-media'): Promise<Reading[]> {
   const frame = document.createElement('iframe');
   frame.title = `${fixture.name}: ${side}${corrupt ? ' negative control' : ''}`;
   frame.width = '640';
@@ -102,6 +102,13 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
     const changed = style.textContent.replace(/@property --tone \{[^}]*\}/, '');
     if (changed === style.textContent) throw new Error('Compatibility resource control did not remove the property registration');
     style.textContent = changed;
+  }
+  if (corrupt === 'compatibility-fallback-media') {
+    const authored = '(min-width: 400px)';
+    if (style.textContent.split(authored).length !== 2) {
+      throw new Error('Compatibility fallback control requires exactly one media guard');
+    }
+    style.textContent = style.textContent.replace(authored, '(min-width: 0px)');
   }
   doc.head.append(style);
   if (corrupt === 'external-media') {
@@ -698,6 +705,18 @@ async function run() {
     compatibilityDifferences.length === 1 && compatibilityDifferences[0]?.node === 'card' &&
     compatibilityDifferences[0]?.property === 'display' &&
     compatibilityDifferences[0]?.reference === 'flex' && compatibilityDifferences[0]?.atomic === 'block';
+  const fallbackFixture = fixtures.find((fixture) => fixture.name === 'host-target-preserved-media-isolation')!;
+  const fallbackReference = await readDocument(fallbackFixture, 'reference');
+  const fallbackAtomic = await readDocument(fallbackFixture, 'atomic');
+  const fallbackCorrupted = await readDocument(fallbackFixture, 'atomic', 'compatibility-fallback-media');
+  const fallbackDifferences = compare(fallbackReference, fallbackCorrupted);
+  const fallbackDetected = compare(fallbackReference, fallbackAtomic).length === 0 &&
+    compare(fallbackAtomic, fallbackCorrupted).length === 2 && fallbackDifferences.length === 2 &&
+    fallbackDifferences.every((difference) => difference.phase === 'media-off' && difference.node === 'fallback-card') &&
+    fallbackDifferences.some((difference) => difference.property === 'color' &&
+      difference.reference === 'rgb(0, 0, 0)' && difference.atomic === 'rgb(255, 0, 0)') &&
+    fallbackDifferences.some((difference) => difference.property === 'flex-direction' &&
+      difference.reference === 'row' && difference.atomic === 'column');
   const resourceFixture = fixtures.find((fixture) => fixture.name === 'host-target-asset-property-resource')!;
   const resourceReference = await readDocument(resourceFixture, 'reference');
   const resourceAtomic = await readDocument(resourceFixture, 'atomic');
@@ -717,6 +736,7 @@ async function run() {
     compatPropertyDifferences[0]?.property === 'color' && compatPropertyDifferences[0]?.reference === 'rgb(255, 0, 0)' &&
     compatPropertyDifferences[0]?.atomic === 'rgb(0, 0, 0)';
   publish({
+    compatibilityFallbackMediaNegativeControl: { detected: fallbackDetected, guardChanged: true, differences: fallbackDifferences },
     compatibilityAssetNegativeControl: { detected: compatAssetDetected, differences: compatAssetDifferences },
     compatibilityPropertyNegativeControl: { detected: compatPropertyDetected, differences: compatPropertyDifferences },
     compatibilitySequenceNegativeControl: { detected: compatibilityDetected, declarationsRemoved: 3, differences: compatibilityDifferences },
@@ -741,7 +761,7 @@ async function run() {
     hasSpecificityDedup: { fixtures: hasSpecificityDedupResults, negativeControl: { detected: hasSpecificityDedupControl, qualifierRemoved: true, differences: hasSpecificityDedupDifferences } },
     status: results.every((result) => result.comparisons > 0 && !result.differences.length && !result.expectedFailures.length) &&
       hasSpecificityDedupResults.every((result) => result.differences.length === 0) && hasSpecificityDedupControl &&
-      detected && pseudoDetected && conditionDetected && layerDetected && nestedLayerDetected && assetDetected && keyframesDetected && relationDetected && interleavedDetected && interleavedDepthDetected && interleavedPrefixDetected && interleavedGeneralPrefixDetected && interleavedGeneralRootDetected && interleavedChildRootDetected && interleavedChildPrefixDetected && crossLayerSpecificityDetected && hasSpecificityDetected && fontResetNegativeControl && externalAnchorDetected && externalAncestorDetected && externalMediaDetected && externalCompoundDetected && sameNodeDetected && refinementDetected && externalObservationDetected && functionalDetected && compatibilityDetected && compatAssetDetected && compatPropertyDetected
+      detected && pseudoDetected && conditionDetected && layerDetected && nestedLayerDetected && assetDetected && keyframesDetected && relationDetected && interleavedDetected && interleavedDepthDetected && interleavedPrefixDetected && interleavedGeneralPrefixDetected && interleavedGeneralRootDetected && interleavedChildRootDetected && interleavedChildPrefixDetected && crossLayerSpecificityDetected && hasSpecificityDetected && fontResetNegativeControl && externalAnchorDetected && externalAncestorDetected && externalMediaDetected && externalCompoundDetected && sameNodeDetected && refinementDetected && externalObservationDetected && functionalDetected && compatibilityDetected && fallbackDetected && compatAssetDetected && compatPropertyDetected
       ? 'passed' : 'failed',
     results,
     negativeControl: { detected, differences },

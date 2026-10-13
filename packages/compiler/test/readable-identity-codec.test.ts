@@ -20,6 +20,11 @@ it.each([
     layer: 'unlayered', condition: 'base', state: 'self', property: 'color', value: 'red',
     important: false,
     ownership: { moduleId: 'tree.gss', path: ['a/b', 'c\\d'], specificity: 0 }
+  },
+  {
+    layer: 'unlayered', condition: 'base', state: 'self', property: 'content', value: '"cafe\u0301"',
+    important: false,
+    ownership: { moduleId: 'cafe\u0301.gss', path: ['cafe\u0301'], specificity: 0 }
   }
 ] satisfies PureDeclarationIdentity[])('round-trips bounded atomic identity %j', (identity) => {
   const name = createReadableAtomicName(identity);
@@ -44,6 +49,15 @@ it('keeps every canonical identity field collision-free', () => {
   const names = new Set(variants.map((identity) => createReadableAtomicName(identity)));
   expect(names.size).toBe(variants.length);
   for (const identity of variants) expect(decodeReadableAtomicName(createReadableAtomicName(identity))).toEqual(identity);
+});
+
+it('rejects alternate spellings and field permutations of one canonical atomic name', () => {
+  const canonical = createReadableAtomicName({ layer: 'base', condition: 'base', state: 'self',
+    property: 'color', value: 'é', important: false });
+  expect(decodeReadableAtomicName(canonical.replace('_e9_', '_E9_'))).toBeUndefined();
+  expect(decodeReadableAtomicName(canonical.replace('property_color', 'property__63_olor'))).toBeUndefined();
+  expect(decodeReadableAtomicName(canonical.replace('--state_self--property_color',
+    '--property_color--state_self'))).toBeUndefined();
 });
 
 it.each([
