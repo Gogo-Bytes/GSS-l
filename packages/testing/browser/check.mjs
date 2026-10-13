@@ -22,7 +22,8 @@ const controls = [
   'externalAncestorNegativeControl', 'externalMediaNegativeControl',
   'externalCompoundNegativeControl', 'ownedExternalConditionNegativeControl',
   'ownedExternalRefinementNegativeControl', 'externalObservationNegativeControl', 'functionalExternalNegativeControl',
-  'compatibilitySequenceNegativeControl', 'compatibilityAssetNegativeControl', 'compatibilityPropertyNegativeControl'
+  'compatibilitySequenceNegativeControl', 'compatibilityAssetNegativeControl', 'compatibilityPropertyNegativeControl',
+  'compatibilityFallbackMediaNegativeControl'
 ];
 const server = spawn('corepack', ['pnpm', '--filter', '@gss-l/testing', 'browser:reference'], {
   cwd: root, stdio: ['ignore', 'pipe', 'pipe']
