@@ -5,7 +5,7 @@ import type { SourceMapArtifact } from './source-adapter.js';
 export type CssMapBlock = {
   css: string;
   /** One deterministic primary origin; other owners remain in the manifest. */
-  origin?: { moduleId: string; offset: number; descriptorOffsets?: ReadonlyMap<string, number>;
+  origin?: { moduleId: string; offset: number; end?: number; descriptorOffsets?: ReadonlyMap<string, number>;
     declarationOffsets?: readonly number[];
     frameOffsets?: ReadonlyMap<string, { offset: number; descriptorOffsets: ReadonlyMap<string, number> }> };
   /** Physical alternatives of an atom all point to its authored declaration. */
@@ -45,6 +45,13 @@ export function renderCssWithSourceMap(
         });
       }
       if (block.declarationPositions || block.origin.descriptorOffsets || block.origin.declarationOffsets) {
+        // Only the simple authored `property: value` boundary is provable here. Comments,
+        // escapes and complex property trivia keep the existing declaration-start mapping.
+        const authored = source.slice(block.origin.offset, block.origin.end);
+        const prefix = /^[-_a-zA-Z0-9]+\s*:\s*/.exec(authored)?.[0];
+        const authoredValueOffset = block.declarationPositions && prefix &&
+          authored[prefix.length] !== ';' && !authored.slice(prefix.length).startsWith('/*')
+          ? block.origin.offset + prefix.length : undefined;
         let declarationIndex = 0;
         postcss.parse(block.css).walkDecls((declaration) => {
           const start = declaration.source?.start;
@@ -52,7 +59,13 @@ export function renderCssWithSourceMap(
             : block.origin!.declarationOffsets?.[declarationIndex] ??
               block.origin!.descriptorOffsets?.get(declaration.prop);
           declarationIndex += 1;
-          if (start && offset !== undefined) addOrigin(line + start.line - 1, start.column - 1, offset);
+          if (start && offset !== undefined) {
+            addOrigin(line + start.line - 1, start.column - 1, offset);
+            if (authoredValueOffset !== undefined && declaration.raws.between === ': ') {
+              addOrigin(line + start.line - 1, start.column - 1 + declaration.prop.length + 2,
+                authoredValueOffset);
+            }
+          }
         });
       }
     } else {

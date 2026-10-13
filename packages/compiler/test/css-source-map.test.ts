@@ -58,6 +58,10 @@ it('maps shared and compatibility-expanded declarations to a stable primary auth
     expect(originalPositionFor(map, generatedPosition(snapshot.css, physical))).toMatchObject({
       source: 'a.gss', line: 2, column: a.indexOf('display:') - a.indexOf('\n') - 1
     });
+    // A comment before the value prevents a reliable simple-token mapping.
+    expect(originalPositionFor(map, generatedPosition(snapshot.css, physical.slice('display: '.length)))).toMatchObject({
+      source: 'a.gss', line: 2, column: a.indexOf('display:') - a.indexOf('\n') - 1
+    });
   }
   session.invalidate('/project/a.gss');
   const remaining = session.finalize();
@@ -66,6 +70,23 @@ it('maps shared and compatibility-expanded declarations to a stable primary auth
   expect(remaining.manifest.rules[0]?.origins).toEqual([
     { moduleId: 'b.gss', range: { start: b.indexOf('display:'), end: b.indexOf('display:') + 'display: flex;'.length } }
   ]);
+});
+
+it('maps simple atomic physical value starts to the authored value, not the property', () => {
+  const session = createGssCompilerSession({ projectRoot: '/project',
+    compatibilityTargetStages: [{ safari: '6.0' }] });
+  const source = '\r\n.card { display: flex; }';
+  expect(session.replaceStylesheet({ id: '/project/card.gss', source }).committed).toBe(true);
+  const snapshot = session.finalize();
+  const map = new TraceMap(snapshot.sourceMap);
+  for (const physical of ['-webkit-box;', '-webkit-flex;', 'flex;']) {
+    expect(originalPositionFor(map, generatedPosition(snapshot.css, physical))).toMatchObject({
+      source: 'card.gss', line: 2, column: source.indexOf('flex;') - source.indexOf('\n') - 1
+    });
+  }
+  expect(originalPositionFor(map, generatedPosition(snapshot.css, 'display:'))).toMatchObject({
+    source: 'card.gss', line: 2, column: source.indexOf('display:') - source.indexOf('\n') - 1
+  });
 });
 
 it('tracks generated lines through the unmapped layer prelude and media wrapper', () => {
