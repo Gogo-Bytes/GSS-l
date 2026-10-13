@@ -28,6 +28,8 @@
     "@gss-l/react": "workspace:^",
     "@gss-l/vite": "workspace:^",
     "playwright": "1.58.2",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
     "vite": "^7.3.6"
   }
 }

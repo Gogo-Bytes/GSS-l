@@ -193,7 +193,7 @@ describe('full-census snapshot convergence through the public session', () => {
       expect(snapshot.manifest.modules).toEqual([...live.keys()].sort());
       const fontOwners = ['a.gss', 'b.gss'].filter((moduleId) =>
         live.get(moduleId as ModuleId)?.includes('@font-face'));
-      expect(snapshot.manifest.resources.filter(({ kind }) => kind === 'font-face')).toEqual(
+      expect(snapshot.manifest.resources.filter(({ kind }) => kind === 'font-face')).toMatchObject(
         fontOwners.length ? [{ kind: 'font-face', name: 'Example|normal|normal|normal|all', sources: fontOwners }] : []
       );
       expect((snapshot.css.match(/@font-face/g) ?? []).length).toBe(fontOwners.length ? 1 : 0);

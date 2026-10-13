@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { createGssCompilerSession } from '../src/index.js';
+import { snapshotSemanticView } from './snapshot-semantic-view.js';
 
 describe('parser failures through the public session', () => {
   it.each(['.good, .bad)', '.good, .bad[=x]', '.good, .bad:'])(
@@ -54,9 +55,12 @@ describe('parser seam output compatibility', () => {
     const baseline = compile('/one', keyframes);
     expect(baseline.report.resources).toBe(1);
     expect(baseline.manifest.resources).toHaveLength(1);
-    expect(compile('/two', `\r\n${shifted}`)).toEqual(baseline);
+    const relocated = compile('/two', `\r\n${shifted}`);
+    expect(snapshotSemanticView(relocated)).toEqual(snapshotSemanticView(baseline));
+    expect(relocated.sourceMap.sourcesContent).toEqual([`\r\n${shifted}`]);
     // Same local resource at distinct authored offsets must still deduplicate.
-    expect(compile('/three', `${keyframes}\r\n${shifted}`)).toEqual(baseline);
+    const duplicated = compile('/three', `${keyframes}\r\n${shifted}`);
+    expect(snapshotSemanticView(duplicated)).toEqual(snapshotSemanticView(baseline));
     expect(JSON.stringify(baseline)).not.toContain('/one');
   });
 
@@ -87,7 +91,9 @@ it('retains complete pre-seam public output goldens for nesting, resources and p
   for (const fixture of cases) {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
     expect(compiler.replaceStylesheet({ id: '/project/card.gss', source: fixture.source })).toEqual(fixture.result);
-    expect(compiler.finalize()).toEqual(fixture.snapshot);
+    const snapshot = compiler.finalize();
+    expect(snapshotSemanticView(snapshot)).toEqual(fixture.snapshot);
+    expect(snapshot.sourceMap.sourcesContent).toEqual([fixture.source]);
   }
 });
 
@@ -100,5 +106,8 @@ it.each(['\uFEFF', '\uFFFE'])('keeps public outputs unchanged for a leading %j m
   const expected = baseline.replaceStylesheet({ id, source });
   expect(expected.committed).toBe(true);
   expect(compiler.replaceStylesheet({ id, source: marker + source })).toEqual(expected);
-  expect(compiler.finalize()).toEqual(baseline.finalize());
+  const shifted = compiler.finalize();
+  const original = baseline.finalize();
+  expect(snapshotSemanticView(shifted)).toEqual(snapshotSemanticView(original));
+  expect(shifted.sourceMap.sourcesContent).toEqual([marker + source]);
 });

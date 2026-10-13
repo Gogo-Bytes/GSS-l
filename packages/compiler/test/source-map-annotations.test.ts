@@ -3,6 +3,7 @@ import Parser from 'postcss/lib/parser';
 import { describe, expect, it, vi } from 'vitest';
 import { createGssCompilerSession, discoverStylesheetAssets } from '../src/index.js';
 import { parseStylesheet } from '../src/infrastructure/postcss-stylesheet-parser.js';
+import { snapshotSemanticView } from './snapshot-semantic-view.js';
 
 const id = '/private/project/card.gss';
 const validMap = '{"version":3,"sources":[],"names":[],"mappings":""}';
@@ -92,7 +93,10 @@ describe('baseline-compatible inline source-map consumption', () => {
     const baseline = createGssCompilerSession({ projectRoot: '/private/project' });
     const plain = baseline.replaceStylesheet({ id, source: '.card { color:blue; background-image:url(image.svg); }' });
     expect(compiler.replaceStylesheet({ id, source })).toEqual(plain);
-    expect(compiler.finalize()).toEqual(baseline.finalize());
+    const annotated = compiler.finalize();
+    const clean = baseline.finalize();
+    expect(snapshotSemanticView(annotated)).toEqual(snapshotSemanticView(clean));
+    expect(annotated.sourceMap.sourcesContent).toEqual([source]);
     expect(discoverStylesheetAssets({ id, source })).toEqual({ urls: ['image.svg'], diagnostics: [] });
   });
 

@@ -1,8 +1,10 @@
-import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, expect, it } from 'vitest';
-import { build, normalizePath, resolveConfig, type InlineConfig, type Rollup } from 'vite';
+import { build, createServer, normalizePath, resolveConfig, type InlineConfig, type Rollup } from 'vite';
+import { createElement } from 'react';
+import { renderToString } from 'react-dom/server';
 import { react } from '@gss-l/react';
 import { gss } from '../src/index.js';
 import { resolveViteCssTargets } from '../src/css-targets.js';
@@ -58,6 +60,39 @@ it('emits one central CSS asset and injects its final name into built HTML', asy
   expect(html).not.toContain('/@gss-l/central.css');
 });
 
+it('links a Vite-managed SSG React render to the same production CSS and class names', async () => {
+  const root = await fixture({
+    'index.html': '<!doctype html><html><head></head><body><div id="app"><!--ssg--></div><script type="module" src="/main.tsx"></script></body></html>',
+    'App.tsx': `import React from 'react'; import styles from './Card.gss';
+      export function App() { return <div className={styles.card.self + ' external'}>Hello</div>; }`,
+    'entry-server.tsx': `export { App } from './App';`,
+    'main.tsx': `import React from 'react'; import { hydrateRoot } from 'react-dom/client';
+      import { App } from './App'; hydrateRoot(document.getElementById('app')!, <App />);`
+  });
+  await symlink(join(process.cwd(), 'node_modules'), join(root, 'node_modules'), 'dir');
+  const server = await createServer({ root, configFile: false, plugins: [gss({ adapter: react() })],
+    logLevel: 'silent', server: { middlewareMode: true } });
+  let rendered: string;
+  try {
+    const { App } = await server.ssrLoadModule('/entry-server.tsx');
+    rendered = renderToString(createElement(App));
+  } finally {
+    await server.close();
+  }
+  const output = await bundle(root);
+  const manifest = JSON.parse(asset(output, 'gss-manifest.json'));
+  const html = asset(output, 'index.html').replace('<!--ssg-->', rendered);
+  expect(html).toContain(`href="/${manifest.cssAsset}"`);
+  const className = /class="([^"]+)"/.exec(rendered)?.[1];
+  expect(className).toBeTruthy();
+  expect(className).toContain(' external');
+  const ownedClass = className!.split(' ')[0]!;
+  expect(asset(output, manifest.cssAsset)).toContain(`.${ownedClass} {`);
+  expect(output.output.filter((entry) => entry.type === 'chunk').map((entry) => entry.code).join('\n'))
+    .toContain(ownedClass);
+  expect(html).toContain(rendered);
+});
+
 it('repeats target-aware production CSS, manifest and emitted Asset bytes across clean builds', async () => {
   const root = await fixture({
     'icon.svg': '<svg xmlns="http://www.w3.org/2000/svg" width="3" height="2"/>',
@@ -80,6 +115,28 @@ it('repeats target-aware production CSS, manifest and emitted Asset bytes across
     expect.objectContaining({ compilationMode: 'preserved' })
   ]);
   expect(first.output.some((entry) => entry.type === 'asset' && entry.fileName.endsWith('.svg'))).toBe(true);
+});
+
+it('links the emitted CSS to a map with original GSS contents and logical source ids', async () => {
+  const source = '.card { color: red; }';
+  const output = await bundle(await fixture({ 'Card.gss': source }));
+  const manifest = JSON.parse(asset(output, 'gss-manifest.json'));
+  const css = asset(output, manifest.cssAsset);
+  const map = JSON.parse(asset(output, 'gss.css.map'));
+  expect(map).toMatchObject({ version: 3, file: manifest.cssAsset,
+    sources: ['Card.gss'], sourcesContent: [source] });
+  expect(css).toContain('/*# sourceMappingURL=../gss.css.map */');
+  expect(JSON.stringify(map)).not.toContain('/gss-production-');
+});
+
+it('links a nested CSS filename to the root map without changing the map source ids', async () => {
+  const output = await bundle(await fixture(), {
+    build: { rollupOptions: { output: { assetFileNames: 'static/deep/gss.css' } } }
+  });
+  expect(asset(output, 'static/deep/gss.css')).toContain('sourceMappingURL=../../gss.css.map');
+  expect(JSON.parse(asset(output, 'gss.css.map'))).toMatchObject({
+    file: 'static/deep/gss.css', sources: ['Card.gss']
+  });
 });
 
 it('takes compatibility targets from the resolved Vite CSS build settings', async () => {
@@ -220,7 +277,7 @@ it('includes lazy Modules in one asset and exports matching manifest/report snap
     }
   }
   expect(JSON.parse(asset(output, 'gss-manifest.json'))).toMatchObject({
-    version: 1, cssAsset,
+    version: 2, cssAsset,
     compiler: {
       modules: ['Card.gss', 'Lazy.gss'],
       moduleDetails: [
@@ -230,6 +287,10 @@ it('includes lazy Modules in one asset and exports matching manifest/report snap
         ] }
       ]
     }
+  });
+  expect(JSON.parse(asset(output, 'gss-manifest.json')).compiler).toMatchObject({
+    rules: [{ origins: [{ moduleId: 'Card.gss', range: { start: 8, end: 19 } }] }],
+    preservedRules: [{ moduleId: 'Lazy.gss', range: { start: 0, end: '.lazy { future-paint: blue; }'.length } }]
   });
   expect(JSON.parse(asset(output, 'gss-report.json'))).toEqual({
     version: 1, cssAsset,
@@ -337,6 +398,7 @@ it('emits an empty CSS asset when reachable style Modules contribute no rules', 
   const manifest = JSON.parse(asset(output, 'gss-manifest.json'));
   expect(manifest.compiler.modules).toEqual(['Card.gss']);
   expect(asset(output, manifest.cssAsset)).toBe('');
+  expect(output.output.some((entry) => entry.fileName === 'gss.css.map')).toBe(false);
   expect(JSON.parse(asset(output, 'gss-report.json')).compiler).toMatchObject({ modules: 1, rules: 0 });
 });
 
@@ -360,6 +422,15 @@ it('does not duplicate an existing central link inserted by the Vite HTML pipeli
     build: { rollupOptions: { output: { assetFileNames: 'static/gss.css' } } }
   });
   expect(asset(output, 'index.html').match(/href="\/static\/gss.css"/g)).toHaveLength(1);
+});
+
+it('rejects a collision with its fixed CSS map output instead of overwriting another asset', async () => {
+  const root = await fixture();
+  await expect(bundle(root, { plugins: [gss({ adapter: react() }), {
+    name: 'conflicting-map', generateBundle() {
+      this.emitFile({ type: 'asset', fileName: 'gss.css.map', source: 'not ours' });
+    }
+  }] })).rejects.toThrow(/GSS output.*gss\.css\.map.*already exists/);
 });
 
 it('rejects a collision with its fixed manifest output instead of overwriting another asset', async () => {
@@ -426,13 +497,15 @@ it('rebuilds compatibility fallback and bound Assets from the current watch cens
     const manifest = JSON.parse(await readFile(join(root, 'dist/gss-manifest.json'), 'utf8'));
     const css = await readFile(join(root, 'dist', manifest.cssAsset), 'utf8');
     const report = JSON.parse(await readFile(join(root, 'dist/gss-report.json'), 'utf8'));
-    return { manifest, css, report };
+    const map = JSON.parse(await readFile(join(root, 'dist/gss.css.map'), 'utf8'));
+    return { manifest, css, report, map };
   };
   const cleanSnapshot = async () => {
     const output = await bundle(root, { build: { minify: true, cssTarget: 'safari6' } });
     const manifest = JSON.parse(asset(output, 'gss-manifest.json'));
     return { manifest, css: asset(output, manifest.cssAsset),
-      report: JSON.parse(asset(output, 'gss-report.json')) };
+      report: JSON.parse(asset(output, 'gss-report.json')),
+      map: JSON.parse(asset(output, 'gss.css.map')) };
   };
   const initial = await readSnapshot();
   expect(initial.manifest.compiler.moduleDetails).toMatchObject([
@@ -449,6 +522,8 @@ it('rebuilds compatibility fallback and bound Assets from the current watch cens
   expect(remaining.manifest.compiler.modules).toEqual(['Other.gss']);
   expect(remaining.css).toContain('display: -webkit-box;');
   expect(remaining.css).not.toMatch(/flex-direction|icon\.svg/);
+  expect(remaining.map.sources).toEqual(['Other.gss']);
+  expect(remaining.map.sourcesContent).toEqual(['.other { display: flex; }']);
   expect(remaining).toEqual(await cleanSnapshot());
 
   const restored = nextWatchBuild(watcher);

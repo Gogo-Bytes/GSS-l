@@ -25,7 +25,7 @@ export function emitProductionAssets(context: Rollup.PluginContext, assets: read
     contents.set(asset.path, asset.contents);
   }
   const publicFiles = new Set(assets.flatMap((asset) => asset.publicPath === null ? [] : [asset.publicPath.slice(1)]));
-  for (const name of ['gss-manifest.json', 'gss-report.json']) {
+  for (const name of ['gss-manifest.json', 'gss-report.json', 'gss.css.map']) {
     if (publicFiles.has(name)) context.error(`GSS output ${name} collides with a referenced public resource.`);
   }
   const outputs = new Map<string, { fileName: string; suffix: string }>();

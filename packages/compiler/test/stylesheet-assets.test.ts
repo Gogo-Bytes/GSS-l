@@ -155,7 +155,7 @@ describe('stylesheet Asset references', () => {
     expect(session.replaceStylesheet({ id: '/project/a.gss', source: source('DemoB', './b.woff2'),
       assetReferences: [{ url: './b.woff2', identity: 'fonts/b.woff2' }] }).committed).toBe(true);
     let snapshot = session.finalize({ resolveAssetUrl: (identity) => `/out/${identity}` });
-    expect(snapshot.manifest.resources).toEqual([
+    expect(snapshot.manifest.resources).toMatchObject([
       { kind: 'font-face', name: '"DemoA"|normal|normal|normal|all', sources: ['b.gss'] },
       { kind: 'font-face', name: '"DemoB"|normal|normal|normal|all', sources: ['a.gss'] }
     ]);
@@ -164,7 +164,7 @@ describe('stylesheet Asset references', () => {
 
     expect(session.invalidate('/project/b.gss')).toMatchObject({ changed: true });
     snapshot = session.finalize({ resolveAssetUrl: (identity) => `/out/${identity}` });
-    expect(snapshot.manifest.resources).toEqual([
+    expect(snapshot.manifest.resources).toMatchObject([
       { kind: 'font-face', name: '"DemoB"|normal|normal|normal|all', sources: ['a.gss'] }
     ]);
     expect(snapshot.css).toContain('url("/out/fonts/b.woff2")');
@@ -181,14 +181,14 @@ describe('stylesheet Asset references', () => {
       expect(session.replaceStylesheet({ id: `/project/${id}`, ...shared }).committed).toBe(true);
     }
     const render = () => session.finalize({ resolveAssetUrl: (identity) => `/out/${identity}` });
-    expect(render().manifest.resources).toEqual([
+    expect(render().manifest.resources).toMatchObject([
       { kind: 'property', name: '--image', sources: ['a.gss', 'b.gss'] }
     ]);
 
     expect(session.replaceStylesheet({ id: '/project/a.gss', source: property('--other', 'other.svg'),
       assetReferences: [{ url: 'other.svg', identity: 'icons/two.svg' }] }).committed).toBe(true);
     let snapshot = render();
-    expect(snapshot.manifest.resources).toEqual([
+    expect(snapshot.manifest.resources).toMatchObject([
       { kind: 'property', name: '--image', sources: ['b.gss'] },
       { kind: 'property', name: '--other', sources: ['a.gss'] }
     ]);
@@ -200,7 +200,7 @@ describe('stylesheet Asset references', () => {
       if (identity === 'icons/one.svg') throw new Error('stale Asset requested');
       return `/out/${identity}`;
     } });
-    expect(snapshot.manifest.resources).toEqual([{ kind: 'property', name: '--other', sources: ['a.gss'] }]);
+    expect(snapshot.manifest.resources).toMatchObject([{ kind: 'property', name: '--other', sources: ['a.gss'] }]);
     expect(snapshot.css).not.toContain('icons/one.svg');
     expect(snapshot.css).toContain('url("/out/icons/two.svg")');
     session.invalidate('/project/a.gss');

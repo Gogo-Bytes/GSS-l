@@ -112,13 +112,9 @@ Vite 在 React transform 前按需编译 `.gss`，再复用同步 ScopeSchema va
 
 生产构建在完整 Rollup Module census 后输出一个中央 GSS CSS asset；main/lazy Modules 共用它，所有 Vite-managed HTML 入口自动引用同一文件。CSS 的 asset name 为 `gss.css`，最终文件名遵循 Vite/Rollup `assetFileNames`；支持 absolute、relative 和 CDN base。
 
-同时输出 `gss-manifest.json` 和 `gss-report.json`：
+同时输出 `gss-manifest.json`（`version: 2`）和 `gss-report.json`（`version: 1`）；前者的 Compiler rule/resource 记录所有 live 来源的 logical Module id 与原始 UTF-16 range，preserved rules 单独记录来源。非空 CSS 还链接包含原始 `.gss` 内容的 `gss.css.map`。
 
-```ts
-{ version: 1, cssAsset: 'assets/gss-<hash>.css', compiler: /* 对应的 Compiler manifest 或 report */ }
-```
-
-`cssAsset` 是相对输出目录的文件路径，不包含部署 base；manifest 使用 logical Module ids。没有 reachable `.gss` 时，不输出这些文件或注入 link。Watch rebuild 从当前 census 的编译快照重建，既移除旧贡献，也刷新 JS 未变化的 preserved CSS。
+两个 JSON envelope 都包含 output-relative `cssAsset` 与对应的 Compiler snapshot；`cssAsset` 不包含部署 base。没有 reachable `.gss` 时，不输出这些文件或注入 link；reachable 但空的 CSS 不输出 map。Watch rebuild 从当前 census 的编译快照重建，既移除旧贡献，也刷新 JS 未变化的 preserved CSS。
 
 Production 现已接入 CSS/font `url(...)`：相对引用从所属 `.gss` 解析，使用稳定 logical identity，在最终 census 后独立 emit（不自动 inline）；根路径引用使用 Vite `publicDir`。支持 query/fragment、relative/CDN base 与自定义 asset naming。缺失资源使构建失败；watch build 可响应资源修改、删除和恢复，即使 scope JS 未变化。
 

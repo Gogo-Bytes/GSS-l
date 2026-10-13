@@ -1,5 +1,10 @@
+import type { SourceMapArtifact } from './application/source-adapter.js';
+
 /** Zero-based UTF-16 offsets into the original caller CSS, with an exclusive end. */
 export type GssSourceRange = { start: number; end: number };
+
+/** Every authored origin retained by a live emitted contribution, using a logical Module id. */
+export type GssManifestOrigin = { moduleId: string; range: GssSourceRange };
 
 export type GssDiagnostic = {
   code: string;
@@ -66,6 +71,8 @@ export type ReplaceStylesheetResult = {
 export type FinalizedGssSnapshot = {
   generation: number;
   css: string;
+  /** Source map v3 for generated CSS; shared rules choose a stable primary origin. */
+  sourceMap: SourceMapArtifact & { version: 3 };
   manifest: {
     modules: readonly string[];
     moduleDetails: readonly {
@@ -77,7 +84,10 @@ export type FinalizedGssSnapshot = {
       kind: 'property' | 'keyframes' | 'font-face';
       name: string;
       sources: readonly string[];
+      origins: readonly GssManifestOrigin[];
     }[];
+    /** One entry per emitted preserved rule, in CSS emission order. */
+    preservedRules: readonly GssManifestOrigin[];
     rules: readonly {
       kind: 'pure-atom' | 'contextual-atom';
       className: string;
@@ -86,6 +96,7 @@ export type FinalizedGssSnapshot = {
       value: string;
       important: boolean;
       sources: readonly string[];
+      origins: readonly GssManifestOrigin[];
     }[];
   };
   report: {
