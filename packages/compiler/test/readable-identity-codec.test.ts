@@ -20,6 +20,11 @@ it.each([
     layer: 'unlayered', condition: 'base', state: 'self', property: 'color', value: 'red',
     important: false,
     ownership: { moduleId: 'tree.gss', path: ['a/b', 'c\\d'], specificity: 0 }
+  },
+  {
+    layer: 'unlayered', condition: 'base', state: 'self', property: 'content', value: '"cafe\u0301"',
+    important: false,
+    ownership: { moduleId: 'cafe\u0301.gss', path: ['cafe\u0301'], specificity: 0 }
   }
 ] satisfies PureDeclarationIdentity[])('round-trips bounded atomic identity %j', (identity) => {
   const name = createReadableAtomicName(identity);

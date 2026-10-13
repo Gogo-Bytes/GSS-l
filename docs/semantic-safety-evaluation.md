@@ -285,7 +285,7 @@ Production performs a complete reachable-Module census and emits one central ord
 
 Development uses one stylesheet link per Vite-managed HTML document and replaces the complete ordered snapshot through Vite's native CSS HMR after a successful transaction. Failed compilation retains the last-known-good snapshot; invalidation removes zero-reference output. Per-file generation tokens suppress stale reads after replacement/deletion, and recorded source importers are invalidated for fresh ScopeSchema validation. Late discovery and late HMR connections refresh earlier snapshots rather than depending on network order.
 
-The first version uses reversible readable names generated from canonical identity. Naming is isolated behind `NameAllocator` and does not affect semantics. Root-external stylesheets use project-relative logical ids such as `../shared/Card.gss`; canonical physical ids remain transaction/lookup keys. Moving the workspace without changing its relative layout cannot change Module-owned names. If no project-relative identity can be expressed, compilation fails closed rather than encoding an absolute path.
+The first version uses reversible readable names generated from canonical identity. [ADR-0055](adr/0055-preserve-unicode-scalar-sequences-in-readable-identities.md) preserves distinct Unicode scalar sequences in each identity component rather than applying NFC inside the name codec: composed and decomposed CSS string values must not share a selector. NFC inputs retain existing names; decomposed inputs receive new names on rebuild. Naming is isolated behind `NameAllocator` and does not affect semantics. Root-external stylesheets use project-relative logical ids such as `../shared/Card.gss`; canonical physical ids remain transaction/lookup keys. Moving the workspace without changing its relative layout cannot change Module-owned names. If no project-relative identity can be expressed, compilation fails closed rather than encoding an absolute path.
 
 ## 15. Fail-closed policy
 
@@ -368,7 +368,7 @@ Review follow-up: the passing 49/875 corpus did not cover malformed property/col
 - Pseudo-elements: [ADR-0021](adr/0021-support-a-positive-pseudo-element-capability-set.md)
 - Resources and layers: [ADR-0024](adr/0024-support-module-local-keyframes.md), [ADR-0025](adr/0025-support-font-face-as-a-global-resource.md), [ADR-0026](adr/0026-support-configured-named-cascade-layers.md)
 - Cascade and delivery: [ADR-0027](adr/0027-separate-cascade-resolution-from-render-order.md), [ADR-0028](adr/0028-use-one-central-css-asset-and-snapshot-hmr.md)
-- Naming and verification: [ADR-0029](adr/0029-use-reversible-readable-names-for-the-first-version.md), [ADR-0030](adr/0030-make-semantic-reference-css-a-testing-capability.md)
+- Naming and verification: [ADR-0029](adr/0029-use-reversible-readable-names-for-the-first-version.md), [ADR-0030](adr/0030-make-semantic-reference-css-a-testing-capability.md), [ADR-0055](adr/0055-preserve-unicode-scalar-sequences-in-readable-identities.md)
 - Source Adapter discovery and synchronous transformation: [ADR-0046](adr/0046-discover-source-imports-before-synchronous-transform.md)
 - Root-external Module identity: [ADR-0047](adr/0047-use-project-relative-identities-for-root-external-stylesheets.md)
 - Production CSS and versioned build metadata: [ADR-0048](adr/0048-emit-versioned-production-css-manifest-and-report.md)

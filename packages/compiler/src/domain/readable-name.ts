@@ -211,7 +211,7 @@ function decodePath(value: string): string[] | undefined {
 
 export function encodeReadableNamePart(value: string): string {
   let encoded = '';
-  for (const character of value.normalize('NFC')) {
+  for (const character of value) {
     encoded += /[A-Za-z0-9]/.test(character)
       ? character
       : `_${character.codePointAt(0)?.toString(16)}_`;
@@ -300,5 +300,5 @@ export function decodeReadableNamePart(encoded: string): string | undefined {
     index = end + 1;
   }
 
-  return decoded.normalize('NFC');
+  return decoded;
 }
