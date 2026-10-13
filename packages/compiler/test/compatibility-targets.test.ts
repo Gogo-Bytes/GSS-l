@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import postcss from 'postcss';
 import { createGssCompilerSession } from '../src/index.js';
 
 const id = '/project/card.gss';
@@ -54,6 +55,47 @@ describe('host-resolved compatibility targets', () => {
     expect(snapshot.css).toContain('background: -webkit-gradient(');
     expect(snapshot.css).toContain('background: -webkit-linear-gradient(');
     expect(snapshot.css).toContain('background: linear-gradient(');
+  });
+
+  it('keeps each media/layer compatibility sequence inside its authored context', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project', compatibilityTargetStages: oldSafari,
+      layers: ['base', 'components'], conditions: { media: ['(min-width: 600px)'] } });
+    expect(session.replaceStylesheet({ id: '/project/a.gss', source: [
+      '@layer base { .card { display: flex; } }',
+      '@media (min-width: 600px) { @layer components { .card { display: flex !important; } } }'
+    ].join('\n') })).toMatchObject({ committed: true, module: { compilationMode: 'atomic' } });
+    expect(session.replaceStylesheet({ id: '/project/b.gss', source: '.other { color: red; }' }))
+      .toMatchObject({ committed: true, module: { compilationMode: 'atomic' } });
+    const snapshot = session.finalize();
+    expect(snapshot.manifest.rules.filter((rule) => rule.property === 'display')).toEqual([
+      expect.objectContaining({ value: 'flex', important: false, sources: ['a.gss'] }),
+      expect.objectContaining({ value: 'flex', important: true, sources: ['a.gss'] })
+    ]);
+    const sequences: { declarations: string[]; context: string[] }[] = [];
+    postcss.parse(snapshot.css).walkRules((rule) => {
+      const declarations: string[] = [];
+      rule.walkDecls('display', (declaration) => {
+        declarations.push(`${declaration.value}${declaration.important ? ' !important' : ''}`);
+      });
+      if (!declarations.length) return;
+      const context: string[] = [];
+      let parent = rule.parent;
+      while (parent?.type === 'atrule') {
+        context.unshift(`@${parent.name} ${parent.params}`);
+        parent = parent.parent;
+      }
+      sequences.push({ declarations, context });
+    });
+    expect(sequences).toEqual([
+      { declarations: ['-webkit-box', '-webkit-flex', 'flex'], context: ['@layer base'] },
+      { declarations: ['-webkit-box !important', '-webkit-flex !important', 'flex !important'],
+        context: ['@layer components', '@media (min-width: 600px)'] }
+    ]);
+    expect(snapshot.css).toContain('color: red;');
+    session.invalidate('/project/a.gss');
+    const remaining = session.finalize();
+    expect(remaining.css).not.toContain('display:');
+    expect(remaining.manifest.rules).toEqual([expect.objectContaining({ sources: ['b.gss'], property: 'color' })]);
   });
 
   it('isolates compatibility preserved fallback to one Module in a multi-Module census', () => {
