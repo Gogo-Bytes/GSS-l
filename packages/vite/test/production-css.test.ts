@@ -458,13 +458,15 @@ it('rebuilds compatibility fallback and bound Assets from the current watch cens
     const manifest = JSON.parse(await readFile(join(root, 'dist/gss-manifest.json'), 'utf8'));
     const css = await readFile(join(root, 'dist', manifest.cssAsset), 'utf8');
     const report = JSON.parse(await readFile(join(root, 'dist/gss-report.json'), 'utf8'));
-    return { manifest, css, report };
+    const map = JSON.parse(await readFile(join(root, 'dist/gss.css.map'), 'utf8'));
+    return { manifest, css, report, map };
   };
   const cleanSnapshot = async () => {
     const output = await bundle(root, { build: { minify: true, cssTarget: 'safari6' } });
     const manifest = JSON.parse(asset(output, 'gss-manifest.json'));
     return { manifest, css: asset(output, manifest.cssAsset),
-      report: JSON.parse(asset(output, 'gss-report.json')) };
+      report: JSON.parse(asset(output, 'gss-report.json')),
+      map: JSON.parse(asset(output, 'gss.css.map')) };
   };
   const initial = await readSnapshot();
   expect(initial.manifest.compiler.moduleDetails).toMatchObject([
@@ -481,6 +483,8 @@ it('rebuilds compatibility fallback and bound Assets from the current watch cens
   expect(remaining.manifest.compiler.modules).toEqual(['Other.gss']);
   expect(remaining.css).toContain('display: -webkit-box;');
   expect(remaining.css).not.toMatch(/flex-direction|icon\.svg/);
+  expect(remaining.map.sources).toEqual(['Other.gss']);
+  expect(remaining.map.sourcesContent).toEqual(['.other { display: flex; }']);
   expect(remaining).toEqual(await cleanSnapshot());
 
   const restored = nextWatchBuild(watcher);
