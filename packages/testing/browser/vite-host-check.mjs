@@ -1,4 +1,4 @@
-/* global document, getComputedStyle, Image */
+/* global document, getComputedStyle, Image, URL, fetch */
 
 import { mkdtemp, mkdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -59,6 +59,18 @@ export async function checkViteHostCompatibility(browser) {
     const address = server.httpServer.address();
     if (!address || typeof address === 'string') throw new Error('No Vite preview address.');
     const url = `http://127.0.0.1:${address.port}/`;
+    const mapReference = /sourceMappingURL=([^\s*]+)/.exec(css)?.[1];
+    if (!mapReference) throw new Error('Host CSS did not link a source map.');
+    const mapUrl = new URL(mapReference, new URL(manifest.cssAsset, url));
+    const mapResponse = await fetch(mapUrl);
+    if (!mapResponse.ok) throw new Error(`Linked host source map returned ${mapResponse.status}.`);
+    const sourceMap = await mapResponse.json();
+    if (mapUrl.pathname !== '/gss.css.map' || sourceMap.file !== manifest.cssAsset ||
+      JSON.stringify(sourceMap.sources) !== JSON.stringify(['Card.gss', 'Fallback.gss']) ||
+      !sourceMap.sourcesContent?.some((source) => source.includes('@property --tone')) ||
+      !sourceMap.sourcesContent?.some((source) => source.includes('flex-direction: column'))) {
+      throw new Error('Linked host source map lost its logical sources or authored source content.');
+    }
     async function readPage() {
       const context = await browser.newContext();
       contexts.push(context);
@@ -117,7 +129,7 @@ export async function checkViteHostCompatibility(browser) {
       fallbackControl.readings.fallback.display === 'flex' && fallbackControl.readings.fallback.size === '3x2' &&
       fallbackControl.pageErrors.length === 0;
     return { detected: resourceDetected && fallbackDetected, resourceDetected, fallbackDetected,
-      baseline: baseline.readings, control: control.readings, fallbackControl: fallbackControl.readings,
+      sourceMapLinked: true, baseline: baseline.readings, control: control.readings, fallbackControl: fallbackControl.readings,
       pageErrors: [...baseline.pageErrors, ...control.pageErrors, ...fallbackControl.pageErrors] };
   } finally {
     try {
