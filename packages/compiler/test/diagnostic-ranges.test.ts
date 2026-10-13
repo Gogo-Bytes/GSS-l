@@ -4,6 +4,7 @@ import {
   createGssCompilerSession, discoverStylesheetAssets,
   type GssDiagnostic, type GssSourceRange
 } from '../src/index.js';
+import { snapshotSemanticView } from './snapshot-semantic-view.js';
 
 const id = '/private/project/card.gss';
 const session = () => createGssCompilerSession({ projectRoot: '/private/project' });
@@ -186,7 +187,7 @@ it('retains successful output, names, manifest and resource identity when origin
     expect(compiler.replaceStylesheet({ id, source: relocated })).toEqual(expected);
     const current = compiler.finalize();
     const original = baseline.finalize();
-    expect(current).toMatchObject({ css: original.css, manifest: original.manifest, report: original.report });
+    expect(snapshotSemanticView(current)).toEqual(snapshotSemanticView(original));
     expect(current.sourceMap.sourcesContent).toEqual([relocated]);
   }
 });

@@ -14,6 +14,8 @@ status: accepted
 { version: 1, cssAsset: 'assets/gss-<hash>.css', compiler: snapshot.report }
 ```
 
+[ADR-0056](0056-emit-linked-production-css-source-maps.md) subsequently adds a linked map for nonempty CSS. [ADR-0057](0057-version-manifest-for-all-origin-source-ranges.md) supersedes only the manifest envelope's `version: 1` example above with version 2 and all-origin ranges; the report envelope remains version 1.
+
 ## Consequences
 
 - `cssAsset` 相对输出目录，不包含部署 base；HTML 注入单独处理 base 与入口目录。

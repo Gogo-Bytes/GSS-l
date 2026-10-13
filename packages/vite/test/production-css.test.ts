@@ -242,7 +242,7 @@ it('includes lazy Modules in one asset and exports matching manifest/report snap
     }
   }
   expect(JSON.parse(asset(output, 'gss-manifest.json'))).toMatchObject({
-    version: 1, cssAsset,
+    version: 2, cssAsset,
     compiler: {
       modules: ['Card.gss', 'Lazy.gss'],
       moduleDetails: [
@@ -252,6 +252,10 @@ it('includes lazy Modules in one asset and exports matching manifest/report snap
         ] }
       ]
     }
+  });
+  expect(JSON.parse(asset(output, 'gss-manifest.json')).compiler).toMatchObject({
+    rules: [{ origins: [{ moduleId: 'Card.gss', range: { start: 8, end: 19 } }] }],
+    preservedRules: [{ moduleId: 'Lazy.gss', range: { start: 0, end: '.lazy { future-paint: blue; }'.length } }]
   });
   expect(JSON.parse(asset(output, 'gss-report.json'))).toEqual({
     version: 1, cssAsset,

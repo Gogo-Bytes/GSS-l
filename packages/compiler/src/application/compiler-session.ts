@@ -1354,7 +1354,8 @@ function finalizeSnapshot(
   };
   const sourceTexts = new Map([...modules.values()].map(({ artifact, sourceText }) =>
     [artifact.scopeSchema.moduleId, sourceText] as const));
-  type Origin = { moduleId: string; offset: number; descriptorOffsets?: ReadonlyMap<string, number>;
+  type Origin = { moduleId: string; offset: number; end: number;
+    descriptorOffsets?: ReadonlyMap<string, number>;
     frameOffsets?: NonNullable<PlannedResource['frameOffsets']> };
   const uniqueResources = new Map<string, {
     resource: PlannedResource;
@@ -1370,7 +1371,8 @@ function finalizeSnapshot(
       };
       registered.sources.add(contribution.artifact.scopeSchema.moduleId);
       registered.origins.push({ moduleId: contribution.artifact.scopeSchema.moduleId,
-        offset: resource.source.start, ...(resource.descriptorOffsets ? { descriptorOffsets: resource.descriptorOffsets } : {}),
+        offset: resource.source.start, end: resource.source.end,
+        ...(resource.descriptorOffsets ? { descriptorOffsets: resource.descriptorOffsets } : {}),
         ...(resource.frameOffsets ? { frameOffsets: resource.frameOffsets } : {}) });
       uniqueResources.set(resource.identity, registered);
     }
@@ -1392,7 +1394,8 @@ function finalizeSnapshot(
         : identity;
       const registered = uniqueRules.get(key) ?? { rule, sources: new Set<string>(), origins: [] };
       registered.sources.add(contribution.artifact.scopeSchema.moduleId);
-      registered.origins.push({ moduleId: contribution.artifact.scopeSchema.moduleId, offset: rule.source.start });
+      registered.origins.push({ moduleId: contribution.artifact.scopeSchema.moduleId,
+        offset: rule.source.start, end: rule.source.end });
       uniqueRules.set(key, registered);
     }
   }
@@ -1406,8 +1409,14 @@ function finalizeSnapshot(
   const layerPrelude = config.layers?.length
     ? `@layer ${config.layers.join(', ')};`
     : '';
-  const primary = (origins: readonly Origin[]) =>
-    [...origins].sort((a, b) => a.moduleId.localeCompare(b.moduleId) || a.offset - b.offset)[0]!;
+  const compareOrigins = (a: Origin, b: Origin) =>
+    (a.moduleId < b.moduleId ? -1 : a.moduleId > b.moduleId ? 1 : 0) ||
+    a.offset - b.offset || a.end - b.end;
+  const primary = (origins: readonly Origin[]) => [...origins].sort(compareOrigins)[0]!;
+  const manifestOrigins = (origins: readonly Origin[]) => [...new Map(
+    [...origins].sort(compareOrigins).map(({ moduleId, offset, end }) =>
+      [JSON.stringify([moduleId, offset, end]), { moduleId, range: { start: offset, end } }] as const)
+  ).values()];
   const sections: CssMapBlock[][] = [
     layerPrelude ? [{ css: layerPrelude }] : [],
     orderedResources.map(({ resource, origins }) => ({
@@ -1434,19 +1443,24 @@ function finalizeSnapshot(
           fallbackReasons: artifact.fallbackReasons
         }))
         .sort((left, right) => left.id.localeCompare(right.id)),
-      resources: orderedResources.map(({ resource, sources }) => ({
+      resources: orderedResources.map(({ resource, sources, origins }) => ({
         kind: resource.kind,
         name: resource.name,
-        sources: [...sources].sort()
+        sources: [...sources].sort(),
+        origins: manifestOrigins(origins)
       })),
-      rules: orderedRules.map(({ rule: { kind, className, selector, identity }, sources }) => ({
+      preservedRules: orderedPreservedBlocks.map(({ moduleId, source }) => ({
+        moduleId, range: { start: source.start, end: source.end }
+      })),
+      rules: orderedRules.map(({ rule: { kind, className, selector, identity }, sources, origins }) => ({
         kind,
         className,
         selector,
         property: identity.property,
         value: renderAssetValue(identity, resolve),
         important: identity.important,
-        sources: [...sources].sort()
+        sources: [...sources].sort(),
+        origins: manifestOrigins(origins)
       }))
     },
     report: {

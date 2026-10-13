@@ -50,7 +50,8 @@ export function emitProductionSnapshot(
     if (bundle[fileName]) context.error(`GSS output ${fileName} already exists.`);
     context.emitFile({
       type: 'asset', fileName,
-      source: JSON.stringify({ version: 1, cssAsset, compiler }, null, 2) + '\n'
+      source: JSON.stringify({ version: fileName === 'gss-manifest.json' ? 2 : 1,
+        cssAsset, compiler }, null, 2) + '\n'
     });
   }
   for (const entry of Object.values(bundle)) {

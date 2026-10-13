@@ -10,6 +10,34 @@ function generatedPosition(css: string, token: string, occurrence = 0) {
   return { line: lines.length, column: lines.at(-1)!.length };
 }
 
+it('orders distinct Unicode Module origins independent of registration order', () => {
+  const ids = ['caf\u00e9.gss', 'cafe\u0301.gss'] as const;
+  const origins = (order: readonly string[]) => {
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    for (const id of order) expect(session.replaceStylesheet({ id: `/project/${id}`,
+      source: '.card { color: red; }' }).committed).toBe(true);
+    return session.finalize().manifest.rules[0]!.origins;
+  };
+  const expected = ids.slice().sort().map((moduleId) => ({
+    moduleId, range: { start: 8, end: 19 }
+  }));
+  expect(origins(ids)).toEqual(expected);
+  expect(origins([...ids].reverse())).toEqual(expected);
+});
+
+it('records every contributing declaration of a shared atom in one Module', () => {
+  const session = createGssCompilerSession({ projectRoot: '/project' });
+  const source = '.a { color: red; } .b { color: red; }';
+  expect(session.replaceStylesheet({ id: '/project/card.gss', source }).committed).toBe(true);
+  const snapshot = session.finalize();
+  expect(snapshot.manifest.rules).toHaveLength(1);
+  const positions = [...source.matchAll(/color: red;/g)].map((match) => match.index);
+  expect(snapshot.manifest.rules[0]?.origins).toEqual(positions.map((start) => ({
+    moduleId: 'card.gss', range: { start, end: start + 'color: red;'.length }
+  })));
+  expect(snapshot.manifest.rules[0]?.sources).toEqual(['card.gss']);
+});
+
 it('maps shared and compatibility-expanded declarations to a stable primary authored origin', () => {
   const session = createGssCompilerSession({ projectRoot: '/project',
     compatibilityTargetStages: [{ safari: '6.0' }] });
@@ -21,6 +49,10 @@ it('maps shared and compatibility-expanded declarations to a stable primary auth
   expect(snapshot.sourceMap.sources).toEqual(['a.gss']);
   expect(snapshot.sourceMap.sourcesContent).toEqual([a]);
   expect(snapshot.manifest.rules[0]?.sources).toEqual(['a.gss', 'b.gss']);
+  expect(snapshot.manifest.rules[0]?.origins).toEqual([
+    { moduleId: 'a.gss', range: { start: a.indexOf('display:'), end: a.indexOf('display:') + 'display: /*😀*/ flex;'.length } },
+    { moduleId: 'b.gss', range: { start: b.indexOf('display:'), end: b.indexOf('display:') + 'display: flex;'.length } }
+  ]);
   const map = new TraceMap(snapshot.sourceMap);
   for (const physical of ['display: -webkit-box;', 'display: -webkit-flex;', 'display: flex;']) {
     expect(originalPositionFor(map, generatedPosition(snapshot.css, physical))).toMatchObject({
@@ -31,6 +63,9 @@ it('maps shared and compatibility-expanded declarations to a stable primary auth
   const remaining = session.finalize();
   expect(remaining.sourceMap.sources).toEqual(['b.gss']);
   expect(remaining.sourceMap.sourcesContent).toEqual([b]);
+  expect(remaining.manifest.rules[0]?.origins).toEqual([
+    { moduleId: 'b.gss', range: { start: b.indexOf('display:'), end: b.indexOf('display:') + 'display: flex;'.length } }
+  ]);
 });
 
 it('tracks generated lines through the unmapped layer prelude and media wrapper', () => {
@@ -103,6 +138,10 @@ it('maps a shared property descriptor to the primary owner, not the first regist
   expect(session.replaceStylesheet({ id: '/project/a.gss', source: a }).committed).toBe(true);
   const snapshot = session.finalize();
   expect(snapshot.manifest.resources[0]?.sources).toEqual(['a.gss', 'b.gss']);
+  expect(snapshot.manifest.resources[0]?.origins).toEqual([
+    { moduleId: 'a.gss', range: { start: 2, end: a.length } },
+    { moduleId: 'b.gss', range: { start: 0, end: b.length } }
+  ]);
   expect(originalPositionFor(new TraceMap(snapshot.sourceMap),
     generatedPosition(snapshot.css, 'initial-value: red;'))).toMatchObject({
     source: 'a.gss', line: 2, column: b.indexOf('initial-value:')
@@ -131,4 +170,8 @@ it('maps preserved and resource blocks without borrowing unrelated Module origin
     source: 'p.gss', line: 1, column: preserved.indexOf('color:')
   });
   expect(snapshot.sourceMap.sourcesContent).toEqual([resource, preserved]);
+  expect(snapshot.manifest.preservedRules).toEqual([
+    { moduleId: 'p.gss', range: { start: 0, end: preserved.indexOf(' .icon') } },
+    { moduleId: 'p.gss', range: { start: preserved.indexOf('.icon'), end: preserved.length } }
+  ]);
 });

@@ -238,7 +238,7 @@ report
 source maps
 ```
 
-The implemented Vite build emits an asset named `gss.css` through Rollup naming rules, plus `gss-manifest.json` and `gss-report.json`. The JSON envelopes contain `version: 1`, output-relative `cssAsset`, and the corresponding Compiler snapshot data. All emitted HTML entries share the CSS asset; deployment base is applied only when creating their links. An empty GSS census emits no GSS asset or metadata.
+The implemented Vite build emits an asset named `gss.css` through Rollup naming rules, plus `gss-manifest.json` (version 2) and `gss-report.json` (version 1). Both JSON envelopes contain output-relative `cssAsset` and their corresponding Compiler snapshot. Manifest v2 includes all live rule/resource origins and preserved-rule ranges. Nonempty CSS links `gss.css.map` with authored `sourcesContent`; an empty reachable stylesheet has no map. All emitted HTML entries share the CSS asset; deployment base is applied only when creating their links. An empty GSS census emits no GSS asset or metadata.
 
 SSR integrations can read `gss-manifest.json` and link the same CSS asset used by client hydration; no generic SSR response helper is provided. The browser does not create or reorder GSS rules at runtime.
 

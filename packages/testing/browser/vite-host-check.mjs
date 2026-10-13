@@ -47,7 +47,11 @@ export async function checkViteHostCompatibility(browser) {
     const manifest = JSON.parse(await readFile(join(root, 'dist/gss-manifest.json'), 'utf8'));
     const cssFile = join(root, 'dist', manifest.cssAsset);
     const css = await readFile(cssFile, 'utf8');
-    if (!css.includes('display: -webkit-box;') || !css.includes('@property --tone') ||
+    if (manifest.version !== 2 || !manifest.compiler.rules?.length || manifest.compiler.rules.some((rule) =>
+      !rule.origins?.length || rule.origins.some((origin) => origin.range.end <= origin.range.start)) ||
+      manifest.compiler.preservedRules?.[0]?.moduleId !== 'Fallback.gss' ||
+      !manifest.compiler.resources?.[0]?.origins?.length ||
+      !css.includes('display: -webkit-box;') || !css.includes('@property --tone') ||
       !css.includes('flex-direction: column;') ||
       !manifest.compiler.moduleDetails.some((entry) => entry.id === 'Fallback.gss' &&
         entry.compilationMode === 'preserved' && entry.fallbackReasons.some((reason) =>
