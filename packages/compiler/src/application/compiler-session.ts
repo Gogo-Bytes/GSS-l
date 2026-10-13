@@ -81,6 +81,7 @@ type PlannedResource = {
   renderCss?: (resolve: AssetUrlResolver) => string;
   source: SourceSpan;
   descriptorOffsets?: ReadonlyMap<string, number>;
+  frameOffsets?: ReadonlyMap<string, { offset: number; descriptorOffsets: ReadonlyMap<string, number> }>;
 };
 
 type PlannedPreservedBlock = {
@@ -1066,7 +1067,17 @@ function planResource(
       other.property === declaration.property).length === 1).map((declaration) =>
       [declaration.property, declaration.source.start] as const)
   );
-  const sourced = { ...planned, ...(descriptorOffsets ? { descriptorOffsets } : {}) };
+  const frameOffsets = resource.kind !== 'keyframes' ? undefined : new Map(
+    resource.frames.filter((frame) => resource.frames.filter((other) =>
+      other.selector === frame.selector).length === 1).map((frame) => [frame.selector, {
+      offset: frame.source.start,
+      descriptorOffsets: new Map(frame.declarations.filter((declaration) => frame.declarations.filter((other) =>
+        other.property === declaration.property).length === 1).map((declaration) =>
+        [declaration.property, declaration.source.start] as const))
+    }] as const)
+  );
+  const sourced = { ...planned, ...(descriptorOffsets ? { descriptorOffsets } : {}),
+    ...(frameOffsets ? { frameOffsets } : {}) };
   return assets.assetIdentity && assets.renderCss
     ? { ...sourced, identity: assets.assetIdentity, renderCss: assets.renderCss }
     : sourced;
@@ -1343,7 +1354,8 @@ function finalizeSnapshot(
   };
   const sourceTexts = new Map([...modules.values()].map(({ artifact, sourceText }) =>
     [artifact.scopeSchema.moduleId, sourceText] as const));
-  type Origin = { moduleId: string; offset: number; descriptorOffsets?: ReadonlyMap<string, number> };
+  type Origin = { moduleId: string; offset: number; descriptorOffsets?: ReadonlyMap<string, number>;
+    frameOffsets?: NonNullable<PlannedResource['frameOffsets']> };
   const uniqueResources = new Map<string, {
     resource: PlannedResource;
     sources: Set<string>;
@@ -1358,7 +1370,8 @@ function finalizeSnapshot(
       };
       registered.sources.add(contribution.artifact.scopeSchema.moduleId);
       registered.origins.push({ moduleId: contribution.artifact.scopeSchema.moduleId,
-        offset: resource.source.start, ...(resource.descriptorOffsets ? { descriptorOffsets: resource.descriptorOffsets } : {}) });
+        offset: resource.source.start, ...(resource.descriptorOffsets ? { descriptorOffsets: resource.descriptorOffsets } : {}),
+        ...(resource.frameOffsets ? { frameOffsets: resource.frameOffsets } : {}) });
       uniqueResources.set(resource.identity, registered);
     }
   }

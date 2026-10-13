@@ -6,7 +6,8 @@ export type CssMapBlock = {
   css: string;
   /** One deterministic primary origin; other owners remain in the manifest. */
   origin?: { moduleId: string; offset: number; descriptorOffsets?: ReadonlyMap<string, number>;
-    declarationOffsets?: readonly number[] };
+    declarationOffsets?: readonly number[];
+    frameOffsets?: ReadonlyMap<string, { offset: number; descriptorOffsets: ReadonlyMap<string, number> }> };
   /** Physical alternatives of an atom all point to its authored declaration. */
   declarationPositions?: boolean;
 };
@@ -30,6 +31,19 @@ export function renderCssWithSourceMap(
           before.length - 1, before.at(-1)!.length, undefined, source);
       };
       addOrigin(line, 0, block.origin.offset);
+      if (block.origin.frameOffsets) {
+        postcss.parse(block.css).walkRules((rule) => {
+          const frame = block.origin!.frameOffsets!.get(rule.selector);
+          const start = rule.source?.start;
+          if (!frame || !start) return;
+          addOrigin(line + start.line - 1, start.column - 1, frame.offset);
+          rule.walkDecls((declaration) => {
+            const position = declaration.source?.start;
+            const offset = frame.descriptorOffsets.get(declaration.prop);
+            if (position && offset !== undefined) addOrigin(line + position.line - 1, position.column - 1, offset);
+          });
+        });
+      }
       if (block.declarationPositions || block.origin.descriptorOffsets || block.origin.declarationOffsets) {
         let declarationIndex = 0;
         postcss.parse(block.css).walkDecls((declaration) => {

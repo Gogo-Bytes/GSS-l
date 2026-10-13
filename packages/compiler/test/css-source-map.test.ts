@@ -2,8 +2,9 @@ import { expect, it } from 'vitest';
 import { TraceMap, originalPositionFor } from '@jridgewell/trace-mapping';
 import { createGssCompilerSession } from '../src/index.js';
 
-function generatedPosition(css: string, token: string) {
-  const index = css.indexOf(token);
+function generatedPosition(css: string, token: string, occurrence = 0) {
+  let index = -1;
+  for (let i = 0; i <= occurrence; i++) index = css.indexOf(token, index + 1);
   expect(index).toBeGreaterThanOrEqual(0);
   const lines = css.slice(0, index).split('\n');
   return { line: lines.length, column: lines.at(-1)!.length };
@@ -60,6 +61,38 @@ it('maps physical declarations in a preserved compatibility Module to authored d
   expect(originalPositionFor(map, generatedPosition(snapshot.css, 'color: red;'))).toMatchObject({
     source: 'card.gss', line: 1, column: source.indexOf('color:')
   });
+});
+
+it('traces an authored keyframe step and its declaration through resource output', () => {
+  const session = createGssCompilerSession({ projectRoot: '/project' });
+  const source = '@keyframes move { from { opacity: 0; } to { opacity: 1; } }';
+  expect(session.replaceStylesheet({ id: '/project/move.gss', source }).committed).toBe(true);
+  const snapshot = session.finalize();
+  const map = new TraceMap(snapshot.sourceMap);
+  expect(originalPositionFor(map, generatedPosition(snapshot.css, 'from {'))).toMatchObject({
+    source: 'move.gss', line: 1, column: source.indexOf('from {')
+  });
+  expect(originalPositionFor(map, generatedPosition(snapshot.css, 'opacity: 1;'))).toMatchObject({
+    source: 'move.gss', line: 1, column: source.lastIndexOf('opacity:')
+  });
+});
+
+it('retains a keyframe step origin across target-generated prefixed resource pairs', () => {
+  const session = createGssCompilerSession({ projectRoot: '/project',
+    compatibilityTargetStages: [{ safari: '6.0' }] });
+  const source = '@keyframes move { to { opacity: 1; } } .card { animation-name: move; }';
+  expect(session.replaceStylesheet({ id: '/project/move.gss', source }).committed).toBe(true);
+  const snapshot = session.finalize();
+  expect(snapshot.css).toContain('@-webkit-keyframes');
+  const map = new TraceMap(snapshot.sourceMap);
+  for (let index = 0; index < 2; index++) {
+    expect(originalPositionFor(map, generatedPosition(snapshot.css, 'to {', index))).toMatchObject({
+      source: 'move.gss', line: 1, column: source.indexOf('to {')
+    });
+    expect(originalPositionFor(map, generatedPosition(snapshot.css, 'opacity: 1;', index))).toMatchObject({
+      source: 'move.gss', line: 1, column: source.indexOf('opacity:')
+    });
+  }
 });
 
 it('maps a shared property descriptor to the primary owner, not the first registered owner', () => {
