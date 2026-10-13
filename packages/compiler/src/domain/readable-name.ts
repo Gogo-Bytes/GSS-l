@@ -272,7 +272,8 @@ export function decodeReadableAtomicName(name: string): PureDeclarationIdentity 
       }
     } : {})
   };
-  return identity;
+  // Decoding is a partial inverse of the canonical encoder, not an alias parser.
+  return createReadableAtomicName(identity) === name ? identity : undefined;
 }
 
 export function decodeReadableNamePart(encoded: string): string | undefined {

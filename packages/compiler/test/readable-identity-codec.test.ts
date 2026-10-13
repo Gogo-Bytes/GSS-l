@@ -51,6 +51,15 @@ it('keeps every canonical identity field collision-free', () => {
   for (const identity of variants) expect(decodeReadableAtomicName(createReadableAtomicName(identity))).toEqual(identity);
 });
 
+it('rejects alternate spellings and field permutations of one canonical atomic name', () => {
+  const canonical = createReadableAtomicName({ layer: 'base', condition: 'base', state: 'self',
+    property: 'color', value: 'é', important: false });
+  expect(decodeReadableAtomicName(canonical.replace('_e9_', '_E9_'))).toBeUndefined();
+  expect(decodeReadableAtomicName(canonical.replace('property_color', 'property__63_olor'))).toBeUndefined();
+  expect(decodeReadableAtomicName(canonical.replace('--state_self--property_color',
+    '--property_color--state_self'))).toBeUndefined();
+});
+
 it.each([
   'gss-s--layer_unlayered--path_card',
   'gss-a--layer_unlayered--condition_base--state_self--property_color--value_red--importance_normal--module_x',
