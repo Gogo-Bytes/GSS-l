@@ -58,6 +58,30 @@ it('emits one central CSS asset and injects its final name into built HTML', asy
   expect(html).not.toContain('/@gss-l/central.css');
 });
 
+it('repeats target-aware production CSS, manifest and emitted Asset bytes across clean builds', async () => {
+  const root = await fixture({
+    'icon.svg': '<svg xmlns="http://www.w3.org/2000/svg" width="3" height="2"/>',
+    'Card.gss': '@property --tone { syntax: "<color>"; inherits: false; initial-value: red; } .card { background-image: url(./icon.svg); display: flex; }',
+    'Fallback.gss': '.other { flex-direction: column; color: blue; }',
+    'main.ts': `import card from './Card.gss'; import fallback from './Fallback.gss';
+      document.body.className = card.card.self + ' ' + fallback.other.self;`
+  });
+  const config: InlineConfig = { build: { minify: true, cssTarget: 'safari6' } };
+  const first = await bundle(root, config);
+  const second = await bundle(root, config);
+  const artifacts = (output: Rollup.RollupOutput) => output.output
+    .filter((entry) => entry.type === 'asset')
+    .map((entry) => [entry.fileName, asset(output, entry.fileName)]);
+  expect(artifacts(second)).toEqual(artifacts(first));
+  const manifest = JSON.parse(asset(first, 'gss-manifest.json'));
+  expect(asset(first, manifest.cssAsset)).toContain('display: -webkit-box;');
+  expect(manifest.compiler.moduleDetails).toEqual([
+    expect.objectContaining({ compilationMode: 'atomic' }),
+    expect.objectContaining({ compilationMode: 'preserved' })
+  ]);
+  expect(first.output.some((entry) => entry.type === 'asset' && entry.fileName.endsWith('.svg'))).toBe(true);
+});
+
 it('takes compatibility targets from the resolved Vite CSS build settings', async () => {
   const root = await fixture({ 'Card.gss': '.card { display: flex; }' });
   const old = await bundle(root, { build: { minify: true, cssTarget: 'safari6' } });
