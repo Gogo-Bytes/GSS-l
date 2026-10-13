@@ -42,6 +42,46 @@ export const compatibilityFixtures: readonly (ReferenceFixture & {
     { name: 'media-restored', viewportWidth: 640, changes: [], expected: { 'layered-card': { display: 'flex' } } }
   ]
 }, {
+  name: 'host-target-preserved-media-isolation',
+  config: { compatibilityTargetStages: [{ safari: '6.0' }], atomizationFallback: 'preserve-module',
+    layers: ['base'], conditions: { media: ['(min-width: 400px)'] } },
+  conditionProbes: { media: ['(min-width: 400px)'] },
+  preservedModuleIds: ['Fallback.gss'],
+  modules: [
+    { id: 'Fallback.gss', source: `@layer base {
+      .card { display: flex; color: black; }
+      @media (min-width: 400px) { .card { flex-direction: column; color: red; } }
+    }` },
+    { id: 'Atomic.gss', source: '.other { color: blue; }' }
+  ],
+  reference: {
+    css: `@layer base;
+      @layer base { .native-fallback { display: -webkit-box; display: -webkit-flex; display: flex; color: black; }
+        @media (min-width: 400px) { .native-fallback { -webkit-box-orient: vertical;
+          -webkit-box-direction: normal; -webkit-flex-direction: column; flex-direction: column; color: red; } } }
+      .native-atomic { color: blue; }`,
+    scopeSchemas: {
+      'Fallback.gss': { moduleId: 'Fallback.gss', exports: { card: { selfClassName: 'native-fallback', targets: {} } } },
+      'Atomic.gss': { moduleId: 'Atomic.gss', exports: { other: { selfClassName: 'native-atomic', targets: {} } } }
+    }
+  },
+  nodes: [
+    { id: 'fallback-card', moduleId: 'Fallback.gss', path: ['card'], expected: {
+      display: 'flex', 'flex-direction': 'column', color: 'rgb(255, 0, 0)'
+    } },
+    { id: 'atomic-other', moduleId: 'Atomic.gss', path: ['other'], expected: { color: 'rgb(0, 0, 255)' } }
+  ],
+  phases: [
+    { name: 'media-off', viewportWidth: 100, changes: [], expected: {
+      'fallback-card': { display: 'flex', 'flex-direction': 'row', color: 'rgb(0, 0, 0)' },
+      'atomic-other': { color: 'rgb(0, 0, 255)' }
+    } },
+    { name: 'media-restored', viewportWidth: 640, changes: [], expected: {
+      'fallback-card': { display: 'flex', 'flex-direction': 'column', color: 'rgb(255, 0, 0)' },
+      'atomic-other': { color: 'rgb(0, 0, 255)' }
+    } }
+  ]
+}, {
   name: 'host-target-asset-property-resource',
   config: { compatibilityTargetStages: [{ safari: '6.0' }] },
   assetUrls: { 'asset-a': '/__reference_assets__/one-a.svg' },

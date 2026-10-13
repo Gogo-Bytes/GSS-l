@@ -56,8 +56,15 @@ export default defineConfig({
         const session = createGssCompilerSession(config);
         const scopeSchemas = Object.fromEntries(fixture.modules.map((module) => {
           const result = session.replaceStylesheet(module);
-          if (!result.committed || result.module?.compilationMode !== 'atomic' || result.diagnostics.length) {
-            throw new Error(`Expected clean atomic fixture: ${JSON.stringify(result)}`);
+          const expectedMode = fixture.preservedModuleIds?.includes(module.id) ? 'preserved' : 'atomic';
+          if (expectedMode === 'preserved' && fixture.config?.atomizationFallback !== 'preserve-module') {
+            throw new Error(`Preserved fixture ${module.id} requires explicit fallback policy`);
+          }
+          if (!result.committed || result.module?.compilationMode !== expectedMode ||
+            (expectedMode === 'atomic' && result.diagnostics.length) ||
+            (expectedMode === 'preserved' && !result.module.fallbackReasons.some((reason) =>
+              reason.reason === 'compatibility-sequence-unatomizable'))) {
+            throw new Error(`Expected ${expectedMode} fixture: ${JSON.stringify(result)}`);
           }
           return [module.id, result.module.scopeSchema];
         }));

@@ -9,7 +9,8 @@ export type PseudoExpectations = Partial<Record<'::before' | '::after', Readonly
 export type ReferenceFixture = {
   name: string;
   modules: readonly ReplaceStylesheetInput[];
-  config?: Pick<GssCompilerConfig, 'conditions' | 'layers' | 'compatibilityTargetStages'>;
+  config?: Pick<GssCompilerConfig, 'conditions' | 'layers' | 'compatibilityTargetStages' | 'atomizationFallback'>;
+  preservedModuleIds?: readonly string[];
   setupCss?: string;
   animationSymbols?: readonly { moduleId: string; symbol: string; probe: string }[];
   assetUrls?: Readonly<Record<string, string>>;
