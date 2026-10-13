@@ -86,6 +86,7 @@ type PlannedResource = {
 type PlannedPreservedBlock = {
   moduleId: string;
   source: SourceSpan;
+  declarationOffsets: readonly number[];
   css: string;
   renderCss?: (resolve: AssetUrlResolver) => string;
 };
@@ -945,8 +946,8 @@ function preparePreservedContribution(input: {
   const preservedBlocks = [...input.rules]
     .sort((left, right) => left.sourceOrdinal - right.sourceOrdinal)
     .map((rule) => {
-      const css = renderPreservedRule(rule, input.moduleId, input.nameAllocator, input.compatibility);
-      return { moduleId: input.moduleId, source: rule.source, css,
+      const { css, declarationOffsets } = renderPreservedRule(rule, input.moduleId, input.nameAllocator, input.compatibility);
+      return { moduleId: input.moduleId, source: rule.source, declarationOffsets, css,
         ...bindCssAssets(css, bindings) };
     });
   const fallbackReasons = [
@@ -992,7 +993,7 @@ function renderPreservedRule(
   moduleId: string,
   nameAllocator: NameAllocatorPort,
   compatibility?: CompatibilityTransformer
-): string {
+): { css: string; declarationOffsets: readonly number[] } {
   const selector = selectorParser((root) => {
     for (const branch of root.nodes) {
       let pathIndex = 0;
@@ -1009,12 +1010,12 @@ function renderPreservedRule(
       }
     }
   }).processSync(rule.selector);
-  const declarations = rule.declarations
-    .flatMap((declaration) => compatibility ? compatibility.expand(declaration)! : [declaration])
-    .map(({ property, value, important }) =>
-      `  ${property}: ${value}${important ? ' !important' : ''};`
-    )
-    .join('\n');
+  const physical = rule.declarations.flatMap((declaration) =>
+    (compatibility ? compatibility.expand(declaration)! : [declaration])
+      .map((entry) => ({ entry, offset: declaration.source.start }))
+  );
+  const declarations = physical.map(({ entry: { property, value, important } }) =>
+    `  ${property}: ${value}${important ? ' !important' : ''};`).join('\n');
   let css = `${selector} {\n${declarations}\n}`;
   for (const condition of [...rule.conditions].reverse()) {
     css = `@${condition.kind} ${condition.query} {\n${indentCss(css)}\n}`;
@@ -1022,7 +1023,7 @@ function renderPreservedRule(
   if (rule.layer !== 'unlayered') {
     css = `@layer ${rule.layer} {\n${indentCss(css)}\n}`;
   }
-  return css;
+  return { css, declarationOffsets: physical.map(({ offset }) => offset) };
 }
 
 function rewriteKeyframeReferences(
@@ -1399,8 +1400,8 @@ function finalizeSnapshot(
     orderedResources.map(({ resource, origins }) => ({
       css: resource.renderCss?.(resolve) ?? resource.css, origin: primary(origins)
     })),
-    orderedPreservedBlocks.map(({ css, renderCss, moduleId, source }) => ({
-      css: renderCss?.(resolve) ?? css, origin: { moduleId, offset: source.start }
+    orderedPreservedBlocks.map(({ css, renderCss, moduleId, source, declarationOffsets }) => ({
+      css: renderCss?.(resolve) ?? css, origin: { moduleId, offset: source.start, declarationOffsets }
     })),
     orderedRules.map(({ rule, origins }) => ({
       css: renderRule(rule, resolve), origin: primary(origins), declarationPositions: true

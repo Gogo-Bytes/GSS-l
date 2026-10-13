@@ -5,7 +5,8 @@ import type { SourceMapArtifact } from './source-adapter.js';
 export type CssMapBlock = {
   css: string;
   /** One deterministic primary origin; other owners remain in the manifest. */
-  origin?: { moduleId: string; offset: number; descriptorOffsets?: ReadonlyMap<string, number> };
+  origin?: { moduleId: string; offset: number; descriptorOffsets?: ReadonlyMap<string, number>;
+    declarationOffsets?: readonly number[] };
   /** Physical alternatives of an atom all point to its authored declaration. */
   declarationPositions?: boolean;
 };
@@ -29,11 +30,14 @@ export function renderCssWithSourceMap(
           before.length - 1, before.at(-1)!.length, undefined, source);
       };
       addOrigin(line, 0, block.origin.offset);
-      if (block.declarationPositions || block.origin.descriptorOffsets) {
+      if (block.declarationPositions || block.origin.descriptorOffsets || block.origin.declarationOffsets) {
+        let declarationIndex = 0;
         postcss.parse(block.css).walkDecls((declaration) => {
           const start = declaration.source?.start;
           const offset = block.declarationPositions ? block.origin!.offset
-            : block.origin!.descriptorOffsets?.get(declaration.prop);
+            : block.origin!.declarationOffsets?.[declarationIndex] ??
+              block.origin!.descriptorOffsets?.get(declaration.prop);
+          declarationIndex += 1;
           if (start && offset !== undefined) addOrigin(line + start.line - 1, start.column - 1, offset);
         });
       }

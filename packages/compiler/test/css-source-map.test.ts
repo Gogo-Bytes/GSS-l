@@ -45,6 +45,23 @@ it('tracks generated lines through the unmapped layer prelude and media wrapper'
   expect(snapshot.sourceMap.sourcesContent).toEqual([source]);
 });
 
+it('maps physical declarations in a preserved compatibility Module to authored declarations', () => {
+  const session = createGssCompilerSession({ projectRoot: '/project',
+    compatibilityTargetStages: [{ safari: '6.0' }] });
+  const source = '.card { flex-direction: column; color: red; }';
+  expect(session.replaceStylesheet({ id: '/project/card.gss', source })).toMatchObject({
+    committed: true, module: { compilationMode: 'preserved' }
+  });
+  const snapshot = session.finalize();
+  const map = new TraceMap(snapshot.sourceMap);
+  expect(originalPositionFor(map, generatedPosition(snapshot.css, '-webkit-box-orient: vertical;'))).toMatchObject({
+    source: 'card.gss', line: 1, column: source.indexOf('flex-direction:')
+  });
+  expect(originalPositionFor(map, generatedPosition(snapshot.css, 'color: red;'))).toMatchObject({
+    source: 'card.gss', line: 1, column: source.indexOf('color:')
+  });
+});
+
 it('maps a shared property descriptor to the primary owner, not the first registered owner', () => {
   const session = createGssCompilerSession({ projectRoot: '/project' });
   const b = '@property --tone { syntax: "<color>"; inherits: false; initial-value: red; }';
@@ -76,6 +93,9 @@ it('maps preserved and resource blocks without borrowing unrelated Module origin
   });
   expect(originalPositionFor(map, generatedPosition(snapshot.css, '.gss-s--module_p_2e_gss--path_icon'))).toMatchObject({
     source: 'p.gss', line: 1, column: preserved.indexOf('.icon')
+  });
+  expect(originalPositionFor(map, generatedPosition(snapshot.css, 'color: blue;'))).toMatchObject({
+    source: 'p.gss', line: 1, column: preserved.indexOf('color:')
   });
   expect(snapshot.sourceMap.sourcesContent).toEqual([resource, preserved]);
 });
