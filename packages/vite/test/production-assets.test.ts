@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, expect, it } from 'vitest';
@@ -231,6 +231,64 @@ function nextBuild(watcher: Rollup.RollupWatcher): Promise<void> {
     watcher.on('event', receive);
   });
 }
+
+it('converges shared registration owners across watched replacement and clean builds', async () => {
+  const registration = '@property --tone { syntax: "<color>"; inherits: true; initial-value: red; }';
+  const aRule = '.a { color: var(--tone); }';
+  const bRule = '.b { color: var(--tone); }';
+  const root = await fixture({
+    'main.ts': `import a from './A.gss'; import b from './B.gss';
+      document.body.className = a.a.self + ' ' + b.b.self;`,
+    'A.gss': `${registration} ${aRule}`,
+    'B.gss': `${registration} ${bRule}`
+  });
+  const watcher = await build({ root, configFile: false, plugins: [gss({ adapter: react() })], logLevel: 'silent',
+    build: { minify: false, watch: { buildDelay: 20 } } });
+  if (!('on' in watcher)) throw new Error('Expected watcher.');
+  watchers.push(watcher);
+
+  async function check(expectedOwners: string[]) {
+    const clean = await bundle(root);
+    const manifest = JSON.parse(asset(clean, 'gss-manifest.json'));
+    const css = asset(clean, manifest.cssAsset);
+    const diskManifest = JSON.parse(await readFile(join(root, 'dist/gss-manifest.json'), 'utf8'));
+    expect(diskManifest).toEqual(manifest);
+    expect(await readFile(join(root, 'dist', manifest.cssAsset), 'utf8')).toBe(css);
+    expect(await readFile(join(root, 'dist/gss.css.map'), 'utf8')).toBe(asset(clean, 'gss.css.map'));
+    expect(await readFile(join(root, 'dist/gss-report.json'), 'utf8')).toBe(asset(clean, 'gss-report.json'));
+    expect((await readdir(join(root, 'dist/assets'))).filter((name) => name.endsWith('.css')))
+      .toEqual([manifest.cssAsset.split('/').at(-1)]);
+    expect(css.match(/@property --tone \{/g)?.length ?? 0).toBe(expectedOwners.length ? 1 : 0);
+    expect(manifest.compiler.resources.filter((resource: { name: string }) => resource.name === '--tone'))
+      .toEqual(expectedOwners.length ? [expect.objectContaining({ kind: 'property', name: '--tone', sources: expectedOwners })] : []);
+    return { css, manifest };
+  }
+
+  await nextBuild(watcher);
+  const shared = await check(['A.gss', 'B.gss']);
+  const conflicting = expect(nextBuild(watcher)).rejects.toThrow(/GSS1301[^\n]*--tone/);
+  await writeFile(join(root, 'B.gss'), `${registration.replace('initial-value: red', 'initial-value: blue')} ${bRule}`);
+  await conflicting;
+  const repair = nextBuild(watcher);
+  await writeFile(join(root, 'B.gss'), `${registration} ${bRule}`);
+  await repair;
+  await check(['A.gss', 'B.gss']);
+  const removeFirst = nextBuild(watcher);
+  await writeFile(join(root, 'A.gss'), aRule);
+  await removeFirst;
+  const remaining = await check(['B.gss']);
+  expect(remaining.css).toBe(shared.css);
+  const removeLast = nextBuild(watcher);
+  await writeFile(join(root, 'B.gss'), bRule);
+  await removeLast;
+  const absent = await check([]);
+  expect(absent.css).not.toContain('@property --tone');
+  const restore = nextBuild(watcher);
+  await writeFile(join(root, 'A.gss'), `${registration} ${aRule}`);
+  await restore;
+  const restored = await check(['A.gss']);
+  expect(restored.css).toBe(shared.css);
+}, 30000);
 
 it.each(['background-image', 'future-paint'])('refreshes watched asset bytes despite unchanged scope JS and recovers after deletion: %s', async (property) => {
   const root = await fixture({ 'Card.gss': `.card { ${property}: url(./icon.svg); }` });
