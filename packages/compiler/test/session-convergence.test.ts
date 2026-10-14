@@ -37,6 +37,26 @@ function withoutGeneration(snapshot: ReturnType<ReturnType<typeof createGssCompi
   return { css: snapshot.css, manifest: snapshot.manifest, report: snapshot.report };
 }
 
+it('keeps Unicode-distinct resource and preserved Module order independent of registration', () => {
+  const ids = ['caf\u00e9.gss', 'cafe\u0301.gss'] as const;
+  const compile = (order: readonly string[]) => {
+    const session = createGssCompilerSession({ projectRoot: root });
+    for (const id of order) {
+      expect(session.replaceStylesheet({ id: `${root}/${id}`, source:
+        '@keyframes pulse { to { opacity: 1; } } .card { future-paint: red; animation-name: pulse; }' }))
+        .toMatchObject({ committed: true, module: { compilationMode: 'preserved' } });
+    }
+    const snapshot = session.finalize();
+    return { css: snapshot.css, sourceMap: snapshot.sourceMap,
+      manifest: snapshot.manifest, report: snapshot.report };
+  };
+  const first = compile(ids);
+  expect(first).toEqual(compile([...ids].reverse()));
+  expect(first.manifest.moduleDetails.map(({ id }) => id)).toEqual([...ids].sort());
+  expect(first.manifest.preservedRules.map(({ moduleId }) => moduleId)).toEqual([...ids].sort());
+  expect(first.manifest.resources.map(({ sources }) => sources[0])).toEqual([...ids].sort());
+});
+
 const assetCensus: readonly (readonly Omit<ReplaceStylesheetInput, 'id'>[])[] = [
   [
     { source: '@font-face { font-family: Bound; src: url("./face.woff2"); } .card { display: flex; }',

@@ -45,6 +45,18 @@ describe('RuleOrderPlanner', () => {
     )).toBeGreaterThan(0);
   });
 
+  it('orders canonically equivalent but distinct Unicode strings without locale collation ties', () => {
+    const decomposed = 'cafe\u0301';
+    const composed = 'caf\u00e9';
+    expect(compareRuleOrder(rule('same', { layer: decomposed }),
+      rule('same', { layer: composed }), {})).toBeLessThan(0);
+    expect(compareRuleOrder(rule('same', { wrappers: [{ kind: 'media', query: decomposed }] }),
+      rule('same', { wrappers: [{ kind: 'media', query: composed }] }), {})).toBeLessThan(0);
+    expect(compareRuleOrder(rule(decomposed), rule(composed), {})).toBeLessThan(0);
+    expect(compareRuleOrder(rule('same', { property: `--${decomposed}` }),
+      rule('same', { property: `--${composed}` }), {})).toBeLessThan(0);
+  });
+
   it('has a deterministic fallback for unregistered values', () => {
     expect(compareRuleOrder(
       rule('a', { layer: 'zeta' }),

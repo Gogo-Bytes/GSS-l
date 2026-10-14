@@ -1,3 +1,5 @@
+import { compareCodeUnits } from './compare-code-units.js';
+
 export const PROPERTY_EFFECT_REGISTRY_VERSION = 1;
 
 type PropertyFamily = readonly [shorthand: string, longhands: readonly string[]];
@@ -244,5 +246,5 @@ export function comparePropertyRenderOrder(left: string, right: string): number 
   const rightContainsLeft = [...leftEffects].every((effect) => rightEffects.has(effect));
   if (leftContainsRight && !rightContainsLeft) return -1;
   if (rightContainsLeft && !leftContainsRight) return 1;
-  return left.localeCompare(right);
+  return compareCodeUnits(left, right);
 }

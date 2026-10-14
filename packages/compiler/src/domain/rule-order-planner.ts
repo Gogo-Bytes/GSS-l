@@ -4,6 +4,7 @@ export type OrderableCondition = {
 };
 
 import { comparePropertyRenderOrder } from './property-effects.js';
+import { compareCodeUnits } from './compare-code-units.js';
 
 export type OrderableRule = {
   className: string;
@@ -44,7 +45,7 @@ export function compareRuleOrder(
   const property = comparePropertyRenderOrder(left.identity.property, right.identity.property);
   if (property !== 0) return property;
 
-  return left.className.localeCompare(right.className);
+  return compareCodeUnits(left.className, right.className);
 }
 
 function compareConditions(
@@ -59,7 +60,7 @@ function compareConditions(
     if (!leftCondition) return -1;
     if (!rightCondition) return 1;
 
-    const kind = leftCondition.kind.localeCompare(rightCondition.kind);
+    const kind = compareCodeUnits(leftCondition.kind, rightCondition.kind);
     if (kind !== 0) return kind;
 
     const query = compareRegisteredValue(
@@ -87,5 +88,5 @@ function compareRegisteredValue(
   if (leftRank >= 0 && rightRank >= 0) return leftRank - rightRank;
   if (leftRank >= 0) return -1;
   if (rightRank >= 0) return 1;
-  return left.localeCompare(right);
+  return compareCodeUnits(left, right);
 }

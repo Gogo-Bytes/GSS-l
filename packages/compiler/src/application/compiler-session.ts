@@ -20,6 +20,7 @@ import { planDescendantConditions } from '../domain/plan-descendant-conditions.j
 import { planStructuralRelations } from '../domain/plan-structural-relations.js';
 import { resolveTargetDeclarations } from '../domain/resolve-target-declarations.js';
 import { compareRuleOrder } from '../domain/rule-order-planner.js';
+import { compareCodeUnits } from '../domain/compare-code-units.js';
 import { validateDeclarationSequences } from '../domain/validate-declarations.js';
 import { validateLogicalPhysicalConflicts } from '../domain/validate-logical-physical-conflicts.js';
 import { planPseudoElementConditions } from '../domain/plan-pseudo-element-conditions.js';
@@ -1263,7 +1264,7 @@ function validateRegisteredConditions(
   }
   const conditionDiagnostics: GssDiagnostic[] = [...unregistered.values()]
     .sort((left, right) =>
-      `${left.kind}\0${left.query}`.localeCompare(`${right.kind}\0${right.query}`)
+      compareCodeUnits(`${left.kind}\0${left.query}`, `${right.kind}\0${right.query}`)
     )
     .map(({ kind, query }) => ({
       code: 'GSS1102',
@@ -1378,7 +1379,7 @@ function finalizeSnapshot(
     }
   }
   const orderedResources = [...uniqueResources.values()]
-    .sort((left, right) => left.resource.identity.localeCompare(right.resource.identity));
+    .sort((left, right) => compareCodeUnits(left.resource.identity, right.resource.identity));
   const uniqueRules = new Map<string, {
     rule: PlannedDeclaration;
     sources: Set<string>;
@@ -1405,13 +1406,12 @@ function finalizeSnapshot(
   );
   const orderedPreservedBlocks = [...modules.values()]
     .flatMap(({ preservedBlocks }) => preservedBlocks)
-    .sort((left, right) => left.moduleId.localeCompare(right.moduleId));
+    .sort((left, right) => compareCodeUnits(left.moduleId, right.moduleId));
   const layerPrelude = config.layers?.length
     ? `@layer ${config.layers.join(', ')};`
     : '';
   const compareOrigins = (a: Origin, b: Origin) =>
-    (a.moduleId < b.moduleId ? -1 : a.moduleId > b.moduleId ? 1 : 0) ||
-    a.offset - b.offset || a.end - b.end;
+    compareCodeUnits(a.moduleId, b.moduleId) || a.offset - b.offset || a.end - b.end;
   const primary = (origins: readonly Origin[]) => [...origins].sort(compareOrigins)[0]!;
   const manifestOrigins = (origins: readonly Origin[]) => [...new Map(
     [...origins].sort(compareOrigins).map(({ moduleId, offset, end }) =>
@@ -1442,7 +1442,7 @@ function finalizeSnapshot(
           compilationMode: artifact.compilationMode,
           fallbackReasons: artifact.fallbackReasons
         }))
-        .sort((left, right) => left.id.localeCompare(right.id)),
+        .sort((left, right) => compareCodeUnits(left.id, right.id)),
       resources: orderedResources.map(({ resource, sources, origins }) => ({
         kind: resource.kind,
         name: resource.name,
