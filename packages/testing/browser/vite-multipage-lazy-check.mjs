@@ -8,23 +8,23 @@ import postcss from 'postcss';
 import { gss } from '@gss-l/vite';
 import { react } from '@gss-l/react';
 
-/** Two Vite-managed HTML entries share one CSS asset, including an as-yet unexecuted lazy GSS Module. */
+/** TS and React Vite-managed HTML entries share one CSS asset before lazy GSS consumers execute. */
 export async function checkViteMultipageLazy(browser) {
   const root = normalizePath(await realpath(await mkdtemp(join(tmpdir(), 'gss-multipage-lazy-'))));
   let server;
   const contexts = [];
   try {
     await symlink(join(process.cwd(), 'node_modules'), join(root, 'node_modules'), 'dir');
-    const html = (entry, nativeColor) => `<!doctype html><html><head><style>
+    const html = (entry, nativeColor, reactEntry = false) => `<!doctype html><html><head><style>
       .native-main { color: ${nativeColor}; }
       .native-lazy { background-color: green; }
     </style></head><body>
-      <div id="main"></div><div id="native-main" class="native-main"></div>
-      <div id="lazy"></div><div id="native-lazy" class="native-lazy"></div>
-      <button id="load">Load lazy route</button><script type="module" src="/${entry}"></script>
+      ${reactEntry ? '<div id="app"></div>' : '<div id="main"></div><div id="lazy"></div><button id="load">Load lazy route</button>'}
+      <div id="native-main" class="native-main"></div><div id="native-lazy" class="native-lazy"></div>
+      <script type="module" src="/${entry}"></script>
     </body></html>`;
     await writeFile(join(root, 'index.html'), html('first.ts', 'red'));
-    await writeFile(join(root, 'second.html'), html('second.ts', 'blue'));
+    await writeFile(join(root, 'second.html'), html('second.tsx', 'blue', true));
     const entry = (name) => `import styles from './${name}.gss';
       document.getElementById('main')!.className = styles.main.self;
       document.getElementById('load')!.addEventListener('click', async () => {
@@ -32,7 +32,24 @@ export async function checkViteMultipageLazy(browser) {
       });
       (window as any).__READY__ = true;`;
     await writeFile(join(root, 'first.ts'), entry('First'));
-    await writeFile(join(root, 'second.ts'), entry('Second'));
+    await writeFile(join(root, 'second.tsx'), `import React, { Suspense, useEffect, useState } from 'react';
+      import { createRoot } from 'react-dom/client'; import styles from './Second.gss';
+      const Lazy = React.lazy(() => import('./LazyComponent'));
+      function App() {
+        const [show, setShow] = useState(false);
+        useEffect(() => { (window as any).__READY__ = true; }, []);
+        return <><div id="main" className={styles.main.self + ' external'}>React main</div>
+          {show ? <Suspense fallback={<div id="lazy" />}><Lazy /></Suspense> : <div id="lazy" />}
+          <button id="load" onClick={() => setShow(true)}>Load React lazy route</button></>;
+      }
+      createRoot(document.getElementById('app')!).render(<App />);`);
+    await writeFile(join(root, 'LazyComponent.tsx'), `import React, { useEffect } from 'react';
+      import styles from './Lazy.gss';
+      (window as any).__LAZY_EXECUTED__ = true;
+      export default function LazyComponent() {
+        useEffect(() => { (window as any).__LAZY_MOUNTED__ = true; }, []);
+        return <div id="lazy" className={styles.lazy.self + ' external'}>React lazy</div>;
+      }`);
     await writeFile(join(root, 'lazy.ts'), `import styles from './Lazy.gss';
       (window as any).__LAZY_EXECUTED__ = true;
       export function mount() {
@@ -105,10 +122,12 @@ export async function checkViteMultipageLazy(browser) {
     const baselineDetected = baseline.every(({ before, after, errors }, index) =>
       errors.length === 0 && before.main === expectedMain[index] && before.nativeMain === expectedMain[index] &&
       before.lazy === 'rgba(0, 0, 0, 0)' && before.nativeLazy === 'rgb(0, 128, 0)' &&
-      before.mainClass.length > 0 && before.lazyClass === '' && !before.lazyExecuted &&
+      before.mainClass.length > 0 && before.mainClass.endsWith(' external') === (index === 1) &&
+      before.lazyClass === '' && !before.lazyExecuted &&
       after.main === expectedMain[index] && after.nativeMain === expectedMain[index] &&
       after.lazy === 'rgb(0, 128, 0)' && after.nativeLazy === 'rgb(0, 128, 0)' &&
-      after.mainClass === before.mainClass && after.lazyClass.length > 0 && after.lazyExecuted &&
+      after.mainClass === before.mainClass && after.lazyClass.length > 0 &&
+      after.lazyClass.endsWith(' external') === (index === 1) && after.lazyExecuted &&
       JSON.stringify(before.links) === JSON.stringify([stylesheet]) &&
       JSON.stringify(after.links) === JSON.stringify([stylesheet]) && before.styles === 1 && after.styles === 1);
     const parsed = postcss.parse(css);
@@ -125,9 +144,11 @@ export async function checkViteMultipageLazy(browser) {
     const controlDetected = control.every(({ before, after, errors }, index) =>
       errors.length === 0 && before.main === expectedMain[index] && before.nativeMain === expectedMain[index] &&
       before.lazy === 'rgba(0, 0, 0, 0)' && before.nativeLazy === 'rgb(0, 128, 0)' &&
+      before.mainClass.endsWith(' external') === (index === 1) && before.lazyClass === '' && !before.lazyExecuted &&
       after.main === expectedMain[index] && after.nativeMain === expectedMain[index] &&
       after.lazy === 'rgba(0, 0, 0, 0)' && after.nativeLazy === 'rgb(0, 128, 0)' &&
-      after.mainClass === before.mainClass && after.lazyClass.length > 0 && after.lazyExecuted &&
+      after.mainClass === before.mainClass && after.lazyClass.length > 0 &&
+      after.lazyClass.endsWith(' external') === (index === 1) && after.lazyExecuted &&
       JSON.stringify(before.links) === JSON.stringify([stylesheet]) &&
       JSON.stringify(after.links) === JSON.stringify([stylesheet]) && before.styles === 1 && after.styles === 1);
     return { detected: baselineDetected && controlDetected, baselineDetected, controlDetected,
