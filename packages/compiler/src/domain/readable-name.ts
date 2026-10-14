@@ -254,6 +254,153 @@ export function decodeReadableScopeSourceMarker(name: string): ReadableScopeSour
   return createReadableSourceMarker(moduleId, path, condition, layer) === name ? identity : undefined;
 }
 
+export function decodeReadableKeyframesName(name: string): { moduleId: string; authoredName: string } | undefined {
+  const parts = name.split('--');
+  if (parts.length !== 3 || parts[0] !== 'gss-k' || !parts[1]?.startsWith('module_') ||
+    !parts[2]?.startsWith('name_')) return undefined;
+  const moduleId = decodeReadableNamePart(parts[1].slice('module_'.length));
+  const authoredName = decodeReadableNamePart(parts[2].slice('name_'.length));
+  if (moduleId === undefined || authoredName === undefined) return undefined;
+  return createReadableKeyframesName(moduleId, authoredName) === name ? { moduleId, authoredName } : undefined;
+}
+
+const relationKinds = new Set<ContextualRelationIdentity['relations'][number]>(
+  ['descendant', 'child', 'adjacent', 'general-sibling']
+);
+
+function isRelation(value: string): value is ContextualRelationIdentity['relations'][number] {
+  return relationKinds.has(value as ContextualRelationIdentity['relations'][number]);
+}
+
+/** Partial inverse for canonical emitted target markers, including two positional condition fields. */
+export function decodeReadableTargetMarker(name: string): ContextualRelationIdentity | undefined {
+  const parts = name.split('--');
+  if (parts[0] !== 'gss-t') return undefined;
+  let index = 1;
+  const take = (key: string): string | undefined => {
+    const part = parts[index];
+    if (!part?.startsWith(`${key}_`)) return undefined;
+    index += 1;
+    return decodeReadableNamePart(part.slice(key.length + 1));
+  };
+  const moduleId = take('module');
+  if (moduleId === undefined) return undefined;
+  const layer = take('layer');
+  const condition = take('condition');
+  const relationValue = take('relation');
+  if (relationValue === undefined) return undefined;
+  const relations = relationValue.split('/');
+  if (!relations.length || !relations.every(isRelation)) return undefined;
+  const sourceState = take('state');
+  const sourceAttribute = take('condition');
+  const authored = take('authored');
+  const source = take('source');
+  const target = take('target');
+  if (source === undefined || target === undefined || index !== parts.length) return undefined;
+  const authoredPath = authored === undefined ? undefined : decodePath(authored);
+  const sourcePath = decodePath(source);
+  const targetPath = decodePath(target);
+  if (sourcePath === undefined || targetPath === undefined || (authored !== undefined && authoredPath === undefined)) {
+    return undefined;
+  }
+  const identity: ContextualRelationIdentity = { moduleId, relations, sourcePath, targetPath,
+    ...(layer !== undefined ? { layer } : {}),
+    ...(condition !== undefined ? { condition } : {}),
+    ...(sourceState !== undefined ? { sourceState } : {}),
+    ...(sourceAttribute !== undefined ? { sourceAttribute } : {}),
+    ...(authoredPath !== undefined ? { authoredPath } : {}) };
+  return createReadableTargetMarker(identity) === name ? identity : undefined;
+}
+
+export type DecodedContextMarker = {
+  identity: ContextualRelationIdentity;
+  position: number;
+  path: readonly string[];
+};
+
+/** Inverse for emitted intermediate gss-c markers; sourcePath is derived from the runtime prefix. */
+export function decodeReadableContextMarker(name: string): DecodedContextMarker | undefined {
+  const parts = name.split('--');
+  if (parts[0] !== 'gss-c') return undefined;
+  let index = 1;
+  const take = (key: string): string | undefined => {
+    const part = parts[index];
+    if (!part?.startsWith(`${key}_`)) return undefined;
+    index += 1;
+    return decodeReadableNamePart(part.slice(key.length + 1));
+  };
+  const moduleId = take('module');
+  if (moduleId === undefined) return undefined;
+  const layer = take('layer');
+  const condition = take('condition');
+  const relationValue = take('relation');
+  if (relationValue === undefined) return undefined;
+  const relations = relationValue.split('/');
+  if (!relations.length || !relations.every(isRelation)) return undefined;
+  const sourceState = take('state');
+  const sourceAttribute = take('condition');
+  const positionValue = take('position');
+  const encodedPath = take('path');
+  const encodedTarget = take('target');
+  if (positionValue === undefined || encodedPath === undefined || encodedTarget === undefined ||
+    index !== parts.length || !/^[1-9][0-9]*$/.test(positionValue)) return undefined;
+  const position = Number(positionValue);
+  const path = decodePath(encodedPath);
+  const targetPath = decodePath(encodedTarget);
+  if (!Number.isSafeInteger(position) || position >= relations.length || path === undefined ||
+    targetPath === undefined) return undefined;
+  const sourceLength = targetPath.length - relations.length;
+  if (sourceLength < 1 || path.length !== sourceLength + position ||
+    path.some((segment, pathIndex) => segment !== targetPath[pathIndex])) return undefined;
+  const sourcePath = targetPath.slice(0, sourceLength);
+  const identity: ContextualRelationIdentity = { moduleId, relations, sourcePath, targetPath,
+    ...(layer !== undefined ? { layer } : {}),
+    ...(condition !== undefined ? { condition } : {}),
+    ...(sourceState !== undefined ? { sourceState } : {}),
+    ...(sourceAttribute !== undefined ? { sourceAttribute } : {}) };
+  return createReadableContextMarker(identity, position, path) === name ? { identity, position, path } : undefined;
+}
+
+export type DecodedObservedMarker = {
+  role: 'subject' | 'observed';
+  identity: ObservedRelationIdentity;
+};
+
+/** Partial inverse for the subject/observed namespaces of an external or owned observation. */
+export function decodeReadableObservedMarker(name: string): DecodedObservedMarker | undefined {
+  const parts = name.split('--');
+  const role = parts[0] === 'gss-hs' ? 'subject' : parts[0] === 'gss-ho' ? 'observed' : undefined;
+  if (!role) return undefined;
+  let index = 1;
+  const take = (key: string): string | undefined => {
+    const part = parts[index];
+    if (!part?.startsWith(`${key}_`)) return undefined;
+    index += 1;
+    return decodeReadableNamePart(part.slice(key.length + 1));
+  };
+  const moduleId = take('module');
+  if (moduleId === undefined) return undefined;
+  const layer = take('layer');
+  const condition = take('condition');
+  const subject = take('subject');
+  const relation = take('relation');
+  if (subject === undefined || relation === undefined || !isRelation(relation)) return undefined;
+  const observedState = take('state');
+  const observedClass = take('observed');
+  const observedResidual = observedClass === undefined ? take('residual') : undefined;
+  if (index !== parts.length || (observedClass === undefined && observedResidual === undefined)) return undefined;
+  const subjectPath = decodePath(subject);
+  if (subjectPath === undefined) return undefined;
+  const identity: ObservedRelationIdentity = { moduleId, subjectPath, relation,
+    ...(layer !== undefined ? { layer } : {}),
+    ...(condition !== undefined ? { condition } : {}),
+    ...(observedState !== undefined ? { observedState } : {}),
+    ...(observedClass !== undefined ? { observedClass } : {}),
+    ...(observedResidual !== undefined ? { observedResidual } : {}) };
+  const canonical = role === 'subject' ? createReadableHasSubjectMarker(identity) : createReadableObservedMarker(identity);
+  return canonical === name ? { role, identity } : undefined;
+}
+
 export function decodeReadableAtomicName(name: string): PureDeclarationIdentity | undefined {
   const parts = name.split('--');
   if (parts.shift() !== 'gss-a') return undefined;
