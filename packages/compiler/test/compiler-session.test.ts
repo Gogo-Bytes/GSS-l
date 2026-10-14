@@ -338,6 +338,57 @@ describe('GssCompilerSession', () => {
     );
   });
 
+  it.each([
+    ['ease', 'ease 2s'],
+    ['ease', 'var(--animation), ease 2s'],
+    ['EASE', 'EASE 2s'],
+    ['linear', '1s linear'],
+    ['auto', 'auto 2s'],
+    ['--spin', '--spin 2s'],
+    ['infinite', '1s infinite'],
+    ['alternate', '1s alternate'],
+    ['both', '1s both'],
+    ['paused', '1s paused']
+  ])('rejects ambiguous local keyframe %s in animation shorthand without losing the prior Module', (name, shorthand) => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const id = '/project/src/motion.gss';
+    expect(compiler.replaceStylesheet({ id, source: '.motion { color: blue; }' }).committed).toBe(true);
+    const before = compiler.finalize();
+    const source = `@keyframes ${name} { to { opacity: 1; } } .motion { animation: ${shorthand}; }`;
+    const replacement = compiler.replaceStylesheet({ id, source });
+    expect(replacement).toMatchObject({ committed: false, generation: 1, diagnostics: [
+      { code: 'GSS1101', reason: 'capability-not-registered', severity: 'error', id }
+    ] });
+    expect(replacement.diagnostics[0]?.range).toEqual({ start: source.indexOf('animation:'), end: source.lastIndexOf(';') + 1 });
+    expect(compiler.finalize()).toEqual(before);
+  });
+
+  it.each(['none', 'default', 'initial', 'inherit', 'unset', 'revert', 'revert-layer'])(
+    'rejects a CSS-reserved bare keyframe name %s rather than making it valid through renaming', (name) => {
+      const compiler = createGssCompilerSession({ projectRoot: '/project' });
+      const id = '/project/src/motion.gss';
+      expect(compiler.replaceStylesheet({ id, source: '.motion { color: blue; }' }).committed).toBe(true);
+      const before = compiler.finalize();
+      expect(compiler.replaceStylesheet({ id, source: `@keyframes ${name} { to { opacity: 1; } } .motion { animation-name: ${name}; }` }))
+        .toMatchObject({ committed: false, generation: 1, diagnostics: [
+          { code: 'GSS1101', reason: 'capability-not-registered', severity: 'error', id }
+        ] });
+      expect(compiler.finalize()).toEqual(before);
+    });
+
+  it('rewrites a keyword-like keyframe name in animation-name while leaving other Modules and var() shorthand alone', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const id = '/project/src/motion.gss';
+    expect(compiler.replaceStylesheet({ id, source: '@keyframes ease { to { opacity: 1; } } .motion { animation-name: ease; } .dynamic { animation: var(--animation); }' }))
+      .toMatchObject({ committed: true, diagnostics: [] });
+    expect(compiler.replaceStylesheet({ id: '/project/src/other.gss', source: '.other { animation: ease 2s; }' }))
+      .toMatchObject({ committed: true, diagnostics: [] });
+    const css = compiler.finalize().css;
+    expect(css).toContain('animation-name: gss-k--module_src_2f_motion_2e_gss--name_ease;');
+    expect(css).toContain('animation: var(--animation);');
+    expect(css).toContain('animation: ease 2s;');
+  });
+
   it('renames module-local keyframes and rewrites a static animation-name reference', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 

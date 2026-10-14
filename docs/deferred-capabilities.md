@@ -165,6 +165,13 @@
 - **重新评估**：MVP 核心 Compiler/Vite/oracle 验证完成后，单独设计 provenance port、multi-hop 限制、negative fixtures 和 source invalidation contract，再实现 S6.11/S6.13。
 - **依据**：owner decision during MVP execution；现有 bounded React Adapter contract。该项不是 Stage 9 通过记录。
 
+### D023 — Keyword-like keyframe names in animation shorthand
+
+- **当前行为**：[ADR-0058](adr/0058-reject-keyword-collisions-in-animation-shorthand.md) 保留 `animation-name` 对合法关键词样式 Module-local keyframe 的明确引用。若同 Module 的 `animation` shorthand 出现一个也能作为 timing/duration/iteration/direction/fill/play-state 关键词或 dashed timeline identifier 的本地 keyframe 名，则整次替换 fail closed，保留 LKG；不猜测该词是 keyframe name，也不将该错误转为 preserved output。无碰撞的静态 shorthand 仍照常工作。
+- **原因**：CSS shorthand 优先将可用关键词解释为其它 animation component；逐词重写会把原生 `animation: ease 2s` 的 timing function 变成 keyframe name。完整 grammar-aware 消歧需要另行限定支持的语法和证明矩阵。
+- **重新评估**：若真实 corpus 需要在 shorthand 中引用这类本地名称，再确定静态 shorthand grammar、动态值边界及负例，补充 public Compiler/Vite 和独立浏览器证据后扩展；本项不妨碍显式 longhand。
+- **依据**：owner 选择 MVP 收窄选项；[ADR-0058](adr/0058-reject-keyword-collisions-in-animation-shorthand.md)。该项不是 Stage 9 通过记录。
+
 ## Intentional non-goals and guarantee boundaries
 
 ### N001 — 任意消费侧 class composition winner

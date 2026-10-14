@@ -66,7 +66,7 @@
 
 ## Global resources
 
-- Module-local `@keyframes`，支持静态 `animation-name`/`animation` reference重写、条件上下文、稳定命名与引用计数。
+- Module-local `@keyframes`，支持静态 `animation-name` reference 与非关键词 local name 的 `animation` shorthand 重写、条件上下文、稳定命名与引用计数。[ADR-0058](adr/0058-reject-keyword-collisions-in-animation-shorthand.md) 允许 `ease` 等合法关键词样式名称用于显式 `animation-name`，但同 Module shorthand 含该 component 关键词或 dashed timeline identifier 名称时整次替换 fail closed；CSS 保留字不能作为未引号的 keyframe 名。
 - `@font-face` 不可拆全局资源、descriptor/src 顺序保持、URL dependency tracking与引用计数。
 
 ## Asset delivery (production and dev implemented)

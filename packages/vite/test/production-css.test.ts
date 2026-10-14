@@ -117,6 +117,22 @@ it('repeats target-aware production CSS, manifest and emitted Asset bytes across
   expect(first.output.some((entry) => entry.type === 'asset' && entry.fileName.endsWith('.svg'))).toBe(true);
 });
 
+it.each([
+  ['ease', 'ease 2s'],
+  ['auto', 'auto 2s'],
+  ['--spin', '--spin 2s']
+])('rejects keyword-colliding local keyframe %s shorthand in a real Vite build', async (name, shorthand) => {
+  const root = await fixture({
+    'Card.gss': `@keyframes ${name} { to { opacity: 1; } } .card { animation: ${shorthand}; }`
+  });
+  await expect(bundle(root)).rejects.toThrow(/GSS1101[^\n]*animation shorthand/);
+  const accepted = await bundle(await fixture({
+    'Card.gss': '@keyframes ease { to { opacity: 1; } } .card { animation-name: ease; animation-duration: 2s; }'
+  }));
+  const css = asset(accepted, JSON.parse(asset(accepted, 'gss-manifest.json')).cssAsset);
+  expect(css).toContain('animation-name: gss-k--module_Card_2e_gss--name_ease;');
+});
+
 it('links the emitted CSS to a map with original GSS contents and logical source ids', async () => {
   const source = '.card { color: red; }';
   const output = await bundle(await fixture({ 'Card.gss': source }));

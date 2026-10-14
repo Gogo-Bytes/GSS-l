@@ -27,6 +27,7 @@ import { planPseudoElementConditions } from '../domain/plan-pseudo-element-condi
 import type {
   ParsedAttributeCondition,
   ParsedCondition,
+  ParsedDeclaration,
   ParsedFontFaceResource,
   ParsedGlobalResource,
   ParsedHasCondition,
@@ -219,6 +220,14 @@ function prepareContribution(
       .filter((resource): resource is ParsedKeyframesRegistration => resource.kind === 'keyframes')
       .map((resource) => [resource.name, nameAllocator.createKeyframesName(moduleId, resource.name)])
   );
+  const ambiguousAnimation = findAmbiguousKeyframeInShorthand(parsed.rules, keyframeNames);
+  if (ambiguousAnimation) return { diagnostics: [{
+    code: 'GSS1101', severity: 'error', phase: 'validate', id: input.id,
+    range: { start: ambiguousAnimation.source.start, end: ambiguousAnimation.source.end },
+    reason: 'capability-not-registered',
+    message: 'An animation shorthand word matches both a local keyframe and an animation component keyword or timeline identifier.',
+    suggestion: 'Use animation-name for the local keyframe and separate longhands for other animation components.'
+  }] };
   const semanticRules = rewriteKeyframeReferences(parsed.rules, keyframeNames);
   const plannedResources = parsed.resources.map((resource) =>
     planResource(resource, moduleId, bindings, nameAllocator, compatibility));
@@ -1026,6 +1035,30 @@ function renderPreservedRule(
     css = `@layer ${rule.layer} {\n${indentCss(css)}\n}`;
   }
   return { css, declarationOffsets: physical.map(({ offset }) => offset) };
+}
+
+// CSS animation shorthand consumes component keywords before a possible animation-name;
+// Level 2 also admits dashed timeline identifiers. We do not parse that grammar for
+// the MVP: reject local-name collisions rather than changing a native component
+// token into a generated keyframe name.
+const animationComponentKeywords = new Set([
+  'ease', 'linear', 'ease-in', 'ease-out', 'ease-in-out', 'step-start', 'step-end',
+  'auto', 'infinite', 'normal', 'reverse', 'alternate', 'alternate-reverse',
+  'none', 'forwards', 'backwards', 'both', 'running', 'paused'
+]);
+
+function findAmbiguousKeyframeInShorthand(
+  rules: readonly ParsedStyleRule[],
+  keyframeNames: ReadonlyMap<string, string>
+): ParsedDeclaration | undefined {
+  for (const rule of rules) for (const declaration of rule.declarations) {
+    if (declaration.property !== 'animation') continue;
+    const collision = valueParser(declaration.value).nodes.some((node) =>
+      node.type === 'word' && keyframeNames.has(node.value) &&
+      (animationComponentKeywords.has(node.value.toLowerCase()) || node.value.startsWith('--')));
+    if (collision) return declaration;
+  }
+  return undefined;
 }
 
 function rewriteKeyframeReferences(

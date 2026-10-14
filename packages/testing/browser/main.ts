@@ -11,7 +11,7 @@ type Reading = {
   subject: 'element' | '::before' | '::after'; property: string; value: string; expected: string;
 };
 
-async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'nested-layer' | 'asset' | 'keyframes' | 'relation' | 'interleaved' | 'interleaved-depth' | 'interleaved-prefix' | 'interleaved-general-prefix' | 'interleaved-general-root' | 'interleaved-child-root' | 'interleaved-child-prefix' | 'cross-layer-specificity' | 'font-reset' | 'has-specificity' | 'has-specificity-dedup' | 'external-anchor' | 'external-ancestor' | 'external-media' | 'external-compound' | 'owned-external-condition' | 'external-observation' | 'functional-external' | 'compatibility-sequence' | 'compatibility-asset' | 'compatibility-property' | 'compatibility-fallback-media' | 'property-inheritance'): Promise<Reading[]> {
+async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'nested-layer' | 'asset' | 'keyframes' | 'relation' | 'interleaved' | 'interleaved-depth' | 'interleaved-prefix' | 'interleaved-general-prefix' | 'interleaved-general-root' | 'interleaved-child-root' | 'interleaved-child-prefix' | 'cross-layer-specificity' | 'font-reset' | 'has-specificity' | 'has-specificity-dedup' | 'external-anchor' | 'external-ancestor' | 'external-media' | 'external-compound' | 'owned-external-condition' | 'external-observation' | 'functional-external' | 'compatibility-sequence' | 'compatibility-asset' | 'compatibility-property' | 'compatibility-fallback-media' | 'property-inheritance' | 'keyword-keyframe'): Promise<Reading[]> {
   const frame = document.createElement('iframe');
   frame.title = `${fixture.name}: ${side}${corrupt ? ' negative control' : ''}`;
   frame.width = '640';
@@ -233,8 +233,8 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
     parent.append(element);
   }
   const probeNames = animationProbeNames(doc, fixture);
-  if (corrupt === 'keyframes') {
-    const name = probeNames.get('MotionA.gss/pulse');
+  if (corrupt === 'keyframes' || corrupt === 'keyword-keyframe') {
+    const name = probeNames.get(corrupt === 'keyframes' ? 'MotionA.gss/pulse' : 'KeywordMotion.gss/ease');
     if (!name) throw new Error('Missing intended keyframe control probe');
     removeKeyframeDefinition(style, name);
   }
@@ -476,6 +476,18 @@ async function run() {
     difference.node === 'motion-a' && difference.property.startsWith('animation:'));
   const keyframesDetected = keyframesControlsUnchanged && keyframesDifferences.length === 5 && keyframesDifferences.some((difference) =>
     difference.node === 'motion-a' && difference.property === 'animation:count' && difference.reference === '1' && difference.atomic === '0');
+  const keywordFixture = fixtures.find((fixture) => fixture.name === 'keyword-like-keyframe-explicit-longhand')!;
+  const keywordReference = await readDocument(keywordFixture, 'reference');
+  const keywordAtomic = await readDocument(keywordFixture, 'atomic');
+  const keywordCorrupted = await readDocument(keywordFixture, 'atomic', 'keyword-keyframe');
+  const keywordDifferences = compare(keywordReference, keywordCorrupted);
+  const keywordChanges = compare(keywordAtomic, keywordCorrupted);
+  const keywordDetected = compare(keywordReference, keywordAtomic).length === 0 &&
+    keywordChanges.length === 5 && keywordDifferences.length === 5 &&
+    keywordDifferences.every((difference) => difference.node === 'keyword-motion' &&
+      difference.property.startsWith('animation:')) &&
+    keywordDifferences.some((difference) => difference.property === 'animation:count' &&
+      difference.reference === '1' && difference.atomic === '0');
   const fontResetFixture = fixtures.find((fixture) => fixture.name === 'font-shorthand-resets-font-variant')!;
   const fontResetReference = await readDocument(fontResetFixture, 'reference');
   const fontResetAtomic = await readDocument(fontResetFixture, 'atomic');
@@ -782,12 +794,13 @@ async function run() {
     hasSpecificityDedup: { fixtures: hasSpecificityDedupResults, negativeControl: { detected: hasSpecificityDedupControl, qualifierRemoved: true, differences: hasSpecificityDedupDifferences } },
     status: results.every((result) => result.comparisons > 0 && !result.differences.length && !result.expectedFailures.length) &&
       hasSpecificityDedupResults.every((result) => result.differences.length === 0) && hasSpecificityDedupControl &&
-      detected && pseudoDetected && conditionDetected && layerDetected && nestedLayerDetected && assetDetected && keyframesDetected && relationDetected && interleavedDetected && interleavedDepthDetected && interleavedPrefixDetected && interleavedGeneralPrefixDetected && interleavedGeneralRootDetected && interleavedChildRootDetected && interleavedChildPrefixDetected && crossLayerSpecificityDetected && hasSpecificityDetected && fontResetNegativeControl && externalAnchorDetected && externalAncestorDetected && externalMediaDetected && externalCompoundDetected && sameNodeDetected && refinementDetected && externalObservationDetected && functionalDetected && compatibilityDetected && fallbackDetected && compatAssetDetected && compatPropertyDetected && inheritanceDetected
+      detected && pseudoDetected && conditionDetected && layerDetected && nestedLayerDetected && assetDetected && keyframesDetected && relationDetected && interleavedDetected && interleavedDepthDetected && interleavedPrefixDetected && interleavedGeneralPrefixDetected && interleavedGeneralRootDetected && interleavedChildRootDetected && interleavedChildPrefixDetected && crossLayerSpecificityDetected && hasSpecificityDetected && fontResetNegativeControl && externalAnchorDetected && externalAncestorDetected && externalMediaDetected && externalCompoundDetected && sameNodeDetected && refinementDetected && externalObservationDetected && functionalDetected && compatibilityDetected && fallbackDetected && compatAssetDetected && compatPropertyDetected && inheritanceDetected && keywordDetected
       ? 'passed' : 'failed',
     results,
     negativeControl: { detected, differences },
     fontResetNegativeControl: { detected: fontResetNegativeControl, differences: fontResetDifferences },
     keyframesNegativeControl: { detected: keyframesDetected, controlsUnchanged: keyframesControlsUnchanged, definitionRemoved: true, differences: keyframesDifferences },
+    keywordKeyframeNegativeControl: { detected: keywordDetected, definitionRemoved: true, differences: keywordDifferences },
     assetNegativeControl: { detected: assetDetected, controlsUnchanged: assetControlsUnchanged, differences: assetDifferences },
     conditionNegativeControl: { detected: conditionDetected, differences: conditionDifferences },
     layerNegativeControl: { detected: layerDetected, differences: layerDifferences },

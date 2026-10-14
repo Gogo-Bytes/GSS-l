@@ -269,7 +269,10 @@ function parseKeyframesRegistration(
   spanOf: SourceSpanReader
 ): ParsedKeyframesRegistration | undefined {
   const name = node.params.trim();
-  if (!/^[-_A-Za-z][-_A-Za-z0-9]*$/.test(name) || !node.nodes) return undefined;
+  // <keyframes-name> excludes CSS-wide keywords, `default`, and bare `none`.
+  // Quoted names are outside this parser's supported registration grammar.
+  if (!/^[-_A-Za-z][-_A-Za-z0-9]*$/.test(name) || !node.nodes ||
+    ['none', 'default', 'initial', 'inherit', 'unset', 'revert', 'revert-layer'].includes(name.toLowerCase())) return undefined;
 
   const frames: ParsedKeyframesRegistration['frames'][number][] = [];
   for (const child of node.nodes) {

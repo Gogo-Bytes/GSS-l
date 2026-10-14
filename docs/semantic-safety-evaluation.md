@@ -271,7 +271,7 @@ Consumers rely on native inheritance and substitution. Providers are not copied 
 
 ## 13. Global resources
 
-Module-local `@keyframes` is renamed deterministically and static animation references are rewritten. Frame declarations remain inside an indivisible resource.
+Module-local `@keyframes` is renamed deterministically and static animation references are rewritten. [ADR-0058](adr/0058-reject-keyword-collisions-in-animation-shorthand.md) narrows shorthand support: a bare `animation` word that matches both a local keyframe and an animation component keyword or dashed timeline identifier rejects the entire Module replacement with LKG retained, rather than rewriting a native timing/direction/etc. keyword or silently leaving a mismatched reference. Explicit `animation-name` still rewrites legal keyword-like keyframe names; bare CSS-wide keywords, `default`, and `none` are invalid keyframe registrations. A hand-authored native browser fixture proves the accepted explicit-longhand effect and detects removal of its generated keyframe definition. Grammar-aware shorthand disambiguation remains deferred under [D023](deferred-capabilities.md#d023--keyword-like-keyframe-names-in-animation-shorthand). Frame declarations remain inside an indivisible resource.
 
 `@font-face` remains a global family resource. Descriptor order and `src` fallback order are preserved; asset URLs enter the dependency graph.
 
