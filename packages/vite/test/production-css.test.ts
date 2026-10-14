@@ -549,6 +549,99 @@ it('rebuilds compatibility fallback and bound Assets from the current watch cens
   expect(await readSnapshot()).toEqual(await cleanSnapshot());
 }, 15000);
 
+it('converges a shared lazy Module across direct and React HTML entries during watch removal and restoration', async () => {
+  const directWithLazy = `import card from './Card.gss'; document.body.className = card.card.self;
+    document.body.onclick = () => import('./lazy');`;
+  const directWithoutLazy = `import card from './Card.gss'; document.body.className = card.card.self;`;
+  const reactWithLazy = `import React from 'react'; import { createRoot } from 'react-dom/client';
+    import shell from './Shell.gss'; const Lazy = React.lazy(() => import('./LazyPane'));
+    createRoot(document.getElementById('app')!).render(<section className={shell.shell.self + ' external'}>
+      <React.Suspense fallback={<span>Loading</span>}><Lazy /></React.Suspense></section>);`;
+  const reactWithoutLazy = `import React from 'react'; import { createRoot } from 'react-dom/client';
+    import shell from './Shell.gss';
+    createRoot(document.getElementById('app')!).render(<section className={shell.shell.self + ' external'}>Ready</section>);`;
+  const root = await fixture({
+    'main.ts': directWithLazy,
+    'other.html': '<!doctype html><html><head></head><body><div id="app"></div><script type="module" src="/react-entry.tsx"></script></body></html>',
+    'react-entry.tsx': reactWithLazy,
+    'lazy.ts': `import lazy from './Lazy.gss'; export const className = lazy.lazy.self;`,
+    'LazyPane.tsx': `import React from 'react'; import lazy from './Lazy.gss';
+      export default function LazyPane() { return <div className={lazy.lazy.self + ' external-lazy'}>Lazy</div>; }`,
+    'Card.gss': '.card { color: red; }',
+    'Shell.gss': '.shell { color: green; }',
+    'Lazy.gss': '.lazy { color: blue; }'
+  });
+  await symlink(join(process.cwd(), 'node_modules'), join(root, 'node_modules'), 'dir');
+  const input = { index: join(root, 'index.html'), other: join(root, 'other.html') };
+  const expectOnlyCurrentStylesheet = (html: string, cssAsset: string) => {
+    const hrefs = [...html.matchAll(/<link\b[^>]*>/g)]
+      .map(([tag]) => tag)
+      .filter((tag) => /\brel=(['"])stylesheet\1/.test(tag))
+      .map((tag) => /\bhref=(['"])(.*?)\1/.exec(tag)?.[2]);
+    expect(hrefs).toEqual([`/${cssAsset}`]);
+  };
+  const watcher = await build({ root, configFile: false, plugins: [gss({ adapter: react() })], logLevel: 'silent',
+    build: { minify: false, rollupOptions: { input }, watch: { buildDelay: 20 } } });
+  if (!('on' in watcher)) throw new Error('Expected Rollup watcher.');
+  watchers.push(watcher);
+  const readSnapshot = async () => {
+    const manifest = JSON.parse(await readFile(join(root, 'dist/gss-manifest.json'), 'utf8'));
+    const css = await readFile(join(root, 'dist', manifest.cssAsset), 'utf8');
+    const report = JSON.parse(await readFile(join(root, 'dist/gss-report.json'), 'utf8'));
+    const map = JSON.parse(await readFile(join(root, 'dist/gss.css.map'), 'utf8'));
+    for (const html of ['index.html', 'other.html']) {
+      expectOnlyCurrentStylesheet(await readFile(join(root, 'dist', html), 'utf8'), manifest.cssAsset);
+    }
+    return { manifest, css, report, map };
+  };
+  const cleanSnapshot = async () => {
+    const output = await bundle(root, { build: { rollupOptions: { input } } });
+    const manifest = JSON.parse(asset(output, 'gss-manifest.json'));
+    for (const html of ['index.html', 'other.html']) {
+      expectOnlyCurrentStylesheet(asset(output, html), manifest.cssAsset);
+    }
+    return { manifest, css: asset(output, manifest.cssAsset),
+      report: JSON.parse(asset(output, 'gss-report.json')),
+      map: JSON.parse(asset(output, 'gss.css.map')) };
+  };
+  await nextWatchBuild(watcher);
+  const initial = await readSnapshot();
+  expect(initial.manifest.compiler.modules).toEqual(['Card.gss', 'Lazy.gss', 'Shell.gss']);
+  expect(initial.css).toContain('color: blue;');
+  expect(initial.map.sources).toContain('Lazy.gss');
+  expect(initial).toEqual(await cleanSnapshot());
+
+  const oneConsumer = nextWatchBuild(watcher);
+  await writeFile(join(root, 'main.ts'), directWithoutLazy);
+  await oneConsumer;
+  const shared = await readSnapshot();
+  expect(shared).toEqual(initial);
+  expect(shared).toEqual(await cleanSnapshot());
+
+  const noConsumers = nextWatchBuild(watcher);
+  await writeFile(join(root, 'react-entry.tsx'), reactWithoutLazy);
+  await noConsumers;
+  const removed = await readSnapshot();
+  expect(removed.manifest.compiler.modules).toEqual(['Card.gss', 'Shell.gss']);
+  expect(removed.css).not.toContain('color: blue;');
+  expect(removed.map.sources).not.toContain('Lazy.gss');
+  expect(removed).toEqual(await cleanSnapshot());
+
+  const restoredDirect = nextWatchBuild(watcher);
+  await writeFile(join(root, 'main.ts'), directWithLazy);
+  await restoredDirect;
+  const directOnly = await readSnapshot();
+  expect(directOnly).toEqual(initial);
+  expect(directOnly).toEqual(await cleanSnapshot());
+
+  const restoredReact = nextWatchBuild(watcher);
+  await writeFile(join(root, 'react-entry.tsx'), reactWithLazy);
+  await restoredReact;
+  const fullyRestored = await readSnapshot();
+  expect(fullyRestored).toEqual(initial);
+  expect(fullyRestored).toEqual(await cleanSnapshot());
+}, 30000);
+
 it('rebuilds from the current census without retaining removed contributions', async () => {
   const root = await fixture({
     'main.ts': `import a from './Card.gss'; import b from './Other.gss'; document.body.className = a.card.self + b.other.self;`,
