@@ -11,7 +11,7 @@ type Reading = {
   subject: 'element' | '::before' | '::after'; property: string; value: string; expected: string;
 };
 
-async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'nested-layer' | 'asset' | 'keyframes' | 'relation' | 'interleaved' | 'interleaved-depth' | 'interleaved-prefix' | 'interleaved-general-prefix' | 'interleaved-general-root' | 'interleaved-child-root' | 'interleaved-child-prefix' | 'cross-layer-specificity' | 'font-reset' | 'has-specificity' | 'has-specificity-dedup' | 'external-anchor' | 'external-ancestor' | 'external-media' | 'external-compound' | 'owned-external-condition' | 'external-observation' | 'functional-external' | 'compatibility-sequence' | 'compatibility-asset' | 'compatibility-property' | 'compatibility-fallback-media' | 'property-inheritance' | 'keyword-keyframe' | 'scope-source-alias'): Promise<Reading[]> {
+async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'nested-layer' | 'asset' | 'keyframes' | 'relation' | 'interleaved' | 'interleaved-depth' | 'interleaved-prefix' | 'interleaved-general-prefix' | 'interleaved-general-root' | 'interleaved-child-root' | 'interleaved-child-prefix' | 'cross-layer-specificity' | 'font-reset' | 'has-specificity' | 'has-specificity-dedup' | 'external-anchor' | 'external-ancestor' | 'external-media' | 'external-compound' | 'owned-external-condition' | 'external-observation' | 'functional-external' | 'compatibility-sequence' | 'compatibility-asset' | 'compatibility-property' | 'compatibility-fallback-media' | 'property-inheritance' | 'keyword-keyframe' | 'scope-source-alias' | 'external-tag-anchor' | 'external-attribute-qualifier' | 'external-attribute-escape'): Promise<Reading[]> {
   const frame = document.createElement('iframe');
   frame.title = `${fixture.name}: ${side}${corrupt ? ' negative control' : ''}`;
   frame.width = '640';
@@ -102,6 +102,30 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
     const changed = style.textContent.replace(/@property --tone \{[^}]*\}/, '');
     if (changed === style.textContent) throw new Error('Compatibility resource control did not remove the property registration');
     style.textContent = changed;
+  }
+  if (corrupt === 'external-attribute-escape') {
+    const authored = String.raw`[data-mode="a\a b"]`;
+    if (style.textContent.split(authored).length !== 2) {
+      throw new Error('External attribute escape control requires one authored CSS escape');
+    }
+    style.textContent = style.textContent.replace(authored, String.raw`[data-mode="a\nb"]`);
+  }
+  if (corrupt === 'external-attribute-qualifier') {
+    const qualifier = '[data-mode="ready"]';
+    if (style.textContent.split(qualifier).length !== 2) {
+      throw new Error('External attribute control requires one exact-value target qualifier');
+    }
+    style.textContent = style.textContent.replace(qualifier, 'span');
+  }
+  if (corrupt === 'external-tag-anchor') {
+    const outer = fixture.atomic.scopeSchemas['ExternalShape.gss']?.exports.outer?.selfClassName;
+    const tagRules = [...style.textContent.matchAll(/^[^\n]* button \{$/gm)];
+    const rule = tagRules[0]?.[0];
+    const weakened = rule?.replace(`.${outer} `, '');
+    if (!outer || tagRules.length !== 1 || !rule || !weakened || weakened === rule) {
+      throw new Error('External tag control requires one generated tag rule with an owned outer marker');
+    }
+    style.textContent = style.textContent.replace(rule, weakened);
   }
   if (corrupt === 'property-inheritance') {
     const provider = '--tone: blue;';
@@ -775,6 +799,36 @@ async function run() {
       ((difference.node === 'inherit-parent' && difference.property === '--tone') ||
         (difference.node === 'inherit-child' && ['--tone', 'color'].includes(difference.property))) &&
       difference.reference === 'rgb(0, 0, 255)' && difference.atomic === 'rgb(255, 0, 0)');
+  const shapeFixture = fixtures.find((fixture) => fixture.name === 'external-tag-attribute-owned-anchor')!;
+  const shapeReference = await readDocument(shapeFixture, 'reference');
+  const shapeAtomic = await readDocument(shapeFixture, 'atomic');
+  const shapeCorrupted = await readDocument(shapeFixture, 'atomic', 'external-tag-anchor');
+  const shapeDifferences = compare(shapeReference, shapeCorrupted);
+  const attributeCorrupted = await readDocument(shapeFixture, 'atomic', 'external-attribute-qualifier');
+  const attributeDifferences = compare(shapeReference, attributeCorrupted);
+  const attributeDetected = compare(shapeReference, shapeAtomic).length === 0 &&
+    compare(shapeAtomic, attributeCorrupted).length === 2 && attributeDifferences.length === 2 &&
+    attributeDifferences.every((difference) => difference.node === 'shape-attribute' &&
+      difference.property === 'background-color' && ['baseline', 'attribute-restored'].includes(difference.phase) &&
+      difference.reference === 'rgba(0, 0, 0, 0)' && difference.atomic === 'rgb(0, 128, 0)');
+  const shapeDetected = compare(shapeReference, shapeAtomic).length === 0 &&
+    compare(shapeAtomic, shapeCorrupted).length === 3 && shapeDifferences.length === 3 &&
+    shapeDifferences.every((difference) => difference.node === 'shape-button' && difference.property === 'color' &&
+      ['baseline', 'attribute-ready', 'attribute-restored'].includes(difference.phase) &&
+      difference.reference === 'rgb(255, 0, 0)' && difference.atomic === 'rgb(0, 0, 255)');
+  const escapedFixture = fixtures.find((fixture) => fixture.name === 'external-attribute-css-escape-value')!;
+  const escapedReference = await readDocument(escapedFixture, 'reference');
+  const escapedAtomic = await readDocument(escapedFixture, 'atomic');
+  const escapedCorrupted = await readDocument(escapedFixture, 'atomic', 'external-attribute-escape');
+  const escapedDifferences = compare(escapedReference, escapedCorrupted);
+  const escapedDetected = compare(escapedReference, escapedAtomic).length === 0 &&
+    compare(escapedAtomic, escapedCorrupted).length === 2 && escapedDifferences.length === 2 &&
+    escapedDifferences.every((difference) => difference.node === 'escaped-inside' &&
+      difference.property === 'background-color') &&
+    escapedDifferences.some((difference) => difference.phase === 'newline-value' &&
+      difference.reference === 'rgb(0, 0, 255)' && difference.atomic === 'rgba(0, 0, 0, 0)') &&
+    escapedDifferences.some((difference) => difference.phase === 'literal-n-value' &&
+      difference.reference === 'rgba(0, 0, 0, 0)' && difference.atomic === 'rgb(0, 0, 255)');
   const aliasFixture = fixtures.find((fixture) => fixture.name === 'scope-source-path-separator-isolation')!;
   const aliasReference = await readDocument(aliasFixture, 'reference');
   const aliasAtomic = await readDocument(aliasFixture, 'atomic');
@@ -785,6 +839,11 @@ async function run() {
     aliasDifferences[0]?.node === 'alias-orphan' && aliasDifferences[0]?.property === 'background-color' &&
     aliasDifferences[0]?.reference === 'rgba(0, 0, 0, 0)' && aliasDifferences[0]?.atomic === 'rgb(0, 0, 255)';
   publish({
+    externalTagAnchorNegativeControl: { detected: shapeDetected, ancestorRemoved: true, differences: shapeDifferences },
+    externalAttributeNegativeControl: { detected: attributeDetected, qualifierRemoved: true,
+      differences: attributeDifferences },
+    externalAttributeEscapeNegativeControl: { detected: escapedDetected, escapeAltered: true,
+      differences: escapedDifferences },
     scopeSourceAliasNegativeControl: { detected: aliasDetected, wrongMarkerAttached: true, differences: aliasDifferences },
     propertyInheritanceNegativeControl: { detected: inheritanceDetected, providerRemoved: true,
       differences: inheritanceDifferences },
@@ -813,7 +872,7 @@ async function run() {
     hasSpecificityDedup: { fixtures: hasSpecificityDedupResults, negativeControl: { detected: hasSpecificityDedupControl, qualifierRemoved: true, differences: hasSpecificityDedupDifferences } },
     status: results.every((result) => result.comparisons > 0 && !result.differences.length && !result.expectedFailures.length) &&
       hasSpecificityDedupResults.every((result) => result.differences.length === 0) && hasSpecificityDedupControl &&
-      detected && pseudoDetected && conditionDetected && layerDetected && nestedLayerDetected && assetDetected && keyframesDetected && relationDetected && interleavedDetected && interleavedDepthDetected && interleavedPrefixDetected && interleavedGeneralPrefixDetected && interleavedGeneralRootDetected && interleavedChildRootDetected && interleavedChildPrefixDetected && crossLayerSpecificityDetected && hasSpecificityDetected && fontResetNegativeControl && externalAnchorDetected && externalAncestorDetected && externalMediaDetected && externalCompoundDetected && sameNodeDetected && refinementDetected && externalObservationDetected && functionalDetected && compatibilityDetected && fallbackDetected && compatAssetDetected && compatPropertyDetected && inheritanceDetected && keywordDetected && aliasDetected
+      detected && pseudoDetected && conditionDetected && layerDetected && nestedLayerDetected && assetDetected && keyframesDetected && relationDetected && interleavedDetected && interleavedDepthDetected && interleavedPrefixDetected && interleavedGeneralPrefixDetected && interleavedGeneralRootDetected && interleavedChildRootDetected && interleavedChildPrefixDetected && crossLayerSpecificityDetected && hasSpecificityDetected && fontResetNegativeControl && externalAnchorDetected && externalAncestorDetected && externalMediaDetected && externalCompoundDetected && sameNodeDetected && refinementDetected && externalObservationDetected && functionalDetected && compatibilityDetected && fallbackDetected && compatAssetDetected && compatPropertyDetected && inheritanceDetected && keywordDetected && aliasDetected && shapeDetected && attributeDetected && escapedDetected
       ? 'passed' : 'failed',
     results,
     negativeControl: { detected, differences },

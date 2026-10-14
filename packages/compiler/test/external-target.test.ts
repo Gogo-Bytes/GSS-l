@@ -20,6 +20,81 @@ describe('anchored external declaration target', () => {
     expect(schema.exports).not.toHaveProperty('ProseMirror-focused');
   });
 
+  it.each([
+    ['.editor :global(button) { color: red; }', 'button'],
+    ['.editor :global([data-mode="ready"]) { color: red; }', '[data-mode="ready"]']
+  ])('anchors one external tag/attribute target without exporting it: %s', (input, target) => {
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    const result = session.replaceStylesheet({ id, source: input });
+    expect(result).toMatchObject({ committed: true, diagnostics: [] });
+    const schema = session.getScopeSchema(id)!;
+    expect(Object.keys(schema.exports)).toEqual(['editor']);
+    expect(schema.exports.editor!.targets).toEqual({});
+    const anchor = schema.exports.editor!.selfClassName;
+    expect(session.finalize().css).toContain(`.${anchor} ${target} {\n  color: red;\n}`);
+    expect(session.finalize().css).not.toContain(':global(');
+  });
+
+  it('keeps CSS-escaped equality values native on an external attribute target', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    const input = String.raw`.editor :global([data-mode="a\a b"]) { color: red; }`;
+    const result = session.replaceStylesheet({ id, source: input });
+    expect(result).toMatchObject({ committed: true, diagnostics: [] });
+    const anchor = result.module!.scopeSchema.exports.editor!.selfClassName;
+    expect(session.finalize().css).toContain(
+      `.${anchor} ${String.raw`[data-mode="a\a b"]`} {\n  color: red;\n}`
+    );
+    expect(result.module!.scopeSchema.exports.editor!.targets).toEqual({});
+  });
+
+  it('retains every owned ancestor and the native target specificity for an external tag', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    const result = session.replaceStylesheet({ id, source: '.outer .editor :global(button) { color: red; }' });
+    expect(result).toMatchObject({ committed: true, diagnostics: [] });
+    const outer = session.getScopeSchema(id)!.exports.outer!;
+    const editor = outer.targets.editor!;
+    expect(session.finalize().css).toContain(
+      `.${outer.selfClassName} .${editor.selfClassName} button {\n  color: red;\n}`
+    );
+    expect(editor.targets).toEqual({});
+  });
+
+  it('keeps unproved tag/attribute external-target compositions fail-closed with rollback', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    expect(session.replaceStylesheet({ id, source }).committed).toBe(true);
+    const before = session.finalize();
+    const schema = session.getScopeSchema(id);
+    for (const unsupported of [
+      ':global(button) { color: blue; }',
+      '.editor:global(button) { color: blue; }',
+      '.editor :global(button[data-mode="ready"]) { color: blue; }',
+      '.editor :global([data-mode]) { color: blue; }',
+      '.editor :global([data-mode^="ready"]) { color: blue; }',
+      '.editor :global([data-mode="ready" i]) { color: blue; }',
+      '.editor :global(button):hover { color: blue; }',
+      '.editor :global(button) .child { color: blue; }'
+    ]) {
+      expect(session.replaceStylesheet({ id, source: unsupported })).toMatchObject({
+        committed: false, generation: 1,
+        diagnostics: [{ code: 'GSS1101', reason: 'capability-not-registered' }]
+      });
+      expect(session.finalize()).toEqual(before);
+      expect(session.getScopeSchema(id)).toEqual(schema);
+    }
+  });
+
+  it('rejects competing external tag and attribute effects without a coactivity proof', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    expect(session.replaceStylesheet({ id, source }).committed).toBe(true);
+    const before = session.finalize();
+    expect(session.replaceStylesheet({ id, source: [
+      '.editor :global(button) { color: red; }',
+      '.editor :global([data-mode="ready"]) { color: blue; }'
+    ].join(' ') })).toMatchObject({ committed: false, generation: 1,
+      diagnostics: [{ code: 'GSS1205', reason: 'ambiguous-coactive-state-conflict' }] });
+    expect(session.finalize()).toEqual(before);
+  });
+
   it('keeps an externally supplied compound class as one native target without exporting either class', () => {
     const session = createGssCompilerSession({ projectRoot: '/project' });
     const result = session.replaceStylesheet({ id, source:
