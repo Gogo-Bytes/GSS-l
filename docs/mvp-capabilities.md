@@ -66,7 +66,7 @@
 
 ## Global resources
 
-- Module-local `@keyframes`，支持静态 `animation-name` reference 与非关键词 local name 的 `animation` shorthand 重写、条件上下文、稳定命名与引用计数。[ADR-0058](adr/0058-reject-keyword-collisions-in-animation-shorthand.md) 允许 `ease` 等合法关键词样式名称用于显式 `animation-name`，但同 Module shorthand 含该 component 关键词或 dashed timeline identifier 名称时整次替换 fail closed；CSS 保留字不能作为未引号的 keyframe 名。
+- Module-local `@keyframes`，支持静态 `animation-name` reference 与非关键词 local name 的 `animation` shorthand 重写、条件上下文、稳定命名与引用计数。[ADR-0061](adr/0061-admit-disjoint-registered-width-keyframe-variants.md) 首个有界多定义证明仅允许同一 Module/name 下两种不分层、各由单个已注册 `@media` 整数 px 宽度界包裹且互斥的定义；重叠、未注册、跨 condition kind 与 layer 组合继续 fail closed；这是独立 Compiler/browser-oracle slice，当前 Vite `gss({ adapter })` 尚无 condition registration 入口，不能据此宣称 host 支持或完整 conditional resource precedence。[ADR-0058](adr/0058-reject-keyword-collisions-in-animation-shorthand.md) 允许 `ease` 等合法关键词样式名称用于显式 `animation-name`，但同 Module shorthand 含该 component 关键词或 dashed timeline identifier 名称时整次替换 fail closed；CSS 保留字不能作为未引号的 keyframe 名。
 - `@font-face` 不可拆全局资源、descriptor/src 顺序保持、URL dependency tracking与引用计数。
 
 ## Asset delivery (production and dev implemented)

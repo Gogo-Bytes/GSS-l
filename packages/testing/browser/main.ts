@@ -11,7 +11,7 @@ type Reading = {
   subject: 'element' | '::before' | '::after'; property: string; value: string; expected: string;
 };
 
-async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'nested-layer' | 'asset' | 'keyframes' | 'relation' | 'interleaved' | 'interleaved-depth' | 'interleaved-prefix' | 'interleaved-general-prefix' | 'interleaved-general-root' | 'interleaved-child-root' | 'interleaved-child-prefix' | 'cross-layer-specificity' | 'font-reset' | 'has-specificity' | 'has-specificity-dedup' | 'has-type-list' | 'external-anchor' | 'external-ancestor' | 'external-media' | 'external-compound' | 'owned-external-condition' | 'external-observation' | 'functional-external' | 'compatibility-sequence' | 'compatibility-asset' | 'compatibility-property' | 'compatibility-fallback-media' | 'property-inheritance' | 'keyword-keyframe' | 'scope-source-alias' | 'external-tag-anchor' | 'external-attribute-qualifier' | 'external-attribute-escape'): Promise<Reading[]> {
+async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'nested-layer' | 'asset' | 'keyframes' | 'relation' | 'interleaved' | 'interleaved-depth' | 'interleaved-prefix' | 'interleaved-general-prefix' | 'interleaved-general-root' | 'interleaved-child-root' | 'interleaved-child-prefix' | 'cross-layer-specificity' | 'font-reset' | 'has-specificity' | 'has-specificity-dedup' | 'has-type-list' | 'conditional-keyframe' | 'external-anchor' | 'external-ancestor' | 'external-media' | 'external-compound' | 'owned-external-condition' | 'external-observation' | 'functional-external' | 'compatibility-sequence' | 'compatibility-asset' | 'compatibility-property' | 'compatibility-fallback-media' | 'property-inheritance' | 'keyword-keyframe' | 'scope-source-alias' | 'external-tag-anchor' | 'external-attribute-qualifier' | 'external-attribute-escape'): Promise<Reading[]> {
   const frame = document.createElement('iframe');
   frame.title = `${fixture.name}: ${side}${corrupt ? ' negative control' : ''}`;
   frame.width = '640';
@@ -142,6 +142,18 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
     style.textContent = style.textContent.replace(authored, '(min-width: 0px)');
   }
   doc.head.append(style);
+  if (corrupt === 'conditional-keyframe') {
+    const media = [...style.sheet!.cssRules].filter((rule) =>
+      rule instanceof (frame.contentWindow as Window & typeof globalThis).CSSMediaRule &&
+      (rule as CSSMediaRule).conditionText === '(min-width: 401px)') as CSSMediaRule[];
+    const frames = media.flatMap((rule) => [...rule.cssRules].filter((child) =>
+      child instanceof (frame.contentWindow as Window & typeof globalThis).CSSKeyframesRule)) as CSSKeyframesRule[];
+    const first = frames[0]?.cssRules[0] as CSSKeyframeRule | undefined;
+    if (media.length !== 1 || frames.length !== 1 || first?.style.width !== '30px') {
+      throw new Error('Conditional keyframe control requires one wide-media 30px frame');
+    }
+    first.style.width = '31px';
+  }
   if (corrupt === 'external-media') {
     const layer = [...style.sheet!.cssRules].find((rule) => rule.cssText.startsWith('@layer base {')) as CSSGroupingRule | undefined;
     const media = layer?.cssRules[0];
@@ -357,9 +369,10 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
           .map((attribute) => [attribute.name, attribute.value])) };
     }) });
     for (const node of fixture.nodes) {
-      if (node.animationExpected) {
-        const label = `${node.moduleId}/${node.animationExpected.symbol}`;
-        for (const reading of await animationMetadata(doc.getElementById(node.id)!, node.animationExpected, probeNames.get(label), label)) {
+      const expectedAnimation = phase.animationExpected?.[node.id] ?? node.animationExpected;
+      if (expectedAnimation) {
+        const label = `${node.moduleId}/${expectedAnimation.symbol}`;
+        for (const reading of await animationMetadata(doc.getElementById(node.id)!, expectedAnimation, probeNames.get(label), label)) {
           readings.push({ phase: phase.name, state, node: node.id, moduleId: node.moduleId,
             path: node.path, subject: 'element', ...reading });
         }
@@ -572,6 +585,16 @@ async function run() {
     typeChanges[0]!.node === 'card-button' && typeChanges[0]!.property === 'background-color' &&
     typeDifferences[0]!.node === 'card-button' && typeDifferences[0]!.property === 'background-color' &&
     typeDifferences[0]!.reference === 'rgb(255, 0, 0)' && typeDifferences[0]!.atomic === 'rgb(0, 0, 255)';
+  const conditionalKeyframeFixture = fixtures.find((fixture) => fixture.name === 'disjoint-registered-width-keyframes')!;
+  const conditionalReference = await readDocument(conditionalKeyframeFixture, 'reference');
+  const conditionalAtomic = await readDocument(conditionalKeyframeFixture, 'atomic');
+  const conditionalCorrupted = await readDocument(conditionalKeyframeFixture, 'atomic', 'conditional-keyframe');
+  const conditionalDifferences = compare(conditionalReference, conditionalCorrupted);
+  const conditionalChanges = compare(conditionalAtomic, conditionalCorrupted);
+  const conditionalKeyframeDetected = compare(conditionalReference, conditionalAtomic).length === 0 &&
+    conditionalChanges.length === 2 && conditionalDifferences.length === 2 &&
+    conditionalDifferences.every((difference) => difference.node === 'width-motion' &&
+      difference.property === 'animation:frames' && difference.phase !== 'narrow-media');
   const hasSpecificityDedupFixtures = fixtures.filter((fixture) => fixture.name.startsWith('has-selector-list-shared-branch-'));
   const hasSpecificityDedupResults = await Promise.all(hasSpecificityDedupFixtures.map(async (fixture) => {
     const reference = await readDocument(fixture, 'reference');
@@ -900,10 +923,12 @@ async function run() {
     crossLayerSpecificityNegativeControl: { detected: crossLayerSpecificityDetected, controlsUnchanged: crossLayerSpecificityChanges.length === 2 && !crossLayerSpecificityChanges.some((difference) => difference.property === 'outline-color'), configuredOrderPerturbed: true, differences: crossLayerSpecificityDifferences },
     hasSpecificityNegativeControl: { detected: hasSpecificityDetected, controlsUnchanged: hasSpecificityControlsUnchanged, qualifierRemoved: true, differences: hasSpecificityDifferences },
     hasTypeListNegativeControl: { detected: hasTypeListDetected, typeSpecificityNeutralized: true, differences: typeDifferences },
+    conditionalKeyframeNegativeControl: { detected: conditionalKeyframeDetected, wideFrameChanged: true,
+      differences: conditionalDifferences },
     hasSpecificityDedup: { fixtures: hasSpecificityDedupResults, negativeControl: { detected: hasSpecificityDedupControl, qualifierRemoved: true, differences: hasSpecificityDedupDifferences } },
     status: results.every((result) => result.comparisons > 0 && !result.differences.length && !result.expectedFailures.length) &&
       hasSpecificityDedupResults.every((result) => result.differences.length === 0) && hasSpecificityDedupControl &&
-      detected && pseudoDetected && conditionDetected && layerDetected && nestedLayerDetected && assetDetected && keyframesDetected && relationDetected && interleavedDetected && interleavedDepthDetected && interleavedPrefixDetected && interleavedGeneralPrefixDetected && interleavedGeneralRootDetected && interleavedChildRootDetected && interleavedChildPrefixDetected && crossLayerSpecificityDetected && hasSpecificityDetected && hasTypeListDetected && fontResetNegativeControl && externalAnchorDetected && externalAncestorDetected && externalMediaDetected && externalCompoundDetected && sameNodeDetected && refinementDetected && externalObservationDetected && functionalDetected && compatibilityDetected && fallbackDetected && compatAssetDetected && compatPropertyDetected && inheritanceDetected && keywordDetected && aliasDetected && shapeDetected && attributeDetected && escapedDetected
+      detected && pseudoDetected && conditionDetected && layerDetected && nestedLayerDetected && assetDetected && keyframesDetected && relationDetected && interleavedDetected && interleavedDepthDetected && interleavedPrefixDetected && interleavedGeneralPrefixDetected && interleavedGeneralRootDetected && interleavedChildRootDetected && interleavedChildPrefixDetected && crossLayerSpecificityDetected && hasSpecificityDetected && hasTypeListDetected && conditionalKeyframeDetected && fontResetNegativeControl && externalAnchorDetected && externalAncestorDetected && externalMediaDetected && externalCompoundDetected && sameNodeDetected && refinementDetected && externalObservationDetected && functionalDetected && compatibilityDetected && fallbackDetected && compatAssetDetected && compatPropertyDetected && inheritanceDetected && keywordDetected && aliasDetected && shapeDetected && attributeDetected && escapedDetected
       ? 'passed' : 'failed',
     results,
     negativeControl: { detected, differences },

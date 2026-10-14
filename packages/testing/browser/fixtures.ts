@@ -47,6 +47,7 @@ export type ReferenceFixture = {
     }[];
     expected: Readonly<Record<string, Readonly<Record<string, string>>>>;
     pseudoExpected?: Readonly<Record<string, PseudoExpectations>>;
+    animationExpected?: Readonly<Record<string, AnimationExpectation>>;
   }[];
 };
 
