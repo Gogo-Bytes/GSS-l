@@ -79,6 +79,21 @@ describe('observed selector-list specificity', () => {
     expect(compiler.finalize().css).toBe(beforeFailure);
   });
 
+  it.each([false, true])('retains native type specificity for a type-only :has() list in either authored order (reverse=%s)', (reverse) => {
+    const observed = '.card:has(button, span) { background-color: red; }';
+    const base = '.card { background-color: blue; }';
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const result = compiler.replaceStylesheet({ id: moduleId,
+      source: (reverse ? [base, observed] : [observed, base]).join('\n') });
+    expect(result).toMatchObject({ committed: true, diagnostics: [] });
+    const css = compiler.finalize().css;
+    expect(css).toContain(':has(button)');
+    expect(css).toContain(':has(span)');
+    expect(css).not.toContain(':has(:where(button))');
+    expect(css).not.toContain(':has(:where(span))');
+    expect(css).toContain('background-color: blue;');
+  });
+
   it('pads residual tag branches without adding their lower type specificity', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
     const replacement = compiler.replaceStylesheet({

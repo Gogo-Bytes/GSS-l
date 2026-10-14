@@ -19,7 +19,7 @@ const controls = [
   'interleavedPrefixNegativeControl', 'interleavedGeneralPrefixNegativeControl',
   'interleavedGeneralRootNegativeControl', 'interleavedChildRootNegativeControl',
   'interleavedChildPrefixNegativeControl', 'crossLayerSpecificityNegativeControl',
-  'hasSpecificityNegativeControl', 'externalAnchorNegativeControl',
+  'hasSpecificityNegativeControl', 'hasTypeListNegativeControl', 'externalAnchorNegativeControl',
   'externalAncestorNegativeControl', 'externalMediaNegativeControl',
   'externalCompoundNegativeControl', 'ownedExternalConditionNegativeControl',
   'ownedExternalRefinementNegativeControl', 'externalObservationNegativeControl', 'functionalExternalNegativeControl',
@@ -91,7 +91,7 @@ try {
     typeof reading.property !== 'string' || typeof reading.subject !== 'string' ||
     typeof reading.value !== 'string' || typeof reading.expected !== 'string'
   ).length;
-  const failed = result.status !== 'passed' || result.results?.length !== 120 || comparisons !== 1227 || attributionErrors > 0 ||
+  const failed = result.status !== 'passed' || result.results?.length !== 122 || comparisons !== 1233 || attributionErrors > 0 ||
     result.results.some((fixture) => fixture.comparisons <= 0 || fixture.differences.length || fixture.expectedFailures.length) ||
     controls.some((key) => result[key]?.detected !== true) ||
     result.hasSpecificityDedup?.negativeControl?.detected !== true ||

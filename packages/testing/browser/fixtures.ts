@@ -12,6 +12,8 @@ export type ReferenceFixture = {
   config?: Pick<GssCompilerConfig, 'conditions' | 'layers' | 'compatibilityTargetStages' | 'atomizationFallback'>;
   preservedModuleIds?: readonly string[];
   setupCss?: string;
+  /** Hand-authored native competitor loaded after both Compiler/reference stylesheets. */
+  afterCss?: string;
   animationSymbols?: readonly { moduleId: string; symbol: string; probe: string }[];
   assetUrls?: Readonly<Record<string, string>>;
   assetDimensions?: Readonly<Record<string, string>>;

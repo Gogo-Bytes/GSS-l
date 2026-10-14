@@ -11,7 +11,7 @@ type Reading = {
   subject: 'element' | '::before' | '::after'; property: string; value: string; expected: string;
 };
 
-async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'nested-layer' | 'asset' | 'keyframes' | 'relation' | 'interleaved' | 'interleaved-depth' | 'interleaved-prefix' | 'interleaved-general-prefix' | 'interleaved-general-root' | 'interleaved-child-root' | 'interleaved-child-prefix' | 'cross-layer-specificity' | 'font-reset' | 'has-specificity' | 'has-specificity-dedup' | 'external-anchor' | 'external-ancestor' | 'external-media' | 'external-compound' | 'owned-external-condition' | 'external-observation' | 'functional-external' | 'compatibility-sequence' | 'compatibility-asset' | 'compatibility-property' | 'compatibility-fallback-media' | 'property-inheritance' | 'keyword-keyframe' | 'scope-source-alias' | 'external-tag-anchor' | 'external-attribute-qualifier' | 'external-attribute-escape'): Promise<Reading[]> {
+async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'nested-layer' | 'asset' | 'keyframes' | 'relation' | 'interleaved' | 'interleaved-depth' | 'interleaved-prefix' | 'interleaved-general-prefix' | 'interleaved-general-root' | 'interleaved-child-root' | 'interleaved-child-prefix' | 'cross-layer-specificity' | 'font-reset' | 'has-specificity' | 'has-specificity-dedup' | 'has-type-list' | 'external-anchor' | 'external-ancestor' | 'external-media' | 'external-compound' | 'owned-external-condition' | 'external-observation' | 'functional-external' | 'compatibility-sequence' | 'compatibility-asset' | 'compatibility-property' | 'compatibility-fallback-media' | 'property-inheritance' | 'keyword-keyframe' | 'scope-source-alias' | 'external-tag-anchor' | 'external-attribute-qualifier' | 'external-attribute-escape'): Promise<Reading[]> {
   const frame = document.createElement('iframe');
   frame.title = `${fixture.name}: ${side}${corrupt ? ' negative control' : ''}`;
   frame.width = '640';
@@ -153,6 +153,19 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
     layer.deleteRule(0);
     layer.insertRule(css, 0);
   }
+  if (corrupt === 'has-type-list') {
+    const sheet = style.sheet!;
+    const index = [...sheet.cssRules].findIndex((item) =>
+      item instanceof (frame.contentWindow as Window & typeof globalThis).CSSStyleRule &&
+      (item as CSSStyleRule).selectorText.includes('--residual_button') &&
+      (item as CSSStyleRule).selectorText.includes(':has(button)'));
+    const rule = sheet.cssRules[index] as CSSStyleRule | undefined;
+    if (index < 0 || !rule) throw new Error('Type-only control requires one emitted button branch');
+    const weakened = rule.selectorText.replace(':has(button)', ':has(:where(button))');
+    const declarations = rule.style.cssText;
+    sheet.deleteRule(index);
+    sheet.insertRule(`${weakened} { ${declarations} }`, index);
+  }
   if (corrupt === 'has-specificity-dedup') {
     const sheet = style.sheet!;
     const rule = [...sheet.cssRules].map((item, index) => ({ item, index })).find(({ item }) =>
@@ -231,6 +244,12 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
     const declarations = rule.style.cssText;
     sheet.deleteRule(index);
     sheet.insertRule(`${weakened} { ${declarations} }`, index);
+  }
+  if (fixture.afterCss) {
+    const competitor = doc.createElement('style');
+    competitor.dataset.role = 'identical-fixture-competitor';
+    competitor.textContent = fixture.afterCss;
+    doc.head.append(competitor);
   }
   const ownedClasses = new Map<string, string>();
   for (const node of fixture.nodes) {
@@ -542,6 +561,17 @@ async function run() {
   const hasSpecificityDetected = hasSpecificityControlsUnchanged && hasSpecificityDifferences.length === 1 &&
     hasSpecificityDifferences[0]!.node === 'card' && hasSpecificityDifferences[0]!.reference === 'rgb(255, 0, 0)' &&
     hasSpecificityDifferences[0]!.atomic === 'rgb(0, 0, 255)';
+  const hasTypeListFixture = fixtures.find((fixture) => fixture.name === 'has-type-only-list-forward')!;
+  const typeReference = await readDocument(hasTypeListFixture, 'reference');
+  const typeAtomic = await readDocument(hasTypeListFixture, 'atomic');
+  const typeCorrupted = await readDocument(hasTypeListFixture, 'atomic', 'has-type-list');
+  const typeDifferences = compare(typeReference, typeCorrupted);
+  const typeChanges = compare(typeAtomic, typeCorrupted);
+  const hasTypeListDetected = compare(typeReference, typeAtomic).length === 0 &&
+    typeChanges.length === 1 && typeDifferences.length === 1 &&
+    typeChanges[0]!.node === 'card-button' && typeChanges[0]!.property === 'background-color' &&
+    typeDifferences[0]!.node === 'card-button' && typeDifferences[0]!.property === 'background-color' &&
+    typeDifferences[0]!.reference === 'rgb(255, 0, 0)' && typeDifferences[0]!.atomic === 'rgb(0, 0, 255)';
   const hasSpecificityDedupFixtures = fixtures.filter((fixture) => fixture.name.startsWith('has-selector-list-shared-branch-'));
   const hasSpecificityDedupResults = await Promise.all(hasSpecificityDedupFixtures.map(async (fixture) => {
     const reference = await readDocument(fixture, 'reference');
@@ -869,10 +899,11 @@ async function run() {
     interleavedChildPrefixNegativeControl: { detected: interleavedChildPrefixDetected, controlsUnchanged: interleavedChildPrefixChanges.length === 1, childEdgeChangedToAdjacent: true, differences: interleavedChildPrefixDifferences },
     crossLayerSpecificityNegativeControl: { detected: crossLayerSpecificityDetected, controlsUnchanged: crossLayerSpecificityChanges.length === 2 && !crossLayerSpecificityChanges.some((difference) => difference.property === 'outline-color'), configuredOrderPerturbed: true, differences: crossLayerSpecificityDifferences },
     hasSpecificityNegativeControl: { detected: hasSpecificityDetected, controlsUnchanged: hasSpecificityControlsUnchanged, qualifierRemoved: true, differences: hasSpecificityDifferences },
+    hasTypeListNegativeControl: { detected: hasTypeListDetected, typeSpecificityNeutralized: true, differences: typeDifferences },
     hasSpecificityDedup: { fixtures: hasSpecificityDedupResults, negativeControl: { detected: hasSpecificityDedupControl, qualifierRemoved: true, differences: hasSpecificityDedupDifferences } },
     status: results.every((result) => result.comparisons > 0 && !result.differences.length && !result.expectedFailures.length) &&
       hasSpecificityDedupResults.every((result) => result.differences.length === 0) && hasSpecificityDedupControl &&
-      detected && pseudoDetected && conditionDetected && layerDetected && nestedLayerDetected && assetDetected && keyframesDetected && relationDetected && interleavedDetected && interleavedDepthDetected && interleavedPrefixDetected && interleavedGeneralPrefixDetected && interleavedGeneralRootDetected && interleavedChildRootDetected && interleavedChildPrefixDetected && crossLayerSpecificityDetected && hasSpecificityDetected && fontResetNegativeControl && externalAnchorDetected && externalAncestorDetected && externalMediaDetected && externalCompoundDetected && sameNodeDetected && refinementDetected && externalObservationDetected && functionalDetected && compatibilityDetected && fallbackDetected && compatAssetDetected && compatPropertyDetected && inheritanceDetected && keywordDetected && aliasDetected && shapeDetected && attributeDetected && escapedDetected
+      detected && pseudoDetected && conditionDetected && layerDetected && nestedLayerDetected && assetDetected && keyframesDetected && relationDetected && interleavedDetected && interleavedDepthDetected && interleavedPrefixDetected && interleavedGeneralPrefixDetected && interleavedGeneralRootDetected && interleavedChildRootDetected && interleavedChildPrefixDetected && crossLayerSpecificityDetected && hasSpecificityDetected && hasTypeListDetected && fontResetNegativeControl && externalAnchorDetected && externalAncestorDetected && externalMediaDetected && externalCompoundDetected && sameNodeDetected && refinementDetected && externalObservationDetected && functionalDetected && compatibilityDetected && fallbackDetected && compatAssetDetected && compatPropertyDetected && inheritanceDetected && keywordDetected && aliasDetected && shapeDetected && attributeDetected && escapedDetected
       ? 'passed' : 'failed',
     results,
     negativeControl: { detected, differences },
