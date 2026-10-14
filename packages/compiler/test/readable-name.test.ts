@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest';
+import { createGssCompilerSession } from '../src/index.js';
 import {
   createReadableAtomicName, createReadableContextMarker, createReadableHasSubjectMarker,
   createReadableObservedMarker, createReadableScopeMarker, createReadableSourceMarker, createReadableTargetMarker
@@ -85,9 +86,31 @@ it('separates ownership path boundaries from escaped punctuation inside a class'
   const slashLeft = ['a/b', 'c'];
   const slashRight = ['a', 'b/c'];
   expect(createReadableSourceMarker('tree.gss', slashLeft)).not.toBe(createReadableSourceMarker('tree.gss', slashRight));
+  // Both APIs name the same owned node, but their path separators must not alias different paths.
+  expect(createReadableScopeMarker('tree.gss', ['a', 'b']))
+    .not.toBe(createReadableSourceMarker('tree.gss', ['a.b']));
+  expect(createReadableScopeMarker('tree.gss', ['a/b']))
+    .not.toBe(createReadableSourceMarker('tree.gss', ['a', 'b']));
+  expect(createReadableScopeMarker('tree.gss', slashLeft))
+    .toBe(createReadableSourceMarker('tree.gss', slashLeft));
   const base = { moduleId: 'tree.gss', relations: ['child'] as const,
     sourcePath: ['a'], targetPath: slashLeft };
   expect(createReadableTargetMarker(base)).not.toBe(createReadableTargetMarker({ ...base, targetPath: slashRight }));
+});
+
+it('does not alias a nested owned anchor and an escaped-class runtime source in one public Module', () => {
+  const compiler = createGssCompilerSession({ projectRoot: '/project' });
+  const replacement = compiler.replaceStylesheet({ id: '/project/tree.gss', source: `
+    .a .b .c :global(.external) { color: red; }
+    .a\\.b + .x { background-color: blue; }
+  ` });
+  expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+  const schema = replacement.module!.scopeSchema.exports;
+  const nestedAnchor = schema.a!.targets.b!.selfClassName.split(' ').find((name) => name.startsWith('gss-s--'));
+  const runtimeSource = schema['a.b']!.selfClassName.split(' ').find((name) => name.startsWith('gss-s--'));
+  expect(nestedAnchor).toBeTruthy();
+  expect(runtimeSource).toBeTruthy();
+  expect(nestedAnchor).not.toBe(runtimeSource);
 });
 
 it.each([

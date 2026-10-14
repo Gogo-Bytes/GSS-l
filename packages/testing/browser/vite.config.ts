@@ -15,6 +15,7 @@ import { externalObservationFixtures } from './external-observation-fixtures.js'
 import { compatibilityFixtures } from './compatibility-fixtures.js';
 import { propertyInheritanceFixtures } from './property-inheritance-fixtures.js';
 import { keywordKeyframeFixtures } from './keyword-keyframe-fixtures.js';
+import { scopeSourceAliasFixtures } from './scope-source-alias-fixtures.js';
 
 // Host-only compilation. The browser receives CSS/mappings, never either compiler.
 export default defineConfig({
@@ -87,7 +88,8 @@ export default defineConfig({
         ...externalObservationFixtures.map((fixture) => compile(fixture, fixture.reference)),
         ...compatibilityFixtures.map((fixture) => compile(fixture, fixture.reference)),
         ...propertyInheritanceFixtures.map((fixture) => compile(fixture, fixture.reference)),
-        ...keywordKeyframeFixtures.map((fixture) => compile(fixture, fixture.reference))
+        ...keywordKeyframeFixtures.map((fixture) => compile(fixture, fixture.reference)),
+        ...scopeSourceAliasFixtures.map((fixture) => compile(fixture, fixture.reference))
       ];
       const first = compiled.find((fixture) => fixture.name === 'asset-module-isolation-one')!;
       const second = compiled.find((fixture) => fixture.name === 'asset-module-isolation-two')!;

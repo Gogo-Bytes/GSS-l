@@ -37,7 +37,7 @@ export function createReadableScopeMarker(moduleId: string, path: readonly strin
   return [
     'gss-s',
     `module_${encodeNamePart(moduleId)}`,
-    `path_${path.length ? encodeNamePart(path.map((segment) => escapePathSegment(segment, '.')).join('.')) : ''}`
+    `path_${path.length ? encodePath(path) : ''}`
   ].join('--');
 }
 

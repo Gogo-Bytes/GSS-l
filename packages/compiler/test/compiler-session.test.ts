@@ -612,11 +612,11 @@ describe('GssCompilerSession', () => {
       'gss-s--module_src_2f_nested_2d_fallback_2e_gss--path_father'
     );
     expect(father?.targets.son?.selfClassName).toBe(
-      'gss-s--module_src_2f_nested_2d_fallback_2e_gss--path_father_2e_son'
+      'gss-s--module_src_2f_nested_2d_fallback_2e_gss--path_father_2f_son'
     );
     expect(compiler.finalize().css).toContain(
       '.gss-s--module_src_2f_nested_2d_fallback_2e_gss--path_father ' +
-      '.gss-s--module_src_2f_nested_2d_fallback_2e_gss--path_father_2e_son'
+      '.gss-s--module_src_2f_nested_2d_fallback_2e_gss--path_father_2f_son'
     );
   });
 

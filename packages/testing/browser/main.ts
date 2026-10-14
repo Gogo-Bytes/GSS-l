@@ -11,7 +11,7 @@ type Reading = {
   subject: 'element' | '::before' | '::after'; property: string; value: string; expected: string;
 };
 
-async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'nested-layer' | 'asset' | 'keyframes' | 'relation' | 'interleaved' | 'interleaved-depth' | 'interleaved-prefix' | 'interleaved-general-prefix' | 'interleaved-general-root' | 'interleaved-child-root' | 'interleaved-child-prefix' | 'cross-layer-specificity' | 'font-reset' | 'has-specificity' | 'has-specificity-dedup' | 'external-anchor' | 'external-ancestor' | 'external-media' | 'external-compound' | 'owned-external-condition' | 'external-observation' | 'functional-external' | 'compatibility-sequence' | 'compatibility-asset' | 'compatibility-property' | 'compatibility-fallback-media' | 'property-inheritance' | 'keyword-keyframe'): Promise<Reading[]> {
+async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corrupt?: 'element' | 'pseudo' | 'condition' | 'layer' | 'nested-layer' | 'asset' | 'keyframes' | 'relation' | 'interleaved' | 'interleaved-depth' | 'interleaved-prefix' | 'interleaved-general-prefix' | 'interleaved-general-root' | 'interleaved-child-root' | 'interleaved-child-prefix' | 'cross-layer-specificity' | 'font-reset' | 'has-specificity' | 'has-specificity-dedup' | 'external-anchor' | 'external-ancestor' | 'external-media' | 'external-compound' | 'owned-external-condition' | 'external-observation' | 'functional-external' | 'compatibility-sequence' | 'compatibility-asset' | 'compatibility-property' | 'compatibility-fallback-media' | 'property-inheritance' | 'keyword-keyframe' | 'scope-source-alias'): Promise<Reading[]> {
   const frame = document.createElement('iframe');
   frame.title = `${fixture.name}: ${side}${corrupt ? ' negative control' : ''}`;
   frame.width = '640';
@@ -231,6 +231,15 @@ async function readDocument(fixture: Fixture, side: 'reference' | 'atomic', corr
     const parent = node.parent ? doc.getElementById(node.parent) : doc.body;
     if (!parent) throw new Error(`Missing fixture parent: ${node.parent}`);
     parent.append(element);
+  }
+  if (corrupt === 'scope-source-alias') {
+    const sourceMarker = fixture.atomic.scopeSchemas['Alias.gss']?.exports['a.b']?.selfClassName
+      .split(' ').find((name) => name.startsWith('gss-s--'));
+    const nested = doc.getElementById('alias-b');
+    if (!sourceMarker || !nested || nested.classList.contains(sourceMarker)) {
+      throw new Error('Scope/source alias control requires two initially distinct owned marker identities');
+    }
+    nested.classList.add(sourceMarker);
   }
   const probeNames = animationProbeNames(doc, fixture);
   if (corrupt === 'keyframes' || corrupt === 'keyword-keyframe') {
@@ -766,7 +775,17 @@ async function run() {
       ((difference.node === 'inherit-parent' && difference.property === '--tone') ||
         (difference.node === 'inherit-child' && ['--tone', 'color'].includes(difference.property))) &&
       difference.reference === 'rgb(0, 0, 255)' && difference.atomic === 'rgb(255, 0, 0)');
+  const aliasFixture = fixtures.find((fixture) => fixture.name === 'scope-source-path-separator-isolation')!;
+  const aliasReference = await readDocument(aliasFixture, 'reference');
+  const aliasAtomic = await readDocument(aliasFixture, 'atomic');
+  const aliasCorrupted = await readDocument(aliasFixture, 'atomic', 'scope-source-alias');
+  const aliasDifferences = compare(aliasReference, aliasCorrupted);
+  const aliasDetected = compare(aliasReference, aliasAtomic).length === 0 &&
+    compare(aliasAtomic, aliasCorrupted).length === 1 && aliasDifferences.length === 1 &&
+    aliasDifferences[0]?.node === 'alias-orphan' && aliasDifferences[0]?.property === 'background-color' &&
+    aliasDifferences[0]?.reference === 'rgba(0, 0, 0, 0)' && aliasDifferences[0]?.atomic === 'rgb(0, 0, 255)';
   publish({
+    scopeSourceAliasNegativeControl: { detected: aliasDetected, wrongMarkerAttached: true, differences: aliasDifferences },
     propertyInheritanceNegativeControl: { detected: inheritanceDetected, providerRemoved: true,
       differences: inheritanceDifferences },
     compatibilityFallbackMediaNegativeControl: { detected: fallbackDetected, guardChanged: true, differences: fallbackDifferences },
@@ -794,7 +813,7 @@ async function run() {
     hasSpecificityDedup: { fixtures: hasSpecificityDedupResults, negativeControl: { detected: hasSpecificityDedupControl, qualifierRemoved: true, differences: hasSpecificityDedupDifferences } },
     status: results.every((result) => result.comparisons > 0 && !result.differences.length && !result.expectedFailures.length) &&
       hasSpecificityDedupResults.every((result) => result.differences.length === 0) && hasSpecificityDedupControl &&
-      detected && pseudoDetected && conditionDetected && layerDetected && nestedLayerDetected && assetDetected && keyframesDetected && relationDetected && interleavedDetected && interleavedDepthDetected && interleavedPrefixDetected && interleavedGeneralPrefixDetected && interleavedGeneralRootDetected && interleavedChildRootDetected && interleavedChildPrefixDetected && crossLayerSpecificityDetected && hasSpecificityDetected && fontResetNegativeControl && externalAnchorDetected && externalAncestorDetected && externalMediaDetected && externalCompoundDetected && sameNodeDetected && refinementDetected && externalObservationDetected && functionalDetected && compatibilityDetected && fallbackDetected && compatAssetDetected && compatPropertyDetected && inheritanceDetected && keywordDetected
+      detected && pseudoDetected && conditionDetected && layerDetected && nestedLayerDetected && assetDetected && keyframesDetected && relationDetected && interleavedDetected && interleavedDepthDetected && interleavedPrefixDetected && interleavedGeneralPrefixDetected && interleavedGeneralRootDetected && interleavedChildRootDetected && interleavedChildPrefixDetected && crossLayerSpecificityDetected && hasSpecificityDetected && fontResetNegativeControl && externalAnchorDetected && externalAncestorDetected && externalMediaDetected && externalCompoundDetected && sameNodeDetected && refinementDetected && externalObservationDetected && functionalDetected && compatibilityDetected && fallbackDetected && compatAssetDetected && compatPropertyDetected && inheritanceDetected && keywordDetected && aliasDetected
       ? 'passed' : 'failed',
     results,
     negativeControl: { detected, differences },
