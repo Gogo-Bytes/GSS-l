@@ -60,7 +60,7 @@
 - `!important`。
 - Versioned、data-driven shorthand/longhand property effects；v1覆盖 box、border、background、typography、flex/grid layout、alignment、transition、animation和mask family；unknown property不会被假定为singleton longhand。
 - Custom property provider、inheritance 与 `var(...)` consumer。
-- `@property` 全局 registration。
+- `@property` 全局 registration；[有界原生浏览器证据](../packages/testing/browser/property-inheritance-fixtures.ts) 覆盖 `inherits: true` 的 provider 继承、initial value、attribute entry/restoration 和 Module 隔离，非完整 custom-property 验收。
 - 由宿主有效 CSS target 驱动的兼容 transformer 生成的不可拆 declaration sequence（目标来源见 [ADR-0054](adr/0054-take-compatibility-targets-from-the-host.md)；目前仅有 opt-in Compiler 有界实现，宿主集成及完整验证仍未完成）。
 - 对selector/scope可证明安全、但property effect或compatibility sequence无法安全atomize的输入，自动整Module preserved；不得逐rule/declaration混合fallback。
 
