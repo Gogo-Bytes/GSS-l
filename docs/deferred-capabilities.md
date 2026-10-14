@@ -149,14 +149,14 @@
 - **当前行为**：已注册的同 kind `@media`、`@supports`、`@container` 使用各自配置顺序；不同 condition kind 的组合保持当前确定性排序，但不宣称这是完整产品 cascade precedence。
 - **原因**：跨 kind 的全局优先级、nested condition 比较、source order 与 configured order 的关系，以及跨 kind implication/ambiguity 尚未形成 accepted semantics。本轮不修改 public config 或凭实现推断语义。
 - **重新评估**：MVP 完成后单独讨论并记录 kind precedence 与 nested-condition contract，再补充 ADR、Compiler regressions 和 hand-authored browser fixtures。
-- **依据**：owner decision during MVP execution；[ADR-0027](adr/0027-condition-order-and-coactivity.md)；现有 bounded rule-order planner。该项不是 Stage 9 通过记录。
+- **依据**：owner decision during MVP execution；[ADR-0027](adr/0027-separate-cascade-resolution-from-render-order.md)；现有 bounded rule-order planner。该项不是 Stage 9 通过记录。
 
-### D021 — Compiler output tracing and report API expansion
+### D021 — Remaining declaration/class/size cost fields
 
-- **当前行为**：Compiler 继续提供当前 v1 CSS、manifest、report、Module artifact 和 diagnostics；不新增 CSS source map、source-to-rule tracing 或 declaration/class/size cost 字段。
-- **原因**：这些字段会扩大 `FinalizedGssSnapshot`、`StyleModuleArtifact` 和 Adapter 消费的 public contract。本轮先完成既有 MVP 语义与确定性验证，不在未定义字段语义时修改 API。
-- **重新评估**：MVP 核心安全边界、兼容性和宿主验证完成后，单独设计字段 schema、版本兼容、source attribution 和 Vite consumption，再记录 ADR 并实现。
-- **依据**：owner decision during MVP execution；[compiler interface](compiler-interface.md)。该项不是 Stage 9 通过记录。
+- **当前行为**：[ADR-0056](adr/0056-emit-linked-production-css-source-maps.md) 已接受并实现有界 Compiler CSS source map 与 Vite linked map；[ADR-0057](adr/0057-version-manifest-for-all-origin-source-ranges.md) 已接受并实现 manifest v2 的 live rule/resource origins 和 preserved-rule ranges。原 D021 的“不得新增 map/source-to-rule tracing”限制已由这两项决策取代。尚未新增 declaration、class、CSS/JS/HTML size cost 字段；现有 report envelope 仍为 version 1。
+- **原因**：成本字段的计量单位、归因与跨构建比较语义尚未定义，不应凭已有 CSS map/manifest origins 推断其 schema。
+- **重新评估**：先根据实际 Pilot 数据设计各项成本字段与版本兼容，再记录产品契约及其 Vite consumption；有界 tracing 不代表完整 S5.9 验收。
+- **依据**：原 owner deferral decision；[compiler interface](compiler-interface.md) 与 ADR-0056/0057。该项不是 Stage 9 通过记录。
 
 ### D022 — Cross-file typed React provenance
 
