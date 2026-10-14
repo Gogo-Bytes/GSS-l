@@ -87,10 +87,11 @@ try {
     result.hasSpecificityDedup?.negativeControl?.detected !== true ||
     result.hasSpecificityDedup?.fixtures?.some((fixture) => fixture.differences.length) || errors.length ||
     hostCompatibility.detected !== true || hostCompatibility.resourceDetected !== true ||
-    hostCompatibility.fallbackDetected !== true || hostCompatibility.pageErrors?.length ||
+    hostCompatibility.fallbackDetected !== true || hostCompatibility.keyframesDetected !== true ||
+    hostCompatibility.pageErrors?.length ||
     ssgHydration.detected !== true || ssgHydration.pageErrors?.length;
   if (failed) throw new Error(`Browser oracle gate failed: status=${result.status}, fixtures=${result.results?.length}, comparisons=${comparisons}, attributionErrors=${attributionErrors}, errors=${errors.length}, host=${hostCompatibility.error ?? hostCompatibility.detected}, ssg=${ssgHydration.error ?? ssgHydration.detected}. See ${artifact}`);
-  console.log(`Browser oracle passed: ${result.results.length} fixtures, ${comparisons} comparisons, ${controls.length} controls; Vite host artifact/two controls and SSG hydration/control passed. ${artifact}`);
+  console.log(`Browser oracle passed: ${result.results.length} fixtures, ${comparisons} comparisons, ${controls.length} controls; Vite host artifact/three controls and SSG hydration/controls passed. ${artifact}`);
 } finally {
   await browser?.close();
   server.kill('SIGTERM');
