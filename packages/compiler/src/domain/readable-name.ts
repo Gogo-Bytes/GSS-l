@@ -222,6 +222,38 @@ export function encodeReadableNamePart(value: string): string {
 
 const encodeNamePart = encodeReadableNamePart;
 
+export type ReadableScopeSourceIdentity = {
+  moduleId: string;
+  path: readonly string[];
+  layer?: string;
+  condition?: string;
+};
+
+/** Partial inverse for emitted gss-s markers; invalid and noncanonical spellings are rejected. */
+export function decodeReadableScopeSourceMarker(name: string): ReadableScopeSourceIdentity | undefined {
+  const parts = name.split('--');
+  if (parts[0] !== 'gss-s') return undefined;
+  let index = 1;
+  const take = (key: string): string | undefined => {
+    const part = parts[index];
+    if (!part?.startsWith(`${key}_`)) return undefined;
+    index += 1;
+    return decodeReadableNamePart(part.slice(key.length + 1));
+  };
+  const moduleId = take('module');
+  if (moduleId === undefined) return undefined;
+  const layer = take('layer');
+  const condition = take('condition');
+  const encodedPath = take('path');
+  if (encodedPath === undefined || index !== parts.length) return undefined;
+  const path = decodePath(encodedPath);
+  if (!path?.length) return undefined;
+  const identity: ReadableScopeSourceIdentity = { moduleId, path,
+    ...(layer !== undefined ? { layer } : {}),
+    ...(condition !== undefined ? { condition } : {}) };
+  return createReadableSourceMarker(moduleId, path, condition, layer) === name ? identity : undefined;
+}
+
 export function decodeReadableAtomicName(name: string): PureDeclarationIdentity | undefined {
   const parts = name.split('--');
   if (parts.shift() !== 'gss-a') return undefined;
