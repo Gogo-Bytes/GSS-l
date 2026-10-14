@@ -149,14 +149,14 @@
 - **当前行为**：已注册的同 kind `@media`、`@supports`、`@container` 使用各自配置顺序；不同 condition kind 的组合保持当前确定性排序，但不宣称这是完整产品 cascade precedence。
 - **原因**：跨 kind 的全局优先级、nested condition 比较、source order 与 configured order 的关系，以及跨 kind implication/ambiguity 尚未形成 accepted semantics。本轮不修改 public config 或凭实现推断语义。
 - **重新评估**：MVP 完成后单独讨论并记录 kind precedence 与 nested-condition contract，再补充 ADR、Compiler regressions 和 hand-authored browser fixtures。
-- **依据**：owner decision during MVP execution；[ADR-0027](adr/0027-condition-order-and-coactivity.md)；现有 bounded rule-order planner。该项不是 Stage 9 通过记录。
+- **依据**：owner decision during MVP execution；[ADR-0027](adr/0027-separate-cascade-resolution-from-render-order.md)；现有 bounded rule-order planner。该项不是 Stage 9 通过记录。
 
-### D021 — Compiler output tracing and report API expansion
+### D021 — Remaining declaration/class/size cost fields
 
-- **当前行为**：Compiler 继续提供当前 v1 CSS、manifest、report、Module artifact 和 diagnostics；不新增 CSS source map、source-to-rule tracing 或 declaration/class/size cost 字段。
-- **原因**：这些字段会扩大 `FinalizedGssSnapshot`、`StyleModuleArtifact` 和 Adapter 消费的 public contract。本轮先完成既有 MVP 语义与确定性验证，不在未定义字段语义时修改 API。
-- **重新评估**：MVP 核心安全边界、兼容性和宿主验证完成后，单独设计字段 schema、版本兼容、source attribution 和 Vite consumption，再记录 ADR 并实现。
-- **依据**：owner decision during MVP execution；[compiler interface](compiler-interface.md)。该项不是 Stage 9 通过记录。
+- **当前行为**：[ADR-0056](adr/0056-emit-linked-production-css-source-maps.md) 已接受并实现有界 Compiler CSS source map 与 Vite linked map；[ADR-0057](adr/0057-version-manifest-for-all-origin-source-ranges.md) 已接受并实现 manifest v2 的 live rule/resource origins 和 preserved-rule ranges。原 D021 的“不得新增 map/source-to-rule tracing”限制已由这两项决策取代。尚未新增 declaration、class、CSS/JS/HTML size cost 字段；现有 report envelope 仍为 version 1。
+- **原因**：成本字段的计量单位、归因与跨构建比较语义尚未定义，不应凭已有 CSS map/manifest origins 推断其 schema。
+- **重新评估**：先根据实际 Pilot 数据设计各项成本字段与版本兼容，再记录产品契约及其 Vite consumption；有界 tracing 不代表完整 S5.9 验收。
+- **依据**：原 owner deferral decision；[compiler interface](compiler-interface.md) 与 ADR-0056/0057。该项不是 Stage 9 通过记录。
 
 ### D022 — Cross-file typed React provenance
 
@@ -164,6 +164,20 @@
 - **原因**：跨文件 multi-hop forwarding 需要额外的 TypeScript source/type graph 输入，会扩大 Adapter port 与安全边界。本轮不修改 transform input contract，也不把未验证的类型推断当作安全 lowering。
 - **重新评估**：MVP 核心 Compiler/Vite/oracle 验证完成后，单独设计 provenance port、multi-hop 限制、negative fixtures 和 source invalidation contract，再实现 S6.11/S6.13。
 - **依据**：owner decision during MVP execution；现有 bounded React Adapter contract。该项不是 Stage 9 通过记录。
+
+### D023 — Keyword-like keyframe names in animation shorthand
+
+- **当前行为**：[ADR-0058](adr/0058-reject-keyword-collisions-in-animation-shorthand.md) 保留 `animation-name` 对合法关键词样式 Module-local keyframe 的明确引用。若同 Module 的 `animation` shorthand 出现一个也能作为 timing/duration/iteration/direction/fill/play-state 关键词或 dashed timeline identifier 的本地 keyframe 名，则整次替换 fail closed，保留 LKG；不猜测该词是 keyframe name，也不将该错误转为 preserved output。无碰撞的静态 shorthand 仍照常工作。
+- **原因**：CSS shorthand 优先将可用关键词解释为其它 animation component；逐词重写会把原生 `animation: ease 2s` 的 timing function 变成 keyframe name。完整 grammar-aware 消歧需要另行限定支持的语法和证明矩阵。
+- **重新评估**：若真实 corpus 需要在 shorthand 中引用这类本地名称，再确定静态 shorthand grammar、动态值边界及负例，补充 public Compiler/Vite 和独立浏览器证据后扩展；本项不妨碍显式 longhand。
+- **依据**：owner 选择 MVP 收窄选项；[ADR-0058](adr/0058-reject-keyword-collisions-in-animation-shorthand.md)。该项不是 Stage 9 通过记录。
+
+### D024 — External attribute existence and tag-attribute compound declaration targets
+
+- **当前行为**：MVP 对纯 GSS-owned descendant anchor 后的外部声明目标只接纳单个裸 unnamespaced tag，或单个具有显式值的 exact-equality attribute。`:global([data-mode])` 与 `:global(button[data-mode="ready"])` 暂不支持，整次 Module 替换 fail closed、保留 LKG；不进入 preserved fallback。外部 class compound、owned-node attribute condition 与 observed relation 不受影响。
+- **原因**：在已有 native specificity、scope ownership 和外部同效应冲突证据之外扩展 target grammar，会扩大需要证明的组合面；先保持可验证的正向 MVP 范围。
+- **重新评估**：核心 Compiler/Vite/独立浏览器验证后，根据真实 Module 需求明确 target syntax、specificity、coactivity 和 fail-closed 边界，并补 public rollback 与独立 native CSS/negative controls。其它 S4.10 residual/global placement 和 functional/cross-context 验证仍是 MVP 未完成工作，不随本项一并延期。
+- **依据**：owner 选择收窄的 MVP 选项；[ADR-0060](adr/0060-defer-external-attribute-existence-and-tag-attribute-compounds.md)。该项不是 Stage 9 通过记录。
 
 ## Intentional non-goals and guarantee boundaries
 

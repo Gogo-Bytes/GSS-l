@@ -6,14 +6,18 @@ import { join } from 'node:path';
 import { build, createServer, normalizePath, preview } from 'vite';
 import { createElement } from 'react';
 import { renderToString } from 'react-dom/server';
+import postcss from 'postcss';
 import { gss } from '@gss-l/vite';
 import { react } from '@gss-l/react';
 
 const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="3" height="2"><path fill="red" d="M0 0h3v2H0z"/></svg>';
 const nativeCss = `
+  @keyframes native-pulse { from { opacity: 0; } to { opacity: 1; } }
   @property --native-tone { syntax: "<color>"; inherits: false; initial-value: red; }
   .native-card { color: var(--native-tone); background-image: url("/reference.svg");
     display: -webkit-box; display: -webkit-flex; display: flex; }
+  .native-motion { color: red; background-image: url("/reference.svg"); display: flex;
+    animation-name: native-pulse; animation-duration: 2s; animation-play-state: paused; }
   .native-fallback { display: -webkit-box; display: -webkit-flex; display: flex;
     -webkit-box-orient: vertical; -webkit-box-direction: normal;
     -webkit-flex-direction: column; flex-direction: column;
@@ -31,15 +35,22 @@ export async function checkViteHostCompatibility(browser) {
     await writeFile(join(root, 'icon.svg'), svg);
     await writeFile(join(root, 'index.html'), `<!doctype html><html><head><style>${nativeCss}</style></head><body>
       <div id="gss"></div><div id="native" class="native-card"></div>
+      <div id="motion"></div><div id="native-motion" class="native-motion"></div>
       <div id="fallback"><span>first</span><span>second</span></div>
       <div id="native-fallback" class="native-fallback"><span>first</span><span>second</span></div>
       <script type="module" src="/main.ts"></script></body></html>`);
     await writeFile(join(root, 'main.ts'), `import styles from './Card.gss';
-      import fallback from './Fallback.gss';
+      import fallback from './Fallback.gss'; import motion from './Motion.gss';
       document.getElementById('gss')!.className = styles.card.self;
-      document.getElementById('fallback')!.className = fallback.fallback.self;`);
+      document.getElementById('fallback')!.className = fallback.fallback.self;
+      document.getElementById('motion')!.className = motion.motion.self;`);
     await writeFile(join(root, 'Fallback.gss'),
       '.fallback { display: flex; flex-direction: column; background-image: url("./icon.svg"); }');
+    await writeFile(join(root, 'Motion.gss'), `
+      @keyframes pulse { from { opacity: 0; } to { opacity: 1; } }
+      .motion { color: red; background-image: url("./icon.svg"); display: flex;
+        animation-name: pulse; animation-duration: 2s; animation-play-state: paused; }
+    `);
     await writeFile(join(root, 'Card.gss'), `
       @property --tone { syntax: "<color>"; inherits: false; initial-value: red; }
       .card { color: var(--tone); background-image: url("./icon.svg"); display: flex; }
@@ -54,11 +65,20 @@ export async function checkViteHostCompatibility(browser) {
       manifest.compiler.preservedRules?.[0]?.moduleId !== 'Fallback.gss' ||
       !manifest.compiler.resources?.[0]?.origins?.length ||
       !css.includes('display: -webkit-box;') || !css.includes('@property --tone') ||
+      !css.includes('@-webkit-keyframes') || !css.includes('@keyframes') ||
+      manifest.compiler.resources.filter((resource) => resource.kind === 'keyframes' &&
+        resource.sources?.includes('Motion.gss')).length !== 1 ||
       !css.includes('flex-direction: column;') ||
       !manifest.compiler.moduleDetails.some((entry) => entry.id === 'Fallback.gss' &&
         entry.compilationMode === 'preserved' && entry.fallbackReasons.some((reason) =>
-          reason.property === 'flex-direction' && reason.reason === 'compatibility-sequence-unatomizable'))) {
-      throw new Error('Host artifact lacks the requested sequence, resource or compatibility fallback.');
+          reason.property === 'flex-direction' && reason.reason === 'compatibility-sequence-unatomizable')) ||
+      !manifest.compiler.moduleDetails.some((entry) => entry.id === 'Motion.gss' &&
+        entry.compilationMode === 'preserved' && entry.fallbackReasons.some((reason) =>
+          reason.property === 'animation-name' && reason.reason === 'compatibility-sequence-unatomizable'))) {
+      throw new Error(`Host artifact lacks the requested sequence, resource or compatibility fallback: ${JSON.stringify({
+        resources: manifest.compiler.resources, keyframes: css.match(/@(?:-webkit-)?keyframes[^{]*/g),
+        fallback: manifest.compiler.moduleDetails
+      })}`);
     }
     server = await preview({ root, configFile: false, logLevel: 'silent',
       preview: { host: '127.0.0.1', port: 0, strictPort: false } });
@@ -71,10 +91,12 @@ export async function checkViteHostCompatibility(browser) {
     const mapResponse = await fetch(mapUrl);
     if (!mapResponse.ok) throw new Error(`Linked host source map returned ${mapResponse.status}.`);
     const sourceMap = await mapResponse.json();
+    const authoredSources = new Map(sourceMap.sources?.map((id, index) => [id, sourceMap.sourcesContent?.[index]]));
     if (mapUrl.pathname !== '/gss.css.map' || sourceMap.file !== manifest.cssAsset ||
-      JSON.stringify(sourceMap.sources) !== JSON.stringify(['Card.gss', 'Fallback.gss']) ||
-      !sourceMap.sourcesContent?.some((source) => source.includes('@property --tone')) ||
-      !sourceMap.sourcesContent?.some((source) => source.includes('flex-direction: column'))) {
+      JSON.stringify(sourceMap.sources?.slice().sort()) !== JSON.stringify(['Card.gss', 'Fallback.gss', 'Motion.gss']) ||
+      !authoredSources.get('Card.gss')?.includes('@property --tone') ||
+      !authoredSources.get('Fallback.gss')?.includes('flex-direction: column') ||
+      !authoredSources.get('Motion.gss')?.includes('@keyframes pulse')) {
       throw new Error('Linked host source map lost its logical sources or authored source content.');
     }
     async function readPage() {
@@ -93,10 +115,16 @@ export async function checkViteHostCompatibility(browser) {
           const image = new Image();
           image.src = imageUrl;
           await image.decode();
+          const animations = document.getElementById(id).getAnimations().map((animation) => ({
+            playState: animation.playState,
+            frames: animation.effect?.getKeyframes().map(({ offset, opacity }) => [offset, opacity])
+          }));
           return { color: style.color, display: style.display, flexDirection: style.flexDirection,
-            size: `${image.naturalWidth}x${image.naturalHeight}`, imageUrl };
+            size: `${image.naturalWidth}x${image.naturalHeight}`, imageUrl,
+            animationName: style.animationName, animationDuration: style.animationDuration, animations };
         }
         return { gss: await sample('gss'), native: await sample('native'),
+          motion: await sample('motion'), nativeMotion: await sample('native-motion'),
           fallback: await sample('fallback'), nativeFallback: await sample('native-fallback'),
           linked: [...document.querySelectorAll('link[rel="stylesheet"]')].some((link) => link.href.includes('gss-')) };
       });
@@ -106,9 +134,16 @@ export async function checkViteHostCompatibility(browser) {
     const expected = (entry) => entry.color === 'rgb(255, 0, 0)' && entry.display === 'flex' && entry.size === '3x2';
     const expectedFallback = (entry) => entry.color === 'rgb(0, 0, 0)' && entry.display === 'flex' &&
       entry.flexDirection === 'column' && entry.size === '3x2';
+    const expectedAnimation = (entry) => entry.animationDuration === '2s' &&
+      entry.animations.length === 1 && entry.animations[0].playState === 'paused' &&
+      JSON.stringify(entry.animations[0].frames) === JSON.stringify([[0, '0'], [1, '1']]);
     if (!baseline.readings.linked || !expected(baseline.readings.gss) || !expected(baseline.readings.native) ||
+      !expected(baseline.readings.motion) || !expected(baseline.readings.nativeMotion) ||
+      !expectedAnimation(baseline.readings.motion) || !expectedAnimation(baseline.readings.nativeMotion) ||
+      baseline.readings.motion.animationName === baseline.readings.nativeMotion.animationName ||
       !expectedFallback(baseline.readings.fallback) || !expectedFallback(baseline.readings.nativeFallback) ||
       baseline.pageErrors.length || !baseline.readings.gss.imageUrl.includes('/assets/') ||
+      !baseline.readings.motion.imageUrl.includes('/assets/') ||
       !baseline.readings.fallback.imageUrl.includes('/assets/')) {
       throw new Error(`Vite/browser compatibility baseline differs: ${JSON.stringify(baseline)}`);
     }
@@ -120,6 +155,7 @@ export async function checkViteHostCompatibility(browser) {
       control.readings.native.color === 'rgb(255, 0, 0)' &&
       expectedFallback(control.readings.fallback) && expectedFallback(control.readings.nativeFallback) &&
       control.readings.gss.display === 'flex' && control.readings.gss.size === '3x2' &&
+      expectedAnimation(control.readings.motion) && expectedAnimation(control.readings.nativeMotion) &&
       control.pageErrors.length === 0;
 
     const unprefixedFallback = /(^|\n)(\s*)flex-direction: column;/gm;
@@ -133,10 +169,33 @@ export async function checkViteHostCompatibility(browser) {
       expectedFallback(fallbackControl.readings.nativeFallback) &&
       expected(fallbackControl.readings.gss) && expected(fallbackControl.readings.native) &&
       fallbackControl.readings.fallback.display === 'flex' && fallbackControl.readings.fallback.size === '3x2' &&
+      expectedAnimation(fallbackControl.readings.motion) && expectedAnimation(fallbackControl.readings.nativeMotion) &&
       fallbackControl.pageErrors.length === 0;
-    return { detected: resourceDetected && fallbackDetected, resourceDetected, fallbackDetected,
-      sourceMapLinked: true, baseline: baseline.readings, control: control.readings, fallbackControl: fallbackControl.readings,
-      pageErrors: [...baseline.pageErrors, ...control.pageErrors, ...fallbackControl.pageErrors] };
+
+    const keyframesName = manifest.compiler.resources.find((resource) => resource.kind === 'keyframes')?.name;
+    const changed = postcss.parse(css);
+    let removed = 0;
+    changed.walkAtRules(/^(?:-webkit-)?keyframes$/, (rule) => {
+      if (rule.params !== keyframesName) return;
+      rule.remove();
+      removed++;
+    });
+    if (removed !== 2) throw new Error(`Keyframe control expected one prefixed resource pair, found ${removed}.`);
+    await writeFile(cssFile, changed.toString());
+    const keyframeControl = await readPage();
+    const keyframesDetected = keyframeControl.readings.motion.animations.length === 0 &&
+      keyframeControl.readings.motion.animationName === baseline.readings.motion.animationName &&
+      expectedAnimation(keyframeControl.readings.nativeMotion) &&
+      expected(keyframeControl.readings.motion) && expected(keyframeControl.readings.nativeMotion) &&
+      expected(keyframeControl.readings.gss) && expected(keyframeControl.readings.native) &&
+      expectedFallback(keyframeControl.readings.fallback) && expectedFallback(keyframeControl.readings.nativeFallback) &&
+      keyframeControl.pageErrors.length === 0;
+    return { detected: resourceDetected && fallbackDetected && keyframesDetected,
+      resourceDetected, fallbackDetected, keyframesDetected,
+      sourceMapLinked: true, baseline: baseline.readings, control: control.readings,
+      fallbackControl: fallbackControl.readings, keyframeControl: keyframeControl.readings,
+      pageErrors: [...baseline.pageErrors, ...control.pageErrors, ...fallbackControl.pageErrors,
+        ...keyframeControl.pageErrors] };
   } finally {
     try {
       await Promise.all(contexts.map((context) => context.close()));

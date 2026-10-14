@@ -269,7 +269,10 @@ function parseKeyframesRegistration(
   spanOf: SourceSpanReader
 ): ParsedKeyframesRegistration | undefined {
   const name = node.params.trim();
-  if (!/^[-_A-Za-z][-_A-Za-z0-9]*$/.test(name) || !node.nodes) return undefined;
+  // <keyframes-name> excludes CSS-wide keywords, `default`, and bare `none`.
+  // Quoted names are outside this parser's supported registration grammar.
+  if (!/^[-_A-Za-z][-_A-Za-z0-9]*$/.test(name) || !node.nodes ||
+    ['none', 'default', 'initial', 'inherit', 'unset', 'revert', 'revert-layer'].includes(name.toLowerCase())) return undefined;
 
   const frames: ParsedKeyframesRegistration['frames'][number][] = [];
   for (const child of node.nodes) {
@@ -366,12 +369,11 @@ function parseClassPath(nodes: readonly Node[]): ParsedSelectorPath | undefined 
   let expectClass = true;
   for (const [index, node] of nodes.entries()) {
     if (expectClass && path.length > 0 && index === nodes.length - 1 &&
-      relations.at(-1) === 'descendant' && node.type === 'pseudo' && node.value === ':global' &&
-      node.nodes.length === 1 && node.nodes[0]!.nodes.length > 0 &&
-      node.nodes[0]!.nodes.every((part) => part.type === 'class')) {
-      return {
+      relations.at(-1) === 'descendant' && node.type === 'pseudo' && node.value === ':global') {
+      const externalTarget = parseExternalDeclarationTarget(node as Pseudo);
+      if (externalTarget !== undefined) return {
         path, relations: relations.slice(0, -1), states, attributes, observations, pseudoElements,
-        externalTarget: node.nodes[0]!.toString()
+        externalTarget
       };
     }
     if (!expectClass && index === nodes.length - 1 && node.type === 'pseudo' && node.value === ':global' &&
@@ -450,6 +452,22 @@ function parseClassPath(nodes: readonly Node[]): ParsedSelectorPath | undefined 
       pseudoElements
     }
     : undefined;
+}
+
+function parseExternalDeclarationTarget(pseudo: Pseudo): string | undefined {
+  if (pseudo.nodes.length !== 1) return undefined;
+  const nodes = pseudo.nodes[0]!.nodes;
+  if (nodes.length > 0 && nodes.every((node) => node.type === 'class')) return pseudo.nodes[0]!.toString();
+  if (nodes.length !== 1) return undefined;
+  const target = nodes[0]!;
+  if (target.type === 'tag' && target.namespace === undefined) return target.toString();
+  if (target.type === 'attribute') {
+    const condition = parseAttributeCondition(target as Attribute);
+    // Retain CSS escape spelling: JSON string escaping can turn a decoded newline
+    // into `\\n`, which CSS parses as the letter n rather than the original value.
+    return condition ? target.toString() : undefined;
+  }
+  return undefined;
 }
 
 function parseHasConditions(pseudo: Pseudo): readonly ParsedHasCondition[] | undefined {
