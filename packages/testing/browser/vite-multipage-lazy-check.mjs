@@ -3,12 +3,14 @@
 import { mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { build, normalizePath, preview } from 'vite';
+import { build, createServer, normalizePath, preview } from 'vite';
+import { createElement } from 'react';
+import { renderToString } from 'react-dom/server';
 import postcss from 'postcss';
 import { gss } from '@gss-l/vite';
 import { react } from '@gss-l/react';
 
-/** TS and React Vite-managed HTML entries share one CSS asset before lazy GSS consumers execute. */
+/** TS and hydrated React Vite-managed HTML entries share one CSS asset before lazy GSS consumers execute. */
 export async function checkViteMultipageLazy(browser) {
   const root = normalizePath(await realpath(await mkdtemp(join(tmpdir(), 'gss-multipage-lazy-'))));
   let server;
@@ -32,17 +34,25 @@ export async function checkViteMultipageLazy(browser) {
       });
       (window as any).__READY__ = true;`;
     await writeFile(join(root, 'first.ts'), entry('First'));
-    await writeFile(join(root, 'second.tsx'), `import React, { Suspense, useEffect, useState } from 'react';
-      import { createRoot } from 'react-dom/client'; import styles from './Second.gss';
+    await writeFile(join(root, 'App.tsx'), `import React, { Suspense, useEffect, useState } from 'react';
+      import styles from './Second.gss';
       const Lazy = React.lazy(() => import('./LazyComponent'));
-      function App() {
+      export function App() {
         const [show, setShow] = useState(false);
-        useEffect(() => { (window as any).__READY__ = true; }, []);
+        useEffect(() => {
+          (window as any).__CLIENT_MAIN_CLASS__ = styles.main.self + ' external';
+          (window as any).__READY__ = true;
+        }, []);
         return <><div id="main" className={styles.main.self + ' external'}>React main</div>
           {show ? <Suspense fallback={<div id="lazy" />}><Lazy /></Suspense> : <div id="lazy" />}
           <button id="load" onClick={() => setShow(true)}>Load React lazy route</button></>;
-      }
-      createRoot(document.getElementById('app')!).render(<App />);`);
+      }`);
+    await writeFile(join(root, 'second.tsx'), `import React from 'react'; import { hydrateRoot } from 'react-dom/client';
+      import { App } from './App';
+      (window as any).__HYDRATION_ERRORS__ = [];
+      hydrateRoot(document.getElementById('app')!, <App />, {
+        onRecoverableError(error) { (window as any).__HYDRATION_ERRORS__.push(String(error)); }
+      });`);
     await writeFile(join(root, 'LazyComponent.tsx'), `import React, { useEffect } from 'react';
       import styles from './Lazy.gss';
       (window as any).__LAZY_EXECUTED__ = true;
@@ -59,10 +69,27 @@ export async function checkViteMultipageLazy(browser) {
     await writeFile(join(root, 'First.gss'), '.main { color: red; }');
     await writeFile(join(root, 'Second.gss'), '.main { color: blue; }');
     await writeFile(join(root, 'Lazy.gss'), '.lazy { background-color: green; }');
+    const ssrServer = await createServer({ root, configFile: false, plugins: [gss({ adapter: react() })],
+      logLevel: 'silent', server: { middlewareMode: true } });
+    let rendered;
+    try {
+      const { App } = await ssrServer.ssrLoadModule('/App.tsx');
+      rendered = renderToString(createElement(App));
+    } finally {
+      await ssrServer.close();
+    }
     await build({ root, configFile: false, plugins: [gss({ adapter: react() })], logLevel: 'silent',
       build: { minify: false, rollupOptions: { input: {
         first: join(root, 'index.html'), second: join(root, 'second.html')
       } } } });
+    const secondHtmlFile = join(root, 'dist/second.html');
+    const builtSecondHtml = await readFile(secondHtmlFile, 'utf8');
+    const serverMainClass = /id="main" class="([^"]+)"/.exec(rendered)?.[1];
+    if (!serverMainClass || !rendered.includes('React main') || !builtSecondHtml.includes('<div id="app"></div>')) {
+      throw new Error('Multipage React SSG markup cannot be linked to the built HTML.');
+    }
+    const hydratedSecondHtml = builtSecondHtml.replace('<div id="app"></div>', `<div id="app">${rendered}</div>`);
+    await writeFile(secondHtmlFile, hydratedSecondHtml);
     const manifest = JSON.parse(await readFile(join(root, 'dist/gss-manifest.json'), 'utf8'));
     const cssFile = join(root, 'dist', manifest.cssAsset);
     const css = await readFile(cssFile, 'utf8');
@@ -105,9 +132,11 @@ export async function checkViteMultipageLazy(browser) {
         return { main: getComputedStyle(main).color, nativeMain: getComputedStyle(document.getElementById('native-main')).color,
           lazy: getComputedStyle(lazy).backgroundColor,
           nativeLazy: getComputedStyle(document.getElementById('native-lazy')).backgroundColor,
-          mainClass: main.className, lazyClass: lazy.className,
+          mainClass: main.className, clientMainClass: window.__CLIENT_MAIN_CLASS__ ?? null,
+          mainText: main.textContent, lazyClass: lazy.className,
           links, styles: document.querySelectorAll('style').length,
-          lazyExecuted: window.__LAZY_EXECUTED__ === true };
+          lazyExecuted: window.__LAZY_EXECUTED__ === true,
+          hydrationErrors: window.__HYDRATION_ERRORS__ ?? [] };
       });
       const before = await sample();
       await page.locator('#load').click();
@@ -123,13 +152,33 @@ export async function checkViteMultipageLazy(browser) {
       errors.length === 0 && before.main === expectedMain[index] && before.nativeMain === expectedMain[index] &&
       before.lazy === 'rgba(0, 0, 0, 0)' && before.nativeLazy === 'rgb(0, 128, 0)' &&
       before.mainClass.length > 0 && before.mainClass.endsWith(' external') === (index === 1) &&
-      before.lazyClass === '' && !before.lazyExecuted &&
-      after.main === expectedMain[index] && after.nativeMain === expectedMain[index] &&
+      (index !== 1 || before.mainClass === serverMainClass) &&
+      before.clientMainClass === (index === 1 ? serverMainClass : null) &&
+      before.mainText === (index === 1 ? 'React main' : '') &&
+      before.lazyClass === '' && !before.lazyExecuted && before.hydrationErrors.length === 0 &&
+      after.hydrationErrors.length === 0 && after.main === expectedMain[index] && after.nativeMain === expectedMain[index] &&
       after.lazy === 'rgb(0, 128, 0)' && after.nativeLazy === 'rgb(0, 128, 0)' &&
-      after.mainClass === before.mainClass && after.lazyClass.length > 0 &&
+      after.mainClass === before.mainClass && after.mainText === before.mainText &&
+      after.clientMainClass === before.clientMainClass && after.lazyClass.length > 0 &&
       after.lazyClass.endsWith(' external') === (index === 1) && after.lazyExecuted &&
       JSON.stringify(before.links) === JSON.stringify([stylesheet]) &&
       JSON.stringify(after.links) === JSON.stringify([stylesheet]) && before.styles === 1 && after.styles === 1);
+    const corruptedSecondHtml = hydratedSecondHtml.replace('>React main</div>', '>Wrong main</div>');
+    if (corruptedSecondHtml === hydratedSecondHtml) throw new Error('SSG text corruption did not change server markup.');
+    await writeFile(secondHtmlFile, corruptedSecondHtml);
+    const hydrationControl = await readRoute('/second.html');
+    await writeFile(secondHtmlFile, hydratedSecondHtml);
+    const hydrationControlDetected = hydrationControl.errors.length === 0 &&
+      hydrationControl.after.hydrationErrors.length > 0 &&
+      hydrationControl.before.mainText === 'React main' && hydrationControl.after.mainText === 'React main' &&
+      hydrationControl.before.mainClass === serverMainClass &&
+      hydrationControl.after.clientMainClass === serverMainClass &&
+      hydrationControl.before.nativeMain === 'rgb(0, 0, 255)' &&
+      hydrationControl.after.nativeMain === 'rgb(0, 0, 255)' &&
+      hydrationControl.before.nativeLazy === 'rgb(0, 128, 0)' &&
+      hydrationControl.after.nativeLazy === 'rgb(0, 128, 0)' &&
+      hydrationControl.after.main === 'rgb(0, 0, 255)' &&
+      hydrationControl.after.lazy === 'rgb(0, 128, 0)';
     const parsed = postcss.parse(css);
     const matches = [];
     parsed.walkRules((rule) => {
@@ -144,15 +193,20 @@ export async function checkViteMultipageLazy(browser) {
     const controlDetected = control.every(({ before, after, errors }, index) =>
       errors.length === 0 && before.main === expectedMain[index] && before.nativeMain === expectedMain[index] &&
       before.lazy === 'rgba(0, 0, 0, 0)' && before.nativeLazy === 'rgb(0, 128, 0)' &&
-      before.mainClass.endsWith(' external') === (index === 1) && before.lazyClass === '' && !before.lazyExecuted &&
+      before.mainClass.endsWith(' external') === (index === 1) &&
+      before.clientMainClass === (index === 1 ? serverMainClass : null) &&
+      before.mainText === (index === 1 ? 'React main' : '') &&
+      before.hydrationErrors.length === 0 && before.lazyClass === '' && !before.lazyExecuted &&
       after.main === expectedMain[index] && after.nativeMain === expectedMain[index] &&
       after.lazy === 'rgba(0, 0, 0, 0)' && after.nativeLazy === 'rgb(0, 128, 0)' &&
-      after.mainClass === before.mainClass && after.lazyClass.length > 0 &&
+      after.mainClass === before.mainClass && after.clientMainClass === before.clientMainClass &&
+      after.mainText === before.mainText && after.hydrationErrors.length === 0 && after.lazyClass.length > 0 &&
       after.lazyClass.endsWith(' external') === (index === 1) && after.lazyExecuted &&
       JSON.stringify(before.links) === JSON.stringify([stylesheet]) &&
       JSON.stringify(after.links) === JSON.stringify([stylesheet]) && before.styles === 1 && after.styles === 1);
-    return { detected: baselineDetected && controlDetected, baselineDetected, controlDetected,
-      linkedCss: manifest.cssAsset, baseline, control };
+    return { detected: baselineDetected && controlDetected && hydrationControlDetected,
+      baselineDetected, controlDetected, hydrationControlDetected,
+      linkedCss: manifest.cssAsset, baseline, control, hydrationControl };
   } finally {
     try {
       await Promise.all(contexts.map((context) => context.close()));
