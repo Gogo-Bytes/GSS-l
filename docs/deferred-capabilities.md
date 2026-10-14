@@ -172,6 +172,13 @@
 - **重新评估**：若真实 corpus 需要在 shorthand 中引用这类本地名称，再确定静态 shorthand grammar、动态值边界及负例，补充 public Compiler/Vite 和独立浏览器证据后扩展；本项不妨碍显式 longhand。
 - **依据**：owner 选择 MVP 收窄选项；[ADR-0058](adr/0058-reject-keyword-collisions-in-animation-shorthand.md)。该项不是 Stage 9 通过记录。
 
+### D024 — External attribute existence and tag-attribute compound declaration targets
+
+- **当前行为**：MVP 对纯 GSS-owned descendant anchor 后的外部声明目标只接纳单个裸 unnamespaced tag，或单个具有显式值的 exact-equality attribute。`:global([data-mode])` 与 `:global(button[data-mode="ready"])` 暂不支持，整次 Module 替换 fail closed、保留 LKG；不进入 preserved fallback。外部 class compound、owned-node attribute condition 与 observed relation 不受影响。
+- **原因**：在已有 native specificity、scope ownership 和外部同效应冲突证据之外扩展 target grammar，会扩大需要证明的组合面；先保持可验证的正向 MVP 范围。
+- **重新评估**：核心 Compiler/Vite/独立浏览器验证后，根据真实 Module 需求明确 target syntax、specificity、coactivity 和 fail-closed 边界，并补 public rollback 与独立 native CSS/negative controls。其它 S4.10 residual/global placement 和 functional/cross-context 验证仍是 MVP 未完成工作，不随本项一并延期。
+- **依据**：owner 选择收窄的 MVP 选项；[ADR-0060](adr/0060-defer-external-attribute-existence-and-tag-attribute-compounds.md)。该项不是 Stage 9 通过记录。
+
 ## Intentional non-goals and guarantee boundaries
 
 ### N001 — 任意消费侧 class composition winner
