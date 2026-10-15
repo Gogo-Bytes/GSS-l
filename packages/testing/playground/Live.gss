@@ -1,0 +1,13 @@
+.card { padding: 16px; background-color: white; }
+.card .title { color: red; }
+.card[data-active="yes"] .title { color: blue; }
+.alternate { padding: 16px; background-color: white; }
+.alternate .title { color: green; }
+.action { padding: 8px; background-color: white; outline-style: solid; outline-width: 2px; outline-color: gray; }
+.action:hover { background-color: lightblue; }
+.action:focus-visible { outline-color: blue; }
+.action:active { color: purple; }
+.action:disabled { opacity: 0.5; }
+.field::placeholder { color: purple; }
+.decoration::before { content: "before · "; color: blue; }
+.decoration::after { content: " · after"; color: green; }

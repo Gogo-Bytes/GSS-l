@@ -1,0 +1,30 @@
+:root { font-family: system-ui, sans-serif; color: #172033; background: #f1f5f9; line-height: 1.55; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+header, main, footer { max-width: 1440px; margin: auto; padding: 24px; }
+header { padding-top: 40px; }
+h1 { font-size: clamp(2rem, 5vw, 3.5rem); margin: 8px 0; letter-spacing: -.04em; }
+h2 { margin-top: 0; }
+.eyebrow { color: #2563eb; text-transform: uppercase; letter-spacing: .15em; font-weight: 700; }
+section { padding: 24px; border: 1px solid #cbd5e1; background: white; border-radius: 16px; }
+nav, .toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0; }
+button, input, select { font: inherit; padding: 9px 12px; border: 1px solid #94a3b8; border-radius: 6px; max-width: 100%; }
+button { background: white; color: #172033; cursor: pointer; }
+button[aria-pressed="true"] { background: #172033; color: white; }
+button:disabled { cursor: wait; opacity: .6; }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 3px solid #60a5fa; outline-offset: 2px; }
+code { background: #e2e8f0; padding: 2px 5px; border-radius: 4px; }
+pre { overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; background: #0f172a; color: #dbeafe; padding: 16px; border-radius: 8px; font-size: 13px; }
+details { margin-top: 16px; }
+summary { cursor: pointer; font-weight: 600; }
+.comparison { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.comparison > div { overflow: auto; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px; }
+iframe { border: 1px solid #e2e8f0; display: block; background: white; }
+.table-scroll { overflow: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: left; overflow-wrap: anywhere; }
+.failure { background: #fee2e2; }
+.badge { background: #fef3c7; padding: 3px 6px; border-radius: 4px; font-size: 12px; }
+.offscreen { position: absolute; left: -10000px; top: 0; }
+footer { color: #475569; font-size: 14px; }
+@media (max-width: 800px) { .comparison { grid-template-columns: 1fr; } header, main, footer { padding: 16px; } section { padding: 16px; } }
