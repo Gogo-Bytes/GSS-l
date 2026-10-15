@@ -15,7 +15,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p playground/tsconfig.json && tsc -p acceptance/task-board/tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p playground/tsconfig.json && tsc -p acceptance/task-board/tsconfig.json && tsc -p acceptance/article/tsconfig.json",
     "browser:reference": "vite browser --host 127.0.0.1 --port 4178 --strictPort",
     "browser:check": "node browser/check.mjs",
     "playground": "vite playground",
@@ -24,7 +24,10 @@
     "playground:check": "node playground/check.mjs",
     "task-board": "vite acceptance/task-board",
     "task-board:build": "vite build acceptance/task-board",
-    "task-board:check": "node acceptance/task-board/check.mjs"
+    "task-board:check": "node acceptance/task-board/check.mjs",
+    "article": "vite acceptance/article",
+    "article:build": "vite build acceptance/article",
+    "article:check": "node acceptance/article/check.mjs"
   },
   "dependencies": {
     "postcss": "^8.4.49",

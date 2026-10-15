@@ -1,0 +1,8 @@
+/* Shared host environment only. Reading typography, layout and controls live in business styles. */
+* { box-sizing: border-box; }
+body { margin: 0; background: #e9ede7; }
+.case-bar, .case-scope { max-width: 820px; margin: 0 auto; padding: 20px; font: 13px/1.7 system-ui, sans-serif; color: #52685d; }
+.case-bar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; }
+.case-bar a, .case-scope a { color: #305346; }
+.case-scope li { margin: 12px 0; }
+.case-scope summary { cursor: pointer; }
