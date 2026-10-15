@@ -5,11 +5,12 @@ import { fileURLToPath, URL } from 'node:url';
 import { join } from 'node:path';
 import { build, createServer, preview } from 'vite';
 import { chromium } from 'playwright';
+import { createGssCompilerSession } from '@gss-l/compiler';
 
 const source = fileURLToPath(new URL('.', import.meta.url));
 const artifacts = fileURLToPath(new URL('../../../../artifacts/acceptance/task-board/', import.meta.url));
 const report = { scope: [], phases: [], negativeControls: [], pageErrors: [], expectedDevErrors: [] };
-const properties = ['display', 'color', 'background-color', 'border-top-color', 'border-left-width', 'border-radius', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left', 'gap', 'font-size', 'font-weight', 'line-height', 'opacity', 'outline-color', 'outline-width', 'outline-offset', 'box-shadow', 'grid-template-columns', 'white-space'];
+const properties = ['display', 'color', 'background-color', 'border-top-color', 'border-left-width', 'border-radius', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left', 'gap', 'font-size', 'font-weight', 'line-height', 'letter-spacing', 'text-transform', 'opacity', 'outline-color', 'outline-width', 'outline-offset', 'box-shadow', 'grid-template-columns', 'white-space'];
 let server, browser, sandbox, gssPage, nativePage;
 let invalidEdit = false;
 function address() {
@@ -54,6 +55,8 @@ async function sequence(mode, width) {
     await page.setViewportSize({ width, height: 980 });
     await page.goto(address() + (page === nativePage ? '?reference=native' : ''));
     await probe(page, 'card-FW-101').waitFor();
+    assert.match(await page.getByTestId('compilation-summary').innerText(), /compile atomically without fallback/);
+    assert.doesNotMatch(await page.locator('footer').innerText(), /uses supported whole-module preservation/);
     assert.equal(await page.locator('[data-probe^="card-"]').count(), 4);
     assert.equal(await probe(page, 'clear').isDisabled(), true);
     assert.equal(await probe(page, 'detail').count(), 0);
@@ -131,34 +134,78 @@ try {
   for (const page of [gssPage, nativePage]) page.on('pageerror', (error) => (invalidEdit ? report.expectedDevErrors : report.pageErrors).push(String(error)));
   await sequence('dev', 1440);
   const path = join(root, 'Board.gss'), original = await readFile(path, 'utf8');
-  const changed = original.replace('.title { font-size: 32px;', '.title { color: #7a3c20; font-size: 32px;');
-  assert.notEqual(changed, original);
-  await gssPage.evaluate(() => { window.__taskBoardHmrProbe = 'same-document'; });
+  // A resource-only edit changes central CSS without changing exported atomic classes.
+  // Prove that boundary through the real compiler rather than assuming all GSS edits are CSS-only.
+  const resource = '\n@property --task-board-hmr-probe { syntax: "<color>"; inherits: true; initial-value: #7a3c20; }\n';
+  const cssOnly = original + resource;
+  const changed = original.replace('.title { font-size: 32px;', '.title { color: #7a3c20; font-size: 32px;') + resource;
+  const compiler = createGssCompilerSession({ projectRoot: root });
+  function compileModule(source) {
+    const result = compiler.replaceStylesheet({ id: path, source });
+    assert.equal(result.committed, true);
+    assert.deepEqual(result.diagnostics, []);
+    return result.module;
+  }
+  const originalModule = compileModule(original), cssOnlyModule = compileModule(cssOnly), changedModule = compileModule(changed);
+  assert.equal(cssOnlyModule.moduleCode, originalModule.moduleCode);
+  assert.deepEqual(cssOnlyModule.scopeSchema, originalModule.scopeSchema);
+  assert.notEqual(changedModule.moduleCode, originalModule.moduleCode);
+  await gssPage.evaluate(() => { window.__taskBoardHmrProbe = 'css-only-document'; });
+  await writeFile(path, cssOnly);
+  await gssPage.waitForFunction(() => getComputedStyle(document.querySelector('[data-probe="title"]')).getPropertyValue('--task-board-hmr-probe').trim() === 'rgb(122, 60, 32)');
+  assert.equal(await gssPage.evaluate(() => window.__taskBoardHmrProbe), 'css-only-document');
+  await nativePage.addStyleTag({ content: resource });
+  await parity('dev/css-only-resource-hmr');
+  assert.equal(await probe(gssPage, 'title').evaluate((node) => getComputedStyle(node).getPropertyValue('--task-board-hmr-probe')),
+    await probe(nativePage, 'title').evaluate((node) => getComputedStyle(node).getPropertyValue('--task-board-hmr-probe')));
+  // Atomic class-map changes propagate through native Vite dependency reload, unlike preserved selectors.
+  assert.match(await probe(gssPage, 'title-FW-102').innerText(), /Make the first release/);
   await writeFile(path, changed); await color(gssPage, 'title', 'rgb(122, 60, 32)');
-  assert.equal(await gssPage.evaluate(() => window.__taskBoardHmrProbe), 'same-document');
+  assert.equal(await gssPage.evaluate(() => window.__taskBoardHmrProbe), undefined);
+  assert.equal(await probe(gssPage, 'title-FW-102').innerText(), 'Review the empty states');
+  await nativePage.reload(); await probe(nativePage, 'title').waitFor();
+  await nativePage.addStyleTag({ content: resource + '\n[data-probe="title"] { color: #7a3c20; }' });
+  await parity('dev/class-map-edit-reload');
+  await gssPage.evaluate(() => { window.__taskBoardHmrProbe = 'last-known-good-document'; });
   invalidEdit = true;
   await writeFile(path, changed + '\n.invalid { color: red; color: blue; }\n');
   await gssPage.locator('vite-error-overlay').waitFor({ state: 'attached' });
   await color(gssPage, 'title', 'rgb(122, 60, 32)');
+  assert.equal(await gssPage.evaluate(() => window.__taskBoardHmrProbe), 'last-known-good-document');
   await writeFile(path, original);
   await gssPage.locator('vite-error-overlay').waitFor({ state: 'detached' });
   await color(gssPage, 'title', 'rgb(32, 52, 46)'); invalidEdit = false;
-  assert.equal(await gssPage.evaluate(() => window.__taskBoardHmrProbe), 'same-document');
+  assert.equal(await gssPage.evaluate(() => window.__taskBoardHmrProbe), undefined);
+  await nativePage.reload(); await probe(nativePage, 'title').waitFor();
+  await parity('dev/class-map-recovery-reload');
   assert.equal(await readFile(join(source, 'Board.gss'), 'utf8'), original, 'Author source must remain untouched by HMR probes');
-  report.development = { disposableCopy: true, authorSourceUnchanged: true, validHmr: true, invalidEditOverlay: true, lastKnownGood: true, recovery: true, sameDocument: true };
+  report.development = { disposableCopy: true, authorSourceUnchanged: true,
+    cssOnlyHmr: { exportedMappingUnchanged: true, computedResourceUpdated: true, sameDocument: true },
+    classMapEdit: { exportedMappingChanged: true, visualUpdate: true, documentReplaced: true, reactStateReset: true, nativeParity: true },
+    invalidEditOverlay: true, lastKnownGood: true, invalidEditSameDocument: true,
+    recovery: true, recoveryDocumentReplaced: true, recoveryNativeParity: true };
   await sequence('dev', 390);
   await closeServer();
   await build({ configFile, logLevel: 'silent' });
   const manifest = JSON.parse(await readFile(join(root, 'dist/gss-manifest.json'), 'utf8'));
   assert.equal(manifest.version, 2);
-  assert.ok(manifest.compiler.modules.includes('Detail.gss'));
+  assert.deepEqual(manifest.compiler.modules, ['Board.gss', 'Detail.gss']);
   const css = await readFile(join(root, 'dist', manifest.cssAsset), 'utf8');
-  const detailRules = manifest.compiler.preservedRules.filter((rule) => rule.moduleId === 'Detail.gss');
+  const detailRules = manifest.compiler.rules.filter((rule) => rule.sources.includes('Detail.gss'));
   assert.ok(detailRules.length > 0);
-  assert.ok(manifest.compiler.moduleDetails.every((module) => module.compilationMode === 'preserved'));
-  report.compilation = { moduleDetails: manifest.compiler.moduleDetails, atomicBusinessModules: false,
+  assert.equal(manifest.compiler.moduleDetails.length, 2);
+  assert.ok(manifest.compiler.moduleDetails.every((module) => module.compilationMode === 'atomic'));
+  const fallbackReasons = manifest.compiler.moduleDetails.flatMap((module) => module.fallbackReasons);
+  assert.deepEqual(fallbackReasons, []);
+  assert.deepEqual(manifest.compiler.preservedRules, []);
+  assert.ok(manifest.compiler.rules.length > 0);
+  for (const property of ['box-shadow', 'letter-spacing', 'text-transform', 'outline-offset']) {
+    assert.ok(manifest.compiler.rules.some((rule) => rule.property === property), `Missing atomic effect: ${property}`);
+  }
+  report.compilation = { moduleDetails: manifest.compiler.moduleDetails, atomicBusinessModules: true,
+    atomicModules: manifest.compiler.moduleDetails.length, fallbackReasons,
     atomicRules: manifest.compiler.rules.length, preservedRules: manifest.compiler.preservedRules.length, centralCssCharacters: css.length,
-    limitation: 'Ordinary decorative properties trigger existing whole-module preservation. This case does not validate atomization or savings.' };
+    limitation: 'Atomization is measured only for these two unchanged business modules. No savings, arbitrary CSS or universal MVP acceptance claim.' };
   assert.ok(css.includes('#edf5ef'));
   await writeFile(join(artifacts, 'gss-manifest.json'), JSON.stringify(manifest, null, 2));
   await cp(join(root, 'dist/gss-report.json'), join(artifacts, 'gss-report.json'));

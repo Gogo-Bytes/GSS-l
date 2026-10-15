@@ -119,6 +119,16 @@ describe('PropertyEffectRegistry', () => {
     }
   });
 
+  it.each(['box-shadow', 'letter-spacing', 'text-transform', 'outline-offset'])(
+    'registers %s as an independent singleton, not a shorthand reset effect', (property) => {
+      expect(PROPERTY_EFFECT_INDEPENDENT_PROPERTIES).toContain(property);
+      expect(classifyPropertyEffect(property)).toEqual({ kind: 'longhand', effects: [property] });
+      for (const shorthand of ['outline', 'font', 'border', 'background']) {
+        expect(effectsOfProperty(shorthand)).not.toContain(property);
+      }
+    }
+  );
+
   it('keeps the independent property inventory duplicate-free', () => {
     expect(new Set(PROPERTY_EFFECT_INDEPENDENT_PROPERTIES).size)
       .toBe(PROPERTY_EFFECT_INDEPENDENT_PROPERTIES.length);

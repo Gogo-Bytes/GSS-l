@@ -17,7 +17,15 @@ describe('MVP playground catalog', () => {
       expect(fixtures.every((fixture: { name: string; family: string }) => !fixtureTitle(fixture).includes(fixture.name))).toBe(true);
       expect(fixtures.some((fixture: { name: string }) => fixture.name === 'ownership-module-isolation')).toBe(true);
       const { default: cases } = await server.ssrLoadModule('virtual:playground-compiler');
-      expect(cases).toHaveLength(110);
+      expect(cases).toHaveLength(114);
+      for (const property of ['box-shadow', 'letter-spacing', 'text-transform', 'outline-offset']) {
+        const entry = cases.find((entry: { id: string }) => entry.id === `effect-${property}`);
+        expect(entry.module.compilationMode).toBe('atomic');
+        expect(entry.module.fallbackReasons).toEqual([]);
+        expect(entry.diagnostics).toEqual([]);
+        expect(entry.snapshot.manifest.rules.some((rule: { property: string }) => rule.property === property)).toBe(true);
+        expect(entry.snapshot.manifest.preservedRules).toEqual([]);
+      }
       expect(new Set(cases.map(compilerTitle)).size).toBe(cases.length);
       expect(cases.every((entry: { level: string }) => entry.level === 'compiler-only')).toBe(true);
       expect(cases.find((entry: { id: string }) => entry.id === 'pseudo-before').committed).toBe(true);
