@@ -107,6 +107,9 @@ importers:
       playwright:
         specifier: 1.58.2
         version: 1.58.2
+      pngjs:
+        specifier: 7.0.0
+        version: 7.0.0
       react:
         specifier: ^19.2.0
         version: 19.3.0
@@ -2041,6 +2044,11 @@ packages:
       playwright-core: 1.58.2
     optionalDependencies:
       fsevents: 2.3.2
+    dev: true
+
+  /pngjs@7.0.0:
+    resolution: {integrity: sha512-LKWqWJRhstyYo9pGvgor/ivk2w94eSjE3RGVuzLGlr3NmD8bf7RcYGze1mNdEHRP6TRP6rMuDHk5t44hnTRyow==}
+    engines: {node: '>=14.19.0'}
     dev: true
 
   /postcss-nesting@13.0.2(postcss@8.5.28):
