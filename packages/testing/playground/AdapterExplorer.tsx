@@ -1,17 +1,26 @@
 import React, { useState } from 'react';
 import payload from 'virtual:playground-adapter';
 import type { transformPlaygroundCases } from './adapter-cases.js';
+import { adapterTitles } from './presentation.js';
 const cases = payload as ReturnType<typeof transformPlaygroundCases>;
 
+function OutputCode({ code }: { code: string }) {
+  return <pre>{code.split('.self').map((part, index) => <React.Fragment key={index}>{index ? <mark>.self</mark> : null}{part}</React.Fragment>)}</pre>;
+}
 export default function AdapterExplorer() {
   const [id, setId] = useState('direct');
   const entry = cases.find((item) => item.id === id)!;
-  return <section><h2>React transform fixtures · {cases.length} cases</h2>
-    <p>仅验证已知 ScopeSchema 的源码 transform，不等于 TypeScript JSX 类型检查、跨文件 provenance 或浏览器渲染。真实运行示例见 React + Vite。</p>
-    <label>Adapter case <select aria-label="Adapter case" value={id} onChange={(event) => setId(event.target.value)}>{cases.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>
-    <p data-testid="adapter-status">{entry.boundary ? 'KNOWN BOUNDARY' : 'PASS'} · {entry.level}</p>
-    {entry.boundary ? <p className="badge">{entry.boundary}</p> : null}
-    <h3>Input</h3><pre>{entry.source}</pre><h3>Output</h3><pre>{entry.code}</pre>
-    <h3>Diagnostics / source map</h3><pre>{JSON.stringify({ diagnostics: entry.diagnostics, map: entry.map }, null, 2)}</pre>
+  return <section>
+    <div className="page-heading"><span className="eyebrow">REACT 转换 / SOURCE TRANSFORM</span><h1>scope 引用，如何变成 class<span className="heading-dot">.</span></h1>
+      <p>左边是输入，右边是转换结果。高亮的 .self 是静态 scope 到 class 字符串的显式读取。</p></div>
+    <div className="catalog-toolbar"><label className="wide-choice">选择写法<select data-testid="adapter-select" value={id} onChange={(event) => setId(event.target.value)}>{cases.map((item) => <option key={item.id} value={item.id}>{adapterTitles[item.id] ?? item.title}</option>)}</select></label><span className="filter-hint">{cases.length} 个转换与边界案例</span></div>
+    <div className="result-panel"><div className="result-heading"><div><span className="panel-kicker">源码转换 · 不执行渲染</span><h2>{adapterTitles[entry.id] ?? entry.title}</h2></div>
+      <span className="result-status" data-testid="adapter-status" data-state={entry.boundary ? 'boundary' : entry.passed ? 'passed' : 'failed'}>{entry.boundary ? '△ 已知限制' : entry.diagnostics.length ? '✓ 已产生预期诊断' : '✓ 转换符合预期'}</span></div>
+      {entry.boundary ? <div className="boundary-note">这个写法目前保持原样，也不会给出诊断。请显式使用 <code>branch.title.self</code>，不要把它当作已支持的隐式转换。</div> : null}
+      <div className="code-comparison"><div><div className="code-heading"><h3>输入</h3><span>Case.tsx</span></div><pre>{entry.source}</pre></div><div><div className="code-heading"><h3>转换后</h3><span>React adapter</span></div><OutputCode code={entry.code} /></div></div>
+      <p className="panel-footnote">基于已知 ScopeSchema 的静态转换。这里不证明 stock React TSX 类型检查、跨文件 provenance 或浏览器渲染。</p>
+    </div>
+    <div data-testid="adapter-diagnostics">{entry.diagnostics.length ? <div className="diagnostic-panel"><h3>转换诊断</h3>{entry.diagnostics.map((diagnostic, index) => <div className="diagnostic" key={index}><code>{diagnostic.code}</code><p>{diagnostic.message}</p></div>)}</div> : null}</div>
+    <details className="inspector" key={id}><summary><span>查看完整诊断与 source map</span><span className="summary-meta">开发者细节</span></summary><div className="inspector-content"><pre>{JSON.stringify({ diagnostics: entry.diagnostics, map: entry.map, boundary: entry.boundary }, null, 2)}</pre></div></details>
   </section>;
 }
