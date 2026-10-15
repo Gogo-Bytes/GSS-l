@@ -5,7 +5,8 @@ import { fixtures, type CompiledReferenceFixture, type ReferenceFixture } from '
 import { contextualBoundaryFixtures } from './contextual-boundary-fixtures.js';
 import { structuralRelationFixtures, structuralObservedFixtures } from './structural-relation-fixtures.js';
 import { fontResetFixtures } from './font-reset-fixtures.js';
-import { hasSpecificityDedupFixtures, hasSpecificityFixtures } from './has-specificity-fixtures.js';
+import { hasSpecificityDedupFixtures, hasSpecificityFixtures, hasTypeListFixtures } from './has-specificity-fixtures.js';
+import { conditionalKeyframeFixtures } from './conditional-keyframe-fixtures.js';
 import { nestedLayerFixtures } from './nested-layer-fixtures.js';
 import { interleavedChainFixtures } from './interleaved-chain-fixtures.js';
 import { crossLayerSpecificityFixtures } from './cross-layer-specificity-fixtures.js';
@@ -80,6 +81,8 @@ export default defineConfig({
         ...[...structuralRelationFixtures, ...structuralObservedFixtures].map((fixture) => compile(fixture, fixture.reference)),
         ...fontResetFixtures.map((fixture) => compile(fixture, fixture.reference)),
         ...hasSpecificityFixtures.map((fixture) => compile(fixture, fixture.reference)),
+        ...hasTypeListFixtures.map((fixture) => compile(fixture, fixture.reference)),
+        ...conditionalKeyframeFixtures.map((fixture) => compile(fixture, fixture.reference)),
         ...hasSpecificityDedupFixtures.map((fixture) => compile(fixture, fixture.reference)),
         ...nestedLayerFixtures.map((fixture) => compile(fixture, fixture.reference)),
         ...interleavedChainFixtures.map((fixture) => compile(fixture, fixture.reference)),

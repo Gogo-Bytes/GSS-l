@@ -21,6 +21,7 @@ import { planStructuralRelations } from '../domain/plan-structural-relations.js'
 import { resolveTargetDeclarations } from '../domain/resolve-target-declarations.js';
 import { compareRuleOrder } from '../domain/rule-order-planner.js';
 import { compareCodeUnits } from '../domain/compare-code-units.js';
+import { disjointKeyframeWidthBounds } from '../domain/keyframe-condition-exclusivity.js';
 import { validateDeclarationSequences } from '../domain/validate-declarations.js';
 import { validateLogicalPhysicalConflicts } from '../domain/validate-logical-physical-conflicts.js';
 import { planPseudoElementConditions } from '../domain/plan-pseudo-element-conditions.js';
@@ -236,17 +237,21 @@ function prepareContribution(
       reason: 'capability-not-registered', message: 'Compatibility transformation cannot preserve a resource shape or Asset identity.' }] };
   }
   const resources = plannedResources as PlannedResource[];
-  const keyframeRegistrations = new Map<string, string>();
+  const keyframeRegistrations = new Map<string, { identity: string; resource: ParsedKeyframesRegistration }[]>();
   for (const [index, resource] of parsed.resources.entries()) {
     if (resource.kind !== 'keyframes') continue;
     const identity = resources[index]!.identity;
-    const previous = keyframeRegistrations.get(resource.name);
-    if (previous && previous !== identity) return { diagnostics: [{
-      code: 'GSS1301', severity: 'error', phase: 'registry', id: input.id,
-      reason: 'conflicting-global-resource',
-      message: `Keyframe ${resource.name} has incompatible registrations in one Module; authored precedence cannot be preserved.`
-    }] };
-    keyframeRegistrations.set(resource.name, identity);
+    const previous = keyframeRegistrations.get(resource.name) ?? [];
+    if (previous.some((entry) => entry.identity !== identity &&
+      !disjointKeyframeWidthBounds(entry.resource, resource, config.conditions?.media ?? []))) {
+      return { diagnostics: [{
+        code: 'GSS1301', severity: 'error', phase: 'registry', id: input.id,
+        reason: 'conflicting-global-resource',
+        message: `Keyframe ${resource.name} has incompatible registrations in one Module; authored precedence cannot be preserved.`
+      }] };
+    }
+    previous.push({ identity, resource });
+    keyframeRegistrations.set(resource.name, previous);
   }
   const externalRules = semanticRules.filter((rule) => rule.externalTarget !== undefined);
   const sameNodeRules = semanticRules.filter((rule) => rule.externalCondition !== undefined);

@@ -19,7 +19,8 @@ const controls = [
   'interleavedPrefixNegativeControl', 'interleavedGeneralPrefixNegativeControl',
   'interleavedGeneralRootNegativeControl', 'interleavedChildRootNegativeControl',
   'interleavedChildPrefixNegativeControl', 'crossLayerSpecificityNegativeControl',
-  'hasSpecificityNegativeControl', 'externalAnchorNegativeControl',
+  'hasSpecificityNegativeControl', 'hasTypeListNegativeControl', 'conditionalKeyframeNegativeControl',
+  'externalAnchorNegativeControl',
   'externalAncestorNegativeControl', 'externalMediaNegativeControl',
   'externalCompoundNegativeControl', 'ownedExternalConditionNegativeControl',
   'ownedExternalRefinementNegativeControl', 'externalObservationNegativeControl', 'functionalExternalNegativeControl',
@@ -91,7 +92,7 @@ try {
     typeof reading.property !== 'string' || typeof reading.subject !== 'string' ||
     typeof reading.value !== 'string' || typeof reading.expected !== 'string'
   ).length;
-  const failed = result.status !== 'passed' || result.results?.length !== 120 || comparisons !== 1227 || attributionErrors > 0 ||
+  const failed = result.status !== 'passed' || result.results?.length !== 123 || comparisons !== 1260 || attributionErrors > 0 ||
     result.results.some((fixture) => fixture.comparisons <= 0 || fixture.differences.length || fixture.expectedFailures.length) ||
     controls.some((key) => result[key]?.detected !== true) ||
     result.hasSpecificityDedup?.negativeControl?.detected !== true ||
@@ -101,9 +102,10 @@ try {
     hostCompatibility.pageErrors?.length ||
     ssgHydration.detected !== true || ssgHydration.pageErrors?.length ||
     multipageLazy.detected !== true || multipageLazy.baselineDetected !== true ||
-    multipageLazy.controlDetected !== true || multipageLazy.hydrationControlDetected !== true;
+    multipageLazy.controlDetected !== true || multipageLazy.hydrationControlDetected !== true ||
+    multipageLazy.stateControlDetected !== true;
   if (failed) throw new Error(`Browser oracle gate failed: status=${result.status}, fixtures=${result.results?.length}, comparisons=${comparisons}, attributionErrors=${attributionErrors}, errors=${errors.length}, host=${hostCompatibility.error ?? hostCompatibility.detected}, ssg=${ssgHydration.error ?? ssgHydration.detected}, multipage=${multipageLazy.error ?? multipageLazy.detected}. See ${artifact}`);
-  console.log(`Browser oracle passed: ${result.results.length} fixtures, ${comparisons} comparisons, ${controls.length} controls; Vite host artifact/three controls, SSG hydration/controls and multipage lazy/hydration controls passed. ${artifact}`);
+  console.log(`Browser oracle passed: ${result.results.length} fixtures, ${comparisons} comparisons, ${controls.length} controls; Vite host artifact/three controls, SSG hydration/controls and multipage lazy/hydration/state controls passed. ${artifact}`);
 } finally {
   await browser?.close();
   server.kill('SIGTERM');

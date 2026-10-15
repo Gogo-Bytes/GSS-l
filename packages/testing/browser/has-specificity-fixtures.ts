@@ -39,6 +39,33 @@ export const hasSpecificityFixtures: readonly HasSpecificityFixture[] = [false, 
   };
 });
 
+// A fixture-owned native competitor is intentionally loaded after both stylesheets: losing
+// the type specificity of a type-only list makes the competitor win even if emitted last.
+export const hasTypeListFixtures: readonly HasSpecificityFixture[] = [false, true].map((reverse) => {
+  const source = `.card:has(${reverse ? 'span, button' : 'button, span'}) { background-color: red; }`;
+  return {
+    name: `has-type-only-list-${reverse ? 'reversed' : 'forward'}`,
+    modules: [{ id: moduleId, source }],
+    reference: {
+      css: `.native-card:has(${reverse ? 'span, button' : 'button, span'}) { background-color: red; }`,
+      scopeSchemas: { [moduleId]: { moduleId, exports: {
+        card: { selfClassName: 'native-card', targets: {} }
+      } } }
+    },
+    afterCss: '.competitor { background-color: blue; }',
+    nodes: [
+      { id: 'card-button', moduleId, path: ['card'], extraClassName: 'competitor',
+        expected: { 'background-color': 'rgb(255, 0, 0)' } },
+      { id: 'button', parent: 'card-button', tag: 'button', moduleId, path: [], externalClassName: '', expected: {} },
+      { id: 'card-span', moduleId, path: ['card'], extraClassName: 'competitor',
+        expected: { 'background-color': 'rgb(255, 0, 0)' } },
+      { id: 'span', parent: 'card-span', tag: 'span', moduleId, path: [], externalClassName: '', expected: {} },
+      { id: 'card-empty', moduleId, path: ['card'], extraClassName: 'competitor',
+        expected: { 'background-color': 'rgb(0, 0, 255)' } }
+    ]
+  };
+});
+
 // The repeated .error observation must retain the maximum from the stronger list even when
 // the lower-specificity list is registered first. Literal CSS is intentionally independent.
 export const hasSpecificityDedupFixtures: readonly HasSpecificityFixture[] = [false, true].flatMap((reverseLists) =>

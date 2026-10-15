@@ -290,6 +290,103 @@ it('converges shared registration owners across watched replacement and clean bu
   expect(restored.css).toBe(shared.css);
 }, 30000);
 
+it('converges shared font owners and Module-local keyframes through watch resource removal and restoration', async () => {
+  const font = '@font-face { font-family: "Demo"; src: url(./demo.woff2) format("woff2"); }';
+  const motion = (scope: string, frames: string, ownsFont: boolean) => `${ownsFont ? font : ''}
+    @keyframes pulse { from { opacity: ${frames[0]}; } to { opacity: ${frames[1]}; } }
+    .${scope} { font-family: "Demo"; animation-name: pulse; animation-duration: 1s; }`;
+  const bothEntries = `import card from './Card.gss'; import a from './A.gss'; import b from './B.gss';
+    document.body.className = card.card.self + a.a.self + b.b.self;`;
+  const onlyB = `import card from './Card.gss'; import b from './B.gss';
+    document.body.className = card.card.self + b.b.self;`;
+  const onlyCard = `import card from './Card.gss'; document.body.className = card.card.self;`;
+  const root = await fixture({
+    'main.ts': bothEntries,
+    'Card.gss': '.card { color: black; }',
+    'A.gss': motion('a', '01', true),
+    'B.gss': motion('b', '10', true),
+    'demo.woff2': 'fixture-font-bytes'
+  });
+  const watcher = await build({ root, configFile: false, plugins: [gss({ adapter: react() })], logLevel: 'silent',
+    build: { minify: false, assetsInlineLimit: 0, watch: { buildDelay: 20 } } });
+  if (!('on' in watcher)) throw new Error('Expected watcher.');
+  watchers.push(watcher);
+
+  async function check(fontOwners: string[], keyframeOwners: string[]) {
+    const clean = await bundle(root, { build: { assetsInlineLimit: 0 } });
+    const manifest = JSON.parse(asset(clean, 'gss-manifest.json'));
+    const css = asset(clean, manifest.cssAsset);
+    const diskManifest = JSON.parse(await readFile(join(root, 'dist/gss-manifest.json'), 'utf8'));
+    expect(diskManifest).toEqual(manifest);
+    expect(await readFile(join(root, 'dist', manifest.cssAsset), 'utf8')).toBe(css);
+    expect(await readFile(join(root, 'dist/gss.css.map'), 'utf8')).toBe(asset(clean, 'gss.css.map'));
+    expect(await readFile(join(root, 'dist/gss-report.json'), 'utf8')).toBe(asset(clean, 'gss-report.json'));
+    expect((await readdir(join(root, 'dist/assets'))).filter((name) => name.endsWith('.css')))
+      .toEqual([manifest.cssAsset.split('/').at(-1)]);
+    const fontAssets = (await readdir(join(root, 'dist/assets'))).filter((name) => name.endsWith('.woff2'));
+    expect(fontAssets).toHaveLength(fontOwners.length ? 1 : 0);
+    if (fontOwners.length) {
+      const fontAsset = fontAssets[0]!;
+      expect(css).toContain(`url("/assets/${fontAsset}")`);
+      expect(await readFile(join(root, 'dist/assets', fontAsset), 'utf8')).toBe('fixture-font-bytes');
+      expect(asset(clean, `assets/${fontAsset}`)).toBe('fixture-font-bytes');
+    } else expect(css).not.toContain('demo.woff2');
+    expect(css.match(/@font-face\s*\{/g)?.length ?? 0).toBe(fontOwners.length ? 1 : 0);
+    expect(css.match(/@keyframes\s+/g)?.length ?? 0).toBe(keyframeOwners.length);
+    expect(manifest.compiler.resources.filter((resource: { kind: string }) => resource.kind === 'font-face'))
+      .toEqual(fontOwners.length ? [expect.objectContaining({ sources: fontOwners })] : []);
+    const keyframes = manifest.compiler.resources.filter((resource: { kind: string }) =>
+      resource.kind === 'keyframes') as { name: string; sources: string[] }[];
+    expect(keyframes.map((resource) => resource.sources).sort())
+      .toEqual(keyframeOwners.map((owner) => [owner]).sort());
+    expect(new Set(keyframes.map((resource) => resource.name)).size).toBe(keyframeOwners.length);
+    const animations = manifest.compiler.rules.filter((rule: { property: string }) =>
+      rule.property === 'animation-name') as { value: string; sources: string[] }[];
+    for (const resource of keyframes) {
+      expect(css).toContain(`@keyframes ${resource.name} {`);
+      expect(css).toContain(`animation-name: ${resource.name};`);
+      expect(animations.find((rule) => rule.sources.includes(resource.sources[0]!))?.value).toBe(resource.name);
+    }
+    return { css, manifest };
+  }
+
+  await nextBuild(watcher);
+  const initial = await check(['A.gss', 'B.gss'], ['A.gss', 'B.gss']);
+  const firstFontRemoved = nextBuild(watcher);
+  await writeFile(join(root, 'A.gss'), motion('a', '01', false));
+  await firstFontRemoved;
+  await check(['B.gss'], ['A.gss', 'B.gss']);
+  const lastFontRemoved = nextBuild(watcher);
+  await writeFile(join(root, 'B.gss'), motion('b', '10', false));
+  await lastFontRemoved;
+  const withoutFont = await check([], ['A.gss', 'B.gss']);
+  expect(withoutFont.css).not.toContain('demo.woff2');
+
+  const firstKeyframesRemoved = nextBuild(watcher);
+  await writeFile(join(root, 'main.ts'), onlyB);
+  await firstKeyframesRemoved;
+  await check([], ['B.gss']);
+  const lastKeyframesRemoved = nextBuild(watcher);
+  await writeFile(join(root, 'main.ts'), onlyCard);
+  await lastKeyframesRemoved;
+  const onlyPure = await check([], []);
+  expect(onlyPure.css).toContain('color: black;');
+  expect(onlyPure.manifest.compiler.modules).toEqual(['Card.gss']);
+
+  const keyframesRestored = nextBuild(watcher);
+  await writeFile(join(root, 'main.ts'), bothEntries);
+  await keyframesRestored;
+  expect((await check([], ['A.gss', 'B.gss'])).css).toBe(withoutFont.css);
+  const firstFontRestored = nextBuild(watcher);
+  await writeFile(join(root, 'A.gss'), motion('a', '01', true));
+  await firstFontRestored;
+  await check(['A.gss'], ['A.gss', 'B.gss']);
+  const lastFontRestored = nextBuild(watcher);
+  await writeFile(join(root, 'B.gss'), motion('b', '10', true));
+  await lastFontRestored;
+  expect(await check(['A.gss', 'B.gss'], ['A.gss', 'B.gss'])).toEqual(initial);
+}, 30000);
+
 it.each(['background-image', 'future-paint'])('refreshes watched asset bytes despite unchanged scope JS and recovers after deletion: %s', async (property) => {
   const root = await fixture({ 'Card.gss': `.card { ${property}: url(./icon.svg); }` });
   const watcher = await build({ root, configFile: false, plugins: [gss({ adapter: react() })], logLevel: 'silent',

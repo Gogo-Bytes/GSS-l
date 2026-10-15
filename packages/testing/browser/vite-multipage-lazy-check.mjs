@@ -19,6 +19,7 @@ export async function checkViteMultipageLazy(browser) {
     await symlink(join(process.cwd(), 'node_modules'), join(root, 'node_modules'), 'dir');
     const html = (entry, nativeColor, reactEntry = false) => `<!doctype html><html><head><style>
       .native-main { color: ${nativeColor}; }
+      .native-main[data-active="yes"] { color: purple; }
       .native-lazy { background-color: green; }
     </style></head><body>
       ${reactEntry ? '<div id="app"></div>' : '<div id="main"></div><div id="lazy"></div><button id="load">Load lazy route</button>'}
@@ -66,8 +67,8 @@ export async function checkViteMultipageLazy(browser) {
         document.getElementById('lazy')!.className = styles.lazy.self;
         (window as any).__LAZY_MOUNTED__ = true;
       }`);
-    await writeFile(join(root, 'First.gss'), '.main { color: red; }');
-    await writeFile(join(root, 'Second.gss'), '.main { color: blue; }');
+    await writeFile(join(root, 'First.gss'), '.main { color: red; } .main[data-active="yes"] { color: purple; }');
+    await writeFile(join(root, 'Second.gss'), '.main { color: blue; } .main[data-active="yes"] { color: purple; }');
     await writeFile(join(root, 'Lazy.gss'), '.lazy { background-color: green; }');
     const ssrServer = await createServer({ root, configFile: false, plugins: [gss({ adapter: react() })],
       logLevel: 'silent', server: { middlewareMode: true } });
@@ -134,21 +135,44 @@ export async function checkViteMultipageLazy(browser) {
           nativeLazy: getComputedStyle(document.getElementById('native-lazy')).backgroundColor,
           mainClass: main.className, clientMainClass: window.__CLIENT_MAIN_CLASS__ ?? null,
           mainText: main.textContent, lazyClass: lazy.className,
+          mainActive: main.getAttribute('data-active'),
+          nativeMainActive: document.getElementById('native-main').getAttribute('data-active'),
           links, styles: document.querySelectorAll('style').length,
           lazyExecuted: window.__LAZY_EXECUTED__ === true,
           hydrationErrors: window.__HYDRATION_ERRORS__ ?? [] };
       });
       const before = await sample();
+      await page.evaluate(() => {
+        document.getElementById('main').setAttribute('data-active', 'yes');
+        document.getElementById('native-main').setAttribute('data-active', 'yes');
+      });
+      const active = await sample();
+      await page.evaluate(() => {
+        document.getElementById('main').removeAttribute('data-active');
+        document.getElementById('native-main').removeAttribute('data-active');
+      });
+      const reset = await sample();
       await page.locator('#load').click();
       await page.waitForFunction(() => window.__LAZY_MOUNTED__ === true);
       const after = await sample();
-      return { before, after, errors };
+      return { before, active, reset, after, errors };
     }
     const routes = ['/', '/second.html'];
     const baseline = await Promise.all(routes.map(readRoute));
     const stylesheet = `${origin}/${manifest.cssAsset}`;
     const expectedMain = ['rgb(255, 0, 0)', 'rgb(0, 0, 255)'];
-    const baselineDetected = baseline.every(({ before, after, errors }, index) =>
+    const stateTransitionValid = ({ before, active, reset, after }, index, activeColor) =>
+      before.mainActive === null && before.nativeMainActive === null &&
+      active.mainActive === 'yes' && active.nativeMainActive === 'yes' &&
+      active.main === activeColor && active.nativeMain === 'rgb(128, 0, 128)' &&
+      active.lazy === 'rgba(0, 0, 0, 0)' && active.nativeLazy === 'rgb(0, 128, 0)' &&
+      active.mainClass === before.mainClass && !active.lazyExecuted &&
+      reset.mainActive === null && reset.nativeMainActive === null &&
+      reset.main === expectedMain[index] && reset.nativeMain === expectedMain[index] &&
+      reset.mainClass === before.mainClass && !reset.lazyExecuted &&
+      after.mainActive === null && after.nativeMainActive === null;
+    const baselineDetected = baseline.every(({ before, active, reset, after, errors }, index) =>
+      stateTransitionValid({ before, active, reset, after }, index, 'rgb(128, 0, 128)') &&
       errors.length === 0 && before.main === expectedMain[index] && before.nativeMain === expectedMain[index] &&
       before.lazy === 'rgba(0, 0, 0, 0)' && before.nativeLazy === 'rgb(0, 128, 0)' &&
       before.mainClass.length > 0 && before.mainClass.endsWith(' external') === (index === 1) &&
@@ -179,6 +203,31 @@ export async function checkViteMultipageLazy(browser) {
       hydrationControl.after.nativeLazy === 'rgb(0, 128, 0)' &&
       hydrationControl.after.main === 'rgb(0, 0, 255)' &&
       hydrationControl.after.lazy === 'rgb(0, 128, 0)';
+    const activeRules = manifest.compiler.rules.filter((rule) => rule.property === 'color' &&
+      rule.value === 'purple' && rule.sources?.includes('Second.gss'));
+    if (activeRules.length !== 1) throw new Error('Multipage state control requires one React route active rule.');
+    const stateParsed = postcss.parse(css);
+    const stateMatches = [];
+    stateParsed.walkRules((rule) => {
+      if (rule.selector === activeRules[0].selector) stateMatches.push(rule);
+    });
+    if (stateMatches.length !== 1 || stateMatches[0].nodes.length !== 1 ||
+      stateMatches[0].nodes[0].prop !== 'color') {
+      throw new Error('Multipage state corruption requires exactly one generated active color rule.');
+    }
+    stateMatches[0].remove();
+    await writeFile(cssFile, stateParsed.toString());
+    const stateControl = await readRoute('/second.html');
+    await writeFile(cssFile, css);
+    const stateControlDetected = stateControl.errors.length === 0 &&
+      stateControl.before.hydrationErrors.length === 0 && stateControl.after.hydrationErrors.length === 0 &&
+      stateTransitionValid(stateControl, 1, 'rgb(0, 0, 255)') &&
+      stateControl.before.main === 'rgb(0, 0, 255)' &&
+      stateControl.after.main === 'rgb(0, 0, 255)' &&
+      stateControl.after.lazy === 'rgb(0, 128, 0)' &&
+      stateControl.active.clientMainClass === serverMainClass &&
+      JSON.stringify(stateControl.before.links) === JSON.stringify([stylesheet]) &&
+      JSON.stringify(stateControl.after.links) === JSON.stringify([stylesheet]);
     const parsed = postcss.parse(css);
     const matches = [];
     parsed.walkRules((rule) => {
@@ -190,7 +239,8 @@ export async function checkViteMultipageLazy(browser) {
     matches[0].remove();
     await writeFile(cssFile, parsed.toString());
     const control = await Promise.all(routes.map(readRoute));
-    const controlDetected = control.every(({ before, after, errors }, index) =>
+    const controlDetected = control.every(({ before, active, reset, after, errors }, index) =>
+      stateTransitionValid({ before, active, reset, after }, index, 'rgb(128, 0, 128)') &&
       errors.length === 0 && before.main === expectedMain[index] && before.nativeMain === expectedMain[index] &&
       before.lazy === 'rgba(0, 0, 0, 0)' && before.nativeLazy === 'rgb(0, 128, 0)' &&
       before.mainClass.endsWith(' external') === (index === 1) &&
@@ -204,9 +254,9 @@ export async function checkViteMultipageLazy(browser) {
       after.lazyClass.endsWith(' external') === (index === 1) && after.lazyExecuted &&
       JSON.stringify(before.links) === JSON.stringify([stylesheet]) &&
       JSON.stringify(after.links) === JSON.stringify([stylesheet]) && before.styles === 1 && after.styles === 1);
-    return { detected: baselineDetected && controlDetected && hydrationControlDetected,
-      baselineDetected, controlDetected, hydrationControlDetected,
-      linkedCss: manifest.cssAsset, baseline, control, hydrationControl };
+    return { detected: baselineDetected && controlDetected && hydrationControlDetected && stateControlDetected,
+      baselineDetected, controlDetected, hydrationControlDetected, stateControlDetected,
+      linkedCss: manifest.cssAsset, baseline, control, hydrationControl, stateControl };
   } finally {
     try {
       await Promise.all(contexts.map((context) => context.close()));
