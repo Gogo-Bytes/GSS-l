@@ -31,6 +31,7 @@ function App() {
       </Suspense></main>
       <footer className="workspace-footer"><span>GSS-l · 写 CSS，构建时编译。</span><details><summary>运行方式与验证范围</summary><div className="footer-details">
         <p><code>corepack pnpm playground</code> 启动体验；<code>playground:build</code> 构建；<code>playground:check</code> 运行验证。</p>
+        <p>业务验收案例：运行 <code>corepack pnpm task-board</code>，再打开 <a href="http://127.0.0.1:4180/" target="_blank" rel="noreferrer">Fieldwork 任务看板 ↗</a>。独立原生 CSS 对照、本地编辑与懒加载；不代表完整 MVP 验收。</p>
         <p>交互体验走公开 React/Vite 集成。浏览器对照是独立参考 CSS 与 Compiler 的比较；编译与诊断不代表浏览器渲染。完整原生损坏检测仍由 <code>browser:check</code> 单独执行。</p>
         <p>这里不宣称任意 CSS 组合、跨文件类型图、通用 SSR 或完整像素一致性。Vite 未开放的条件注册入口不会因 Compiler 案例而变成可用能力。</p>
       </div></details></footer>

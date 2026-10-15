@@ -16,7 +16,10 @@
     "playground": "pnpm build && pnpm --filter @gss-l/testing playground",
     "playground:build": "pnpm build && pnpm --filter @gss-l/testing playground:build",
     "playground:preview": "pnpm --filter @gss-l/testing playground:preview",
-    "playground:check": "pnpm build && pnpm --filter @gss-l/testing playground:check"
+    "playground:check": "pnpm build && pnpm --filter @gss-l/testing playground:check",
+    "task-board": "pnpm build && pnpm --filter @gss-l/testing task-board",
+    "task-board:build": "pnpm build && pnpm --filter @gss-l/testing task-board:build",
+    "task-board:check": "pnpm build && pnpm --filter @gss-l/testing task-board:check"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
