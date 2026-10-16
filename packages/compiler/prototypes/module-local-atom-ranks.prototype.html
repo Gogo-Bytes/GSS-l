@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>实验草稿 · 模块内原子等级</title>
+<style>
+  :root { color-scheme: light; font: 15px/1.6 system-ui, sans-serif; color: #263340; background: #f5f7f9; }
+  body { max-width: 1180px; margin: 32px auto; padding: 0 24px 60px; }
+  h1 { font-size: 27px; } h2 { font-size: 20px; margin-top: 0; } h3 { font-size: 16px; }
+  section { background: white; border: 1px solid #d9e0e6; border-radius: 8px; padding: 20px; margin: 18px 0; }
+  button, select { font: inherit; padding: 6px 12px; border: 1px solid #aab8c5; border-radius: 5px; background: white; color: inherit; margin: 3px; cursor: pointer; }
+  button[aria-selected="true"] { background: #e9f1fa; border-color: #356a9b; }
+  button:focus-visible, select:focus-visible { outline: 3px solid #356a9b; }
+  .note { color: #586977; } .warning { border-left: 4px solid #356a9b; padding-left: 14px; }
+  .twins { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  pre { white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.6 ui-monospace, monospace; background: #f5f7f9; padding: 12px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; } th, td { text-align: left; border-bottom: 1px solid #e2e7eb; padding: 6px; vertical-align: top; overflow-wrap: anywhere; }
+  .scroll { overflow-x: auto; } .badge { color: #356a9b; font-weight: 650; } #observations { font: 12px/1.6 ui-monospace, monospace; }
+  @media (max-width: 760px) { .twins { grid-template-columns: 1fr; } body { padding: 0 12px; } }
+</style>
+<header>
+  <span class="badge">THROWAWAY / 实验草稿 · 非编译器功能</span>
+  <h1>模块内的顺序，能否变成共享原子的等级？</h1>
+  <p>用有限的结构化声明探索：同一 .gss 模块内，各目标的冲突顺序能否编码为「语义 + 等级」版本，复用后仍保留当前节点的原生 CSS 结果？这不是 GSS 解析器，不接入编译器。</p>
+  <p class="warning">只探索 background-color、真实 hover / focus / aria-pressed="true"、两档类级特异性，以及普通 / !important。每个目标只属于一个模块。<strong>同一节点组合多个模块作用域不在范围内，当前排序对此不安全</strong>：共享等级不能表达模块间作者顺序。</p>
+</header>
+<section>
+  <h2>当前状态</h2>
+  <p id="status" aria-live="polite"></p>
+  <p id="counts"></p>
+  <p id="removed" class="note"></p>
+  <p class="note">算法：按稳定模块 / 目标 / 源顺序重算；每个「模块、目标、属性、importance、特异性」组按源顺序编号 1…n（保守，不分析互斥，不求最优）。语义包含属性、值、谓词、特异性、importance；身份再加等级，不含模块名。只生成用到的版本。最终在相同属性 / importance / 特异性域内按等级递增发射，其他域交给浏览器级联。不是跨 importance 的胜者算法。</p>
+  <div class="scroll"><table><thead><tr><th>模块 / 目标（稳定顺序）</th><th>源序</th><th>条件 → 值</th><th>特异性 / importance</th><th>等级</th><th>类 / 复用次数</th></tr></thead><tbody id="assignments"></tbody></table></div>
+  <p class="note">原生 .scope 与原子类各贡献一档特异性，谓词再加一档；强声明再加 .boost。目标定位放在 :where 内，不增加权重。不存在替代伪状态属性。</p>
+  <details><summary>完整原生 CSS、生成 CSS 与每个目标的类</summary><div class="twins"><div><h3>原生规则（目标锚点零特异性）</h3><pre id="native-css"></pre></div><div><h3>生成规则</h3><pre id="ranked-css"></pre></div></div><pre id="classes"></pre></details>
+</section>
+<section>
+  <h2>自由探索</h2>
+  <p>先选目标，再改变声明或状态。鼠标移到下方色块产生真实 hover；点击 / Tab 产生真实 focus。每块都带真实 aria-pressed 属性。点击工具按钮会移走焦点，重算会重建色块。</p>
+  <label>目标 <select id="target"></select></label>
+  <div id="actions"></div>
+  <p class="note">“恢复移除”恢复原声明的稳定源序；“反转注册”只改变输入数组顺序；“重置”恢复场景。重算一致不等于生产增量会话收敛证明。</p>
+</section>
+<section>
+  <h2>引导演练</h2>
+  <div id="tabs" role="tablist" aria-label="有限场景"></div>
+  <p id="scenario-description"></p>
+  <div id="steps"></div>
+  <p id="step-note" aria-live="polite"></p>
+</section>
+<section>
+  <h2>原生与等级视图（独立 ShadowRoot）</h2>
+  <p class="note">一个指针不能同时悬停两块。记录仅表示该块当时的真实状态，不把未激活的另一块当成同态对照。自动浏览器实验按相同状态依次采样两侧；页面不会伪造 hover。灰色是无匹配声明。</p>
+  <div class="twins"><div><h3>原生 CSS</h3><div id="native-host"></div></div><div><h3>等级原子 CSS</h3><div id="ranked-host"></div></div></div>
+  <h3>每块最近一次真实观察</h3>
+  <div id="observations" aria-live="polite"></div>
+</section>
+<section>
+  <h2>本草稿没有证明什么</h2>
+  <p>不覆盖跨模块同节点组合、祖先 / 兄弟选择器、层 / origin、简写、变量、其他属性、任意选择器特异性、伪元素、动画、生产 HMR 或增量缓存。全部状态仅在内存。有限浏览器实验不是 MVP 验收，也不是完整 CSS 正确性证明。无全等级预生成，无最大去重承诺。</p>
+</section>
+
+<script>
+/* Pure finite-domain planner. No DOM, parser, cache or compiler integration.
+ * Declaration: moduleId/moduleOrder, targetId/targetOrder, sourceOrder,
+ * property, value, predicate, specificity:[0,2|3,0], important:boolean.
+ * Rank relations are local to a module AND target's equal-cascade conflict group.
+ */
+const RankPrototypeLogic = (() => {
+  const predicates = { hover: ':hover', focus: ':focus', pressed: '[aria-pressed="true"]' };
+  const compare = (a, b) => a < b ? -1 : a > b ? 1 : 0;
+  const targetKey = d => `${d.moduleId}.${d.targetId}`;
+  const sourceCompare = (a, b) => a.moduleOrder - b.moduleOrder || compare(a.moduleId, b.moduleId)
+    || a.targetOrder - b.targetOrder || compare(a.targetId, b.targetId) || a.sourceOrder - b.sourceOrder;
+  const tieDomain = d => JSON.stringify([d.property, d.important, d.specificity]);
+  const semantic = d => JSON.stringify([d.property, d.value, d.predicate, d.specificity, d.important]);
+  const suffix = d => (d.specificity[1] === 3 ? '.boost' : '') + predicates[d.predicate];
+  const body = d => `${d.property}: ${d.value}${d.important ? ' !important' : ''};`;
+  function plan(declarations) {
+    const ordered = [...declarations].sort(sourceCompare);
+    const groups = new Map(), versions = new Map();
+    const assignments = ordered.map(d => {
+      const group = JSON.stringify([d.moduleId, d.targetId, tieDomain(d)]);
+      const rank = (groups.get(group) || 0) + 1;
+      groups.set(group, rank);
+      const identity = JSON.stringify([semantic(d), rank]);
+      // Readable collision-free names for this explicitly bounded vocabulary only.
+      const className = `atom-${d.property}-${d.value}-${d.predicate}-s${d.specificity[1]}-${d.important ? 'i' : 'n'}-r${rank}`;
+      if (!versions.has(identity)) versions.set(identity, { ...d, rank, identity, className, uses: 0 });
+      versions.get(identity).uses++;
+      return { ...d, rank, identity, className, targetKey: targetKey(d) };
+    });
+    const rules = [...versions.values()].sort((a, b) => compare(tieDomain(a), tieDomain(b))
+      || a.rank - b.rank || compare(a.identity, b.identity));
+    const targets = [...new Set(assignments.map(d => d.targetKey))].map(key => ({ key,
+      classes: [...new Set(assignments.filter(d => d.targetKey === key).map(d => d.className))] }));
+    return {
+      assignments, rules, targets,
+      nativeCSS: ordered.map(d => `:where([data-target="${targetKey(d)}"]).scope${suffix(d)} { ${body(d)} }`).join('\n'),
+      rankedCSS: rules.map(d => `.${d.className}${suffix(d)} { ${body(d)} }`).join('\n'),
+    };
+  }
+  return Object.freeze({ plan });
+})();
+</script>
+<script>
+/* Throwaway UI and finite fixtures; no persistence. All inputs are this fixed vocabulary. */
+const $ = id => document.getElementById(id);
+function declaration(moduleId, moduleOrder, targetId, targetOrder, sourceOrder, predicate, value, important = false, strength = 2) {
+  return { moduleId, moduleOrder, targetId, targetOrder, sourceOrder,
+    property: 'background-color', value, predicate, specificity: [0, strength, 0], important };
+}
+const pair = (moduleId, moduleOrder, targetId, targetOrder, reversed = false) => {
+  const entries = reversed ? [['pressed', 'blue'], ['hover', 'red']] : [['hover', 'red'], ['pressed', 'blue']];
+  return entries.map(([predicate, value], index) => declaration(moduleId, moduleOrder, targetId, targetOrder, index + 1, predicate, value));
+};
+const scenarios = [
+  { name: '1 · 同模块相反顺序', description: 'A：红悬停 → 蓝按下；B：蓝按下 → 红悬停；C 与 A 相同，应共享两个版本。两条件同时成立时 A/C 蓝、B 红。',
+    build: () => [...pair('one', 1, 'A', 1), ...pair('one', 1, 'B', 2, true), ...pair('one', 1, 'C', 3)],
+    steps: [['重置，观察四个版本', 'reset'], ['全部设为按下，再依次悬停 A / B / C', 'press-all'], ['原生所选目标获得焦点；再手动悬停', 'focus-native'], ['等级所选目标获得焦点；再手动悬停', 'focus-ranked']] },
+  { name: '2 · 模块间共享身份', description: 'alpha 的 A 与 beta 的 B 顺序相反；gamma 的 C 与 A 相同。各节点只取自己模块的类。模块名不进入原子身份，应仍只有四个版本。无模块间顺序契约。',
+    build: () => [...pair('alpha', 1, 'A', 1), ...pair('beta', 2, 'B', 1, true), ...pair('gamma', 3, 'C', 1)],
+    steps: [['重置并查看共享次数', 'reset'], ['全部按下，再依次悬停', 'press-all'], ['反转模块注册输入，不改稳定源序', 'registration']] },
+  { name: '3 · 三条件共激活', description: 'A：hover 红 → focus 绿 → pressed 蓝；B 顺序相反。三条件八种组合全部有意义。用焦点按钮、指针和按下开关逐个探索；全激活时 A 蓝、B 红。',
+    build: () => ['A', 'B'].flatMap((target, index) => {
+      const entries = [['hover', 'red'], ['focus', 'green'], ['pressed', 'blue']];
+      return (index ? entries.reverse() : entries).map(([p, v], i) => declaration('three', 1, target, index + 1, i + 1, p, v));
+    }),
+    steps: [['重置（三条件均关闭需移开指针）', 'reset'], ['切换所选目标的按下', 'pressed'], ['原生焦点 + 手动悬停', 'focus-native'], ['等级焦点 + 手动悬停', 'focus-ranked'], ['全部取消按下（保留另两条件可手动探索）', 'unpress-all']] },
+  { name: '4 · 原生级联仍独立', description: 'Mixed：低等级 important 胜过后置普通声明；Both：两个 important 同权仍用源序；Strong：更强普通选择器输给较弱 important；Specific：较强普通选择器胜过较弱且后置普通声明。',
+    build: () => [
+      declaration('cascade', 1, 'Mixed', 1, 1, 'hover', 'red', true),
+      declaration('cascade', 1, 'Mixed', 1, 2, 'focus', 'green'),
+      declaration('cascade', 1, 'Mixed', 1, 3, 'pressed', 'blue'),
+      declaration('cascade', 1, 'Both', 2, 1, 'hover', 'red', true),
+      declaration('cascade', 1, 'Both', 2, 2, 'pressed', 'blue', true),
+      declaration('cascade', 1, 'Strong', 3, 1, 'hover', 'red', false, 3),
+      declaration('cascade', 1, 'Strong', 3, 2, 'pressed', 'blue', true),
+      declaration('cascade', 1, 'Specific', 4, 1, 'hover', 'red', false, 3),
+      declaration('cascade', 1, 'Specific', 4, 2, 'pressed', 'blue'),
+    ],
+    steps: [['重置，查看独立的等级组', 'reset'], ['全部按下，再悬停各目标', 'press-all'], ['原生所选目标获得焦点，再悬停', 'focus-native'], ['等级所选目标获得焦点，再悬停', 'focus-ranked']] },
+  { name: '5 · 全量重算与重注册', description: '移除、改色、恢复、反转局部源序、反转注册输入。每次都从全部声明重算；不保留等级缓存。只检查这个纯函数，不代表生产增量收敛。',
+    build: () => [...pair('edit', 1, 'A', 1), ...pair('edit', 1, 'B', 2, true), ...pair('edit', 1, 'C', 3)],
+    steps: [['重置', 'reset'], ['移除所选目标最后一条', 'remove'], ['剩余一条换色', 'change'], ['恢复刚移除的声明', 'restore'], ['反转所选目标源序', 'reverse'], ['反转注册输入', 'registration'], ['恢复干净初态', 'reset']] },
+];
+let scene = 0, declarations = [], removed = [], plan, selected = '', pressed = new Map(), observations = new Map();
+let revision = 0, stepIndex = 0, note = '', registrationInvariant = null;
+const roots = { native: $('native-host').attachShadow({ mode: 'open' }), ranked: $('ranked-host').attachShadow({ mode: 'open' }) };
+const baseCSS = ':where(button) { display:block; width:100%; min-height:60px; margin:10px 0; border:1px solid #8798a8; border-radius:5px; font:16px system-ui; color:white; text-shadow:0 1px 3px black; background-color:rgb(238,238,238); cursor:pointer; } :where(button:focus) { outline:3px solid #263340; outline-offset:2px; }';
+function sample(view, key) {
+  const button = [...roots[view].querySelectorAll('button')].find(b => b.dataset.target === key);
+  return { view, target: key, revision, hover: button.matches(':hover'), focus: button.matches(':focus'),
+    pressed: button.matches('[aria-pressed="true"]'), color: getComputedStyle(button).backgroundColor,
+    classes: button.className };
+}
+function observe(view, key) {
+  observations.set(`${view}/${key}`, sample(view, key));
+  $('observations').replaceChildren(...[...observations.values()].map(o => {
+    const line = document.createElement('div');
+    line.textContent = `${o.view === 'native' ? '原生' : '等级'} ${o.target} · 修订 ${o.revision} · hover=${o.hover} focus=${o.focus} pressed=${o.pressed} → ${o.color}`;
+    return line;
+  }));
+}
+function renderViews() {
+  observations.clear();
+  for (const [view, root] of Object.entries(roots)) {
+    root.replaceChildren();
+    const style = document.createElement('style');
+    style.textContent = baseCSS + '\n' + (view === 'native' ? plan.nativeCSS : plan.rankedCSS);
+    root.append(style);
+    for (const target of plan.targets) {
+      const button = document.createElement('button');
+      button.type = 'button'; button.dataset.target = target.key;
+      button.className = `scope boost ${view === 'ranked' ? target.classes.join(' ') : ''}`;
+      button.setAttribute('aria-pressed', String(pressed.get(target.key) || false));
+      button.textContent = `${target.key} · ${pressed.get(target.key) ? '已按下' : '未按下'}`;
+      for (const event of ['mouseenter', 'mouseleave', 'focus', 'blur']) button.addEventListener(event, () => observe(view, target.key));
+      button.addEventListener('click', () => { selected = target.key; $('target').value = selected; setPressed(target.key, !pressed.get(target.key)); });
+      root.append(button);
+    }
+    for (const target of plan.targets) observe(view, target.key);
+  }
+}
+function setPressed(key, value) {
+  pressed.set(key, value);
+  for (const [view, root] of Object.entries(roots)) {
+    const button = [...root.querySelectorAll('button')].find(b => b.dataset.target === key);
+    button.setAttribute('aria-pressed', String(value)); button.textContent = `${key} · ${value ? '已按下' : '未按下'}`;
+    observe(view, key);
+  }
+}
+function render() {
+  plan = RankPrototypeLogic.plan(declarations);
+  if (!plan.targets.some(t => t.key === selected)) selected = plan.targets[0].key;
+  $('status').textContent = `${scenarios[scene].name} · 修订 ${revision} · ${note}${registrationInvariant === null ? '' : ` · 注册顺序不变性：${registrationInvariant ? '相同' : '不同！'}`}`;
+  $('counts').textContent = `声明 ${declarations.length} 条 / 原生规则 ${declarations.length} 条 / 使用的原子版本 ${plan.rules.length} 个 / 共享节省 ${declarations.length - plan.rules.length} 条 / 被多处使用的版本 ${plan.rules.filter(r => r.uses > 1).length} 个`;
+  $('removed').textContent = `待恢复声明（栈顶最后）：${removed.length ? removed.map(d => `${d.moduleId}.${d.targetId} #${d.sourceOrder} ${d.predicate} → ${d.value} [${d.specificity}]${d.important ? ' !important' : ''}`).join('；') : '无'}`;
+  $('assignments').replaceChildren(...plan.assignments.map(d => {
+    const row = document.createElement('tr');
+    for (const value of [`${d.targetKey} (${d.moduleOrder}/${d.targetOrder})`, d.sourceOrder, `${d.predicate} → ${d.value}`, `${d.specificity.join(',')} / ${d.important ? '!important' : '普通'}`, d.rank, `${d.className} / ${plan.rules.find(r => r.identity === d.identity).uses}`]) {
+      const cell = document.createElement('td'); cell.textContent = value; row.append(cell);
+    }
+    return row;
+  }));
+  $('native-css').textContent = plan.nativeCSS; $('ranked-css').textContent = plan.rankedCSS;
+  $('classes').textContent = plan.targets.map(t => `${t.key}: ${t.classes.join(' ')}`).join('\n');
+  $('target').replaceChildren(...plan.targets.map(t => { const option = document.createElement('option'); option.value = option.textContent = t.key; return option; }));
+  $('target').value = selected;
+  $('tabs').querySelectorAll('button').forEach((b, i) => b.setAttribute('aria-selected', String(i === scene)));
+  $('scenario-description').textContent = scenarios[scene].description;
+  $('steps').replaceChildren(...scenarios[scene].steps.map(([label, action], i) => {
+    const button = document.createElement('button'); button.textContent = `${i < stepIndex ? '✓' : i + 1} ${label}`;
+    button.onclick = () => { stepIndex = i + 1; act(action, true); };
+    return button;
+  }));
+  $('step-note').textContent = `引导进度 ${stepIndex}/${scenarios[scene].steps.length}。可重复任一步；切换标签从初态开始。`;
+  renderViews();
+}
+function load(index) {
+  scene = index; declarations = scenarios[index].build(); removed = []; pressed.clear(); selected = '';
+  stepIndex = 0; registrationInvariant = null; note = '干净初态'; revision++; render();
+}
+function act(action, guided = false) {
+  if (action === 'reset') { const step = stepIndex; load(scene); if (guided) { stepIndex = step; render(); } return; }
+  if (action === 'pressed' || action === 'press-all' || action === 'unpress-all') {
+    const keys = action === 'pressed' ? [selected] : plan.targets.map(t => t.key);
+    keys.forEach(key => setPressed(key, action === 'pressed' ? !pressed.get(key) : action === 'press-all'));
+    if (guided) refreshSteps();
+    return;
+  }
+  if (action === 'focus-native' || action === 'focus-ranked') {
+    const view = action.slice(6);
+    [...roots[view].querySelectorAll('button')].find(b => b.dataset.target === selected).focus();
+    if (guided) refreshSteps();
+    return;
+  }
+  const local = declarations.filter(d => `${d.moduleId}.${d.targetId}` === selected).sort((a, b) => a.sourceOrder - b.sourceOrder);
+  registrationInvariant = null;
+  if (action === 'remove' && local.length > 1) { const last = local.at(-1); removed.push(last); declarations = declarations.filter(d => d !== last); }
+  if (action === 'restore' && removed.length) declarations.push(removed.pop());
+  if (action === 'change') declarations = declarations.map(d => d === local[0] ? { ...d, value: d.value === 'purple' ? 'red' : 'purple' } : d);
+  if (action === 'reverse') declarations = declarations.map(d => local.includes(d) ? { ...d, sourceOrder: local.length - local.indexOf(d) } : d);
+  if (action === 'registration') {
+    const before = JSON.stringify(RankPrototypeLogic.plan(declarations));
+    declarations.reverse();
+    registrationInvariant = before === JSON.stringify(RankPrototypeLogic.plan(declarations));
+  }
+  note = { remove: '移除最后一条（每目标至少保留一条）', restore: '恢复最近移除项的稳定源序', change: '第一条在紫 / 红间换色', reverse: '局部源序已反转', registration: '注册输入已反转，稳定源序未改' }[action];
+  revision++; render();
+}
+function refreshSteps() {
+  $('steps').querySelectorAll('button').forEach((button, i) => { button.textContent = `${i < stepIndex ? '✓' : i + 1} ${scenarios[scene].steps[i][0]}`; });
+  $('step-note').textContent = `引导进度 ${stepIndex}/${scenarios[scene].steps.length}。状态变化见下方真实观察。`;
+}
+$('target').onchange = event => { selected = event.target.value; };
+for (const [label, action] of [['切换按下', 'pressed'], ['原生获得焦点', 'focus-native'], ['等级获得焦点', 'focus-ranked'], ['移除最后一条', 'remove'], ['第一条换色', 'change'], ['恢复移除', 'restore'], ['反转局部源序', 'reverse'], ['反转注册', 'registration'], ['重置', 'reset']]) {
+  const button = document.createElement('button'); button.textContent = label; button.onclick = () => act(action); $('actions').append(button);
+}
+scenarios.forEach((s, i) => { const button = document.createElement('button'); button.textContent = s.name; button.role = 'tab'; button.onclick = () => load(i); $('tabs').append(button); });
+// Inspection surface only for the ignored, bounded browser experiment; not a package API.
+window.rankPrototype = { load, act, sample, setPressed,
+  snapshot: () => ({ scene, declarations: structuredClone(declarations), removed: structuredClone(removed), plan: structuredClone(plan), registrationInvariant }),
+  cleanPlan: input => RankPrototypeLogic.plan(input),
+  reverseGeneratedRules: () => { roots.ranked.querySelector('style').textContent = baseCSS + '\n' + plan.rankedCSS.split('\n').reverse().join('\n'); },
+};
+load(0);
+</script>
+</html>
