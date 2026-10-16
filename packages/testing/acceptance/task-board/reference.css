@@ -1,0 +1,41 @@
+/* Hand-authored native oracle. Never imported from compiler output or a GSS transform.
+   Ordinary semantic selectors and shorthand describe the intended design independently. */
+.native-board { display: grid; gap: 24px; }
+.native-heading { display: flex; flex-flow: row wrap; align-items: center; justify-content: space-between; gap: 16px; }
+.native-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #526b5f; }
+.native-title { font-size: 32px; line-height: 1.2; font-weight: 750; letter-spacing: -1px; }
+.native-subtitle { margin-top: 8px; color: #526b5f; }
+.native-summary { padding: 10px 16px; border-radius: 24px; background: #e4ece7; color: #28513e; font-size: 13px; font-weight: 650; }
+.native-toolbar { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); align-items: end; gap: 16px; padding: 20px; border: 1px solid #d6e0da; border-radius: 16px; background: white; }
+.native-label { display: grid; gap: 6px; min-width: 0; color: #3c5549; font-size: 13px; font-weight: 650; }
+.native-field { width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid #aabfb2; border-radius: 8px; background: white; color: #20342e; font-size: 15px; font-weight: 400; }
+.native-field::placeholder { color: #63786b; }
+.native-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); }
+.native-card { display: flex; flex-direction: column; gap: 16px; min-width: 0; padding: 20px; border: 1px solid #d6e0da; border-radius: 16px; background: white; box-shadow: 0 3px 10px #20342e08; }
+.native-card[data-selected="yes"] { background: #f5fbf7; border-color: #387459; }
+.native-card-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
+.native-id { color: #526b5f; font-size: 12px; font-weight: 650; letter-spacing: 1px; }
+.native-badge { padding: 4px 10px; border-radius: 20px; background: #edf0f3; color: #475866; font-size: 12px; font-weight: 700; }
+.native-badge[data-status="active"] { background: #fff0cd; color: #755016; }
+.native-badge[data-status="done"] { background: #dcefe3; color: #285b3c; }
+.native-card-title { font-size: 19px; line-height: 1.4; font-weight: 700; overflow-wrap: anywhere; }
+.native-notes { color: #526b5f; font-size: 14px; overflow-wrap: anywhere; }
+.native-owner { margin-top: auto; color: #3c5549; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.native-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.native-button, .native-primary { padding: 9px 14px; border: 1px solid #aabfb2; border-radius: 8px; background: white; color: #28513e; font-size: 13px; font-weight: 650; }
+.native-primary { border-color: #224d40; background: #224d40; color: white; }
+.native-button:hover, .native-detail-close:hover { background: #e8f0eb; }
+.native-primary:hover { background: #153e31; }
+.native-field:focus-visible, .native-button:focus-visible, .native-primary:focus-visible, .native-detail-close:focus-visible { outline: 3px solid #46785c; outline-offset: 2px; }
+.native-button:disabled, .native-primary:disabled { opacity: .45; }
+.native-editor { display: grid; gap: 16px; padding: 24px; border: 1px solid #aabfb2; border-radius: 16px; background: white; }
+.native-form-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); }
+.native-form-title { font-size: 22px; font-weight: 700; }
+.native-notice { min-height: 20px; color: #28513e; font-size: 13px; }
+.native-empty { padding: 40px 20px; border: 1px dashed #aabfb2; border-radius: 16px; text-align: center; color: #526b5f; }
+.native-detail { display: grid; gap: 16px; padding: 24px; border: 1px solid #b5c9bd; border-left: 4px solid #387459; border-radius: 16px; background: #edf5ef; }
+.native-detail-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; }
+.native-detail-title { font-size: 22px; font-weight: 700; overflow-wrap: anywhere; }
+.native-detail-meta { font-size: 13px; color: #456451; }
+.native-detail-copy { max-width: 720px; color: #385443; white-space: pre-wrap; overflow-wrap: anywhere; }
+.native-detail-close { padding: 8px 12px; border: 1px solid #aabfb2; border-radius: 8px; background: white; color: #28513e; }

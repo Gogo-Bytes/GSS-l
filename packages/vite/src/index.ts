@@ -324,7 +324,7 @@ export function gss({ adapter }: GssOptions): Plugin {
           return physicalId ? session.getScopeSchema(physicalId) : undefined;
         }
       });
-      reportDiagnostics(this, result.diagnostics);
+      reportDiagnostics(this, result.diagnostics, { id, source });
       sourceDependencies.set(id, new Set(dependencies.values()));
       return { code: result.code, ...(result.map ? { map: JSON.stringify(result.map) } : {}) };
     }

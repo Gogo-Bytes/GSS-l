@@ -1,0 +1,4 @@
+.check:checked + .label { color: blue; }
+.parent > .child { background-color: lightblue; }
+.observer:has(:checked) { color: green; }
+.source ~ .target { color: purple; }

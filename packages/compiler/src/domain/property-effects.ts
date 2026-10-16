@@ -183,6 +183,7 @@ function createPropertyEffects(): Readonly<Record<string, readonly string[]>> {
 const propertyEffects = createPropertyEffects();
 
 export const PROPERTY_EFFECT_INDEPENDENT_PROPERTIES = [
+  'box-shadow',
   'color',
   'content',
   'cursor',
@@ -194,6 +195,7 @@ export const PROPERTY_EFFECT_INDEPENDENT_PROPERTIES = [
   'min-width',
   'max-width',
   'opacity',
+  'outline-offset',
   'position',
   'transform',
   'transform-origin',
@@ -204,8 +206,10 @@ export const PROPERTY_EFFECT_INDEPENDENT_PROPERTIES = [
   'white-space',
   'word-break',
   'overflow-wrap',
+  'letter-spacing',
   'text-align',
   'text-overflow',
+  'text-transform',
   'visibility',
   'z-index'
 ] as const;

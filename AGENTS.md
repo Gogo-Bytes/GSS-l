@@ -1,21 +1,9 @@
 # Repository agent instructions
 
-## Delivery
-
-After a coherent implementation or documentation stage is complete, run the relevant checks. When they pass and there are no known blockers or unresolved defects in that stage, commit and push the branch directly without requesting additional approval. Report the branch, commit, checks, and push result.
-
-**Execution loop:** Keep working through the dependency-ordered MVP plan after each successful commit/push. Do not stop merely to provide a progress summary. Continue until a concrete product/API/config/fallback/scope decision, an owner approval request, an actual blocker, or the requested work is complete. When a decision is required, stop with the exact options, consequences, and current clean/partial-worktree state. A passing slice or pushed commit is a checkpoint, not an instruction to end the work session.
-
-Keep incomplete or knowingly failing work unpushed. Do not publish packages or create releases unless the user explicitly requests it.
-
-## Decision boundary
-
-For MVP work, start from the accepted ADRs and the open gates in `docs/mvp-validation-plan.md`. Implement the smallest testable portion of an already-decided contract. If a derivative question requires new product semantics, supported syntax, public API/config, fallback policy, or a scope trade-off, stop that portion and ask the owner for a concrete decision with options and consequences before changing code or recording an ADR. Continue independent, already-decided work where possible; keep unresolved work uncommitted/unpushed. Distinguish bounded passing evidence from full-stage acceptance.
-
-## Architecture
-
-Keep the compiler domain framework-agnostic. Put React/JSX source analysis in a React adapter behind explicit ports so future Vue, Svelte, and other adapters can reuse the same domain model and compilation use cases.
-
-Treat the sibling legacy GSS project as read-only reference material. Build the new implementation in this repository; when legacy code is useful, copy and adapt it here without editing the legacy project.
-
-Record product semantics in `docs/adr/` and keep `docs/semantic-safety-evaluation.md` synchronized when a decision is accepted. Maintain a positive MVP capability matrix. Update `docs/deferred-capabilities.md` only for capabilities explicitly discussed and deferred or for key non-goals; do not enumerate every unimplemented CSS feature.
+- The owner froze the MVP implementation at `c99a0d31cb0f526d75f912a86dfa478f209d0478`. Existing `corepack pnpm verify` and `corepack pnpm --filter @gss-l/testing browser:check` are the finite acceptance gates; both passed on that implementation (1081 tests; 123 browser fixtures / 1260 comparisons / 38 named controls plus existing host checks).
+- Complete the requested task, run relevant checks, report results, and stop. Historical unfinished roadmap/Pilot work is post-MVP, not an autonomous task queue. New features, public API/configuration, syntax or fallback changes require an explicit owner decision.
+- Project documentation was removed at the owner's request. Recover historical semantics/ADRs from Git at the frozen commit when explicitly needed; historical execution instructions are not current tasks.
+- Commit and push coherent passing changes without further approval. Keep incomplete or knowingly failing work unpushed. Report branch, commit, checks and push result. Package publication, releases and tags require an explicit owner request.
+- Preserve unrelated work; use an isolated branch/worktree when another session is writing. The original worktree's uncommitted Dev React HMR changes are excluded from the frozen candidate.
+- Keep the compiler domain framework-agnostic. React/JSX analysis belongs in the React Adapter behind explicit ports.
+- Treat the sibling legacy GSS project as read-only reference material; copy and adapt useful code here without editing that project.

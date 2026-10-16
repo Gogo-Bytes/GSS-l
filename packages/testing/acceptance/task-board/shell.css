@@ -1,0 +1,18 @@
+/* Shared browser reset and acceptance shell only. No task-board business selectors. */
+* { box-sizing: border-box; }
+body { margin: 0; background: #f3f5f4; color: #20342e; font: 15px/1.5 system-ui, sans-serif; }
+button, input, select, textarea { font: inherit; }
+button, select { cursor: pointer; }
+button:disabled { cursor: not-allowed; }
+h1, h2, h3, p { margin: 0; }
+.shell { max-width: 1240px; margin: auto; padding: 24px 16px 48px; }
+.masthead { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding-bottom: 28px; }
+.wordmark { font-size: 19px; font-weight: 800; letter-spacing: -.5px; }
+.wordmark span { background: #224d40; color: white; padding: 5px 10px; border-radius: 10px; margin-right: 8px; }
+.shell a { color: #285d49; }
+.mode { font-size: 13px; }
+.scope { margin-top: 32px; border-top: 1px solid #ccd8d1; padding-top: 16px; color: #4b6258; font-size: 13px; }
+.scope summary { cursor: pointer; font-weight: 650; }
+.scope ul { padding-left: 20px; }
+.scope li { margin: 12px 0; }
+.scope code { overflow-wrap: anywhere; }

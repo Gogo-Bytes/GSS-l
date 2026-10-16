@@ -13,6 +13,8 @@ const traverse = (
 ) as unknown as (node: t.Node, options?: TraverseOptions) => void;
 
 export type ReactScopeSchema = {
+  /** Compiler module identity; absent in legacy schema views, so provenance is unknown. */
+  moduleId?: string;
   exports: Readonly<Record<string, ReactScopeNodeSchema>>;
 };
 
@@ -22,12 +24,13 @@ export type ReactScopeNodeSchema = {
 
 export type ReactGssDiagnostic = {
   code: string;
-  severity: 'error';
+  severity: 'error' | 'warning';
   phase: 'transform';
   message: string;
   id: string;
   reason: string;
   suggestion?: string;
+  range?: { start: number; end: number };
 };
 
 export type TransformReactGssUsageInput = {
@@ -79,12 +82,30 @@ export function transformReactGssUsage(
   const typedPropReferences = resolveTypedPropMemberReferences(ast, bindings);
   const output = new MagicString(input.source);
 
-  visit(ast.program, (node) => {
+  visitWithParent(ast.program, undefined, (node, parent) => {
     if (
       !t.isJSXAttribute(node) ||
       !t.isJSXIdentifier(node.name, { name: 'className' }) ||
       !t.isJSXExpressionContainer(node.value)
     ) return;
+
+    if (
+      t.isJSXOpeningElement(parent) && t.isJSXIdentifier(parent.name) &&
+      /^[a-z]/.test(parent.name.name) &&
+      definiteClassModules(node.value.expression, verifiedBindings).size > 1
+    ) {
+      diagnostics.push({
+        code: 'GSS2107',
+        severity: 'warning',
+        phase: 'transform',
+        message: 'Same-element className composition from multiple GSS modules is unsupported; there is no cross-module precedence guarantee.',
+        id: input.id,
+        reason: 'cross-module-class-composition',
+        suggestion: 'Use scopes from one GSS module on this element.',
+        ...(node.start != null && node.end != null
+          ? { range: { start: node.start, end: node.end } } : {})
+      });
+    }
 
     visitWithParent(node.value.expression, undefined, (expression, parent) => {
       if (t.isIdentifier(expression)) {
@@ -186,6 +207,48 @@ export function transformReactGssUsage(
     map: output.generateMap({ source: input.id, includeContent: true, hires: true }),
     diagnostics
   };
+}
+
+/** Only string composition with definite, schema-backed provenance, never arbitrary calls. */
+function definiteClassModules(
+  expression: t.Node,
+  bindings: WeakMap<t.MemberExpression, GssBinding>
+): ReadonlySet<string> {
+  if (t.isMemberExpression(expression)) {
+    const binding = bindings.get(expression);
+    const reference = readStaticReference(expression);
+    const path = reference?.path.at(-1) === 'self' ? reference.path.slice(0, -1) : reference?.path;
+    if (binding?.schema.moduleId && path && resolveScopePath(binding.schema, path)) {
+      return new Set([binding.schema.moduleId]);
+    }
+  }
+  if (t.isBinaryExpression(expression, { operator: '+' })) {
+    return new Set([
+      ...definiteClassModules(expression.left, bindings),
+      ...definiteClassModules(expression.right, bindings)
+    ]);
+  }
+  if (t.isTemplateLiteral(expression)) {
+    return new Set(expression.expressions.flatMap((part) => [...definiteClassModules(part, bindings)]));
+  }
+  if (
+    t.isCallExpression(expression) &&
+    t.isMemberExpression(expression.callee) && !expression.callee.computed &&
+    t.isIdentifier(expression.callee.property, { name: 'join' }) &&
+    t.isArrayExpression(expression.callee.object) &&
+    expression.arguments.length === 1 && t.isStringLiteral(expression.arguments[0], { value: ' ' })
+  ) {
+    const elements = expression.callee.object.elements;
+    // A literal list only: unknown values/spreads/calls cannot establish join semantics.
+    if (elements.every((element) => element && (
+      t.isStringLiteral(element) ||
+      (t.isMemberExpression(element) && definiteClassModules(element, bindings).size === 1)
+    ))) {
+      return new Set(elements.flatMap((element) => [...definiteClassModules(element!, bindings)]));
+    }
+  }
+  // Conditional/logical branches, aliases, typed props and arbitrary calls are not proof.
+  return new Set();
 }
 
 function collectGssBindings(
@@ -576,19 +639,6 @@ function visitWithParent(
       for (const item of child) if (t.isNode(item)) visitWithParent(item, node, callback);
     } else if (t.isNode(child)) {
       visitWithParent(child, node, callback);
-    }
-  }
-}
-
-function visit(node: t.Node, callback: (node: t.Node) => void): void {
-  callback(node);
-  const keys = t.VISITOR_KEYS[node.type] ?? [];
-  for (const key of keys) {
-    const child = node[key as keyof t.Node] as unknown;
-    if (Array.isArray(child)) {
-      for (const item of child) if (t.isNode(item)) visit(item, callback);
-    } else if (t.isNode(child)) {
-      visit(child, callback);
     }
   }
 }

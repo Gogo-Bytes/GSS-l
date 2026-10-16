@@ -15,9 +15,19 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p playground/tsconfig.json && tsc -p acceptance/task-board/tsconfig.json && tsc -p acceptance/article/tsconfig.json",
     "browser:reference": "vite browser --host 127.0.0.1 --port 4178 --strictPort",
-    "browser:check": "node browser/check.mjs"
+    "browser:check": "node browser/check.mjs",
+    "playground": "vite playground",
+    "playground:build": "vite build playground",
+    "playground:preview": "vite preview playground",
+    "playground:check": "node playground/check.mjs",
+    "task-board": "vite acceptance/task-board",
+    "task-board:build": "vite build acceptance/task-board",
+    "task-board:check": "node acceptance/task-board/check.mjs",
+    "article": "vite acceptance/article",
+    "article:build": "vite build acceptance/article",
+    "article:check": "node acceptance/article/check.mjs"
   },
   "dependencies": {
     "postcss": "^8.4.49",
@@ -27,7 +37,11 @@
     "@gss-l/compiler": "workspace:*",
     "@gss-l/react": "workspace:^",
     "@gss-l/vite": "workspace:^",
+    "@types/node": "^22.20.4",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
     "playwright": "1.58.2",
+    "pngjs": "7.0.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "vite": "^7.3.6"

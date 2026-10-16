@@ -1,0 +1,2 @@
+.editor { color: blue; }
+.editor:global(.focused) { color: red; }

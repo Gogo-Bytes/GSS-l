@@ -1,0 +1,6 @@
+@property --playground-live-tone { syntax: "<color>"; inherits: true; initial-value: purple; }
+@keyframes pulse { from { opacity: 0.25; } to { opacity: 1; } }
+.provider { --playground-live-tone: blue; }
+.provider .inherited { color: var(--playground-live-tone); }
+.motion { animation-name: pulse; animation-duration: 2s; animation-play-state: paused; }
+.asset { background-image: url("./badge.svg"); width: 72px; height: 40px; }
