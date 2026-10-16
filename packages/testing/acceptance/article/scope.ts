@@ -1,5 +1,5 @@
 export const scope = [
-  { feature: '已知作者约束', exercised: '初稿 hover 与 pressed 同时修改背景，被 GSS1205 拒绝；经批准改为 hover 边框、pressed 背景，保留键盘焦点。', limitation: '初稿未原样通过；不支持任意共激活状态的覆盖优先级。原始输入与诊断保存在 artifacts/article-rendering。' },
+  { feature: '已知作者约束', exercised: '初稿 hover 与 pressed 背景曾被 GSS1205 拒绝；现已通过模块内原子等级支持该初稿。此页面仍保留经批准的 hover 边框、pressed 背景设计。', limitation: '原始输入已作为 atom-ranks/article-original.gss 固定并单独验收。仅限同模块当前节点、无层/条件包装的 background-color 与简单 hover/focus/等值属性；不支持任意状态或同节点跨模块优先级。' },
   { feature: '阅读与讨论', exercised: '原创中英混排文章、原生继承、嵌套有序/无序列表、引语前后伪元素；字号/色调、展开、回复、空白保护与取消焦点。', limitation: '仅本地 React 状态；无后端、持久化、富文本或既有评论编辑。刷新重置。' },
   { feature: '独立样式对照', exercised: '业务样式来自 Article.gss，通过公开 React/Vite 集成与显式 .self 引用；原生版本使用手写语义 CSS。', limitation: '共享 React 标记、内容与状态，不是独立业务实现；检查器另有明确交互预期。shell.css 只设置页面环境，不承载业务样式。' },
   { feature: '编译记录', exercised: '检查器保存真实 manifest/report、atomic/preserved 数量及 fallback 原因。', limitation: '仅当前模块和已有语法；不宣称任意 CSS 支持或体积收益。与工作台一致，隔离消费者使用通配 GSS 类型并关闭 noUncheckedIndexedAccess，不宣称逐文件类型安全。' },

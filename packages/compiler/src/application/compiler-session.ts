@@ -17,6 +17,7 @@ import {
 } from './name-allocator.js';
 import { classifyPropertyEffect, isRegisteredPropertyEffect } from '../domain/property-effects.js';
 import { planDescendantConditions } from '../domain/plan-descendant-conditions.js';
+import { supportsCurrentBackgroundRanks } from '../domain/module-local-atom-ranks.js';
 import { planStructuralRelations } from '../domain/plan-structural-relations.js';
 import { resolveTargetDeclarations } from '../domain/resolve-target-declarations.js';
 import { compareRuleOrder } from '../domain/rule-order-planner.js';
@@ -497,7 +498,8 @@ function prepareContribution(
   );
   const hasDescendantConditions = contextualRules.length > 0 || descendantRules.some((rule) => !isPureOwnershipRule(rule));
   const declaredPaths = semanticRules.flatMap(({ path }) => path.map((_, index) => path.slice(0, index + 1)));
-  const plannedDescendants = hasDescendantConditions ? planDescendantConditions(descendantRules, declaredPaths) : undefined;
+  const plannedDescendants = hasDescendantConditions ? planDescendantConditions(descendantRules, declaredPaths,
+    (target) => supportsCurrentBackgroundRanks(semanticRules, target)) : undefined;
   if (plannedDescendants?.ambiguity) return { diagnostics: [{
       code: 'GSS1205', severity: 'error', phase: 'resolve', id: input.id,
       reason: 'ambiguous-coactive-state-conflict', message: plannedDescendants.ambiguity
@@ -614,6 +616,7 @@ function prepareContribution(
         for (const declaration of instance.declarations) {
           const identity: PureDeclarationIdentity = {
             layer, condition, state: attribute ? canonicalAttributeCondition(attribute) : states.join(':') || 'self',
+            ...(instance.atomRanks?.has(declaration) ? { atomRank: instance.atomRanks.get(declaration)! } : {}),
             property: declaration.property, ...identifyAssetValue(declaration.value, bindings), important: declaration.important,
             ...(rule.path.length > 1 ? { ownership: { moduleId, path: targetPath, specificity: rule.path.length } } : {})
           };
@@ -1696,6 +1699,7 @@ function serializeIdentity(identity: PlannedDeclaration['identity']): string {
     identity.ownership,
     identity.property,
     identity.value,
-    identity.important
+    identity.important,
+    ...(identity.atomRank === undefined ? [] : [identity.atomRank])
   ]);
 }

@@ -8,7 +8,7 @@ import { compareCodeUnits } from './compare-code-units.js';
 
 export type OrderableRule = {
   className: string;
-  identity: { property: string };
+  identity: { property: string; atomRank?: number };
   layer?: string;
   relationRank?: number;
   wrappers?: readonly OrderableCondition[];
@@ -38,6 +38,11 @@ export function compareRuleOrder(
 
   const conditions = compareConditions(left.wrappers ?? [], right.wrappers ?? [], config);
   if (conditions !== 0) return conditions;
+
+  // Version order precedes predicate/implication order. Specificity and importance
+  // stay in native selectors/declarations; only complete local tie groups are versioned.
+  const atomRank = (left.identity.atomRank ?? 0) - (right.identity.atomRank ?? 0);
+  if (atomRank !== 0) return atomRank;
 
   const relation = (left.relationRank ?? 0) - (right.relationRank ?? 0);
   if (relation !== 0) return relation;
