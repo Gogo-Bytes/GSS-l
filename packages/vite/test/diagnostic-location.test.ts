@@ -243,3 +243,43 @@ it('locates a failed cached production refresh and recovers on a later watch bui
   await writeFile(id, '.card { future-paint: green; }');
   await recovery;
 }, 15000);
+
+it('surfaces same-element module mixing as a located warning in dev/build and retains runtime classes', async () => {
+  const { root, server } = await fixture('.card { color: red; }');
+  await writeFile(`${root}/Other.gss`, '.other { color: blue; }');
+  const source = `import styles from './Card.gss';
+import other from './Other.gss';
+const React = { createElement: (_tag, props) => props };
+export const classes = [styles.card.self, other.other.self];
+export const Card = () => <div className={styles.card.self + ' ' + other.other.self} />;`;
+  await writeFile(`${root}/Card.tsx`, source);
+  const warn = vi.spyOn(server.config.logger, 'warn');
+  const send = vi.spyOn(server.environments.client.hot, 'send');
+  const transformed = await server.transformRequest('/Card.tsx');
+  expect(transformed!.code).toContain('styles.card.self + " " + other.other.self');
+  expect(warn.mock.calls.some(([message]) => message.includes('[GSS2107]'))).toBe(true);
+  expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'error' }));
+  const runtime = await server.ssrLoadModule('/Card.tsx');
+  expect(runtime.classes.every((value: string) => value.length > 0)).toBe(true);
+  expect(runtime.Card().className).toBe(runtime.classes.join(' '));
+
+  const warnings: Rollup.RollupLog[] = [];
+  const output = await build({ root, configFile: false, plugins: [gss({ adapter: react() })], logLevel: 'silent',
+    build: { write: false, minify: false, rollupOptions: { input: `${root}/Card.tsx`, preserveEntrySignatures: 'strict',
+      onwarn(warning) { warnings.push(warning); } } }
+  });
+  const mixing = warnings.filter(({ message }) => message.includes('[GSS2107]'));
+  expect(mixing).toHaveLength(1);
+  expect(mixing[0]).toMatchObject({
+    id: `${root}/Card.tsx`, pluginCode: 'GSS2107', severity: 'warning',
+    loc: { file: `${root}/Card.tsx`, line: 5, column: 31 },
+    frame: expect.stringContaining("className={styles.card.self + ' ' + other.other.self}")
+  });
+  if (Array.isArray(output) || !('output' in output)) throw new Error('Expected one build output.');
+  const chunk = output.output.find((item) => item.type === 'chunk')!;
+  if (chunk.type !== 'chunk') throw new Error('Expected JS output.');
+  const built = await import(`data:text/javascript;base64,${Buffer.from(chunk.code).toString('base64')}`);
+  expect(built.classes).toEqual(runtime.classes);
+  expect(built.Card().className).toBe(runtime.classes.join(' '));
+  expect(output.output.some((item) => item.type === 'asset' && item.fileName.endsWith('.css'))).toBe(true);
+});

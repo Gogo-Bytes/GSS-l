@@ -126,6 +126,7 @@ export const adapterTitles: Record<string, string> = {
   'conditional-alias': '全 scope 的条件分支', 'destructured-alias': '从已知 scope 解构属性',
   'local-typed-prop': '本地类型别名与 typed prop', 'inline-typed-prop': '内联 typed prop',
   'props-member': '直接读取 props.scope', 'explicit-self': '显式 .self 不会重复转换',
+  'cross-module-warning': '同一元素跨 Module 组合：警告而非错误',
   'unknown-path': '未知路径的诊断', 'mutable-alias': '可变 alias 的诊断',
   'mixed-alias': 'scope / 字符串混合分支的诊断', 'string-coercion': '隐式字符串强制转换的诊断',
   'alias-member-boundary': '已知限制：alias 成员不会自动转换'

@@ -126,6 +126,10 @@ async function explorerChecks() {
   await page.getByTestId('adapter-status').waitFor();
   await page.getByTestId('adapter-select').selectOption('mutable-alias');
   assert.match(await page.getByTestId('adapter-diagnostics').textContent(), /GSS2103/);
+  await page.getByTestId('adapter-select').selectOption('cross-module-warning');
+  assert.match(await page.getByTestId('adapter-diagnostics').textContent(), /warning · GSS2107/);
+  assert.match(await page.getByTestId('adapter-mixing-note').textContent(), /动态字符串/);
+  assert.equal(await page.getByTestId('adapter-status').getAttribute('data-state'), 'passed');
   await page.getByTestId('adapter-select').selectOption('alias-member-boundary');
   assert.equal(await page.getByTestId('adapter-status').getAttribute('data-state'), 'boundary');
   await page.getByTestId('nav-live').click();
