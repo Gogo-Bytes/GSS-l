@@ -25,14 +25,14 @@ it('orders distinct Unicode Module origins independent of registration order', (
   expect(origins([...ids].reverse())).toEqual(expected);
 });
 
-it('records every contributing declaration of a shared atom in one Module', () => {
+it('records every contributing declaration of occurrence-versioned atoms in one Module', () => {
   const session = createGssCompilerSession({ projectRoot: '/project' });
   const source = '.a { color: red; } .b { color: red; }';
   expect(session.replaceStylesheet({ id: '/project/card.gss', source }).committed).toBe(true);
   const snapshot = session.finalize();
-  expect(snapshot.manifest.rules).toHaveLength(1);
+  expect(snapshot.manifest.rules).toHaveLength(2);
   const positions = [...source.matchAll(/color: red;/g)].map((match) => match.index);
-  expect(snapshot.manifest.rules[0]?.origins).toEqual(positions.map((start) => ({
+  expect(snapshot.manifest.rules.flatMap((rule) => rule.origins)).toEqual(positions.map((start) => ({
     moduleId: 'card.gss', range: { start, end: start + 'color: red;'.length }
   })));
   expect(snapshot.manifest.rules[0]?.sources).toEqual(['card.gss']);

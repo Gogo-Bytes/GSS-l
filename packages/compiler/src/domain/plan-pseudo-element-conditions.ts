@@ -9,7 +9,7 @@ type PseudoRule = DescendantRule & {
  * A declared runtime path supplies a terminal name, not proof of descendant ancestry. */
 export function planPseudoElementConditions<R extends PseudoRule>(
   semanticRules: readonly R[]
-): { instances: DescendantInstance<R>[]; ambiguity?: string } {
+): { instances: DescendantInstance<R>[]; candidates: DescendantInstance<R>[]; ambiguity?: string } {
   const groups = new Map<string, R[]>();
   for (const rule of semanticRules) {
     const subject = rule.pseudoElements.at(-1);
@@ -18,6 +18,7 @@ export function planPseudoElementConditions<R extends PseudoRule>(
     groups.set(key, [...(groups.get(key) ?? []), rule]);
   }
   const instances: DescendantInstance<R>[] = [];
+  const candidates: DescendantInstance<R>[] = [];
   for (const groupedRules of groups.values()) {
     const first = groupedRules[0]!;
     const targets = new Map<string, { path: readonly string[]; ownership: boolean }>();
@@ -31,11 +32,12 @@ export function planPseudoElementConditions<R extends PseudoRule>(
       });
     }
     for (const { path, ownership } of targets.values()) {
-      const candidates = ownership ? groupedRules : groupedRules.filter((rule) => rule.path.length === 1);
-      const planned = planDescendantConditions(candidates, [path]);
-      if (planned.ambiguity) return { instances: [], ambiguity: `${planned.ambiguity} Subject ::${first.pseudoElements.at(-1)}.` };
+      const applicable = ownership ? groupedRules : groupedRules.filter((rule) => rule.path.length === 1);
+      const planned = planDescendantConditions(applicable, [path]);
+      if (planned.ambiguity) return { instances: [], candidates: [], ambiguity: `${planned.ambiguity} Subject ::${first.pseudoElements.at(-1)}.` };
       instances.push(...planned.instances);
+      candidates.push(...planned.candidates);
     }
   }
-  return { instances };
+  return { instances, candidates };
 }

@@ -36,9 +36,9 @@ describe('rank closure, isolation and reuse through the public session', () => {
     expect(session.finalize().manifest.rules.every((rule) => rule.important)).toBe(true);
   });
 
-  it('leaves asymmetric importance and stronger specificity unversioned', () => {
+  it('preserves asymmetric importance and stronger specificity while versioning competing normal effects', () => {
     const session = compile(forward.replace('red;', 'red !important;') + ' .root .button:focus { background-color: green; }');
-    expect(session.finalize().css).not.toContain('--rank_');
+    expect(session.finalize().css).toContain('--rank_');
     const strong = session.finalize().manifest.rules.find((rule) => rule.value === 'green')!;
     expect(strong.selector.split(`.${strong.className}`).length - 1).toBe(2);
     expect(session.finalize().manifest.rules.find((rule) => rule.value === 'red')!.important).toBe(true);
@@ -53,16 +53,16 @@ describe('rank closure, isolation and reuse through the public session', () => {
     expect(rules.at(-1)!.selector).toBe(`.${rules.at(-1)!.className}.${rules.at(-1)!.className}`);
   });
 
-  it('isolates opposite target orders and shares identical semantics plus rank, not unconflicted atoms', () => {
+  it('orders module-wide occurrences without conflating repeated semantics at later ordinals', () => {
     const source = forward.replaceAll('button', 'a') + reverse.replaceAll('button', 'b') +
       forward.replaceAll('button', 'same') + '.alone:hover { background-color: red; }';
     const session = compile(source);
     expect(values(session, 'a')).toEqual(['red', 'blue']);
     expect(values(session, 'b')).toEqual(['blue', 'red']);
     const schema = session.getScopeSchema('/project/A.gss')!;
-    expect(schema.exports.a!.selfClassName).toBe(schema.exports.same!.selfClassName);
-    expect(schema.exports.alone!.selfClassName).not.toContain('--rank_');
-    expect(session.finalize().manifest.rules).toHaveLength(5);
+    expect(schema.exports.a!.selfClassName).not.toBe(schema.exports.same!.selfClassName);
+    expect(schema.exports.alone!.selfClassName).toContain('--rank_');
+    expect(session.finalize().manifest.rules).toHaveLength(7);
   });
 
   it('keeps version identities stable when unrelated rules shift authored ordinals', () => {
@@ -119,7 +119,8 @@ describe.each(['error', 'preserve-module'] as const)('bounded rank rejection und
     expect(session.replaceStylesheet({ id: '/project/A.gss', source:
       `.button:hover { background-color: red; } .root :global([aria-pressed="true"]) { ${property}: green; }`
     })).toMatchObject({ committed: true, diagnostics: [] });
-    expect(session.finalize().css).not.toContain('--rank_');
+    expect(session.finalize().css).toContain('--rank_');
+    expect(session.finalize().manifest.rules.map((rule) => rule.value)).toEqual(['red', 'green']);
   });
 
   it('preserves the earlier external-selector validation diagnostic', () => {

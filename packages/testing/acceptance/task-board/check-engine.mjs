@@ -266,7 +266,7 @@ try {
   const fallbackReasons = manifest.compiler.moduleDetails.flatMap((module) => module.fallbackReasons);
   assert.deepEqual(fallbackReasons, []);
   assert.deepEqual(manifest.compiler.preservedRules, []);
-  assert.equal(manifest.compiler.rules.length, 86);
+  assert.equal(manifest.compiler.rules.length, 162);
   for (const property of ['box-shadow', 'letter-spacing', 'text-transform', 'outline-offset']) {
     assert.ok(manifest.compiler.rules.some((rule) => rule.property === property), `Missing atomic effect: ${property}`);
   }

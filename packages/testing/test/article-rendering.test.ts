@@ -14,7 +14,8 @@ describe('article rendering business input', () => {
     });
     const { manifest, report } = session.finalize();
     expect(manifest.modules).toEqual(['Article.gss']);
-    expect(manifest.rules).toHaveLength(98);
+    // Original business input is unchanged; module-occurrence versions reduce sharing.
+    expect(manifest.rules).toHaveLength(147);
     expect(manifest.preservedRules).toEqual([]);
     expect(report).toMatchObject({ atomicModules: 1, preservedModules: 0, atomicCoverage: 1 });
     for (const property of ['content', 'list-style-type', 'list-style-position', 'overflow-wrap', 'font-family', 'letter-spacing']) {

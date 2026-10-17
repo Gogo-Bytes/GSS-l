@@ -39,8 +39,9 @@ export function compareRuleOrder(
   const conditions = compareConditions(left.wrappers ?? [], right.wrappers ?? [], config);
   if (conditions !== 0) return conditions;
 
-  // Version order precedes predicate/implication order. Specificity and importance
-  // stay in native selectors/declarations; only complete local tie groups are versioned.
+  // Module effect-family versions already encode proved semantic height then
+  // authored occurrence. Specificity and importance stay native; relationRank
+  // is only a residual order for unversioned or equal-version emissions.
   const atomRank = (left.identity.atomRank ?? 0) - (right.identity.atomRank ?? 0);
   if (atomRank !== 0) return atomRank;
 

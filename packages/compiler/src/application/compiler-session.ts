@@ -18,6 +18,7 @@ import {
 import { classifyPropertyEffect, isRegisteredPropertyEffect } from '../domain/property-effects.js';
 import { planDescendantConditions } from '../domain/plan-descendant-conditions.js';
 import { supportsCurrentBackgroundRanks } from '../domain/module-local-atom-ranks.js';
+import { planFixedModuleRanks } from '../domain/fixed-module-ranks.js';
 import { planStructuralRelations } from '../domain/plan-structural-relations.js';
 import { resolveTargetDeclarations } from '../domain/resolve-target-declarations.js';
 import { compareRuleOrder } from '../domain/rule-order-planner.js';
@@ -55,6 +56,7 @@ type ContextualDeclarationIdentity = ContextualRelationIdentity & {
   value: string;
   assetValue?: true;
   important: boolean;
+  atomRank?: number;
 };
 
 type ObservedDeclarationIdentity = ObservedRelationIdentity & {
@@ -62,6 +64,7 @@ type ObservedDeclarationIdentity = ObservedRelationIdentity & {
   value: string;
   assetValue?: true;
   important: boolean;
+  atomRank?: number;
 };
 
 type PlannedDeclaration = {
@@ -582,6 +585,24 @@ function prepareContribution(
     });
   }
 
+  const moduleRanks = planFixedModuleRanks(semanticRules, [
+    ...(plannedDescendants ?? planDescendantConditions(descendantRules, declaredPaths)).candidates,
+    ...plannedStructural.instances,
+    ...plannedPseudos.candidates,
+    ...[...sameNodeRules, ...externalRules].map((rule) => ({
+      rule, targetPath: rule.path, sourceIndex: -1, specificity: rule.path.length,
+      relationRank: 0, declarations: rule.declarations
+    })),
+    ...hasRules.flatMap((rule) => rule.observations.at(-1)!.map((observation) => ({
+      rule, observation, targetPath: rule.path, sourceIndex: -1, specificity: rule.path.length,
+      relationRank: 0, declarations: rule.declarations
+    })))
+  ]);
+  const rankIdentity = (declaration: ParsedDeclaration, rule: ParsedStyleRule, target: readonly string[], source?: readonly string[], observation?: ParsedHasCondition) => {
+    const atomRank = moduleRanks.get(declaration, rule, target, source, observation);
+    return atomRank === undefined ? {} : { atomRank };
+  };
+
   if (plannedDescendants) {
     for (const rule of localRules) ensureScopePath(roots, rule.path);
     for (const instance of plannedStructural.descendants) {
@@ -609,14 +630,14 @@ function prepareContribution(
         const selector = `.${sourceMarker}${suffix} ${`.${targetMarker}`.repeat(rule.path.length - 1)}`;
         for (const declaration of instance.declarations) rules.push({
           kind: 'contextual-atom', className: targetMarker, selector, wrappers, layer, relationRank,
-          source: declaration.source, identity: { ...relationIdentity, property: declaration.property,
+          source: declaration.source, identity: { ...relationIdentity, ...rankIdentity(declaration, rule, targetPath, sourcePath), property: declaration.property,
             ...identifyAssetValue(declaration.value, bindings), important: declaration.important }
         });
       } else {
         for (const declaration of instance.declarations) {
           const identity: PureDeclarationIdentity = {
             layer, condition, state: attribute ? canonicalAttributeCondition(attribute) : states.join(':') || 'self',
-            ...(instance.atomRanks?.has(declaration) ? { atomRank: instance.atomRanks.get(declaration)! } : {}),
+            ...rankIdentity(declaration, rule, targetPath, sourcePath),
             property: declaration.property, ...identifyAssetValue(declaration.value, bindings), important: declaration.important,
             ...(rule.path.length > 1 ? { ownership: { moduleId, path: targetPath, specificity: rule.path.length } } : {})
           };
@@ -642,11 +663,12 @@ function prepareContribution(
       .flatMap(({ path }) => path.map((_, index) => path.slice(0, index + 1)));
     for (const target of resolveTargetDeclarations(groupedRules, declaredPaths)) {
       const scope = ensureScopePath(roots, target.path);
-      for (const declaration of target.declarations) {
+      for (const { rule, declaration } of target.occurrences) {
         const identity: PureDeclarationIdentity = {
           layer,
           condition,
           state: 'self',
+          ...rankIdentity(declaration, rule, target.path),
           property: declaration.property,
           ...identifyAssetValue(declaration.value, bindings),
           important: declaration.important
@@ -670,7 +692,7 @@ function prepareContribution(
   for (const rule of localRules) {
     if (isPseudoElementRule(rule)) ensureScopePath(roots, rule.path);
   }
-  for (const { rule, targetPath, declarations, relationRank } of plannedPseudos.instances) {
+  for (const { rule, targetPath, sourcePath, declarations, relationRank } of plannedPseudos.instances) {
     const pseudoElement = rule.pseudoElements.at(-1)!;
     const state = rule.states.at(-1)!.join(':') || 'self';
     const wrappers = rule.conditions;
@@ -680,6 +702,7 @@ function prepareContribution(
     for (const declaration of declarations) {
       const identity: PureDeclarationIdentity = {
         layer, condition, state, pseudoElement,
+        ...rankIdentity(declaration, rule, targetPath, sourcePath),
         property: declaration.property,
         ...identifyAssetValue(declaration.value, bindings),
         important: declaration.important,
@@ -743,6 +766,7 @@ function prepareContribution(
       for (const declaration of rule.declarations) {
         const identity: ObservedDeclarationIdentity = {
           ...relationIdentity,
+          ...rankIdentity(declaration, rule, rule.path, undefined, observation),
           property: declaration.property,
           ...identifyAssetValue(declaration.value, bindings),
           important: declaration.important
@@ -811,6 +835,7 @@ function prepareContribution(
     for (const declaration of declarations) {
       const identity: ContextualDeclarationIdentity = {
         ...relationIdentity,
+        ...rankIdentity(declaration, rule, rule.path, sourcePath),
         property: declaration.property,
         ...identifyAssetValue(declaration.value, bindings),
         important: declaration.important
@@ -850,6 +875,7 @@ function prepareContribution(
       const identity: PureDeclarationIdentity = {
         layer: rule.layer, condition: canonicalCondition(rule.conditions),
         state: `external-condition:${rule.externalCondition!}`,
+        ...rankIdentity(declaration, rule, rule.path),
         ownership: { moduleId, path: rule.path, specificity: rule.path.length },
         property: declaration.property,
         ...identifyAssetValue(declaration.value, bindings),
@@ -891,6 +917,7 @@ function prepareContribution(
       const identity: PureDeclarationIdentity = {
         layer: rule.layer, condition: canonicalCondition(rule.conditions),
         state: `external:${rule.externalTarget!}`,
+        ...rankIdentity(declaration, rule, rule.path),
         ownership: { moduleId, path: rule.path, specificity: rule.path.length },
         property: declaration.property,
         ...identifyAssetValue(declaration.value, bindings),
@@ -1670,7 +1697,8 @@ function serializeIdentity(identity: PlannedDeclaration['identity']): string {
       identity.observedResidual,
       identity.property,
       identity.value,
-      identity.important
+      identity.important,
+      ...(identity.atomRank === undefined ? [] : [identity.atomRank])
     ]);
   }
   if ('relations' in identity) {
@@ -1687,7 +1715,8 @@ function serializeIdentity(identity: PlannedDeclaration['identity']): string {
       identity.authoredPath,
       identity.property,
       identity.value,
-      identity.important
+      identity.important,
+      ...(identity.atomRank === undefined ? [] : [identity.atomRank])
     ]);
   }
   return JSON.stringify([

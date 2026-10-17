@@ -18,8 +18,6 @@ export type DescendantInstance<R extends DescendantRule> = {
   sourceIndex: number;
   specificity: number;
   relationRank: number;
-  /** Present only for newly admitted local background ties; keyed by retained declaration. */
-  atomRanks?: ReadonlyMap<R['declarations'][number], number>;
   declarations: R['declarations'];
 };
 
@@ -66,7 +64,8 @@ function exclusive<R extends DescendantRule>(a: DescendantInstance<R>, b: Descen
 export function planDescendantConditions<R extends DescendantRule>(
   rules: readonly R[], declaredPaths: readonly (readonly string[])[],
   canRankTarget: (target: readonly string[]) => boolean = () => false
-): { instances: DescendantInstance<R>[]; ambiguity?: string } {
+): { instances: DescendantInstance<R>[]; candidates: DescendantInstance<R>[]; ambiguity?: string } {
+  const allCandidates: DescendantInstance<R>[] = [];
   const paths = new Map(declaredPaths.map((path) => [JSON.stringify(path), path]));
   const instances: DescendantInstance<R>[] = [];
   for (const targetPath of paths.values()) {
@@ -82,6 +81,7 @@ export function planDescendantConditions<R extends DescendantRule>(
           relationRank: states.length + attributes.length, declarations: rule.declarations });
       }
     }
+    allCandidates.push(...candidates);
     const groups = new Map<string, DescendantInstance<R>[]>();
     for (const candidate of candidates) {
       const key = JSON.stringify([candidate.rule.layer, candidate.rule.conditions, candidate.sourcePath, predicate(candidate)]);
@@ -103,8 +103,6 @@ export function planDescendantConditions<R extends DescendantRule>(
         if (declarations.length) retained.push({ ...instance, declarations });
       }
     }
-    const rankedGroups = new Set<string>();
-    const rankGroup = (instance: DescendantInstance<R>, important: boolean) => JSON.stringify([instance.specificity, important]);
     for (let i = 0; i < retained.length; i++) {
       const left = retained[i]!;
       for (const right of retained.slice(i + 1)) {
@@ -121,27 +119,15 @@ export function planDescendantConditions<R extends DescendantRule>(
                 (Number(declaration.important) > Number(a.important) ||
                   (declaration.important === a.important && candidate.specificity > left.specificity))));
             if (!intersection) {
-              if (effect === 'background-color' && canRankTarget(targetPath)) rankedGroups.add(rankGroup(left, a.important));
-              else return { instances: [], ambiguity: `Coactive descendant conditions assign ambiguous ${effect} on ${targetPath.join('.')}.` };
+              if (!(effect === 'background-color' && canRankTarget(targetPath))) return { instances: [], candidates: [], ambiguity: `Coactive descendant conditions assign ambiguous ${effect} on ${targetPath.join('.')}.` };
             }
           }
         }
       }
     }
-    // Include every surviving competitor in each newly admitted tie domain, not
-    // just the pair that triggered admission. Ranks never cross target or module.
-    for (const group of rankedGroups) {
-      const declarations = retained.flatMap((instance) => instance.declarations.flatMap((declaration, index) =>
-        declaration.property === 'background-color' && rankGroup(instance, declaration.important) === group
-          ? [{ instance, declaration, index }] : []));
-      declarations.sort((a, b) => a.instance.rule.sourceOrdinal - b.instance.rule.sourceOrdinal || a.index - b.index);
-      declarations.forEach(({ instance, declaration }, index) => {
-        instance.atomRanks = new Map([...(instance.atomRanks ?? []), [declaration, index + 1]]);
-      });
-    }
     instances.push(...retained);
   }
-  return { instances };
+  return { instances, candidates: allCandidates };
 }
 
 function compare<R extends DescendantRule>(a: DescendantInstance<R>, ai: number, b: DescendantInstance<R>, bi: number) {

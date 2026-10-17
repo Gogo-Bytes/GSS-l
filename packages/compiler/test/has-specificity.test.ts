@@ -52,10 +52,10 @@ describe('observed selector-list specificity', () => {
     expect(subject).toBeDefined();
     expect(observed).toBeDefined();
     const errorRules = redRules.filter((rule) => rule.includes(`:has(:where(.${observed}))`));
-    expect(errorRules).toHaveLength(2);
+    expect(errorRules).toHaveLength(3);
     expect(errorRules.some((rule) => rule.includes(`${`.${subject}`.repeat(2)}:has`))).toBe(true);
     expect(errorRules.some((rule) => rule.includes(`${`.${subject}`.repeat(3)}:has`))).toBe(true);
-    expect(redRules).toHaveLength(4);
+    expect(redRules).toHaveLength(6);
     expect(css).toContain('color: blue;');
   });
 
