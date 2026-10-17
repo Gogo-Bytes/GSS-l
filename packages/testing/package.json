@@ -27,7 +27,8 @@
     "task-board:check": "node acceptance/task-board/check.mjs",
     "article": "vite acceptance/article",
     "article:build": "vite build acceptance/article",
-    "article:check": "node acceptance/article/check.mjs"
+    "article:check": "node acceptance/article/check.mjs",
+    "atom-ranks:check": "node acceptance/atom-ranks/check.mjs"
   },
   "dependencies": {
     "postcss": "^8.4.49",

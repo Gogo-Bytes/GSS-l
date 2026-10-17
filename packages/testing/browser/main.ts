@@ -345,7 +345,10 @@ async function run() {
       difference.atomic === 'rgb(255, 0, 0)') &&
     sameNodeDifferences.some((difference) => difference.node === 'editor-focused' &&
       difference.phase === 'owned-focus-removed');
-  const refinementFixture = fixtures.find((fixture) => fixture.name === 'same-node-refinement-base-first')!;
+  // Keep this corruption sensitive to lost native specificity: the weaker base
+  // must be authored later now that equal-strength opaque ties are source-last.
+  // Both uncorrupted authored orders remain in the main fixture census.
+  const refinementFixture = fixtures.find((fixture) => fixture.name === 'same-node-refinement-condition-first')!;
   const refinementReference = await readDocument(refinementFixture, 'reference');
   const refinementAtomic = await readDocument(refinementFixture, 'atomic');
   const refinementCorrupted = await readDocument(refinementFixture, 'atomic', 'owned-external-condition');
@@ -353,6 +356,8 @@ async function run() {
   const refinementChanges = compare(refinementAtomic, refinementCorrupted);
   const refinementDetected = compare(refinementReference, refinementAtomic).length === 0 &&
     refinementChanges.length === 2 && refinementDifferences.length === 2 &&
+    refinementDifferences.some((difference) => difference.phase === 'baseline') &&
+    refinementDifferences.some((difference) => difference.phase === 'owned-focus-restored') &&
     refinementDifferences.every((difference) => difference.node === 'editor-focused' &&
       difference.property === 'color' && ['baseline', 'owned-focus-restored'].includes(difference.phase) &&
       difference.reference === 'rgb(255, 0, 0)' && difference.atomic === 'rgb(0, 0, 255)');

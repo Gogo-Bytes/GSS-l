@@ -39,6 +39,22 @@ function implies(a: Constraint, b: Constraint): boolean {
   // A sibling witness is not an ancestor, even if its exported path is a prefix.
   return Boolean(b.runtime) || !a.runtime || a.runtime.edges.every((edge) => edge === 'child');
 }
+/** Strict implication at one emission context. Numeric relationRank is deliberately
+ * not used: it is a target-local projection, not a transferable semantic proof. */
+export function strictlyRefines(a: StructuralInstance, b: StructuralInstance): boolean {
+  const constraint = (instance: StructuralInstance): Constraint => {
+    const firstRuntime = instance.rule.relations.findIndex((relation) => relation !== 'descendant');
+    return { targetPath: instance.targetPath,
+      ...(instance.sourcePath ? { sourcePath: instance.sourcePath } : {}),
+      predicates: predicates(instance.rule, instance.sourceIndex),
+      ...(firstRuntime >= 0 ? { runtime: {
+        sourcePath: instance.rule.path.slice(0, firstRuntime + 1),
+        edges: instance.rule.relations.slice(firstRuntime).filter((relation) => relation !== 'descendant')
+      } } : {}) };
+  };
+  return sameContext(a, b) && implies(constraint(a), constraint(b)) && !implies(constraint(b), constraint(a));
+}
+
 function sameContext(a: StructuralInstance, b: StructuralInstance) {
   return samePath(a.targetPath, b.targetPath) && a.rule.layer === b.rule.layer &&
     JSON.stringify(a.rule.conditions) === JSON.stringify(b.rule.conditions);

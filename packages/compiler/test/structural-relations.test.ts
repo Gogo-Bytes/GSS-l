@@ -22,7 +22,12 @@ describe('Compiler structural relation implication', () => {
     const schemas = modules.map((module) => session.getScopeSchema(module.id));
     const effects: string[] = [];
     postcss.parse(clean.css).walkDecls(/^margin(?:-left)?$/, (declaration) => { effects.push(declaration.prop); });
-    expect(effects).toEqual(['margin-left', 'margin']);
+    // The independent a occurrence no longer shares b's later ranked shorthand.
+    expect(effects).toEqual(['margin', 'margin-left', 'margin']);
+    const bModule = modules.find((module) => module.source.includes('.b {'))!;
+    const bClasses = session.getScopeSchema(bModule.id)!.exports.b!.selfClassName.split(' ');
+    expect(clean.manifest.rules.filter((rule) => bClasses.includes(rule.className)).map((rule) => rule.property))
+      .toEqual(['margin-left', 'margin']);
     for (const module of modules) {
       expect(session.replaceStylesheet({ id: module.id, source: '.temporary { color: red; }' }).committed).toBe(true);
       expect(session.replaceStylesheet(module).committed).toBe(true);

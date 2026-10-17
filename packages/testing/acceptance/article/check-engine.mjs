@@ -22,7 +22,7 @@ const properties = ['display', 'color', 'background-color', 'border-top-color', 
 const pseudoProperties = ['content', 'display', 'color', 'font-family', 'font-size', 'font-weight', 'font-style', 'line-height', 'letter-spacing', 'list-style-type', 'list-style-position'];
 const report = { engine, keyboardTraversal: engine === 'webkit' && platform() === 'darwin' ? 'Alt+Tab' : 'Tab', pageOptions, phases: [], interactions: [], screenshots: [], negativeControls: [], visualNegativeControls: [], pageErrors: [],
   environment: { platform: platform(), release: release(), arch: arch(), node: process.version, playwright: createRequire(import.meta.url)('playwright/package.json').version },
-  authoringAdjustment: 'Initial overlapping hover/pressed background declarations were rejected by GSS1205. Supervisor approved hover border only / pressed background only. Original input and diagnostic retained at artifacts/article-rendering/initial-*. No compiler or fallback changes.',
+  authoringAdjustment: 'Historical original overlapping hover/pressed backgrounds were rejected by GSS1205. The unchanged approved business design here remains hover border / pressed background. The original input now has separate bounded module-local rank acceptance in acceptance/atom-ranks/article-original.gss and atom-ranks:check; this gate still verifies the approved design.',
   visualPolicy: { metric: 'Exact decoded RGBA and dimensions; shared task-board comparePng', threshold: 0, region: 'data-probe=article (business region)', widths: [1440, 390, 320], viewportHeight: 980,
     settling: 'fonts.ready; two animation frames; two identical consecutive captures, maximum five', normalization: 'Same fonts/options/content/focus; foreground each paired action from identical scroll origin, retaining and exactly comparing settled post-action focus/scroll/rects before reset. Snapshot/capture at scroll origin; pointer origin except hover scenes; caret hidden and animations disabled symmetrically. No masks/blur/tolerance.',
     limitations: 'Host system fonts; no cross-engine or cross-host baseline. Pseudo-element boxes have no standard DOM rectangle API: computed values and containing-region paint are compared; text Range and list indentation geometry checked separately.' }
@@ -294,7 +294,7 @@ try {
   report.compilation = { modules: manifest.compiler.moduleDetails, atomicRules: manifest.compiler.rules.length, preservedRules: manifest.compiler.preservedRules.length,
     fallbackReasons: manifest.compiler.moduleDetails.flatMap((module) => module.fallbackReasons), limitation: 'Measured for this approved adjusted input only; no arbitrary CSS, unchanged-original-input or savings claim.' };
   assert.equal(manifest.compiler.moduleDetails.length, 1); assert.equal(manifest.compiler.moduleDetails[0].compilationMode, 'atomic');
-  assert.equal(report.compilation.atomicRules, 98); assert.equal(report.compilation.preservedRules, 0); assert.deepEqual(report.compilation.fallbackReasons, []);
+  assert.equal(report.compilation.atomicRules, 147); assert.equal(report.compilation.preservedRules, 0); assert.deepEqual(report.compilation.fallbackReasons, []);
   server = await preview({ configFile, logLevel: 'silent', preview: { port: 0, strictPort: false } });
   for (const width of [1440, 390, 320]) await sequence('production', width);
   for (const [name, declaration] of [['computed-color', 'color: rgb(255, 0, 255) !important'], ['geometry', 'padding-left: 47px !important']]) {
@@ -313,7 +313,7 @@ try {
   assert.deepEqual(report.pageErrors, []);
   for (const [file, hash] of Object.entries(report.sourceHashes)) assert.equal(createHash('sha256').update(await readFile(join(source, file))).digest('hex'), hash, 'Business inputs must remain frozen throughout the check');
   report.passed = true;
-  console.log(`Article ${engine} ${report.browserVersion}: ${report.phases.length} phases, ${report.screenshots.length} exact RGBA pairs, 2 computed/geometry and 1 paint negative controls with recovery; 98 atomic / 0 preserved rules.`);
+  console.log(`Article ${engine} ${report.browserVersion}: ${report.phases.length} phases, ${report.screenshots.length} exact RGBA pairs, 2 computed/geometry and 1 paint negative controls with recovery; 147 atomic / 0 preserved rules.`);
 } catch (error) {
   report.passed = false; report.error = error.stack ?? String(error);
   await gssPage?.screenshot({ path: join(artifacts, 'failure-gss.png'), fullPage: true }).catch(() => {});

@@ -14,7 +14,8 @@ describe('article rendering business input', () => {
     });
     const { manifest, report } = session.finalize();
     expect(manifest.modules).toEqual(['Article.gss']);
-    expect(manifest.rules).toHaveLength(98);
+    // Original business input is unchanged; module-occurrence versions reduce sharing.
+    expect(manifest.rules).toHaveLength(147);
     expect(manifest.preservedRules).toEqual([]);
     expect(report).toMatchObject({ atomicModules: 1, preservedModules: 0, atomicCoverage: 1 });
     for (const property of ['content', 'list-style-type', 'list-style-position', 'overflow-wrap', 'font-family', 'letter-spacing']) {
@@ -22,12 +23,17 @@ describe('article rendering business input', () => {
     }
   });
 
-  it('does not imply support for the rejected overlapping hover and pressed background effects', () => {
+  it('accepts the historical original hover/pressed input unchanged within the bounded current-node rank slice', () => {
     const session = createGssCompilerSession({ projectRoot: root });
-    const original = source.replace('.button:hover { border-color: #527c64; }', '.button:hover { background-color: #edf3ed; }')
-      .replace('.button[aria-pressed="true"] { background-color: #dfeee3; }', '.button[aria-pressed="true"] { background-color: #dfeee3; border-color: #527c64; }');
-    const result = session.replaceStylesheet({ id: `${root}Article.gss`, source: original });
-    expect(result.committed).toBe(false);
-    expect(result.diagnostics).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'GSS1205', reason: 'ambiguous-coactive-state-conflict' })]));
+    const original = readFileSync(new URL('../acceptance/atom-ranks/article-original.gss', import.meta.url), 'utf8');
+    // The frozen approved business design remains separate and unchanged.
+    expect(original).toBe(source.replace('.button:hover { border-color: #527c64; }', '.button:hover { background-color: #edf3ed; }')
+      .replace('.button[aria-pressed="true"] { background-color: #dfeee3; }', '.button[aria-pressed="true"] { background-color: #dfeee3; border-color: #527c64; }'));
+    expect(session.replaceStylesheet({ id: `${root}Article.gss`, source: original })).toMatchObject({
+      committed: true, diagnostics: [], module: { compilationMode: 'atomic', fallbackReasons: [] }
+    });
+    const classes = session.getScopeSchema(`${root}Article.gss`)!.exports.button!.selfClassName.split(' ');
+    expect(session.finalize().manifest.rules.filter((rule) => classes.includes(rule.className) && rule.property === 'background-color')
+      .map((rule) => rule.value)).toEqual(['#ffffff', '#edf3ed', '#dfeee3']);
   });
 });

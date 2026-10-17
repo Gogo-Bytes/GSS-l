@@ -1850,10 +1850,10 @@ describe('GssCompilerSession', () => {
 
     expect(replacement.diagnostics).toEqual([]);
     expect(replacement.module?.scopeSchema.exports.button?.selfClassName).toBe(
-      `${hoverColorRedClass} ${colorGreenClass}`
+      `${hoverColorRedClass}--rank_2 ${colorGreenClass}--rank_1`
     );
     expect(compiler.finalize().css).toContain(
-      `.${hoverColorRedClass}:hover {\n  color: red;\n}`
+      `.${hoverColorRedClass}--rank_2:hover {\n  color: red;\n}`
     );
   });
 
@@ -2359,12 +2359,12 @@ describe('GssCompilerSession', () => {
 
     const exports = replacement.module?.scopeSchema.exports;
     if (!exports) throw new Error('Expected compiled scope exports.');
-    expect(exports.icon?.selfClassName).toBe(`${colorGreenClass} ${displayInlineBlockClass}`);
+    expect(exports.icon?.selfClassName).toBe(`${colorGreenClass}--rank_1 ${displayInlineBlockClass}`);
     expect(exports.father?.targets.icon?.selfClassName).toBe(
-      `${colorRedClass} ${displayInlineBlockClass}`
+      `${colorRedClass}--rank_2 ${displayInlineBlockClass}`
     );
     expect(exports.father?.targets.son?.targets.icon?.selfClassName).toBe(
-      `${colorBlueClass} ${displayInlineBlockClass} ${fontSize16Class}`
+      `${colorBlueClass}--rank_3 ${displayInlineBlockClass} ${fontSize16Class}`
     );
   });
 

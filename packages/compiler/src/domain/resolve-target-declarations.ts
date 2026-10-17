@@ -14,42 +14,45 @@ type RuleCandidate = {
   sourceOrdinal: number;
 };
 
-export type ResolvedTarget = {
+export type ResolvedTarget<R extends RuleCandidate> = {
   path: readonly string[];
   declarations: readonly DeclarationCandidate[];
+  occurrences: readonly { rule: R; declaration: DeclarationCandidate }[];
 };
 
-type RankedDeclaration = {
+type RankedDeclaration<R extends RuleCandidate> = {
+  rule: R;
   declaration: DeclarationCandidate;
   specificity: number;
   sourceOrdinal: number;
   declarationOrdinal: number;
 };
 
-export function resolveTargetDeclarations(
-  rules: readonly RuleCandidate[],
+export function resolveTargetDeclarations<R extends RuleCandidate>(
+  rules: readonly R[],
   declaredTargetPaths: readonly (readonly string[])[] = rules.map(({ path }) => path)
-): readonly ResolvedTarget[] {
+): readonly ResolvedTarget<R>[] {
   const targetPaths = new Map<string, readonly string[]>();
   for (const path of declaredTargetPaths) targetPaths.set(serializePath(path), path);
 
-  return [...targetPaths.values()].map((targetPath) => ({
-    path: targetPath,
-    declarations: resolveOneTarget(rules, targetPath)
-  }));
+  return [...targetPaths.values()].map((targetPath) => {
+    const occurrences = resolveOneTarget(rules, targetPath);
+    return { path: targetPath, declarations: occurrences.map(({ declaration }) => declaration), occurrences };
+  });
 }
 
-function resolveOneTarget(
-  rules: readonly RuleCandidate[],
+function resolveOneTarget<R extends RuleCandidate>(
+  rules: readonly R[],
   targetPath: readonly string[]
-): readonly DeclarationCandidate[] {
-  const winners = new Map<string, RankedDeclaration>();
+): readonly RankedDeclaration<R>[] {
+  const winners = new Map<string, RankedDeclaration<R>>();
 
   for (const rule of rules) {
     if (!isMatchingGeneralPath(rule.path, targetPath)) continue;
 
     rule.declarations.forEach((declaration, declarationOrdinal) => {
-      const candidate: RankedDeclaration = {
+      const candidate: RankedDeclaration<R> = {
+        rule,
         declaration,
         specificity: rule.path.length,
         sourceOrdinal: rule.sourceOrdinal,
@@ -65,8 +68,7 @@ function resolveOneTarget(
   }
 
   return [...new Set(winners.values())]
-    .map(({ declaration }) => declaration)
-    .sort((left, right) => comparePropertyRenderOrder(left.property, right.property));
+    .sort((left, right) => comparePropertyRenderOrder(left.declaration.property, right.declaration.property));
 }
 
 function isMatchingGeneralPath(
@@ -83,7 +85,7 @@ function isMatchingGeneralPath(
   return candidateIndex === candidatePath.length;
 }
 
-function comparePrecedence(left: RankedDeclaration, right: RankedDeclaration): number {
+function comparePrecedence(left: RankedDeclaration<RuleCandidate>, right: RankedDeclaration<RuleCandidate>): number {
   const important = Number(left.declaration.important) - Number(right.declaration.important);
   if (important !== 0) return important;
 

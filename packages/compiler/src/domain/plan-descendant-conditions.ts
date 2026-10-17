@@ -1,4 +1,5 @@
 import { effectsOfProperty } from './property-effects.js';
+import { isSubsequence, matchesOwnedTarget } from './module-local-atom-ranks.js';
 
 export type DescendantRule = {
   path: readonly string[];
@@ -23,23 +24,14 @@ export type DescendantInstance<R extends DescendantRule> = {
 /** Bind only condition positions with a proven prefix AND a suffix ending at the target.
  * Do not enumerate equivalent embeddings of the unconditional nodes (exponential for repeated names). */
 function conditionSourcePositions(path: readonly string[], target: readonly string[], sourceIndex: number): number[] {
-  if (!matchesTarget(path, target)) return [];
+  if (!matchesOwnedTarget(path, target)) return [];
   if (sourceIndex < 0) return [-1];
   if (sourceIndex === path.length - 1) return [target.length - 1];
   return target.flatMap((name, position) =>
     name === path[sourceIndex] &&
     isSubsequence(path.slice(0, sourceIndex), target.slice(0, position)) &&
-    matchesTarget(path.slice(sourceIndex + 1), target.slice(position + 1)) ? [position] : []
+    matchesOwnedTarget(path.slice(sourceIndex + 1), target.slice(position + 1)) ? [position] : []
   );
-}
-function matchesTarget(path: readonly string[], target: readonly string[]): boolean {
-  return path.length <= target.length && path.at(-1) === target.at(-1) &&
-    isSubsequence(path.slice(0, -1), target.slice(0, -1));
-}
-function isSubsequence(path: readonly string[], target: readonly string[]): boolean {
-  let next = 0;
-  for (const name of target) if (name === path[next]) next++;
-  return next === path.length;
 }
 
 function predicate<R extends DescendantRule>(instance: DescendantInstance<R>): string[] {
@@ -67,11 +59,13 @@ function exclusive<R extends DescendantRule>(a: DescendantInstance<R>, b: Descen
   return aa !== undefined && ba !== undefined && aa.attribute === ba.attribute && aa.value !== ba.value;
 }
 
-/** Authored ordinal is used ONLY inside one target / wrapper / layer / bound-predicate set.
- * Different live predicates never receive an authored-order tiebreaker. */
+/** Closed predicates retain their existing winner proof. Only explicitly eligible
+ * current-node background conflicts receive local authored-order atom versions. */
 export function planDescendantConditions<R extends DescendantRule>(
-  rules: readonly R[], declaredPaths: readonly (readonly string[])[]
-): { instances: DescendantInstance<R>[]; ambiguity?: string } {
+  rules: readonly R[], declaredPaths: readonly (readonly string[])[],
+  canRankTarget: (target: readonly string[]) => boolean = () => false
+): { instances: DescendantInstance<R>[]; candidates: DescendantInstance<R>[]; ambiguity?: string } {
+  const allCandidates: DescendantInstance<R>[] = [];
   const paths = new Map(declaredPaths.map((path) => [JSON.stringify(path), path]));
   const instances: DescendantInstance<R>[] = [];
   for (const targetPath of paths.values()) {
@@ -87,6 +81,7 @@ export function planDescendantConditions<R extends DescendantRule>(
           relationRank: states.length + attributes.length, declarations: rule.declarations });
       }
     }
+    allCandidates.push(...candidates);
     const groups = new Map<string, DescendantInstance<R>[]>();
     for (const candidate of candidates) {
       const key = JSON.stringify([candidate.rule.layer, candidate.rule.conditions, candidate.sourcePath, predicate(candidate)]);
@@ -123,14 +118,16 @@ export function planDescendantConditions<R extends DescendantRule>(
                 effectsOfProperty(declaration.property).includes(effect) &&
                 (Number(declaration.important) > Number(a.important) ||
                   (declaration.important === a.important && candidate.specificity > left.specificity))));
-            if (!intersection) return { instances: [], ambiguity: `Coactive descendant conditions assign ambiguous ${effect} on ${targetPath.join('.')}.` };
+            if (!intersection) {
+              if (!(effect === 'background-color' && canRankTarget(targetPath))) return { instances: [], candidates: [], ambiguity: `Coactive descendant conditions assign ambiguous ${effect} on ${targetPath.join('.')}.` };
+            }
           }
         }
       }
     }
     instances.push(...retained);
   }
-  return { instances };
+  return { instances, candidates: allCandidates };
 }
 
 function compare<R extends DescendantRule>(a: DescendantInstance<R>, ai: number, b: DescendantInstance<R>, bi: number) {
