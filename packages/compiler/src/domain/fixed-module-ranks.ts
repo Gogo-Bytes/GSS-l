@@ -1,8 +1,8 @@
 import type { ParsedDeclaration, ParsedHasCondition, ParsedStyleRule } from './parsed-stylesheet.js';
 import type { DescendantInstance } from './plan-descendant-conditions.js';
 import { strictlyRefines } from './plan-structural-relations.js';
-import { effectsOfProperty } from './property-effects.js';
 import { matchesOwnedTarget } from './module-local-atom-ranks.js';
+import { propertiesMayOverlapForModuleOrder } from './module-order-overlap.js';
 
 type Instance = DescendantInstance<ParsedStyleRule> & { observation?: ParsedHasCondition };
 type Occurrence = { instance: Instance; declaration: ParsedDeclaration; index: number; key: string };
@@ -25,8 +25,8 @@ export function planFixedModuleRanks(rules: readonly ParsedStyleRule[], instance
   }))).values()];
   const pending = new Set(occurrences);
   const ranks = new Map<string, number>();
-  const overlap = (a: Occurrence, b: Occurrence) => effectsOfProperty(a.declaration.property)
-    .some((effect) => effectsOfProperty(b.declaration.property).includes(effect));
+  const overlap = (a: Occurrence, b: Occurrence) =>
+    propertiesMayOverlapForModuleOrder(a.declaration.property, b.declaration.property);
   const opaque = (rule: ParsedStyleRule) => Boolean(rule.externalTarget || rule.externalCondition || rule.observations.some((parts) => parts.length));
   const precedes = (a: Occurrence, b: Occurrence) => {
     if (opaque(a.instance.rule) || opaque(b.instance.rule) || !overlap(a, b) ||
@@ -53,7 +53,8 @@ export function planFixedModuleRanks(rules: readonly ParsedStyleRule[], instance
         if (other.instance.rule.layer !== first.instance.rule.layer ||
           JSON.stringify(other.instance.rule.conditions) !== JSON.stringify(first.instance.rule.conditions) ||
           other.instance.rule.pseudoElements.at(-1) !== first.instance.rule.pseudoElements.at(-1) ||
-          other.declaration.important !== first.declaration.important || !overlap(family[i]!, other)) continue;
+          other.declaration.important !== first.declaration.important ||
+          !overlap(family[i]!, other)) continue;
         pending.delete(other);
         family.push(other);
       }

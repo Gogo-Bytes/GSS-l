@@ -10,6 +10,7 @@ import { createGssCompilerSession } from '@gss-l/compiler';
 import { comparePng } from '../task-board/visual.mjs';
 import { fixtures } from './fixtures.mjs';
 import { checkFixedModuleRanks } from './fixed-check.mjs';
+import { checkLogicalPhysicalOrder } from './logical-physical-check.mjs';
 
 const artifacts = fileURLToPath(new URL('../../../../artifacts/rank-integration/browser/', import.meta.url));
 await mkdir(artifacts, { recursive: true });
@@ -194,6 +195,9 @@ try {
       engineReport.fixedModule = { fixtures: [], comparisons: [], images: [], negativeControls: [] };
       await checkFixedModuleRanks(native, atomic, directory, engineReport.fixedModule);
       console.log(`${engine}: fixed module ${engineReport.fixedModule.fixtures.length} fixtures, ${engineReport.fixedModule.comparisons.length} comparisons, ${engineReport.fixedModule.images.length} exact image pairs, ${engineReport.fixedModule.negativeControls.length} corruptions`);
+      engineReport.logicalPhysical = {};
+      await checkLogicalPhysicalOrder(native, atomic, directory, engineReport.logicalPhysical);
+      console.log(`${engine}: logical/physical ${engineReport.logicalPhysical.simpleFixtures} simple + ${engineReport.logicalPhysical.semanticFixtures} semantic fixtures, ${engineReport.logicalPhysical.readings.length * 2} readings, ${engineReport.logicalPhysical.images.length} exact image pairs, ${engineReport.logicalPhysical.negativeControls.length} corruptions`);
       await checkExternalTargetBoundary(native, atomic, engineReport);
       assert.equal(engineReport.externalTargetBoundaries.length, 6);
       assert.deepEqual(engineReport.errors, []);

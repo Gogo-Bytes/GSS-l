@@ -10,6 +10,8 @@ import { createRequire } from 'node:module';
 import { build, createServer, preview } from 'vite';
 import { chromium, firefox, webkit } from 'playwright';
 import { comparePng } from '../task-board/visual.mjs';
+import { captureArticleRegion } from './capture.mjs';
+import { checkArticleCapture } from './capture-check.mjs';
 
 const source = fileURLToPath(new URL('.', import.meta.url));
 const engine = process.argv[2];
@@ -20,10 +22,10 @@ const configFile = join(source, 'vite.config.ts');
 const pageOptions = { deviceScaleFactor: 1, locale: 'zh-CN', timezoneId: 'UTC', colorScheme: 'light', reducedMotion: 'reduce' };
 const properties = ['display', 'color', 'background-color', 'border-top-color', 'border-left-width', 'border-radius', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left', 'margin-top', 'margin-bottom', 'gap', 'font-family', 'font-size', 'font-weight', 'font-style', 'line-height', 'letter-spacing', 'text-decoration-line', 'overflow-wrap', 'white-space', 'list-style-type', 'list-style-position', 'opacity', 'outline-color', 'outline-width', 'outline-offset'];
 const pseudoProperties = ['content', 'display', 'color', 'font-family', 'font-size', 'font-weight', 'font-style', 'line-height', 'letter-spacing', 'list-style-type', 'list-style-position'];
-const report = { engine, keyboardTraversal: engine === 'webkit' && platform() === 'darwin' ? 'Alt+Tab' : 'Tab', pageOptions, phases: [], interactions: [], screenshots: [], negativeControls: [], visualNegativeControls: [], pageErrors: [],
+const report = { captureStates: [], engine, keyboardTraversal: engine === 'webkit' && platform() === 'darwin' ? 'Alt+Tab' : 'Tab', pageOptions, phases: [], interactions: [], screenshots: [], negativeControls: [], visualNegativeControls: [], pageErrors: [],
   environment: { platform: platform(), release: release(), arch: arch(), node: process.version, playwright: createRequire(import.meta.url)('playwright/package.json').version },
   authoringAdjustment: 'Historical original overlapping hover/pressed backgrounds were rejected by GSS1205. The unchanged approved business design here remains hover border / pressed background. The original input now has separate bounded module-local rank acceptance in acceptance/atom-ranks/article-original.gss and atom-ranks:check; this gate still verifies the approved design.',
-  visualPolicy: { metric: 'Exact decoded RGBA and dimensions; shared task-board comparePng', threshold: 0, region: 'data-probe=article (business region)', widths: [1440, 390, 320], viewportHeight: 980,
+  visualPolicy: { metric: 'Exact decoded RGBA and dimensions; shared task-board comparePng', threshold: 0, region: 'Full data-probe=article document clip, identical enclosing pixel bounds without locator auto-scroll', widths: [1440, 390, 320], viewportHeight: 980,
     settling: 'fonts.ready; two animation frames; two identical consecutive captures, maximum five', normalization: 'Same fonts/options/content/focus; foreground each paired action from identical scroll origin, retaining and exactly comparing settled post-action focus/scroll/rects before reset. Snapshot/capture at scroll origin; pointer origin except hover scenes; caret hidden and animations disabled symmetrically. No masks/blur/tolerance.',
     limitations: 'Host system fonts; no cross-engine or cross-host baseline. Pseudo-element boxes have no standard DOM rectangle API: computed values and containing-region paint are compared; text Range and list indentation geometry checked separately.' }
 };
@@ -112,15 +114,21 @@ async function parity(name, { negative = false, hover = false } = {}) {
   assert.deepEqual(snapshots[0], snapshots[1], `Native oracle mismatch: ${name}`);
   if (!negative) report.phases.push({ name, probes: Object.keys(snapshots[0]).length, properties: properties.length, pseudoProperties: pseudoProperties.length, geometry: 'Element and direct text Range rectangles, exact numbers at matched scroll origin', snapshots: path });
 }
-async function articleImage(page, hover) {
+async function articleImage(page, hover, name) {
   await page.bringToFront();
   await page.mouse.move(0, 0);
   await page.evaluate(async () => { await document.fonts.ready; window.scrollTo(0, 0); await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))); });
   if (hover) await probe(page, 'size').hover();
-  const options = { animations: 'disabled', caret: 'hide', scale: 'css' };
-  let previous = await probe(page, 'article').screenshot(options);
+  // The only hovered image scene is hover-pressed; require its literal state.
+  const expected = { hover, pressed: hover ? 'true' : await probe(page, 'size').getAttribute('aria-pressed') };
+  const capture = async () => {
+    const { image, ...state } = await captureArticleRegion(page, expected);
+    report.captureStates.push({ name, page: page === gssPage ? 'gss' : 'native', ...state });
+    return image;
+  };
+  let previous = await capture();
   for (let attempt = 0; attempt < 4; attempt++) {
-    const current = await probe(page, 'article').screenshot(options);
+    const current = await capture();
     if (comparePng(current, previous).passed) return current;
     previous = current;
   }
@@ -130,8 +138,8 @@ async function articleImage(page, hover) {
 async function visualParity(name, { negative = false, hover = false } = {}) {
   const directory = join(artifacts, 'images', name.replaceAll('/', '-'));
   await mkdir(directory, { recursive: true });
-  const actual = await articleImage(gssPage, hover); await writeFile(join(directory, 'gss.png'), actual);
-  const expected = await articleImage(nativePage, hover); await writeFile(join(directory, 'native.png'), expected);
+  const actual = await articleImage(gssPage, hover, name); await writeFile(join(directory, 'gss.png'), actual);
+  const expected = await articleImage(nativePage, hover, name); await writeFile(join(directory, 'native.png'), expected);
   const { diff, ...metric } = comparePng(actual, expected);
   // Keep the raw diff for every pair, including zero-difference recovery evidence.
   await writeFile(join(directory, 'diff.png'), diff);
@@ -280,6 +288,7 @@ try {
   }
   const browserType = { chromium, firefox, webkit }[engine]; report.executable = browserType.executablePath();
   browser = await browserType.launch({ headless: true }); report.browserVersion = browser.version();
+  report.captureRegression = await checkArticleCapture(browser, artifacts);
   gssPage = await browser.newPage(pageOptions); nativePage = await browser.newPage(pageOptions);
   await both(async (page) => { page.on('pageerror', (error) => report.pageErrors.push(String(error))); });
   server = await createServer({ configFile, logLevel: 'silent', server: { port: 0, strictPort: false } }); await server.listen();
