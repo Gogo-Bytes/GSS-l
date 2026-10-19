@@ -33,6 +33,31 @@ describe('transformReactGssUsage', () => {
     expect(result.map).toBeDefined();
   });
 
+  it('passes a lowered className string to a separately transformed child without scope analysis', () => {
+    const parent = transformReactGssUsage({
+      id: '/project/src/Parent.tsx',
+      source: `import styles from './Card.gss';
+import { Card } from './Card';
+export const Parent = () => <Card className={styles.card} />;`,
+      resolveScopeSchema: () => cardScope
+    });
+    const childSource = `export function Card(props: { className?: string }) {
+  return <div className={props.className} />;
+}`;
+    const child = transformReactGssUsage({
+      id: '/project/src/Card.tsx',
+      source: childSource,
+      resolveScopeSchema() {
+        throw new Error('A string-only child must not resolve GSS scopes.');
+      }
+    });
+
+    expect(parent.diagnostics).toEqual([]);
+    expect(parent.code).toContain('<Card className={styles.card.self} />');
+    expect(child.diagnostics).toEqual([]);
+    expect(child.code).toBe(childSource);
+  });
+
   it('lowers a nested static target path', () => {
     const result = transformReactGssUsage({
       id: '/project/src/Card.tsx',

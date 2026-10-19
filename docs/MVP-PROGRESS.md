@@ -24,6 +24,8 @@
 | 保守连续 rank 桶复用 | 已交付 | `fixed-module-rank-reuse.test.ts`；方向属性屏障与既定复用限制保持不变 |
 | 独立 oracle 与浏览器验收 | 有界覆盖已交付，非全量覆盖 | `packages/testing/test/compile-gss-reference*.test.ts`、`packages/testing/browser/`；不能用编译器自身输出充当独立预期 |
 
+SPA 的已有验收、允许整页 reload 的 HMR 行为与客户端路由覆盖缺口见 [SPA 验收结论](SPA-ACCEPTANCE.md)。
+
 ## 尚未完成／不应计入已完成的事项
 
 | 事项 | 当前处置 |
