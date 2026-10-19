@@ -88,7 +88,7 @@ Firefox Article 导航问题仍暂缓。包发布、其他框架适配器、新�
 - 完整归档：`../GSS-l-worktree-archive-20261019T160632/`。有 `manifest.json`、逐文件校验、恢复说明和 `repository-refs.bundle`；不含可重装的 node_modules。
 - 主要历史证据位于该归档的 `GSS-l-rank-integration.tar.gz` 内 `./artifacts/`：`fixed-module-ranks/`、`logical-physical-order/policy-b/`、`rank-reuse/`、`compiler-scale/`。
 - 性能记录：同一压缩包内 `./artifacts/compiler-scale/DEFERRED.md`；修正派生数据在 `./artifacts/compiler-scale/pressure-aware/attempt-01/corrected-derived/`。历史记录中的分支名、未合并状态和旧路径是当时快照，以本文和当前 Git 为准。
-- 旧未提交 Dev React HMR 工作保存在 stash，创建时为 `stash@{0}`，对象 `f4a8330836cc301e0e7a32c69e02e70e37be70f4`。stash 序号可能变化；不要直接 pop 到 main，先审查与现有实现的差异。
+- 旧未提交 Dev React HMR 工作的本地 stash 已经 owner 授权删除；本次清理后 stash 列表为空。备份仍保存在上述 `repository-refs.bundle` 的 `refs/stash`，对象为 `f4a8330836cc301e0e7a32c69e02e70e37be70f4`。如需恢复，先从 bundle 导入到隔离的恢复位置并审查与现有实现的差异，不直接应用到 main。
 - warning 审计目录的未提交修改保存在 `GSS-l-warning-verify-20261016T094553Z.tar.gz`，不视作待合入功能。
 - 独立审查报告仍在 `~/.pi/agent/sessions/--Users-gan-Desktop-🥷-css-plugin-GSS-l--/subagent-artifacts/outputs/`。复用最终验收工作流：`dbf137f9-0ca2-4f21-8daa-fc539e0aca0b`；性能审查：`105dafe8-321e-44a3-ae8b-61ab56cd243d`。
 - Git SSH 已恢复：本仓库 `core.sshCommand` 使用指定密钥、443 和 `UseKeychain=yes`；GitHub 实测认证账号是 Gogo-Bytes。提交署名不等于认证账号；不需要在新 session 重配凭据。
