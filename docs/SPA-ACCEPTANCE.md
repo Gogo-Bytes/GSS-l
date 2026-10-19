@@ -2,7 +2,7 @@
 
 ## 结论
 
-已有单页 React 应用的有界验收，不是 SPA 尚未验收；但不能据此宣称完整客户端路由生命周期已验收。历史浏览器通过范围以 [STATUS.md](STATUS.md) 为准，本轮没有重跑浏览器。
+已有单页 React 应用的有界验收，不是 SPA 尚未验收；但不能据此宣称完整客户端路由生命周期已验收。历史浏览器通过范围以 [STATUS.md](STATUS.md) 为准；后续 Playground 专项已复跑 Chromium dev/preview 并通过，范围见 [Playground 覆盖核对](PLAYGROUND-COVERAGE.md)，不代表其他浏览器 gate 重跑。
 
 普通跨文件 `className` 字符串传递不要求跨文件 scope 推导。父组件 `<Card className={styles.card} />` 在父文件内 lowering 成 `.self`，子组件 `props.className` 保持字符串。`packages/react/test/transform-react-gss-usage.test.ts` 本轮新增显式的父／子独立转换回归；这验证转换契约，不冒充真实浏览器或 TypeScript 类型兼容性验收。
 
@@ -10,6 +10,7 @@
 
 | 场景 | 现有入口 | 结论／边界 |
 | --- | --- | --- |
+| Playground 单页演示、HMR／恢复与预置 fixture | `packages/testing/playground/check.mjs` | 已有且本轮后续专项通过的 Chromium dev/preview gate；详见 Playground 覆盖核对，不等同于路由或完整业务验收 |
 | React 单页真实交互、开发／生产样式对照 | `packages/testing/acceptance/task-board/check-engine.mjs`、`article/check-engine.mjs` | 历史已有独立原生对照及精确图像证据；Article Firefox 导航问题仍暂缓，不宣称三引擎全通过 |
 | CSS-only 更新 | Task-board `dev/css-only-resource-hmr` | class mapping 不变时，验证资源样式更新且 document 不替换 |
 | class mapping 改变 | Task-board `dev/class-map-edit-reload` | 当前允许且显式验证 document reload、React 状态重置；不保证无刷新或保留 React 状态 |
