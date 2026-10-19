@@ -4,6 +4,12 @@
 
 有限 MVP 的逐项目标进度及后续 `2f115b1` 基线上的基础验证、演示生产构建结果见 [MVP 进度](MVP-PROGRESS.md)。该核对未新增浏览器验收，也不将历史开放项改判为全部完成。
 
+## 当前阶段
+
+owner 已决定有限 MVP 结项，进入缺陷收敛、脚手架扩展和真实 SSR 框架实验的规划阶段。结项基线 `847698c`，基础验证 1417 项测试通过；后续 Playground 与有界 SSG 的 Chromium 证据分别见 [Playground 覆盖](PLAYGROUND-COVERAGE.md)、[SSR/SSG 验收](SSR-SSG-ACCEPTANCE.md)。这不覆盖历史 Firefox 失败或完整 production SSR。
+
+新阶段分类、候选与用户路径门禁见 [下一阶段](NEXT-STAGE.md)。当前授权是整理结项与候选清单；首批脚手架／框架尚待 owner 选择，不新建 SSR/SSG Playground。
+
 ## 已完成交付
 
 | 阶段 | 关键提交 | 已交付内容 |
@@ -80,7 +86,7 @@ owner 已要求先记录、以后再看；不启动 profiling、排序优化或 
 
 ### Firefox 与后续范围
 
-Firefox Article 导航问题仍暂缓。包发布、其他框架适配器、新语法或新 fallback 均未获本轮授权。历史 roadmap 不是自动执行队列；**当前没有选定的下一项实现任务**，新 session 应先向 owner 确认目标和验收范围。
+Firefox Article 导航问题仍暂缓。包发布、其他框架适配器、新语法或新 fallback 均未获本轮授权。历史 roadmap 不是自动执行队列；下一阶段方向已确定为缺陷收敛、脚手架扩展、真实 SSR 框架实验，**具体首项实现目标与版本仍待 owner 选择**，见 NEXT-STAGE.md。
 
 ## 本机交接与证据恢复
 
