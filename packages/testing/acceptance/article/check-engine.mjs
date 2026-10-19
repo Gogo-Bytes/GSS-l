@@ -303,7 +303,7 @@ try {
   report.compilation = { modules: manifest.compiler.moduleDetails, atomicRules: manifest.compiler.rules.length, preservedRules: manifest.compiler.preservedRules.length,
     fallbackReasons: manifest.compiler.moduleDetails.flatMap((module) => module.fallbackReasons), limitation: 'Measured for this approved adjusted input only; no arbitrary CSS, unchanged-original-input or savings claim.' };
   assert.equal(manifest.compiler.moduleDetails.length, 1); assert.equal(manifest.compiler.moduleDetails[0].compilationMode, 'atomic');
-  assert.equal(report.compilation.atomicRules, 147); assert.equal(report.compilation.preservedRules, 0); assert.deepEqual(report.compilation.fallbackReasons, []);
+  assert.equal(report.compilation.atomicRules, 131); assert.equal(report.compilation.preservedRules, 0); assert.deepEqual(report.compilation.fallbackReasons, []);
   server = await preview({ configFile, logLevel: 'silent', preview: { port: 0, strictPort: false } });
   for (const width of [1440, 390, 320]) await sequence('production', width);
   for (const [name, declaration] of [['computed-color', 'color: rgb(255, 0, 255) !important'], ['geometry', 'padding-left: 47px !important']]) {
@@ -322,7 +322,7 @@ try {
   assert.deepEqual(report.pageErrors, []);
   for (const [file, hash] of Object.entries(report.sourceHashes)) assert.equal(createHash('sha256').update(await readFile(join(source, file))).digest('hex'), hash, 'Business inputs must remain frozen throughout the check');
   report.passed = true;
-  console.log(`Article ${engine} ${report.browserVersion}: ${report.phases.length} phases, ${report.screenshots.length} exact RGBA pairs, 2 computed/geometry and 1 paint negative controls with recovery; 147 atomic / 0 preserved rules.`);
+  console.log(`Article ${engine} ${report.browserVersion}: ${report.phases.length} phases, ${report.screenshots.length} exact RGBA pairs, 2 computed/geometry and 1 paint negative controls with recovery; 131 atomic / 0 preserved rules.`);
 } catch (error) {
   report.passed = false; report.error = error.stack ?? String(error);
   await gssPage?.screenshot({ path: join(artifacts, 'failure-gss.png'), fullPage: true }).catch(() => {});

@@ -3,6 +3,7 @@ import type { DescendantInstance } from './plan-descendant-conditions.js';
 import { strictlyRefines } from './plan-structural-relations.js';
 import { matchesOwnedTarget } from './module-local-atom-ranks.js';
 import { propertiesMayOverlapForModuleOrder } from './module-order-overlap.js';
+import { effectsOfProperty } from './property-effects.js';
 
 type Instance = DescendantInstance<ParsedStyleRule> & { observation?: ParsedHasCondition };
 type Occurrence = { instance: Instance; declaration: ParsedDeclaration; index: number; key: string };
@@ -81,8 +82,55 @@ export function planFixedModuleRanks(rules: readonly ParsedStyleRule[], instance
       if (index === 0 || compare(family[index - 1]!, occurrence) !== 0) rank++;
       ranks.set(occurrence.key, rank);
     });
+    reuseContiguousPureRanks(family, heights, ranks);
   }
   return { get(declaration: ParsedDeclaration, rule: ParsedStyleRule, target: readonly string[], source?: readonly string[], observation?: ParsedHasCondition): number | undefined {
     return ranks.get(key(declaration, rule, target, source, observation));
   } };
+}
+
+// Keep all 55 directional box properties/effects as barriers, even though module
+// ordering now models their potential overlap. This is not an admission rule.
+const directionalBox = (property: string) => /^(?:(?:scroll-)?(?:margin|padding)(?:-|$)|inset(?:-|$)|top$|right$|bottom$|left$)/.test(property);
+
+function reusablePureOccurrence({ instance, declaration }: Occurrence): boolean {
+  const rule = instance.rule;
+  return rule.conditions.length === 0 && rule.path.length === 1 && instance.targetPath.length === 1 &&
+    !instance.sourcePath && instance.sourceIndex === -1 && !instance.observation &&
+    !rule.externalTarget && !rule.externalCondition && rule.relations.length === 0 &&
+    rule.states.every((parts) => parts.length === 0) && rule.attributes.every((parts) => parts.length === 0) &&
+    rule.observations.every((parts) => parts.length === 0) && rule.pseudoElements.every((pseudo) => pseudo === null) &&
+    ![declaration.property, ...effectsOfProperty(declaration.property)].some(directionalBox);
+}
+
+/** Only contract adjacent, wholly eligible original buckets with identical writes.
+ * Different target names are NOT a disjointness proof: arbitrary same-module
+ * subsets can compose. No unlike competitor may be crossed, and no later rank
+ * is renumbered. This bounded model relies on the current overlap registry plus
+ * the directional exclusion, not a universal proof about browser CSS aliases.
+ * Exact value spelling is conservative: asset bindings are stylesheet-wide and
+ * emitted identities still retain typed asset, layer, condition and importance.
+ */
+function reuseContiguousPureRanks(family: readonly Occurrence[], heights: ReadonlyMap<Occurrence, number>, ranks: Map<string, number>) {
+  const buckets = new Map<number, Occurrence[]>();
+  for (const occurrence of family) {
+    const rank = ranks.get(occurrence.key)!;
+    const bucket = buckets.get(rank) ?? [];
+    bucket.push(occurrence);
+    buckets.set(rank, bucket);
+  }
+  let previous: { semantic: string; rank: number } | undefined;
+  const semantic = ({ declaration }: Occurrence) => JSON.stringify([declaration.property, declaration.value, declaration.important]);
+  for (const [rank, bucket] of buckets) {
+    const value = semantic(bucket[0]!);
+    // Selector-list branches share tuples, not necessarily eligibility. Never
+    // allow a pure branch to license movement of an ineligible sibling.
+    if (!bucket.every((occurrence) => heights.get(occurrence) === 0 && reusablePureOccurrence(occurrence) && semantic(occurrence) === value)) {
+      previous = undefined;
+      continue;
+    }
+    const representative = previous?.semantic === value ? previous.rank : rank;
+    for (const occurrence of bucket) ranks.set(occurrence.key, representative);
+    previous = { semantic: value, rank: representative };
+  }
 }

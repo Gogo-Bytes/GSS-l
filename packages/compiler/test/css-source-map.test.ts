@@ -25,12 +25,15 @@ it('orders distinct Unicode Module origins independent of registration order', (
   expect(origins([...ids].reverse())).toEqual(expected);
 });
 
-it('records every contributing declaration of occurrence-versioned atoms in one Module', () => {
+it('records every contributing declaration when adjacent occurrence versions share one atom in a Module', () => {
   const session = createGssCompilerSession({ projectRoot: '/project' });
   const source = '.a { color: red; } .b { color: red; }';
   expect(session.replaceStylesheet({ id: '/project/card.gss', source }).committed).toBe(true);
   const snapshot = session.finalize();
-  expect(snapshot.manifest.rules).toHaveLength(2);
+  expect(snapshot.manifest.rules).toHaveLength(1);
+  expect(originalPositionFor(new TraceMap(snapshot.sourceMap), generatedPosition(snapshot.css, 'color:'))).toMatchObject({
+    source: 'card.gss', line: 1, column: source.indexOf('color:')
+  });
   const positions = [...source.matchAll(/color: red;/g)].map((match) => match.index);
   expect(snapshot.manifest.rules.flatMap((rule) => rule.origins)).toEqual(positions.map((start) => ({
     moduleId: 'card.gss', range: { start, end: start + 'color: red;'.length }
