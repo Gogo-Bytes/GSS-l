@@ -32,7 +32,7 @@ SPA 的已有验收、允许整页 reload 的 HMR 行为与客户端路由覆盖
 | --- | --- |
 | 完整 CSS／关系组合、完整 oracle corpus、完整源码映射与诊断范围 | 没有完整覆盖承诺。旧记录的开放项不是已定位缺陷；扩展前需确定具体输入、预期和验收范围 |
 | 更广的 React 跨文件类型来源、多跳 scope 传递及逃逸分析 | owner 本轮决定跳过：主要场景采用父组件 `className={styles.title}`、子组件接收普通字符串，现有 lowering 已支持，无需为此扩展 scope 分析。不宣称全面支持跨文件 scope 类型推导 |
-| 更广的 SSR/SSG、多路由生命周期和历史 Pilot 总体验收 | 现有有界宿主与真实页面证据不能替代全部历史门禁；不宣称全部完成 |
+| 更广的 SSR/SSG、多路由生命周期和历史 Pilot 总体验收 | 本轮后续已复验有界 SSG／hydration，并补禁用 JS 的服务端样式检查，详见 [SSR/SSG 验收](SSR-SSG-ACCEPTANCE.md)。不等同于 production SSR／全部历史门禁完成 |
 | 跨模块同节点优先级 | owner 本轮决定不扩展：普通字符串 className 传递不要求调用方样式覆盖内部样式。仍不提供 GSS 跨模块优先级保证；保留非阻塞 `GSS2107`，不移除 class，不禁止同模块组合 |
 | Firefox Article dev→production 导航问题 | 已知问题，owner 暂缓；不能报告全浏览器验收完成 |
 | 性能 profiling／优化 | owner 暂缓；已有 rank 复用不构成性能 SLA |

@@ -279,6 +279,23 @@ export async function checkViteSsgHydration(browser) {
       }));
       return { state, pageErrors };
     }
+    // Verify the delivered server markup and CSS without allowing hydration to repair it.
+    const serverContext = await browser.newContext({ javaScriptEnabled: false });
+    contexts.push(serverContext);
+    const serverPage = await serverContext.newPage();
+    await serverPage.goto(url, { waitUntil: 'load' });
+    const serverOnly = await serverPage.evaluate(() => ({
+      className: document.querySelector('#app > div')?.className,
+      text: document.querySelector('#app > div')?.textContent,
+      color: getComputedStyle(document.querySelector('#app > div')).color,
+      links: [...document.querySelectorAll('link[rel="stylesheet"]')].map((link) => link.getAttribute('href')),
+      hydrated: window.__GSS_HYDRATED__ === true
+    }));
+    if (serverOnly.className !== `${ownedClass} external` || serverOnly.text !== 'Hello' ||
+      serverOnly.color !== 'rgb(255, 0, 0)' || serverOnly.hydrated ||
+      JSON.stringify(serverOnly.links) !== JSON.stringify([`/${manifest.cssAsset}`])) {
+      throw new Error(`SSG before hydration differs: ${JSON.stringify(serverOnly)}`);
+    }
     const baseline = await readPage();
     if (baseline.state.className !== `${ownedClass} external` || baseline.state.serverClass !== `${ownedClass} external` ||
       baseline.state.clientClass !== ownedClass ||
@@ -303,7 +320,7 @@ export async function checkViteSsgHydration(browser) {
       classControl.state.clientClass === ownedClass &&
       classControl.state.serverClass !== `${classControl.state.clientClass} external`;
     return { detected: textDetected && classDetected, textDetected, classDetected,
-      baseline, control, classControl, pageErrors: baseline.pageErrors,
+      serverOnly, baseline, control, classControl, pageErrors: baseline.pageErrors,
       controlPageErrors: [...control.pageErrors, ...classControl.pageErrors] };
   } finally {
     await Promise.all(contexts.map((context) => context.close()));
