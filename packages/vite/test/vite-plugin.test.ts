@@ -137,7 +137,7 @@ it('canonicalizes aliases and symlinks and round-trips spaces, Unicode and perce
 it('builds static GSS JavaScript without adding a GSS runtime or per-file declaration', async () => {
   const { root } = await fixture();
   await writeFile(join(root, 'entry.ts'),
-    `import styles from './Card.gss'; globalThis.className = styles.card.self;`);
+    `import styles from './Card.gss'; globalThis.className = styles.card;`);
   const result = await build({
     root, configFile: false, plugins: [gss({ adapter: react() })], logLevel: 'silent',
     build: { write: false, minify: false, rollupOptions: { input: `${root}/entry.ts` } }
