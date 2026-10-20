@@ -48,7 +48,7 @@ SPA 的已有验收、允许整页 reload 的 HMR 行为与客户端路由覆盖
 
 | 命令 | 结果与边界 |
 | --- | --- |
-| `corepack pnpm verify` | 通过：lint、workspace build、类型检查；45 个测试文件、1416 项测试（Compiler 884、React 45、Vite 150、Testing 337） |
+| `corepack pnpm verify` | 通过：lint、workspace build、类型检查；45 个测试文件、1419 项测试（Compiler 884、React 49、Vite 149、Testing 337） |
 | `corepack pnpm playground:build` | 生产构建通过；Vite 提示压缩后部分 chunk 超过 500 kB，保留警告，不开展暂缓的性能优化 |
 | `corepack pnpm task-board:build` | 生产构建通过 |
 | `corepack pnpm article:build` | 生产构建通过 |

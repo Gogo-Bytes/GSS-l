@@ -6,7 +6,7 @@
 
 ## 当前阶段
 
-owner 已决定有限 MVP 结项，进入缺陷收敛、脚手架扩展和真实 SSR 框架实验的规划阶段。结项基线 `847698c`，基础验证 1417 项测试通过；后续 Playground 与有界 SSG 的 Chromium 证据分别见 [Playground 覆盖](PLAYGROUND-COVERAGE.md)、[SSR/SSG 验收](SSR-SSG-ACCEPTANCE.md)。这不覆盖历史 Firefox 失败或完整 production SSR。
+owner 已决定有限 MVP 结项，进入缺陷收敛、脚手架扩展和真实 SSR 框架实验的规划阶段。结项基线 `847698c`，基础验证 1419 项测试通过；后续 Playground 与有界 SSG 的 Chromium 证据分别见 [Playground 覆盖](PLAYGROUND-COVERAGE.md)、[SSR/SSG 验收](SSR-SSG-ACCEPTANCE.md)。这不覆盖历史 Firefox 失败或完整 production SSR。
 
 新阶段分类、候选与用户路径门禁见 [下一阶段](NEXT-STAGE.md)。owner 已明确先收敛基本核心能力，再接脚手架。当前盘点与已复现的严格 TSX className 类型体验限制见 [核心能力盘点](CORE-AUDIT.md)，类型契约待 owner 决定；不直接接脚手架，不新建 SSR/SSG Playground。
 
@@ -50,7 +50,7 @@ owner 已决定有限 MVP 结项，进入缺陷收敛、脚手架扩展和真实
 
 ### 当前 main 的基础验证
 
-在 `081601a` 上运行 `corepack pnpm verify`，1416 项测试及 lint／build／类型检查通过。切换旧工作目录后曾缺少 `pngjs`，按现有 lockfile 执行 frozen install 后通过；没有改依赖版本来规避测试。
+历史基线在 `081601a` 上运行 `corepack pnpm verify`，1416 项测试及 lint／build／类型检查通过；当前 sugar 语义收敛后的 verify 为 1419 项。切换旧工作目录后曾缺少 `pngjs`，按现有 lockfile 执行 frozen install 后通过；没有改依赖版本来规避测试。
 
 ### 浏览器证据
 

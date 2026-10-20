@@ -13,7 +13,7 @@ const cases = [
   { id: 'props-member', title: 'Direct typed props.scope read', source: 'type Props = { scope: typeof styles.card }; const Card = (props: Props) => <div className={props.scope} />;', contains: 'className={props.scope.self}' },
   { id: 'explicit-self', title: 'Explicit string escape (no double lowering)', source: "const name = styles.card.self; const view = <div className={styles.card.self + ' external'} />;", contains: "styles.card.self + ' external'" },
   { id: 'cross-module-warning', title: 'Same-element cross-module composition warning', source: "import other from './Other.gss'; const view = <div className={styles.card.self + ' ' + other.badge.self} />;", diagnostic: 'GSS2107' },
-  { id: 'unknown-path', title: 'Unknown static path diagnostic', source: '<div className={styles.missing} />;', diagnostic: 'GSS2102' },
+  { id: 'unknown-path', title: 'Unknown static path stays undefined', source: '<div className={styles.missing} />;', contains: 'className={styles.missing}' },
   { id: 'mutable-alias', title: 'Mutable alias diagnostic', source: 'let card = styles.card; const view = <div className={card} />;', diagnostic: 'GSS2103' },
   { id: 'mixed-alias', title: 'Scope/string branch diagnostic', source: "const branch = active ? styles.card : 'external'; const view = <div className={branch} />;", diagnostic: 'GSS2104' },
   { id: 'string-coercion', title: 'Static path string lowering', source: "const name = styles.card + ' external';", contains: 'styles.card.self + \' external\'' },

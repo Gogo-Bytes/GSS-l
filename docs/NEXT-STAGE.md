@@ -11,7 +11,7 @@ owner 已决定结束当前有限 MVP，并明确顺序为“基本核心能力�
 代码与测试基线：`847698c`；本次结项仅调整文档。此处结项不创建 tag、release，不发布包。
 
 - 已交付：框架无关编译核心、React/Vite 集成、中文 Playground、Task-board／Article、模块内固定排序、逻辑／物理属性排序修复、保守 rank 复用。
-- 基础验证：1417 项测试，lint／build／类型检查通过。
+- 基础验证：当前 1419 项测试，lint／build／类型检查通过。
 - 最近专项：Playground Chromium dev/preview 各 123 cases／1260 comparisons 通过；有界 SSG／hydration Chromium gate 通过，新增无 JS 初始样式检查。
 - 不宣称：任意 CSS 全面支持、全浏览器无缺陷、完整 router 生命周期、独立 production SSR 或流式 SSR 已验收。
 - 历史已知问题保留：Firefox Article 导航和 readiness 原因未确定；性能继续暂缓。

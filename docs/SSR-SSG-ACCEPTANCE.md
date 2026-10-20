@@ -26,7 +26,7 @@
 
 同一 gate 还通过原 123 个 fixture／1260 项对比、38 个 corpus controls，以及宿主资源／fallback／keyframe controls。它们是回归保护，不计入 SSR 场景数量。
 
-`corepack pnpm verify`：lint、build、类型检查、1417 项测试通过。
+`corepack pnpm verify`：lint、build、类型检查、当前 1419 项测试通过。
 
 ## 尚未证明的范围
 

@@ -97,11 +97,11 @@ it('fails a hard replacement without losing the committed schema or masking the 
   expect(resolveSchema!('./Card.gss')?.exports.card?.selfClassName).toContain('value_blue');
 });
 
-it('fails source transformation on unknown scope paths', async () => {
+it('leaves unknown scope paths available for runtime undefined behavior', async () => {
   const { root, server } = await fixture();
   await writeFile(join(root, 'Card.tsx'),
     `import styles from './Card.gss'; export const Card = () => <div className={styles.missing} />;`);
-  await expect(server.transformRequest('/Card.tsx')).rejects.toThrow(/GSS2102.*styles.missing/);
+  expect((await server.transformRequest('/Card.tsx'))?.code).toContain('styles.missing');
 });
 
 it('requires an explicit Adapter and can compose a non-React Adapter', async () => {

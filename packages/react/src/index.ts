@@ -189,35 +189,10 @@ export function transformReactGssUsage(
       const binding = verifiedBindings.get(expression);
       if (!binding) return;
       const reference = readStaticReference(expression);
-      if (!reference) {
-        const bindingName = readReferenceRoot(expression);
-        if (bindingName) {
-          diagnostics.push({
-            code: 'GSS2101',
-            severity: 'error',
-            phase: 'transform',
-            message: `Unsupported dynamic GSS scope expression rooted at ${bindingName}.`,
-            id: input.id,
-            reason: 'unsupported-scope-expression',
-            suggestion: 'Use a static GSS scope path.'
-          });
-        }
-        return;
-      }
+      if (!reference) return;
       const hasExplicitSelf = reference.path.at(-1) === 'self';
       const scopePath = hasExplicitSelf ? reference.path.slice(0, -1) : reference.path;
-      if (!resolveScopePath(binding.schema, scopePath)) {
-        diagnostics.push({
-          code: 'GSS2102',
-          severity: 'error',
-          phase: 'transform',
-          message: `Unknown GSS scope path: ${[reference.binding, ...scopePath].join('.')}.`,
-          id: input.id,
-          reason: 'unknown-scope-path',
-          suggestion: 'Use a path declared by the imported .gss Module.'
-        });
-        return;
-      }
+      if (!resolveScopePath(binding.schema, scopePath)) return;
       if (!hasExplicitSelf && expression.end != null) {
         output.appendLeft(expression.end, '.self');
       }

@@ -72,7 +72,6 @@ it('reports a real production error with physical file, location and source fram
 
 it.each([
   ['Compiler', '.card { margin-inline-start: 1px; } .outer .card { margin-left: 2px; }', 'GSS'],
-  ['React', '.other { color: red; }', 'GSS2102'],
   ['resource IO', '.card { background: url(missing.svg); }', 'Cannot read GSS asset']
 ])('does not invent CSS locations for %s errors', async (_kind, source, message) => {
   const { server } = await fixture(source!);
@@ -197,7 +196,7 @@ it.each(['.card { color:green; }', '.panel { color:blue; }', null])(
     else await writeFile(id, next);
     server.watcher.emit(next === null ? 'unlink' : 'change', id);
     await vi.waitFor(() => expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: 'full-reload' })));
-    if (next?.includes('.panel')) await expect(server.transformRequest('/Card.tsx')).rejects.toThrow(/GSS2102/);
+    if (next?.includes('.panel')) expect(await server.transformRequest('/Card.tsx')).toBeDefined();
   }
 );
 

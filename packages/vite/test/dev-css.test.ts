@@ -173,7 +173,7 @@ it('replaces the full CSS snapshot and revalidates source importers after a file
   const css = (await server.transformRequest('/@gss-l/central.css?direct'))?.code;
   expect(css).toContain('color: blue;');
   expect(css).not.toContain('color: red;');
-  await expect(server.transformRequest('/Card.tsx')).rejects.toThrow(/GSS2102.*styles.card/);
+  expect((await server.transformRequest('/Card.tsx'))?.code).toContain('styles.card');
 });
 
 it('invalidates deleted stylesheets, reclaims resources and recovers on recreation', async () => {

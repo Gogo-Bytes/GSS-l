@@ -291,7 +291,7 @@ const view = <span className={branch.title} />;`;
     expect(result.diagnostics).toEqual([]);
   });
 
-  it('rejects a dynamic GSS scope path inside className', () => {
+  it('leaves a dynamic GSS scope path undefined at runtime when unresolved', () => {
     const source = `import styles from './Card.gss';\n` +
       `export const Card = ({ variant }) => <div className={styles[variant]} />;`;
     const result = transformReactGssUsage({
@@ -301,11 +301,7 @@ const view = <span className={branch.title} />;`;
     });
 
     expect(result.code).toBe(source);
-    expect(result.diagnostics).toMatchObject([{
-      code: 'GSS2101',
-      phase: 'transform',
-      reason: 'unsupported-scope-expression'
-    }]);
+    expect(result.diagnostics).toEqual([]);
   });
 
   it('diagnoses implicit string coercion of a GSS scope outside className', () => {
@@ -378,7 +374,7 @@ export const Card = ({ active, fallback }) => { const branch = active ? styles.c
     expect(result.diagnostics).toEqual([]);
   });
 
-  it('reports an unknown static GSS scope path', () => {
+  it('leaves an unknown static GSS scope path undefined at runtime', () => {
     const source = `import styles from './Card.gss';\nexport const Card = () => <div className={styles.missing} />;`;
     const result = transformReactGssUsage({
       id: '/project/src/Card.tsx',
@@ -387,11 +383,7 @@ export const Card = ({ active, fallback }) => { const branch = active ? styles.c
     });
 
     expect(result.code).toBe(source);
-    expect(result.diagnostics).toMatchObject([{
-      code: 'GSS2102',
-      phase: 'transform',
-      reason: 'unknown-scope-path'
-    }]);
+    expect(result.diagnostics).toEqual([]);
   });
 
   it('leaves non-GSS className expressions unchanged', () => {

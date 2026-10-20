@@ -127,7 +127,7 @@ export const adapterTitles: Record<string, string> = {
   'local-typed-prop': '本地类型别名与 typed prop', 'inline-typed-prop': '内联 typed prop',
   'props-member': '直接读取 props.scope', 'explicit-self': '显式 .self 不会重复转换',
   'cross-module-warning': '同一元素跨 Module 组合：警告而非错误',
-  'unknown-path': '未知路径的诊断', 'mutable-alias': '可变 alias 的诊断',
+  'unknown-path': '未知路径保持 undefined', 'mutable-alias': '可变 alias 的诊断',
   'mixed-alias': 'scope / 字符串混合分支的诊断', 'string-coercion': '隐式字符串强制转换的诊断',
   'alias-member': '条件 alias 的目标路径转换'
 };

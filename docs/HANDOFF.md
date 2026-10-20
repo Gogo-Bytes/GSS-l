@@ -7,7 +7,7 @@
 
 先完整阅读 AGENTS.md、README.md、docs/STATUS.md、docs/NEXT-STAGE.md；检查 git status、当前分支和 origin/main 的关系。已有实现全部合入 main，后续默认直接在当前 main 工作，不自行创建分支或 worktree。发现其他会话正在修改或存在不相关改动时，先停下协调，不能覆盖、reset 或擅自 stash。
 
-有限 MVP 已按 owner 决定结项，结项代码/测试基线 847698c，包含 React/Vite MVP、中文 Playground、task-board/article、排序修复和保守 rank 复用。最近 verify 的 1417 项测试通过；Playground 和有界 SSG/hydration 已有新一轮 Chromium 验收，具体范围见对应报告，不等于完整 SSR 或全部浏览器通过。
+有限 MVP 已按 owner 决定结项，结项代码/测试基线 847698c，包含 React/Vite MVP、中文 Playground、task-board/article、排序修复和保守 rank 复用。最近 verify 的 1419 项测试通过；Playground 和有界 SSG/hydration 已有新一轮 Chromium 验收，具体范围见对应报告，不等于完整 SSR 或全部浏览器通过。
 
 先用简短说明确认你理解：
 1. 已交付能力和不可破坏的排序/所有权/跨模块边界；
