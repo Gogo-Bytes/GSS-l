@@ -51,7 +51,14 @@ const properties = [
   { property: 'border-collapse', first: 'separate', second: 'collapse' },
   { property: 'border-spacing', first: '0', second: '4px' },
   { property: 'caption-side', first: 'top', second: 'bottom' },
-  { property: 'empty-cells', first: 'show', second: 'hide' }
+  { property: 'empty-cells', first: 'show', second: 'hide' },
+  { property: 'contain', first: 'none', second: 'layout' },
+  { property: 'container-type', first: 'normal', second: 'inline-size' },
+  { property: 'container-name', first: 'none', second: 'sidebar' },
+  { property: 'contain-intrinsic-size', first: 'none', second: '300px' },
+  { property: 'scroll-snap-type', first: 'none', second: 'x mandatory' },
+  { property: 'scroll-snap-align', first: 'none', second: 'start' },
+  { property: 'scroll-snap-stop', first: 'normal', second: 'always' }
 ] as const;
 const importancePairs = [[false, false], [false, true], [true, false], [true, true]] as const;
 const declaration = (property: string, value: string, important: boolean) =>
