@@ -83,13 +83,23 @@ export function transformReactGssUsage(
   const output = new MagicString(input.source);
   const loweredReferences = new WeakSet<t.MemberExpression>();
   const stringAliasBindings = new WeakSet<Binding>();
+  const aliasInitializers = new WeakMap<Binding, t.Expression>();
   traverse(ast, {
     VariableDeclarator(path) {
       if (!t.isIdentifier(path.node.id) || !path.node.init) return;
-      const expressionKind = classifyScopeExpression(path.node.init, verifiedBindings);
-      if (expressionKind !== 'scope') return;
       const binding = path.scope.getBinding(path.node.id.name);
-      if (binding) stringAliasBindings.add(binding);
+      if (binding) aliasInitializers.set(binding, path.node.init);
+      const expressionKind = classifyScopeExpression(path.node.init, verifiedBindings);
+      if (expressionKind === 'scope' && binding) stringAliasBindings.add(binding);
+    }
+  });
+  const aliasMemberBindings = new WeakSet<Binding>();
+  traverse(ast, {
+    MemberExpression(path) {
+      const reference = readStaticReference(path.node);
+      if (!reference) return;
+      const binding = path.scope.getBinding(reference.binding);
+      if (binding && aliasInitializers.has(binding)) aliasMemberBindings.add(binding);
     }
   });
   const stringAliasReferences = new WeakSet<t.Identifier>();
@@ -214,6 +224,28 @@ export function transformReactGssUsage(
     });
   });
 
+  // Expand a bounded immutable alias when a target path is read from it.
+  // This keeps `const branch = active ? styles.card : styles.panel;
+  // branch.title` as a source-level convenience without inferring arbitrary
+  // data flow or relying on DOM structure.
+  traverse(ast, {
+    MemberExpression(path) {
+      const expression = path.node;
+      if (t.isMemberExpression(path.parent) && path.parent.object === expression) return;
+      const reference = readStaticReference(expression);
+      if (!reference || reference.path.length === 0) return;
+      const rootBinding = path.scope.getBinding(reference.binding);
+      const init = rootBinding && rootBinding.constant && t.isVariableDeclarator(rootBinding.path.node)
+        ? rootBinding.path.node.init ?? undefined
+        : undefined;
+      if (!init) return;
+      const replacement = expandAliasTarget(init, reference.path, input.source, verifiedBindings);
+      if (replacement && expression.start != null && expression.end != null) {
+        output.overwrite(expression.start, expression.end, replacement);
+      }
+    }
+  });
+
   // GSS references are compile-time paths, not JSX-only values. Lower direct
   // static paths in direct expression contexts so ordinary string consumers
   // (for example custom functions or document APIs) receive a primitive at
@@ -223,14 +255,15 @@ export function transformReactGssUsage(
     MemberExpression(path) {
       const expression = path.node;
       if (t.isMemberExpression(path.parent) && path.parent.object === expression) return;
-      if (
-        t.isVariableDeclarator(path.parent) && t.isObjectPattern(path.parent.id) ||
-        t.isJSXAttribute(path.parent)
-      ) return;
+      if (t.isJSXAttribute(path.parent)) return;
       let ancestor: NodePath<t.Node> | null = path.parentPath;
       while (ancestor) {
         if (t.isJSXAttribute(ancestor.node)) return;
-        if (t.isVariableDeclarator(ancestor.node) && t.isObjectPattern(ancestor.node.id)) return;
+        if (t.isVariableDeclarator(ancestor.node)) {
+          const id = ancestor.node.id;
+          const binding = t.isIdentifier(id) ? path.scope.getBinding(id.name) : undefined;
+          if (binding && aliasMemberBindings.has(binding)) return;
+        }
         ancestor = ancestor.parentPath;
       }
       const binding = verifiedBindings.get(expression);
@@ -618,6 +651,34 @@ function aliasKindForBinding(
   expressionKind: Exclude<ScopeExpressionKind, 'non-scope'>
 ): AliasKind {
   return binding.kind === 'const' && binding.constant ? expressionKind : 'mutable';
+}
+
+function expandAliasTarget(
+  expression: t.Expression,
+  targetPath: readonly string[],
+  source: string,
+  verifiedBindings: WeakMap<t.MemberExpression, GssBinding>
+): string | undefined {
+  const hasExplicitSelf = targetPath.at(-1) === 'self';
+  const targets = hasExplicitSelf ? targetPath.slice(0, -1) : targetPath;
+  if (targets.length === 0) return undefined;
+  if (t.isMemberExpression(expression)) {
+    const verified = readVerifiedScopeExpression(expression, verifiedBindings);
+    if (!verified || !resolveScopePath(verified.binding.schema, [...verified.path, ...targets])) {
+      return undefined;
+    }
+    const text = expression.start != null && expression.end != null
+      ? source.slice(expression.start, expression.end) : undefined;
+    return text ? `${text}.${targets.join('.')}.self` : undefined;
+  }
+  if (t.isConditionalExpression(expression)) {
+    const consequent = expandAliasTarget(expression.consequent, targets, source, verifiedBindings);
+    const alternate = expandAliasTarget(expression.alternate, targets, source, verifiedBindings);
+    const test = expression.test.start != null && expression.test.end != null
+      ? source.slice(expression.test.start, expression.test.end) : undefined;
+    return consequent && alternate && test ? `${test} ? ${consequent} : ${alternate}` : undefined;
+  }
+  return undefined;
 }
 
 function classifyScopeExpression(

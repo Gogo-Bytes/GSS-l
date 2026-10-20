@@ -129,5 +129,5 @@ export const adapterTitles: Record<string, string> = {
   'cross-module-warning': '同一元素跨 Module 组合：警告而非错误',
   'unknown-path': '未知路径的诊断', 'mutable-alias': '可变 alias 的诊断',
   'mixed-alias': 'scope / 字符串混合分支的诊断', 'string-coercion': '隐式字符串强制转换的诊断',
-  'alias-member-boundary': '已知限制：alias 成员不会自动转换'
+  'alias-member': '条件 alias 的目标路径转换'
 };

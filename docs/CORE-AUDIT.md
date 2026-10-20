@@ -11,7 +11,7 @@ owner 已修正阶段顺序：先基本核心能力，再脚手架，最后常�
 - Adapter 能在 JSX/TSX 源码中将它 lowering 为 `.self`；现在生成的 GSS 引用类型也可赋给 `string`。
 - `packages/types/src/index.ts` 使用带 brand、兼容 `.self` 和递归子路径的编译期 `string & children` 引用；`packages/types/test/` 与 `packages/vite/test/consumer/` 已覆盖直接 string 赋值。
 - React Adapter 已对直接静态 GSS 路径在普通表达式上下文做最小 lowering；普通函数、`window`／`document` 和模板字符串回归已覆盖。变量 alias 初始化、JSX 属性和既有 typed-prop/alias 流程仍按原有边界处理。
-- 这不是完整 alias/data-flow lowering：变量声明、可变 alias、跨文件传播仍沿用既有诊断／边界；旧 `.self` 写法保持兼容。
+- 这不是完整 alias/data-flow lowering：可变 alias、跨文件传播和动态路径仍沿用既有诊断／边界；本轮新增了不可变条件 alias 的静态目标读取（如 `branch.title`）展开；旧 `.self` 写法保持兼容。
 
 在实现前，本轮曾用 TypeScript Compiler API、strict + react-jsx + NodeNext，以虚拟 TSX 源文件复现，不写入工作区；随后用仓库 pinned TypeScript 验证了最小类型修改：
 

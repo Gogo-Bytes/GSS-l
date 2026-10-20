@@ -8,10 +8,14 @@ const cardScope: ScopeSchema = {
     card: {
       selfClassName: 'card-class',
       targets: {
-        icon: { selfClassName: 'icon-class', targets: {} }
+        icon: { selfClassName: 'icon-class', targets: {} },
+        title: { selfClassName: 'title-class', targets: {} }
       }
     },
-    panel: { selfClassName: 'panel-class', targets: {} }
+    panel: {
+      selfClassName: 'panel-class',
+      targets: { title: { selfClassName: 'panel-title-class', targets: {} } }
+    }
   }
 };
 
@@ -140,6 +144,20 @@ useClassName(styles.card.icon.self);`);
     expect(result.code).toContain('const branch = active ? styles.card.self : styles.panel.self;');
     expect(result.code).toContain('className={branch}');
     expect(result.diagnostics).toEqual([]);
+  });
+
+  it('lowers a target read from an immutable conditional scope alias', () => {
+    const source = `import styles from './Card.gss';
+const branch = active ? styles.card : styles.panel;
+const view = <span className={branch.title} />;`;
+    const result = transformReactGssUsage({
+      id: '/project/src/Card.tsx',
+      source,
+      resolveScopeSchema() { return cardScope; }
+    });
+
+    expect(result.diagnostics).toEqual([]);
+    expect(result.code).toContain('className={active ? styles.card.title.self : styles.panel.title.self}');
   });
 
   it('lowers a renamed property-destructured scope alias', () => {

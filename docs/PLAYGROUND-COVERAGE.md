@@ -17,7 +17,7 @@ Playground 是交互式能力演示／调试台，也是一个有真实 React/Vi
 | 资源与生产集成 | 图片 decode 为 72×40；仅一个 GSS stylesheet link；lazy 组件可加载，生产 manifest v2 包含 Lazy.gss |
 | 浏览器 fixture 浏览器 | dev、preview 各全跑 123 个案例／1260 项对比并通过；包含 phase 选择、搜索、无匹配时保留选择 |
 | Compiler-only 目录 | 114 个有界案例；生成目录时每项校验预期 atomic／preserved／rejected，失败即抛错；session lifecycle 校验资源共享、回收、回滚与收敛。浏览器额外抽查拒绝回滚和 conditional keyframes 的 compiler-only 标签 |
-| React Adapter 目录 | 15 个案例；检查可展示转换、诊断及已知限制。浏览器抽查 mutable alias、GSS2107 warning、alias-member boundary；不能把目录展示等同于真实组件运行 |
+| React Adapter 目录 | 15 个案例；检查可展示转换、诊断及已知限制。浏览器抽查 mutable alias、GSS2107 warning、条件 alias 目标路径展开；不能把目录展示等同于真实组件运行 |
 | 开发更新与错误恢复 | 临时副本修改 Live.gss 后颜色更新；重复属性触发 overlay，保留有效颜色；恢复后 overlay 消失且颜色恢复 |
 | 单页导航与布局 | 四个区块、六个场景；区块切换滚动归零；生产模式 320／390／768／1440 宽度无页面横向溢出 |
 | 辅助文字可读性 | 生产桌面态指定 UI 辅助文字 4.5:1 对比度，并有刻意降低对比度的负对照；不是完整无障碍审计 |

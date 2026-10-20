@@ -17,9 +17,9 @@ const cases = [
   { id: 'mutable-alias', title: 'Mutable alias diagnostic', source: 'let card = styles.card; const view = <div className={card} />;', diagnostic: 'GSS2103' },
   { id: 'mixed-alias', title: 'Scope/string branch diagnostic', source: "const branch = active ? styles.card : 'external'; const view = <div className={branch} />;", diagnostic: 'GSS2104' },
   { id: 'string-coercion', title: 'Static path string lowering', source: "const name = styles.card + ' external';", contains: 'styles.card.self + \' external\'' },
-  { id: 'alias-member-boundary', title: 'Known boundary: alias member reads are not implicitly lowered',
+  { id: 'alias-member', title: 'Conditional alias target path',
     source: 'const branch = active ? styles.card : styles.panel; const view = <span className={branch.title} />;',
-    contains: 'className={branch.title}', boundary: 'Use branch.title.self. Current Adapter leaves this expression untouched without a diagnostic; not a supported implicit-lowering example.' }
+    contains: 'className={active ? styles.card.title.self : styles.panel.title.self}' }
 ];
 
 export function transformPlaygroundCases() {
