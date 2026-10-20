@@ -1259,7 +1259,7 @@ describe('GssCompilerSession', () => {
     expect(scopes.outer!.targets.middle!.targets.extra!.targets.icon!.selfClassName).toContain('--pseudo_before--');
   });
 
-  it.each(['checked', 'disabled', 'required', 'optional', 'valid', 'invalid', 'in-range', 'out-of-range', 'placeholder-shown', 'read-only', 'read-write', 'indeterminate', 'checked:disabled'])('preserves current :%s on distinct before/after atoms at one base scope', (state) => {
+  it.each(['checked', 'disabled', 'required', 'optional', 'valid', 'invalid', 'in-range', 'out-of-range', 'placeholder-shown', 'read-only', 'read-write', 'indeterminate', 'link', 'visited', 'target', 'enabled', 'default', 'checked:disabled'])('preserves current :%s on distinct before/after atoms at one base scope', (state) => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
     const replacement = compiler.replaceStylesheet({ id: 'CurrentPseudo.gss', source:
       `.control:${state}::before { content: "before"; } .control:${state}::after { content: "after"; }`
@@ -1803,7 +1803,7 @@ describe('GssCompilerSession', () => {
 
     expect(compiler.replaceStylesheet({
       id: '/project/src/link.gss',
-      source: '.link:visited { color: red; }'
+      source: '.link:first-child { color: red; }'
     })).toMatchObject({
       committed: false,
       generation: 0,

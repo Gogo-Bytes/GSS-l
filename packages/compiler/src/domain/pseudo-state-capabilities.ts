@@ -15,7 +15,12 @@ export const supportedPseudoStates = [
   'placeholder-shown',
   'read-only',
   'read-write',
-  'indeterminate'
+  'indeterminate',
+  'link',
+  'visited',
+  'target',
+  'enabled',
+  'default'
 ] as const;
 
 export type SupportedPseudoState = typeof supportedPseudoStates[number];
