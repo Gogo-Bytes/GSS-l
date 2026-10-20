@@ -5,7 +5,17 @@ export const supportedPseudoStates = [
   'focus-within',
   'active',
   'disabled',
-  'checked'
+  'checked',
+  'required',
+  'optional',
+  'valid',
+  'invalid',
+  'in-range',
+  'out-of-range',
+  'placeholder-shown',
+  'read-only',
+  'read-write',
+  'indeterminate'
 ] as const;
 
 export type SupportedPseudoState = typeof supportedPseudoStates[number];

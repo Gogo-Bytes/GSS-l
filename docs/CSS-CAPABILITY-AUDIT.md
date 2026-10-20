@@ -45,7 +45,7 @@
 
 ### B. Pseudo-state 与 pseudo-element
 
-当前 state registry 只有 7 个状态，仍缺少大量常见状态：
+本轮先补入常见表单状态：`:required`、`:optional`、`:valid`、`:invalid`、`:in-range`、`:out-of-range`、`:placeholder-shown`、`:read-only`、`:read-write`、`:indeterminate`；编译器 state 回归覆盖其 current pseudo path。当前仍缺少大量常见状态：
 
 - 链接／目标：`:link`、`:visited`、`:target`。
 - 表单：`:required`、`:optional`、`:valid`、`:invalid`、`:in-range`、`:out-of-range`、`:placeholder-shown`、`:read-only`、`:read-write`、`:default`、`:indeterminate`、`:user-valid`、`:user-invalid`、`:autofill`。
