@@ -55,9 +55,17 @@
 
 **影响**：state 不是简单字符串白名单；ancestor/current/runtime-source 位置、同节点 coactivity、specificity 和浏览器动态变化都需要独立回归。
 
+### 结构伪类为何暂不按普通 state 支持
+
+`:first-child`、`:last-child`、`:only-child`、`:nth-child()`、`:nth-of-type()` 等不是当前节点的独立状态。它们依赖同级 sibling 顺序、父节点 children 集合、公式参数和 selector specificity；`:empty` 还依赖运行时文本／元素内容，`:root` 依赖 document singleton 语义。
+
+当前 GSS 的 selector IR 将 pseudo state 绑定到 ownership path node，并以 current／ancestor／runtime-source state 参与有限 coactivity 与排序。直接把结构伪类加入这个白名单会产生错误保证：它既没有 sibling-index／formula IR，也没有与 `+`、`~`、`:has()`、selector list specificity 的统一推理和 native oracle。
+
+因此这些伪类当前保持 fail-closed，不是因为浏览器不能执行，而是因为 compiler 尚不能证明 ownership marker、结构关系和原生层叠在所有 DOM 形状下保持正确。后续若实现，需要独立的结构关系模型、公式解析、specificity／coactivity 验收和动态 DOM oracle，不能仅增加字符串白名单。
+
 ### C. Property effect registry
 
-当前 registry 是有意有限的。本轮先补入一组无 shorthand 交互、按 independent effect 处理的常见属性：`aspect-ratio`、`box-sizing`、`accent-color`、`filter`、`backdrop-filter`、`clip-path`、`content-visibility`、`scroll-behavior`，以及 `pointer-events`、`user-select`、`touch-action`、`will-change`、`resize`、`appearance`、`color-scheme`、`isolation`、`mix-blend-mode`、`box-decoration-break`、`image-rendering`、`shape-rendering`、`text-rendering`、`scrollbar-gutter`，以及 typography／SVG paint 的 `text-indent`、`word-spacing`、`text-wrap`、`hyphens`、`line-break`、`tab-size`、`text-orientation`、`text-shadow`、`caret-color`、`fill`／`stroke` 系列和 `paint-order`／`vector-effect`；Compiler 回归覆盖其 source order／importance／ownership。仍未形成完整 effect family 或未进入 independent list 的方向包括：
+当前 registry 是有意有限的。本轮先补入一组无 shorthand 交互、按 independent effect 处理的常见属性：`aspect-ratio`、`box-sizing`、`accent-color`、`filter`、`backdrop-filter`、`clip-path`、`content-visibility`、`scroll-behavior`，以及 `pointer-events`、`user-select`、`touch-action`、`will-change`、`resize`、`appearance`、`color-scheme`、`isolation`、`mix-blend-mode`、`box-decoration-break`、`image-rendering`、`shape-rendering`、`text-rendering`、`scrollbar-gutter`，以及 typography／SVG paint 的 `text-indent`、`word-spacing`、`text-wrap`、`hyphens`、`line-break`、`tab-size`、`text-orientation`、`text-shadow`、`caret-color`、`fill`／`stroke` 系列和 `paint-order`／`vector-effect`，以及 `background-blend-mode`、`text-decoration-skip-ink` 和 table presentation 属性；Compiler 回归覆盖其 source order／importance／ownership。仍未形成完整 effect family 或未进入 independent list 的方向包括：
 
 - logical sizing／border：`inline-size`、`block-size`、`min-inline-size`、`border-inline-*`、`border-block-*` 等。
 - sizing／layout：`contain`、`container-type`、`container-name` 等。

@@ -40,7 +40,7 @@ const registeredShorthandEffects = {
   'border-color': ['border-top-color', 'border-right-color', 'border-bottom-color', 'border-left-color'],
   'border-radius': ['border-top-left-radius', 'border-top-right-radius', 'border-bottom-right-radius', 'border-bottom-left-radius'],
   'border-image': ['border-image-source', 'border-image-slice', 'border-image-width', 'border-image-outset', 'border-image-repeat'],
-  background: ['background-image', 'background-position-x', 'background-position-y', 'background-size', 'background-repeat', 'background-origin', 'background-clip', 'background-attachment', 'background-color'],
+  background: ['background-image', 'background-position-x', 'background-position-y', 'background-size', 'background-repeat', 'background-origin', 'background-clip', 'background-attachment', 'background-color', 'background-blend-mode'],
   'background-position': ['background-position-x', 'background-position-y'],
   overflow: ['overflow-x', 'overflow-y'],
   'overscroll-behavior': ['overscroll-behavior-x', 'overscroll-behavior-y'],

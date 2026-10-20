@@ -66,7 +66,8 @@ const families: readonly PropertyFamily[] = [
     'background-origin',
     'background-clip',
     'background-attachment',
-    'background-color'
+    'background-color',
+    'background-blend-mode'
   ]],
   ['background-position', ['background-position-x', 'background-position-y']],
   ['overflow', ['overflow-x', 'overflow-y']],
@@ -246,6 +247,11 @@ export const PROPERTY_EFFECT_INDEPENDENT_PROPERTIES = [
   'stroke-linejoin',
   'paint-order',
   'vector-effect',
+  'text-decoration-skip-ink',
+  'border-collapse',
+  'border-spacing',
+  'caption-side',
+  'empty-cells',
   'letter-spacing',
   'text-align',
   'text-overflow',

@@ -45,7 +45,13 @@ const properties = [
   { property: 'stroke-linecap', first: 'butt', second: 'round' },
   { property: 'stroke-linejoin', first: 'miter', second: 'round' },
   { property: 'paint-order', first: 'normal', second: 'stroke fill' },
-  { property: 'vector-effect', first: 'none', second: 'non-scaling-stroke' }
+  { property: 'vector-effect', first: 'none', second: 'non-scaling-stroke' },
+  { property: 'background-blend-mode', first: 'normal', second: 'multiply' },
+  { property: 'text-decoration-skip-ink', first: 'auto', second: 'none' },
+  { property: 'border-collapse', first: 'separate', second: 'collapse' },
+  { property: 'border-spacing', first: '0', second: '4px' },
+  { property: 'caption-side', first: 'top', second: 'bottom' },
+  { property: 'empty-cells', first: 'show', second: 'hide' }
 ] as const;
 const importancePairs = [[false, false], [false, true], [true, false], [true, true]] as const;
 const declaration = (property: string, value: string, important: boolean) =>
