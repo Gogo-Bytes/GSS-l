@@ -6,14 +6,14 @@ owner 已修正阶段顺序：先基本核心能力，再脚手架，最后常�
 
 ## 首要发现：隐式 className lowering 与 TypeScript 不是一回事
 
-之前对话中将 `<Child className={styles.title} />` 描述为普通字符串传递的完整现有能力，需纠正：
+之前对话中将 `<Child className={styles.title} />` 描述为普通字符串传递的完整现有能力，需纠正；本轮已实现一个最小语法糖修复，但仍保留明确边界：
 
-- Adapter 能在 JSX/TSX 源码中将它 lowering 为 `.self`；现有父／子独立转换回归通过。
-- 但 TypeScript 检查的是原始源码，不读取 Adapter 的转换结果。子组件参数为 `className?: string` 时，`GssScope` 不可赋值，报 TS2322。
-- `packages/types/src/index.ts` 明确将 scope 定义为带 brand 的对象；`packages/types/test/gss-scope.test-d.ts` 通过 `@ts-expect-error` 明确保护“scope 不是 string”。
-- Playground 的 TSX 可视示例使用显式 `.self`，隐式演示在 JSX 中；不能把其通过说成隐式 TSX 类型体验已闭环。
+- Adapter 能在 JSX/TSX 源码中将它 lowering 为 `.self`；现在生成的 GSS 引用类型也可赋给 `string`。
+- `packages/types/src/index.ts` 使用带 brand、兼容 `.self` 和递归子路径的编译期 `string & children` 引用；`packages/types/test/` 与 `packages/vite/test/consumer/` 已覆盖直接 string 赋值。
+- React Adapter 已对直接静态 GSS 路径在普通表达式上下文做最小 lowering；普通函数、`window`／`document` 和模板字符串回归已覆盖。变量 alias 初始化、JSX 属性和既有 typed-prop/alias 流程仍按原有边界处理。
+- 这不是完整 alias/data-flow lowering：变量声明、可变 alias、跨文件传播仍沿用既有诊断／边界；旧 `.self` 写法保持兼容。
 
-本轮用 TypeScript Compiler API、strict + react-jsx + NodeNext，以虚拟 TSX 源文件复现，不写入工作区：
+在实现前，本轮曾用 TypeScript Compiler API、strict + react-jsx + NodeNext，以虚拟 TSX 源文件复现，不写入工作区；随后用仓库 pinned TypeScript 验证了最小类型修改：
 
 ```tsx
 import type { GssScope } from '../../types/src/index.js';
@@ -25,16 +25,9 @@ const implicit = <Child className={styles.title} />; // TS2322
 const explicit = <Child className={styles.title.self} />; // 通过
 ```
 
-结果只有 implicit 一处 TS2322。这是**已复现的源码类型体验限制及此前表述／覆盖遗漏**，不是编译器丢样式，也不是新的跨文件推导需求。
+原始结果只有 implicit 一处 TS2322；现已通过递归字符串引用类型消除该类型错误。这不是把运行时对象伪装成普通公共对象，而是要求 GSS Adapter 在运行前完成 lowering。
 
-后续 owner 明确希望不写 `.self`，并提出双 Symbol 存储方案。官方规范研究与本地最小实验见 [Symbol／点路径研究](SYMBOL-PATH-RESEARCH.md)：内部存储可行，但无括号点路径需要明确的编译期语言与类型工具链，尚未批准新实现。下列 A/B 保留为最初决策背景，不代表 owner 已选择 A。
-
-### 需要 owner 决策
-
-- **A：保留对象类型契约**。TSX 使用显式 `.self`，JSX 可隐式 lowering；补明确使用说明与类型回归。最小风险，无新运行时或公共类型承诺。
-- **B：要求严格 TSX 也能直接传 scope 给 string className**。先设计类型／工具链契约，不能直接把真实对象伪装成 string，也不能把所有 className 改成宽类型或用断言绕过检查；需要单独评估与授权。
-
-建议先选 A 收敛基本能力；若隐式 TSX 是核心产品目标则选 B，不能以“已有转换”宣称已解决。
+owner 随后决定采用“编译期语法糖 + 轻量 TS 兼容类型”：直接静态引用不要求用户写 `.self`，Adapter 在运行前 lowering，TypeScript 只需不报错，不追求精确补全。双 Symbol 研究见 [Symbol／点路径研究](SYMBOL-PATH-RESEARCH.md)；Symbol 仅可作为内部存储细节，未作为公共语义。
 
 ## 核心能力矩阵
 

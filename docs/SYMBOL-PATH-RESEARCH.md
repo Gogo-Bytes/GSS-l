@@ -4,7 +4,7 @@
 
 Separate symbol keys can store a node’s class string and child namespace in one backing object without collisions. They **cannot make the same untransformed JavaScript expression `styles.card` both an actual primitive string and a node carrying per-path children**: `.card` requests the string key `"card"`, not either symbol, and JavaScript supplies no “used as className versus used as namespace” mode to that property read.
 
-Keeping both `styles.card` and `styles.card.title` with actual strings at consumer boundaries is potentially viable as an **explicitly compiled GSS language extension**, using schema-backed path expansion and a source-facing string intersection type. This is not transparent ordinary JavaScript: every permitted namespace-bearing use must be transformed or validated, with explicit restrictions on escapes and external consumers. No implementation or public-contract change is authorized by this report.
+Keeping both `styles.card` and `styles.card.title` with actual strings at consumer boundaries is potentially viable as an **explicitly compiled GSS language extension**, using schema-backed path expansion and a source-facing string intersection type. This is not transparent ordinary JavaScript: every permitted namespace-bearing use must be transformed or validated, with explicit restrictions on escapes and external consumers. The current implementation now adopts a minimal version: recursive source-facing string compatibility plus direct static lowering outside JSX attributes; alias/data-flow expansion remains bounded.
 
 ## Evidence and scope
 
@@ -94,7 +94,7 @@ Generated declarations must actually be emitted, included/resolved, kept synchro
 - `renderDeclarationCode` / `renderScopeType`: construct a schema-shaped declaration string with readonly root and child members and `GssScope<...>`. The presence of this artifact field does **not establish that an import’s editor/CLI module resolution consumes a generated exact `.d.ts`**. The inspected wildcard is broad; exact declaration delivery remains to be traced/decided.
 - `packages/react/src/index.ts`: lowering is visited under JSX `className` expressions and appends `.self` to recognized scope uses. Static member resolution accepts **noncomputed Identifier chains**; bracket literals are not currently accepted by `readStaticReference`. Lexical binding identity guards direct imported roots against shadowing.
 - Current alias handling recognizes a bounded set of direct scope initializers/conditional scopes, some destructuring from verified member expressions, and local typed-prop patterns. This is not general alias propagation, module-graph analysis, arbitrary helper rewriting or whole-program escape validation. Dynamic paths in recognized className positions receive `GSS2101`; unknown paths receive `GSS2102`. Do not broaden that to “all unsupported code everywhere is already rejected.”
-- CORE-AUDIT records strict TSX TS2322 for an object scope passed to `className?: string`, while `.self` passes. Existing lowering and a passing JSX demo do not solve source TS checking.
+- CORE-AUDIT records the historical strict TSX TS2322 for an object scope passed to `className?: string`, while `.self` passed. The current bounded `string & children` source type removes that diagnostic; Adapter lowering still owns runtime correctness.
 - `readonly` must remain part of any replacement public type. TypeScript [readonly Properties](https://www.typescriptlang.org/docs/handbook/2/objects.html#readonly-properties) says it changes no runtime behavior and does not guarantee total immutability. Do not claim existing readonly declarations imply freezing; mutation/aliasing restrictions matter especially if a compiler assumes stable paths.
 
 ## Consumer coverage needed for a compiled-path design
@@ -186,7 +186,7 @@ Beyond those bounded probes, validation should use in-memory or otherwise owner-
 - Compare lowering outputs to schema-provided class strings, including identical class strings at distinct paths, punctuation/Unicode/escaped names, atomic/preserved modes and existing direction/combinator fixtures.
 - Trace exact `.d.ts` installation/resolution in Vite/editor/CLI and check behavior when CSS is renamed, removed or invalid. No new runtime timings, successful prototype counts or measured diagnostics are claimed here.
 
-**Recommendation:** do not implement the symbol proposal as a transparent runtime/type fix. If no-transform compatibility is required, retain honest objects with explicit extraction or choose an actual-string map/resolver and acknowledge the syntax change. If the requested dot surface is essential, authorize a bounded compile-time-path design first, with exhaustive allowed-use validation and collision/declaration policy; symbols are an optional internal representation, not the enabling semantic mechanism.
+**Recommendation:** do not treat the symbol proposal as the semantic fix. The adopted minimal direction is a bounded compile-time path design: direct static references may omit `.self`, the source-facing type is recursively string-compatible, and the Adapter lowers verified paths. Symbols remain optional internal storage. Alias/data-flow, dynamic access, exact declaration generation and collision policy remain open follow-ups.
 
 ## Sources
 

@@ -9,6 +9,8 @@ const iconClassName: string = scope.icon.self;
 void selfClassName;
 void iconClassName;
 
-// @ts-expect-error A scope object is not a class string.
 const className: string = scope;
 void className;
+
+const nestedClassName: string = scope.icon;
+void nestedClassName;

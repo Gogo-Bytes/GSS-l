@@ -58,6 +58,22 @@ export const Parent = () => <Card className={styles.card} />;`,
     expect(child.code).toBe(childSource);
   });
 
+  it('lowers direct GSS paths outside JSX className expressions to strings', () => {
+    const source = `import styles from './Card.gss';
+window.document.title = styles.card;
+useClassName(styles.card.icon);`;
+    const result = transformReactGssUsage({
+      id: '/project/src/usage.ts',
+      source,
+      resolveScopeSchema: () => cardScope
+    });
+
+    expect(result.diagnostics).toEqual([]);
+    expect(result.code).toBe(`import styles from './Card.gss';
+window.document.title = styles.card.self;
+useClassName(styles.card.icon.self);`);
+  });
+
   it('lowers a nested static target path', () => {
     const result = transformReactGssUsage({
       id: '/project/src/Card.tsx',
@@ -106,8 +122,8 @@ export const Parent = () => <Card className={styles.card} />;`,
       resolveScopeSchema() { return cardScope; }
     });
 
-    expect(result.code).toContain('className={card.self}');
-    expect(result.code).toContain('const card = styles.card;');
+    expect(result.code).toContain('className={card}');
+    expect(result.code).toContain('const card = styles.card.self;');
     expect(result.diagnostics).toEqual([]);
   });
 
@@ -121,7 +137,8 @@ export const Parent = () => <Card className={styles.card} />;`,
       resolveScopeSchema() { return cardScope; }
     });
 
-    expect(result.code).toContain('className={branch.self}');
+    expect(result.code).toContain('const branch = active ? styles.card.self : styles.panel.self;');
+    expect(result.code).toContain('className={branch}');
     expect(result.diagnostics).toEqual([]);
   });
 
@@ -149,7 +166,7 @@ export const Parent = () => <Card className={styles.card} />;`,
       resolveScopeSchema() { return cardScope; }
     });
 
-    expect(result.code).toBe(source);
+    expect(result.code).toContain('const branch = active ? styles.card.self : fallback;');
     expect(result.diagnostics).toMatchObject([{
       code: 'GSS2104',
       phase: 'transform',
@@ -167,7 +184,7 @@ export const Parent = () => <Card className={styles.card} />;`,
       resolveScopeSchema() { return cardScope; }
     });
 
-    expect(result.code).toBe(source);
+    expect(result.code).toContain('let card = styles.card.self;');
     expect(result.diagnostics).toMatchObject([{
       code: 'GSS2103',
       phase: 'transform',
@@ -282,12 +299,24 @@ export const Parent = () => <Card className={styles.card} />;`,
       resolveScopeSchema() { return cardScope; }
     });
 
-    expect(result.code).toBe(source);
+    expect(result.code).toContain('`prefix ${styles.card.self}`');
+    expect(result.diagnostics).toEqual([]);
+  });
+
+  it('keeps mixed aliases rejected after direct path lowering', () => {
+    const source = `import styles from './Card.gss';
+export const Card = ({ active, fallback }) => { const branch = active ? styles.card : fallback; return <div className={branch} />; };`;
+    const result = transformReactGssUsage({
+      id: '/project/src/Card.tsx',
+      source,
+      resolveScopeSchema() { return cardScope; }
+    });
+
+    expect(result.code).toContain('const branch = active ? styles.card.self : fallback;');
     expect(result.diagnostics).toMatchObject([{
-      code: 'GSS2105',
+      code: 'GSS2104',
       phase: 'transform',
-      reason: 'scope-string-coercion',
-      suggestion: expect.stringContaining('.self')
+      reason: 'ambiguous-scope-alias'
     }]);
   });
 

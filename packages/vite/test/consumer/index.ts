@@ -12,13 +12,10 @@ void self;
 void nestedSelf;
 void unknown;
 
-// @ts-expect-error A scope object cannot be used as a class string.
-const invalidClassName: string = styles.card;
-void invalidClassName;
-
-// @ts-expect-error Nested scopes retain the object brand.
-const invalidNestedClassName: string = styles.card.icon;
-void invalidNestedClassName;
+const className: string = styles.card;
+const nestedClassName: string = styles.card.icon;
+void className;
+void nestedClassName;
 
 // @ts-expect-error Scope exports are read-only.
 styles.card = styles.other;

@@ -81,6 +81,25 @@ export function transformReactGssUsage(
   const aliasReferences = resolveAliasReferences(ast, bindings, verifiedBindings);
   const typedPropReferences = resolveTypedPropMemberReferences(ast, bindings);
   const output = new MagicString(input.source);
+  const loweredReferences = new WeakSet<t.MemberExpression>();
+  const stringAliasBindings = new WeakSet<Binding>();
+  traverse(ast, {
+    VariableDeclarator(path) {
+      if (!t.isIdentifier(path.node.id) || !path.node.init) return;
+      const expressionKind = classifyScopeExpression(path.node.init, verifiedBindings);
+      if (expressionKind !== 'scope') return;
+      const binding = path.scope.getBinding(path.node.id.name);
+      if (binding) stringAliasBindings.add(binding);
+    }
+  });
+  const stringAliasReferences = new WeakSet<t.Identifier>();
+  traverse(ast, {
+    Identifier(path) {
+      if (!path.isReferencedIdentifier()) return;
+      const binding = path.scope.getBinding(path.node.name);
+      if (binding && stringAliasBindings.has(binding)) stringAliasReferences.add(path.node);
+    }
+  });
 
   visitWithParent(ast.program, undefined, (node, parent) => {
     if (
@@ -111,8 +130,8 @@ export function transformReactGssUsage(
       if (t.isIdentifier(expression)) {
         if (t.isMemberExpression(parent) && parent.object === expression) return;
         const aliasKind = aliasReferences.get(expression);
-        if (aliasKind === 'scope' && expression.end != null) {
-          output.appendLeft(expression.end, '.self');
+        if (aliasKind === 'scope' && !stringAliasReferences.has(expression)) {
+          if (expression.end != null) output.appendLeft(expression.end, '.self');
         } else if (aliasKind === 'mutable') {
           diagnostics.push({
             code: 'GSS2103',
@@ -194,12 +213,47 @@ export function transformReactGssUsage(
       }
     });
   });
+
+  // GSS references are compile-time paths, not JSX-only values. Lower direct
+  // static paths in direct expression contexts so ordinary string consumers
+  // (for example custom functions or document APIs) receive a primitive at
+  // runtime. Alias initializers and JSX attributes retain the existing
+  // bounded analysis below; general data-flow handling is not inferred here.
+  traverse(ast, {
+    MemberExpression(path) {
+      const expression = path.node;
+      if (t.isMemberExpression(path.parent) && path.parent.object === expression) return;
+      if (
+        t.isVariableDeclarator(path.parent) && t.isObjectPattern(path.parent.id) ||
+        t.isJSXAttribute(path.parent)
+      ) return;
+      let ancestor: NodePath<t.Node> | null = path.parentPath;
+      while (ancestor) {
+        if (t.isJSXAttribute(ancestor.node)) return;
+        if (t.isVariableDeclarator(ancestor.node) && t.isObjectPattern(ancestor.node.id)) return;
+        ancestor = ancestor.parentPath;
+      }
+      const binding = verifiedBindings.get(expression);
+      if (!binding) return;
+      const reference = readStaticReference(expression);
+      if (!reference) return;
+      const hasExplicitSelf = reference.path.at(-1) === 'self';
+      const scopePath = hasExplicitSelf ? reference.path.slice(0, -1) : reference.path;
+      if (!resolveScopePath(binding.schema, scopePath)) return;
+      if (!hasExplicitSelf && expression.end != null) {
+        output.appendLeft(expression.end, '.self');
+        loweredReferences.add(expression);
+      }
+    }
+  });
+
   diagnoseScopeStringCoercions(
     ast,
     input.id,
     verifiedBindings,
     aliasReferences,
-    diagnostics
+    diagnostics,
+    loweredReferences
   );
 
   return {
@@ -307,7 +361,8 @@ function diagnoseScopeStringCoercions(
   id: string,
   verifiedBindings: WeakMap<t.MemberExpression, GssBinding>,
   aliasReferences: WeakMap<t.Identifier, AliasKind>,
-  diagnostics: ReactGssDiagnostic[]
+  diagnostics: ReactGssDiagnostic[],
+  loweredReferences: WeakSet<t.MemberExpression>
 ): void {
   const reported = new Set<number>();
   const report = (node: t.Node): void => {
@@ -334,6 +389,9 @@ function diagnoseScopeStringCoercions(
         reference.path.at(-1) === 'self' ||
         !isStringCoercionPath(path)
       ) return;
+      // Direct static references in string contexts are lowered by the
+      // general path pass above; only aliases still need coercion diagnostics.
+      if (binding && loweredReferences.has(path.node)) return;
       report(path.node);
     },
     Identifier(path) {
