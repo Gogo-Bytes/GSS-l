@@ -13,7 +13,21 @@ const properties = [
   { property: 'backdrop-filter', first: 'none', second: 'blur(2px)' },
   { property: 'clip-path', first: 'none', second: 'circle(50%)' },
   { property: 'content-visibility', first: 'visible', second: 'auto' },
-  { property: 'scroll-behavior', first: 'auto', second: 'smooth' }
+  { property: 'scroll-behavior', first: 'auto', second: 'smooth' },
+  { property: 'pointer-events', first: 'auto', second: 'none' },
+  { property: 'user-select', first: 'auto', second: 'none' },
+  { property: 'touch-action', first: 'auto', second: 'none' },
+  { property: 'will-change', first: 'auto', second: 'transform' },
+  { property: 'resize', first: 'none', second: 'both' },
+  { property: 'appearance', first: 'auto', second: 'none' },
+  { property: 'color-scheme', first: 'normal', second: 'dark' },
+  { property: 'isolation', first: 'auto', second: 'isolate' },
+  { property: 'mix-blend-mode', first: 'normal', second: 'multiply' },
+  { property: 'box-decoration-break', first: 'slice', second: 'clone' },
+  { property: 'image-rendering', first: 'auto', second: 'pixelated' },
+  { property: 'shape-rendering', first: 'auto', second: 'crispEdges' },
+  { property: 'text-rendering', first: 'auto', second: 'optimizeLegibility' },
+  { property: 'scrollbar-gutter', first: 'auto', second: 'stable' }
 ] as const;
 const importancePairs = [[false, false], [false, true], [true, false], [true, true]] as const;
 const declaration = (property: string, value: string, important: boolean) =>
