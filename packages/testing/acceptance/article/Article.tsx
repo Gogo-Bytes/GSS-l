@@ -22,8 +22,8 @@ export function Article({ native }: { native: boolean }) {
     if (!editing && opener.current) { opener.current.focus(); opener.current = null; }
   }, [editing]);
   function closeEditor() { setEditing(null); setDraft(''); }
-  return <main data-probe="article" data-size={large ? 'large' : 'normal'} data-tone={warm ? 'warm' : 'calm'} className={native ? 'reading-page' : styles.page.self}>
-    <header data-probe="header" className={native ? 'article-header' : styles.header.self}>
+  return <main data-probe="article" data-size={large ? 'large' : 'normal'} data-tone={warm ? 'warm' : 'calm'} className={native ? 'reading-page' : styles.page}>
+    <header data-probe="header" className={native ? 'article-header' : styles.header}>
       <p data-probe="kicker" className={native ? 'article-kicker' : styles.kicker.self}>慢读笔记 / FIELD NOTES · 07</p>
       <h1 data-probe="title" className={native ? 'article-title' : styles.title.self}>把一段路，读成一篇文章</h1>
       <p data-probe="meta" className={native ? 'article-meta' : styles.meta.self}>文 / 陈禾 · 2025 年 6 月 12 日 · 约 4 分钟</p>

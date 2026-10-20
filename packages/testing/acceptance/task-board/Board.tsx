@@ -26,8 +26,8 @@ export function Board({ native }: { native: boolean }) {
     setDraft((current) => current?.id === id ? { ...current, status } : current);
     setNotice(`${id} moved to ${labels[status]}.`);
   }
-  return <main data-probe="board" className={native ? 'native-board' : styles.board.self}>
-    <header data-probe="heading" className={native ? 'native-heading' : styles.heading.self}>
+  return <main data-probe="board" className={native ? 'native-board' : styles.board}>
+    <header data-probe="heading" className={native ? 'native-heading' : styles.heading}>
       <div><p data-probe="eyebrow" className={native ? 'native-eyebrow' : styles.eyebrow.self}>Product studio / Week 24</p>
         <h1 data-probe="title" className={native ? 'native-title' : styles.title.self}>Small steps. Meaningful work.</h1>
         <p data-probe="subtitle" className={native ? 'native-subtitle' : styles.subtitle.self}>A calm place to move this week’s release forward.</p></div>
