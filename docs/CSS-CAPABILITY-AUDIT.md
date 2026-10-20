@@ -57,7 +57,7 @@
 
 ### C. Property effect registry
 
-当前 registry 是有意有限的。本轮先补入一组无 shorthand 交互、按 independent effect 处理的常见属性：`aspect-ratio`、`box-sizing`、`accent-color`、`filter`、`backdrop-filter`、`clip-path`、`content-visibility`、`scroll-behavior`，以及 `pointer-events`、`user-select`、`touch-action`、`will-change`、`resize`、`appearance`、`color-scheme`、`isolation`、`mix-blend-mode`、`box-decoration-break`、`image-rendering`、`shape-rendering`、`text-rendering`、`scrollbar-gutter`；Compiler 回归覆盖其 source order／importance／ownership。仍未形成完整 effect family 或未进入 independent list 的方向包括：
+当前 registry 是有意有限的。本轮先补入一组无 shorthand 交互、按 independent effect 处理的常见属性：`aspect-ratio`、`box-sizing`、`accent-color`、`filter`、`backdrop-filter`、`clip-path`、`content-visibility`、`scroll-behavior`，以及 `pointer-events`、`user-select`、`touch-action`、`will-change`、`resize`、`appearance`、`color-scheme`、`isolation`、`mix-blend-mode`、`box-decoration-break`、`image-rendering`、`shape-rendering`、`text-rendering`、`scrollbar-gutter`，以及 typography／SVG paint 的 `text-indent`、`word-spacing`、`text-wrap`、`hyphens`、`line-break`、`tab-size`、`text-orientation`、`text-shadow`、`caret-color`、`fill`／`stroke` 系列和 `paint-order`／`vector-effect`；Compiler 回归覆盖其 source order／importance／ownership。仍未形成完整 effect family 或未进入 independent list 的方向包括：
 
 - logical sizing／border：`inline-size`、`block-size`、`min-inline-size`、`border-inline-*`、`border-block-*` 等。
 - sizing／layout：`contain`、`container-type`、`container-name` 等。

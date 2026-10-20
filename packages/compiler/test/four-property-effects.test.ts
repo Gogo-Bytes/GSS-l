@@ -27,7 +27,25 @@ const properties = [
   { property: 'image-rendering', first: 'auto', second: 'pixelated' },
   { property: 'shape-rendering', first: 'auto', second: 'crispEdges' },
   { property: 'text-rendering', first: 'auto', second: 'optimizeLegibility' },
-  { property: 'scrollbar-gutter', first: 'auto', second: 'stable' }
+  { property: 'scrollbar-gutter', first: 'auto', second: 'stable' },
+  { property: 'text-indent', first: '0', second: '1em' },
+  { property: 'word-spacing', first: 'normal', second: '0.2em' },
+  { property: 'text-wrap', first: 'wrap', second: 'nowrap' },
+  { property: 'hyphens', first: 'manual', second: 'auto' },
+  { property: 'line-break', first: 'auto', second: 'strict' },
+  { property: 'tab-size', first: '8', second: '4' },
+  { property: 'text-orientation', first: 'mixed', second: 'upright' },
+  { property: 'text-shadow', first: 'none', second: '1px 1px red' },
+  { property: 'caret-color', first: 'auto', second: 'red' },
+  { property: 'fill', first: 'black', second: 'red' },
+  { property: 'fill-opacity', first: '1', second: '0.5' },
+  { property: 'stroke', first: 'none', second: 'blue' },
+  { property: 'stroke-width', first: '1', second: '2' },
+  { property: 'stroke-opacity', first: '1', second: '0.5' },
+  { property: 'stroke-linecap', first: 'butt', second: 'round' },
+  { property: 'stroke-linejoin', first: 'miter', second: 'round' },
+  { property: 'paint-order', first: 'normal', second: 'stroke fill' },
+  { property: 'vector-effect', first: 'none', second: 'non-scaling-stroke' }
 ] as const;
 const importancePairs = [[false, false], [false, true], [true, false], [true, true]] as const;
 const declaration = (property: string, value: string, important: boolean) =>
