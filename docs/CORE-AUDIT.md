@@ -27,6 +27,8 @@ const explicit = <Child className={styles.title.self} />; // 通过
 
 结果只有 implicit 一处 TS2322。这是**已复现的源码类型体验限制及此前表述／覆盖遗漏**，不是编译器丢样式，也不是新的跨文件推导需求。
 
+后续 owner 明确希望不写 `.self`，并提出双 Symbol 存储方案。官方规范研究与本地最小实验见 [Symbol／点路径研究](SYMBOL-PATH-RESEARCH.md)：内部存储可行，但无括号点路径需要明确的编译期语言与类型工具链，尚未批准新实现。下列 A/B 保留为最初决策背景，不代表 owner 已选择 A。
+
 ### 需要 owner 决策
 
 - **A：保留对象类型契约**。TSX 使用显式 `.self`，JSX 可隐式 lowering；补明确使用说明与类型回归。最小风险，无新运行时或公共类型承诺。
