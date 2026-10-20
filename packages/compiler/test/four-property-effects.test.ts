@@ -5,7 +5,15 @@ const properties = [
   { property: 'box-shadow', first: '0 1px 3px red', second: 'inset 0 2px 4px blue' },
   { property: 'letter-spacing', first: '2px', second: '-1px' },
   { property: 'text-transform', first: 'uppercase', second: 'lowercase' },
-  { property: 'outline-offset', first: '2px', second: '4px' }
+  { property: 'outline-offset', first: '2px', second: '4px' },
+  { property: 'aspect-ratio', first: '1 / 1', second: '16 / 9' },
+  { property: 'box-sizing', first: 'content-box', second: 'border-box' },
+  { property: 'accent-color', first: 'red', second: 'blue' },
+  { property: 'filter', first: 'none', second: 'blur(2px)' },
+  { property: 'backdrop-filter', first: 'none', second: 'blur(2px)' },
+  { property: 'clip-path', first: 'none', second: 'circle(50%)' },
+  { property: 'content-visibility', first: 'visible', second: 'auto' },
+  { property: 'scroll-behavior', first: 'auto', second: 'smooth' }
 ] as const;
 const importancePairs = [[false, false], [false, true], [true, false], [true, true]] as const;
 const declaration = (property: string, value: string, important: boolean) =>

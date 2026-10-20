@@ -57,11 +57,11 @@
 
 ### C. Property effect registry
 
-当前 registry 是有意有限的。常见但未形成完整 effect family 或未进入 independent list 的方向包括：
+当前 registry 是有意有限的。本轮先补入一组无 shorthand 交互、按 independent effect 处理的常见属性：`aspect-ratio`、`box-sizing`、`accent-color`、`filter`、`backdrop-filter`、`clip-path`、`content-visibility`、`scroll-behavior`；Compiler 940 项测试覆盖其 source order／importance／ownership 回归。仍未形成完整 effect family 或未进入 independent list 的方向包括：
 
 - logical sizing／border：`inline-size`、`block-size`、`min-inline-size`、`border-inline-*`、`border-block-*` 等。
-- sizing／layout：`aspect-ratio`、`contain`、`content-visibility`、`container-type`、`container-name`、`box-sizing` 等。
-- paint／effects：`filter`、`backdrop-filter`、`clip-path`、`mask-border-*`、SVG `fill`／`stroke` 系列。
+- sizing／layout：`contain`、`container-type`、`container-name` 等。
+- paint／effects：`mask-border-*`、SVG `fill`／`stroke` 系列；本轮新增的 filter／backdrop-filter／clip-path 仍只是 independent property slice，不代表相关 value grammar 已完整建模。
 - interaction／input：`accent-color`、`caret-color`、`resize`、`touch-action`、`user-select`、`pointer-events`。
 - typography：`text-indent`、`word-spacing`、`text-wrap`／`text-wrap-mode`、`font-synthesis`、`font-palette`、`font-optical-sizing`、ruby／writing-mode 相关族。
 - scrolling：`scroll-snap-*`、`scroll-behavior`、更完整的 overscroll／scroll-margin 族。
