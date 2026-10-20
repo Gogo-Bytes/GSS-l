@@ -236,6 +236,7 @@ export function transformReactGssUsage(
         if (t.isJSXAttribute(ancestor.node)) return;
         if (t.isVariableDeclarator(ancestor.node)) {
           const id = ancestor.node.id;
+          if (t.isObjectPattern(id)) return;
           const binding = t.isIdentifier(id) ? path.scope.getBinding(id.name) : undefined;
           if (binding && aliasMemberBindings.has(binding)) return;
         }

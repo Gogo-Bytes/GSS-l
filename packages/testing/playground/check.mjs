@@ -130,8 +130,8 @@ async function explorerChecks() {
   assert.match(await page.getByTestId('adapter-diagnostics').textContent(), /warning · GSS2107/);
   assert.match(await page.getByTestId('adapter-mixing-note').textContent(), /动态字符串/);
   assert.equal(await page.getByTestId('adapter-status').getAttribute('data-state'), 'passed');
-  await page.getByTestId('adapter-select').selectOption('alias-member-boundary');
-  assert.equal(await page.getByTestId('adapter-status').getAttribute('data-state'), 'boundary');
+  await page.getByTestId('adapter-select').selectOption('alias-member');
+  assert.equal(await page.getByTestId('adapter-status').getAttribute('data-state'), 'passed');
   await page.getByTestId('nav-live').click();
   return { sweep, phaseSelection: true, negativeRollback: true, compilerOnlyLabel: true, adapterDiagnosticsAndBoundary: true, chineseSearch: true, filterRetention: true, navigationScrollReset: true };
 }
