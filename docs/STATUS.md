@@ -8,7 +8,7 @@
 
 owner 已决定有限 MVP 结项，进入缺陷收敛、脚手架扩展和真实 SSR 框架实验的规划阶段。结项基线 `847698c`，基础验证 1419 项测试通过；后续 Playground 与有界 SSG 的 Chromium 证据分别见 [Playground 覆盖](PLAYGROUND-COVERAGE.md)、[SSR/SSG 验收](SSR-SSG-ACCEPTANCE.md)。这不覆盖历史 Firefox 失败或完整 production SSR。
 
-新阶段分类、候选与用户路径门禁见 [下一阶段](NEXT-STAGE.md)。owner 已明确先收敛基本核心能力，再接脚手架。当前盘点与已复现的严格 TSX className 类型体验限制见 [核心能力盘点](CORE-AUDIT.md)，类型契约待 owner 决定；不直接接脚手架，不新建 SSR/SSG Playground。
+新阶段分类、候选与用户路径门禁见 [下一阶段](NEXT-STAGE.md)。owner 已明确先收敛基本核心能力，再接脚手架。当前 CSS selector／state／property／resource 缺口盘点见 [CSS 能力缺口](CSS-CAPABILITY-AUDIT.md)，不自动恢复为任务队列。当前盘点与已复现的严格 TSX className 类型体验限制见 [核心能力盘点](CORE-AUDIT.md)，类型契约待 owner 决定；不直接接脚手架，不新建 SSR/SSG Playground。
 
 ## 已完成交付
 
