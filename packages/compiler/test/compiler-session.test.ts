@@ -1453,7 +1453,8 @@ describe('GssCompilerSession', () => {
     'backdrop',
     'first-line',
     'first-letter',
-    'selection'
+    'selection',
+    'cue'
   ])('plans the supported ::%s pseudo-element', (pseudoElement) => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 

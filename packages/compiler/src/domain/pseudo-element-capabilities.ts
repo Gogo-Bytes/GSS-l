@@ -7,7 +7,8 @@ export const supportedPseudoElements = [
   'backdrop',
   'first-line',
   'first-letter',
-  'selection'
+  'selection',
+  'cue'
 ] as const;
 
 export type SupportedPseudoElement = typeof supportedPseudoElements[number];
