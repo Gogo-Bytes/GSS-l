@@ -60,7 +60,21 @@ const properties = [
   { property: 'font-synthesis', first: 'auto', second: 'none' },
   { property: 'scroll-snap-type', first: 'none', second: 'x mandatory' },
   { property: 'scroll-snap-align', first: 'none', second: 'start' },
-  { property: 'scroll-snap-stop', first: 'normal', second: 'always' }
+  { property: 'scroll-snap-stop', first: 'normal', second: 'always' },
+  { property: 'scrollbar-color', first: 'auto', second: 'red blue' },
+  { property: 'scrollbar-width', first: 'auto', second: 'thin' },
+  { property: 'text-size-adjust', first: 'auto', second: 'none' },
+  { property: 'forced-color-adjust', first: 'auto', second: 'none' },
+  { property: 'print-color-adjust', first: 'economy', second: 'exact' },
+  { property: 'backface-visibility', first: 'visible', second: 'hidden' },
+  { property: 'transform-style', first: 'flat', second: 'preserve-3d' },
+  { property: 'perspective', first: 'none', second: '500px' },
+  { property: 'perspective-origin', first: 'center', second: 'left top' },
+  { property: 'overflow-clip-margin', first: '0', second: '10px' },
+  { property: 'field-sizing', first: 'fixed', second: 'content' },
+  { property: 'interpolate-size', first: 'numeric-only', second: 'allow-keywords' },
+  { property: 'ruby-position', first: 'over', second: 'under' },
+  { property: 'ruby-align', first: 'space-around', second: 'center' }
 ] as const;
 const importancePairs = [[false, false], [false, true], [true, false], [true, true]] as const;
 const declaration = (property: string, value: string, important: boolean) =>
