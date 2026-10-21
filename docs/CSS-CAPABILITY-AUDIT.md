@@ -45,7 +45,7 @@
 
 ### B. Pseudo-state 与 pseudo-element
 
-本轮先补入常见表单状态：`:required`、`:optional`、`:valid`、`:invalid`、`:in-range`、`:out-of-range`、`:placeholder-shown`、`:read-only`、`:read-write`、`:indeterminate`，以及链接／目标／控件状态 `:link`、`:visited`、`:target`、`:enabled`、`:default`；编译器 state 回归覆盖其 current pseudo path。结构伪类仍单独处理。当前仍缺少大量常见状态：
+本轮先补入常见表单状态：`:required`、`:optional`、`:valid`、`:invalid`、`:in-range`、`:out-of-range`、`:placeholder-shown`、`:read-only`、`:read-write`、`:indeterminate`，以及链接／目标／控件状态 `:link`、`:visited`、`:target`、`:enabled`、`:default`，以及现代 UI 状态 `:open`、`:modal`、`:fullscreen`、`:popover-open`、`:defined`；编译器 state 回归覆盖其 current pseudo path。结构伪类仍单独处理。当前仍缺少大量常见状态：
 
 - 链接／目标：`:link`、`:visited`、`:target`。
 - 表单：`:required`、`:optional`、`:valid`、`:invalid`、`:in-range`、`:out-of-range`、`:placeholder-shown`、`:read-only`、`:read-write`、`:default`、`:indeterminate`、`:user-valid`、`:user-invalid`、`:autofill`。

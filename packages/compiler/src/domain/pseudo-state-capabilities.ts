@@ -20,7 +20,12 @@ export const supportedPseudoStates = [
   'visited',
   'target',
   'enabled',
-  'default'
+  'default',
+  'open',
+  'modal',
+  'fullscreen',
+  'popover-open',
+  'defined'
 ] as const;
 
 export type SupportedPseudoState = typeof supportedPseudoStates[number];
