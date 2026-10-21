@@ -156,6 +156,7 @@ const families: readonly PropertyFamily[] = [
     'animation-direction',
     'animation-fill-mode',
     'animation-play-state',
+    'animation-composition',
     'animation-timeline',
     'animation-range-start',
     'animation-range-end'

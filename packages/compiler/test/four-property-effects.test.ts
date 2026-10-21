@@ -56,6 +56,7 @@ const properties = [
   { property: 'container-type', first: 'normal', second: 'inline-size' },
   { property: 'container-name', first: 'none', second: 'sidebar' },
   { property: 'contain-intrinsic-size', first: 'none', second: '300px' },
+  { property: 'animation-composition', first: 'replace', second: 'add' },
   { property: 'scroll-snap-type', first: 'none', second: 'x mandatory' },
   { property: 'scroll-snap-align', first: 'none', second: 'start' },
   { property: 'scroll-snap-stop', first: 'normal', second: 'always' }
