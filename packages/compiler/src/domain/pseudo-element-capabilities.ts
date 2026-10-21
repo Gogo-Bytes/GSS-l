@@ -8,7 +8,10 @@ export const supportedPseudoElements = [
   'first-line',
   'first-letter',
   'selection',
-  'cue'
+  'cue',
+  'target-text',
+  'spelling-error',
+  'grammar-error'
 ] as const;
 
 export type SupportedPseudoElement = typeof supportedPseudoElements[number];

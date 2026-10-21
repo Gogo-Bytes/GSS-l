@@ -51,7 +51,7 @@
 - 表单：`:required`、`:optional`、`:valid`、`:invalid`、`:in-range`、`:out-of-range`、`:placeholder-shown`、`:read-only`、`:read-write`、`:default`、`:indeterminate`、`:user-valid`、`:user-invalid`、`:autofill`。
 - 结构／文档：`:root`、`:empty`、`:first-child`、`:last-child`、`:nth-child()`、`:nth-of-type()` 等。
 - UI／现代元素：`:open`、`:modal`、`:fullscreen`、`:popover-open`、`:defined`、`:playing`、`:paused` 等。
-- 本轮补入 `::cue`；仍缺少 `::part()`、`::slotted()`、highlight pseudo-elements 及更复杂 pseudo-element 组合。
+- 本轮补入 `::cue`、`::target-text`、`::spelling-error`、`::grammar-error`；仍缺少 `::part()`、`::slotted()`、`::highlight()` 参数化 pseudo-element 及更复杂组合。
 
 **影响**：state 不是简单字符串白名单；ancestor/current/runtime-source 位置、同节点 coactivity、specificity 和浏览器动态变化都需要独立回归。
 
