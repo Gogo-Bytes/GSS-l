@@ -128,9 +128,17 @@ const families: readonly PropertyFamily[] = [
     'line-height',
     'font-family',
     'font-size-adjust',
+    'font-language-override',
+    'font-optical-sizing',
     'font-kerning',
     'font-feature-settings',
     'font-variation-settings'
+  ]],
+  ['font-synthesis', [
+    'font-synthesis-weight',
+    'font-synthesis-style',
+    'font-synthesis-small-caps',
+    'font-synthesis-position'
   ]],
   ['font-variant', [
     'font-variant-ligatures',
@@ -231,6 +239,8 @@ export const PROPERTY_EFFECT_INDEPENDENT_PROPERTIES = [
   'shape-rendering',
   'text-rendering',
   'scrollbar-gutter',
+  'font-palette',
+  'font-variant-emoji',
   'text-indent',
   'word-spacing',
   'text-wrap',
