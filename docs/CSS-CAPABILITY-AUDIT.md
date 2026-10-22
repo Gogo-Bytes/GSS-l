@@ -69,7 +69,7 @@
 
 - logical sizing／border：已覆盖 `inline-size`、`block-size`、min/max logical sizing，以及 `border-inline-*`、`border-block-*` family；更完整的 logical cascade 组合仍未全面验证。
 - sizing／layout：`contain`、`container-type`、`container-name` 等。
-- paint／effects：`mask-border-*`、SVG `fill`／`stroke` 系列；本轮新增的 filter／backdrop-filter／clip-path 仍只是 independent property slice，不代表相关 value grammar 已完整建模。
+- paint／effects：`mask-border` family 已登记；SVG `fill`／`stroke` 已覆盖。filter／backdrop-filter／clip-path 与 mask-border 仍只是 property effect slice，不代表相关 value grammar 已完整建模。
 - interaction／input：`accent-color`、`caret-color`、`resize`、`touch-action`、`user-select`、`pointer-events`。
 - typography：`text-indent`、`word-spacing`、`text-wrap`／`text-wrap-mode`、`font-synthesis`、`font-palette`、`font-optical-sizing`、ruby／writing-mode 相关族。
 - scrolling：`scroll-snap-*`、`scroll-behavior`、更完整的 overscroll／scroll-margin 族。

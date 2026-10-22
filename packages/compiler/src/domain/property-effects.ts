@@ -71,6 +71,10 @@ const families: readonly PropertyFamily[] = [
     'border-bottom-left-radius'
   ]],
   ['border-image', borderImageLonghands],
+  ['mask-border', [
+    'mask-border-source', 'mask-border-slice', 'mask-border-width',
+    'mask-border-outset', 'mask-border-repeat', 'mask-border-mode'
+  ]],
   ['background', [
     'background-image',
     'background-position-x',
