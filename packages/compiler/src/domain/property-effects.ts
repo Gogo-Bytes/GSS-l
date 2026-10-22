@@ -155,6 +155,8 @@ const families: readonly PropertyFamily[] = [
     'transition-delay',
     'transition-behavior'
   ]],
+  ['scroll-timeline', ['scroll-timeline-name', 'scroll-timeline-axis']],
+  ['view-timeline', ['view-timeline-name', 'view-timeline-axis', 'view-timeline-inset']],
   ['animation', [
     'animation-name',
     'animation-duration',
@@ -284,6 +286,8 @@ export const PROPERTY_EFFECT_INDEPENDENT_PROPERTIES = [
   'interpolate-size',
   'ruby-position',
   'ruby-align',
+  'view-transition-name',
+  'view-transition-class',
   'letter-spacing',
   'text-align',
   'text-overflow',

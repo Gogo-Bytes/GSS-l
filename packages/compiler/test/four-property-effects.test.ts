@@ -58,6 +58,8 @@ const properties = [
   { property: 'contain-intrinsic-size', first: 'none', second: '300px' },
   { property: 'animation-composition', first: 'replace', second: 'add' },
   { property: 'font-synthesis', first: 'auto', second: 'none' },
+  { property: 'view-transition-name', first: 'none', second: 'hero' },
+  { property: 'view-transition-class', first: 'none', second: 'hero' },
   { property: 'scroll-snap-type', first: 'none', second: 'x mandatory' },
   { property: 'scroll-snap-align', first: 'none', second: 'start' },
   { property: 'scroll-snap-stop', first: 'normal', second: 'always' },
