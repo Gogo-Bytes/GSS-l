@@ -106,7 +106,7 @@ async function explorerChecks() {
   await page.locator('[data-testid="sweep-status"]:is([data-state="passed"], [data-state="failed"])').waitFor({ timeout: 120_000 });
   const sweep = await page.getByTestId('sweep-status').textContent();
   assert.equal(await page.getByTestId('sweep-status').getAttribute('data-state'), 'passed', sweep);
-  assert.match(sweep, /124 个案例 \/ 1263 项对比/);
+  assert.match(sweep, /124 个案例 \/ 1264 项对比/);
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
   assert.ok(await page.evaluate(() => window.scrollY > 0), 'Exercise navigation from a scrolled fixture page');
   await page.getByTestId('nav-compiler').click();
@@ -238,7 +238,7 @@ try {
   await page.screenshot({ path: join(artifacts, 'preview.png'), fullPage: true });
   assert.deepEqual(report.pageErrors, []);
   report.passed = true;
-  console.log('Playground passed: dev HMR/LKG/recovery; JSX/TSX/state/external/asset/lazy; production census; 124 fixtures / 1263 comparisons in both dev and preview; Compiler-only negative rollback; guided scenes/reset/native states; all sections/scenes at 320/390/768/1440px.');
+  console.log('Playground passed: dev HMR/LKG/recovery; JSX/TSX/state/external/asset/lazy; production census; 124 fixtures / 1264 comparisons in both dev and preview; Compiler-only negative rollback; guided scenes/reset/native states; all sections/scenes at 320/390/768/1440px.');
 } catch (error) {
   report.passed = false; report.error = String(error);
   await page?.screenshot({ path: join(artifacts, 'failure.png'), fullPage: true }).catch(() => {});

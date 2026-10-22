@@ -148,7 +148,7 @@ export function compileGssReference(
               nested.type === 'tag' && nested.value === 'of'));
             for (const child of node.nodes) {
               const childHasOf = child.nodes.some((nested) => nested.type === 'tag' && nested.value === 'of');
-              mapLocalFilterClasses(child.nodes, hasOf && !childHasOf);
+              mapLocalFilterClasses(child.nodes, afterOf || (hasOf && !childHasOf));
             }
           }
         }
