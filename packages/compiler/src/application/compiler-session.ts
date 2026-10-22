@@ -1605,7 +1605,10 @@ function renderStateSuffix(
         }
       }
     };
-    for (const selector of selectors) rewrite(selector.nodes, false, false);
+    for (const selector of selectors) {
+      const selectorHasOf = selector.nodes.some((node) => node.type === 'tag' && node.value === 'of');
+      rewrite(selector.nodes, hasOf && !selectorHasOf, false);
+    }
     return pseudo.toString();
   }).join('');
 }

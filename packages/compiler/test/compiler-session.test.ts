@@ -1282,14 +1282,16 @@ describe('GssCompilerSession', () => {
   it('passes native nth-child formulas through and maps local of classes to identity markers', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
     const replacement = compiler.replaceStylesheet({ id: 'Nth.gss', source:
-      '.item:nth-child(2n + 1) { color: red; } .item:nth-last-child(2n of .visible, :global(.external)) { color: blue; }'
+      '.item:nth-child(2n + 1) { color: red; } .item:nth-last-child(2n of .visible, .selected) { color: blue; }'
     });
     expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
     const visible = replacement.module!.scopeSchema.exports.visible!.selfClassName;
+    const selected = replacement.module!.scopeSchema.exports.selected!.selfClassName;
     expect(visible).toContain('gss-');
+    expect(selected).toContain('gss-');
     const css = compiler.finalize().css;
     expect(css).toContain(':nth-child(2n + 1)');
-    expect(css).toContain(`:nth-last-child(2n of .${visible},.external)`);
+    expect(css).toContain(`:nth-last-child(2n of .${visible}, .${selected})`);
     expect(css).not.toContain(':nth-last-child(2n of .visible');
   });
 

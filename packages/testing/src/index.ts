@@ -129,8 +129,8 @@ export function compileGssReference(
     for (const rule of rules) {
       let targets = exports;
       const selector = selectors.get(rule)!;
-      const mapLocalFilterClasses = (nodes: readonly selectorParser.Node[]): void => {
-        let afterOf = false;
+      const mapLocalFilterClasses = (nodes: readonly selectorParser.Node[], initialAfterOf = false): void => {
+        let afterOf = initialAfterOf;
         for (const node of nodes) {
           if (node.type === 'tag' && node.value === 'of') {
             afterOf = true;
@@ -144,7 +144,12 @@ export function compileGssReference(
             continue;
           }
           if (node.type === 'pseudo' && node.nodes) {
-            for (const child of node.nodes) mapLocalFilterClasses(child.nodes);
+            const hasOf = node.nodes.some((child) => child.nodes.some((nested) =>
+              nested.type === 'tag' && nested.value === 'of'));
+            for (const child of node.nodes) {
+              const childHasOf = child.nodes.some((nested) => nested.type === 'tag' && nested.value === 'of');
+              mapLocalFilterClasses(child.nodes, hasOf && !childHasOf);
+            }
           }
         }
       };
