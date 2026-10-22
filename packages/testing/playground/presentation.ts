@@ -21,6 +21,7 @@ export const familyLabel = (family: string) => families[family] ?? family;
 
 export function fixtureTitle(fixture: { name: string; family: string }) {
   const exact: Record<string, string> = {
+    'native-nth-of-local-marker': 'nth-child of local GSS class · marker 映射',
     'asset-module-isolation-one': '本地资源的模块隔离 · 示例一',
     'asset-module-isolation-two': '本地资源的模块隔离 · 示例二',
     'asset-media-disabled-pseudo': '资源与媒体条件、disabled、伪元素',

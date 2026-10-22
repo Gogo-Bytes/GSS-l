@@ -244,6 +244,10 @@ function parseReferenceSelector(source: string): selectorParser.Root | undefined
     } else if (!expectClass && node.type === 'pseudo' && /^:(checked|disabled)$/.test(node.value) && node.nodes.length === 0) {
       if (hasAttribute || (statePosition !== undefined && statePosition !== position)) return undefined;
       statePosition = position;
+    } else if (!expectClass && node.type === 'pseudo' &&
+      /^:(?:nth-child|nth-last-child|nth-of-type|nth-last-of-type)$/.test(node.value) && node.nodes.length > 0) {
+      if (hasAttribute || (statePosition !== undefined && statePosition !== position)) return undefined;
+      statePosition = position;
     } else if (!expectClass && node.type === 'attribute' && attributeEquality.test(node.toString().trim())) {
       if (hasAttribute || statePosition !== undefined) return undefined;
       hasAttribute = true;

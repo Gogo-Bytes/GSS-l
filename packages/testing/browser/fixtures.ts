@@ -58,6 +58,17 @@ export type CompiledReferenceFixture = ReferenceFixture & {
 
 // Literal longhand expectations are a second guard against an empty/common-mode pass.
 export const fixtures: readonly ReferenceFixture[] = [
+  {
+    name: 'native-nth-of-local-marker',
+    modules: [{ id: 'Nth.gss', source:
+      '.item { color: black; } .item:nth-child(2n of .item) { color: red; }'
+    }],
+    nodes: [
+      { id: 'first', moduleId: 'Nth.gss', path: ['item'], expected: { color: 'rgb(0, 0, 0)' } },
+      { id: 'second', moduleId: 'Nth.gss', path: ['item'], expected: { color: 'rgb(255, 0, 0)' } },
+      { id: 'third', moduleId: 'Nth.gss', path: ['item'], expected: { color: 'rgb(0, 0, 0)' } }
+    ]
+  },
   ...assetFixtures,
   ...keyframesFixtures,
   ...pseudoElementFixtures,
