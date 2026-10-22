@@ -1005,6 +1005,19 @@ describe('GssCompilerSession', () => {
     );
   });
 
+  it('rewrites local classes inside native functional selectors without analyzing their relation', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const replacement = compiler.replaceStylesheet({
+      id: '/project/src/native-relations.gss',
+      source: '.card:has(.error .warning) { color: red; } .card:is(.active, .disabled) { color: blue; }'
+    });
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    const css = compiler.finalize().css;
+    const marker = (name: string) => replacement.module?.scopeSchema.exports[name]?.selfClassName;
+    expect(css).toContain(`:has(.${marker('error')} .${marker('warning')})`);
+    expect(css).toContain(`:is(.${marker('disabled')},.${marker('active')})`);
+  });
+
   it('preserves a registered condition around a structural contextual atom', () => {
     const compiler = createGssCompilerSession({
       projectRoot: '/project',
@@ -2091,7 +2104,7 @@ describe('GssCompilerSession', () => {
     expect(results[0]?.css).toBe(results[1]?.css);
   });
 
-  it('fails closed for unsupported child interleavings', () => {
+  it('preserves native child relation interleavings', () => {
     const sources = [
       '.input > .label > .icon .leaf { color: red; }',
       '.input > .label .badge > .icon { color: red; }',
@@ -2100,11 +2113,8 @@ describe('GssCompilerSession', () => {
     for (const source of sources) {
       const compiler = createGssCompilerSession({ projectRoot: '/project' });
       const replacement = compiler.replaceStylesheet({ id: '/project/src/child-invalid.gss', source });
-      expect(replacement.module).toBeUndefined();
-      expect(replacement.diagnostics).toMatchObject([{
-        code: 'GSS1101', phase: 'validate', reason: 'capability-not-registered'
-      }]);
-      expect(compiler.finalize().css).toBe('');
+      expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+      expect(compiler.finalize().css).toContain('color: red;');
     }
   });
 
@@ -2197,7 +2207,7 @@ describe('GssCompilerSession', () => {
     expect(results[0]?.css).toBe(results[1]?.css);
   });
 
-  it('fails closed when another runtime relation follows or splits the ownership suffix', () => {
+  it('preserves multiple native runtime relations', () => {
     const sources = [
       '.input + .label .icon + .badge { color: red; }',
       '.input + .label .icon > .badge { color: red; }',
@@ -2212,13 +2222,8 @@ describe('GssCompilerSession', () => {
         source
       });
 
-      expect(replacement.module).toBeUndefined();
-      expect(replacement.diagnostics).toMatchObject([{
-        code: 'GSS1101',
-        phase: 'validate',
-        reason: 'capability-not-registered'
-      }]);
-      expect(compiler.finalize().css).toBe('');
+      expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+      expect(compiler.finalize().css).toContain('color: red;');
     }
   });
 

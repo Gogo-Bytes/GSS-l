@@ -204,16 +204,16 @@ describe('anchored external declaration target', () => {
     expect(session.finalize()).toEqual(previous);
   });
 
-  it('rejects an unsupported external :has list without a specificity proof transactionally', () => {
+  it('rewrites external and local classes in a :has selector list', () => {
     const session = createGssCompilerSession({ projectRoot: '/project' });
-    expect(session.replaceStylesheet({ id, source }).committed).toBe(true);
-    const previous = session.finalize();
     const result = session.replaceStylesheet({ id, source:
       '.editor:has(:global(.ProseMirror-focused), .owned) { color: red; }'
     });
-    expect(result).toMatchObject({ committed: false, generation: 1,
-      diagnostics: [{ code: 'GSS1101', reason: 'capability-not-registered' }] });
-    expect(session.finalize()).toEqual(previous);
+    expect(result).toMatchObject({ committed: true, diagnostics: [] });
+    const owned = session.getScopeSchema(id)!.exports.owned!.selfClassName;
+    const css = session.finalize().css;
+    expect(css).toContain('.ProseMirror-focused');
+    expect(css).toContain(owned);
   });
 
   it.each([
@@ -243,16 +243,14 @@ describe('anchored external declaration target', () => {
     expect(session.finalize()).toEqual(previous);
   });
 
-  it('rejects an unproved external compound inside a functional condition with rollback', () => {
+  it('preserves an external compound inside a functional condition', () => {
     const session = createGssCompilerSession({ projectRoot: '/project' });
     expect(session.replaceStylesheet({ id, source }).committed).toBe(true);
-    const previous = session.finalize();
     const result = session.replaceStylesheet({ id, source:
       '.editor:not(:global(.external.active)) { color: blue; }'
     });
-    expect(result).toMatchObject({ committed: false, generation: 1,
-      diagnostics: [{ code: 'GSS1101', reason: 'capability-not-registered' }] });
-    expect(session.finalize()).toEqual(previous);
+    expect(result).toMatchObject({ committed: true, diagnostics: [] });
+    expect(session.finalize().css).toContain('.external.active');
   });
 
   it('keeps owned declarations and external targets separate in one Module', () => {

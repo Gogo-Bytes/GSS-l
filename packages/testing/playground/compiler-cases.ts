@@ -91,8 +91,8 @@ export const compilerCases: readonly Case[] = [
     source: '.demo :global([data-ready]) { color: red; }', expected: 'rejected' },
   { id: 'logical-physical-overlap', family: 'safety boundaries', title: 'Runtime writing-mode-dependent overlap rejects',
     source: '.demo { margin-left: 1px; margin-inline-start: 2px; }', expected: 'rejected' },
-  { id: 'multiple-runtime-witnesses', family: 'safety boundaries', title: 'Multiple interleaved runtime witnesses remain unsupported',
-    source: '.a + .b .c > .d { color: red; }', expected: 'rejected' },
+  { id: 'multiple-runtime-witnesses', family: 'runtime relations', title: 'Multiple native runtime relations pass through markers',
+    source: '.a + .b .c > .d { color: red; }', expected: 'atomic' },
   { id: 'keyword-shorthand', family: 'safety boundaries', title: 'Ambiguous keyword-like animation shorthand rejects',
     source: '@keyframes ease { from { opacity: 0; } to { opacity: 1; } } .demo { animation: ease 2s; }', expected: 'rejected' }
 ];

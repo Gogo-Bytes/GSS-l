@@ -468,33 +468,6 @@ function prepareContribution(
   const contextualRules = localRules.filter(({ relations }) =>
     relations.some((relation) => relation !== 'descendant')
   );
-  const unsupportedRelation = contextualRules.find(({ path, relations }) => {
-    const firstRuntimeRelation = relations.findIndex((relation) => relation !== 'descendant');
-    const hasOwnershipSuffix = relations.slice(firstRuntimeRelation).includes('descendant');
-    const runtimeEdgeCount = relations.slice(firstRuntimeRelation).filter((relation) => relation !== 'descendant').length;
-    return (firstRuntimeRelation > 0 && runtimeEdgeCount > 1) || (hasOwnershipSuffix && !(
-      firstRuntimeRelation >= 0 && path.length >= firstRuntimeRelation + 3 &&
-      relations.length === path.length - 1 &&
-      relations.slice(0, firstRuntimeRelation).every((relation) => relation === 'descendant') &&
-      (relations[firstRuntimeRelation] === 'child' ||
-        relations[firstRuntimeRelation] === 'adjacent' ||
-        relations[firstRuntimeRelation] === 'general-sibling') &&
-      relations.slice(firstRuntimeRelation + 1).every((relation) => relation === 'descendant')
-    ));
-  });
-  if (unsupportedRelation) {
-    return {
-      diagnostics: [{
-        code: 'GSS1101',
-        severity: 'error',
-        phase: 'validate',
-        message: 'Ownership relations must precede the runtime-relation suffix.',
-        id: input.id,
-        reason: 'capability-not-registered'
-      }]
-    };
-  }
-
   const descendantRules = localRules.filter((rule) =>
     isPureOwnershipRule(rule) || isCurrentStateRule(rule) || isCurrentAttributeRule(rule) ||
     isAncestorStateRule(rule) || isAncestorAttributeRule(rule)
@@ -753,7 +726,7 @@ function prepareContribution(
           ensureScopePath(roots, [observation.observedClass]).classNames.add(observedMarker);
           return `.${observedMarker}${observation.observedState ? `:${observation.observedState}` : ''}`;
         })()
-        : observation.observedResidual!;
+        : renderNativeSelector(observation.observedResidual!, moduleId, nameAllocator, roots);
       const observedCombinator = renderObservedCombinator(observation.relation);
       const normalizedObservedSelector = selectorListSpecificity !== undefined && selectorListSpecificity > 0
         ? `:where(${observedSelector})`
@@ -1573,11 +1546,15 @@ function renderStateSuffix(
 ): string {
   return states.map((state) => {
     if (state === 'self') return '';
-    if (!state.startsWith('nth-')) return `:${state}`;
+    if (!state.startsWith('nth-') && !state.includes('(')) return `:${state}`;
     const root = selectorParser().astSync(`.gss${`:${state}`}`);
     const pseudo = root.nodes[0]?.nodes.at(-1);
     if (!pseudo || pseudo.type !== 'pseudo') return `:${state}`;
     const selectors = pseudo.nodes ?? [];
+    if (!state.startsWith('nth-')) {
+      return renderNativeSelector(`:${state}`, moduleId, nameAllocator, roots)
+        .replace(/\(\s+/g, '(').replace(/,\s+/g, ',');
+    }
     const hasOf = selectors.some((selector) => selector.nodes.some((node) =>
       node.type === 'tag' && node.value === 'of'));
     const rewrite = (nodes: readonly selectorParser.Node[], initialOf: boolean, global: boolean): void => {
@@ -1611,6 +1588,34 @@ function renderStateSuffix(
     }
     return pseudo.toString();
   }).join('');
+}
+
+function renderNativeSelector(
+  source: string,
+  moduleId: string,
+  nameAllocator: NameAllocatorPort,
+  roots: Map<string, MutableScopeNode>
+): string {
+  const root = selectorParser().astSync(source);
+  const rewrite = (nodes: readonly selectorParser.Node[], global: boolean): void => {
+    for (const node of [...nodes]) {
+      if (node.type === 'class' && !global) {
+        const marker = nameAllocator.createScopeMarker(moduleId, [node.value]);
+        ensureScopePath(roots, [node.value]).classNames.add(marker);
+        node.value = marker;
+        continue;
+      }
+      if (node.type !== 'pseudo' || !node.nodes) continue;
+      if (node.value === ':global' && node.nodes.length === 1) {
+        const children = node.nodes[0]!.nodes;
+        node.replaceWith(...children);
+        continue;
+      }
+      for (const child of node.nodes) rewrite(child.nodes, global || node.value === ':global');
+    }
+  };
+  for (const branch of root.nodes) rewrite(branch.nodes, false);
+  return root.toString();
 }
 
 function renderRelationCombinator(

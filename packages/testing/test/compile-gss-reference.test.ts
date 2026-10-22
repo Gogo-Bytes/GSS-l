@@ -134,8 +134,6 @@ describe('compileGssReference', () => {
     '.card[data-mode*="on"] { color: red; }', '.card[data-mode=123] { color: red; }',
     '.card[data-mode="o\\\\6e"] { color: red; }', '.card[data-mode="a\nb"] { color: red; }',
     '.card[data-mode/**/="on"] { color: red; }',
-    '.card > .icon { color: red; }',
-    '.card + .icon { color: red; }', '.card ~ .icon { color: red; }',
     '.card.active { color: red; }', '.card, .icon { color: red; }',
     '.card[data-active] { color: red; }', '.card::selection { color: red; }',
     ':global(.card) { color: red; }', '.c\\\\61rd { color: red; }',

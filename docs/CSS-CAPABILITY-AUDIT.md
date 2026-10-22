@@ -30,14 +30,12 @@
 
 ### A. Selector 语法与关系
 
-**高影响缺口**：普通业务 CSS 很容易遇到；扩展会增加关系推理和 specificity／coactivity 风险。
+**当前策略**：关系和 specificity 由浏览器执行；GSS 只递归 rewrite local class marker，不分析 DOM 关系。
 
-- 多个 runtime combinator 串联，例如 `A > B + C`、`A + B ~ C`；当前限制 runtime suffix 的数量和形状。
-- runtime edge 与 ownership edge 任意交错；当前只接受少数 leading ownership / runtime suffix 形状。
+- 多个 runtime combinator 串联，例如 `A > B + C`、`A + B ~ C`，已按 native selector passthrough 保留关系并注入 marker。
 - 复杂 selector compound：local class 与 tag、ID、多个 local class、namespace、universal selector 的组合不在通用正向范围。
-- `:is()`、`:not()`、`:where()` 的复杂 selector list、嵌套 functional selector、混合关系仍大多 fail-closed。
-- `:has()` 仅是有限 observed relation；复杂 selector list、多个 observed branch、嵌套 `:has()`、完整 specificity 传播未覆盖。
-- `:global()` 只在少数 terminal external target／owned condition／observation 位置成立；其它 residual/global placement 和组合未证明。
+- `:is()`、`:not()`、`:where()` 和 `:has()` 已支持嵌套 local class marker rewrite；specificity、coactivity 和关系匹配仍完全交给浏览器。
+- `:global()` 在 native functional／observed selector 中保持外部 class，不生成 GSS marker。
 - 外部 target 的 tag、exact-value attribute 有界支持；attribute existence、tag+attribute compound 和更广 external selector 仍 deferred。
 - 无 `:scope`、`@scope`、CSS nesting 中更复杂的 parent selector／selector-list 组合语义。
 

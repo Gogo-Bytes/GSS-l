@@ -22,6 +22,7 @@ export const familyLabel = (family: string) => families[family] ?? family;
 export function fixtureTitle(fixture: { name: string; family: string }) {
   const exact: Record<string, string> = {
     'native-nth-of-local-marker': 'nth-child of local GSS class · marker 映射',
+    'native-relation-local-markers': 'native relation selectors · local marker 映射',
     'asset-module-isolation-one': '本地资源的模块隔离 · 示例一',
     'asset-module-isolation-two': '本地资源的模块隔离 · 示例二',
     'asset-media-disabled-pseudo': '资源与媒体条件、disabled、伪元素',
@@ -111,7 +112,7 @@ const compilerNames: Record<string, string> = {
   'strict-property': '严格模式拒绝未知属性效果', 'duplicate-property': '重复属性：拒绝并保留旧快照',
   'local-compound': '拒绝未支持的本地复合类名', 'external-existence': '拒绝延期的外部属性存在目标',
   'logical-physical-overlap': '拒绝运行时方向相关的属性冲突',
-  'multiple-runtime-witnesses': '拒绝多个交错 runtime witness', 'keyword-shorthand': '拒绝有歧义的动画简写'
+  'multiple-runtime-witnesses': '多个 native runtime relation 与 marker', 'keyword-shorthand': '拒绝有歧义的动画简写'
 };
 export function compilerTitle(entry: { id: string; title: string }) {
   if (entry.id.startsWith('effect-')) return `属性效果分类 · ${entry.id.slice(7)}`;

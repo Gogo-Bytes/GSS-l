@@ -10,7 +10,7 @@ import selectorParser, {
   type Pseudo
 } from 'postcss-selector-parser';
 import { isSupportedPseudoElement } from '../domain/pseudo-element-capabilities.js';
-import { isStructuralPseudoState, isSupportedPseudoState } from '../domain/pseudo-state-capabilities.js';
+import { isSupportedPseudoState } from '../domain/pseudo-state-capabilities.js';
 import type { GssDiagnostic, GssSourceRange } from '../public-types.js';
 
 import type {
@@ -494,8 +494,16 @@ function parseHasSelector(nodes: readonly Node[]): ParsedHasCondition | undefine
     index += 1;
   }
 
-  const observed = nodes[index];
+  const observedNodes = nodes.slice(index);
+  const observed = observedNodes[0];
   if (!observed) return undefined;
+  if (observedNodes.length > 1 &&
+    !(observed.type === 'class' && observedNodes.length === 2 && observedNodes[1]!.type === 'pseudo' &&
+      observedNodes[1]!.nodes.length === 0 && isSupportedPseudoState(observedNodes[1]!.value.slice(1)))) {
+    if (!observedNodes.some((node) =>
+      node.type === 'class' || node.type === 'tag' || node.type === 'attribute' || node.type === 'pseudo')) return undefined;
+    return { relation, observedResidual: observedNodes.map((node) => node.toString()).join('') };
+  }
   index += 1;
 
   if (observed.type === 'class') {
@@ -516,11 +524,16 @@ function parseHasSelector(nodes: readonly Node[]): ParsedHasCondition | undefine
     };
   }
 
-  if (index !== nodes.length) return undefined;
+  if (index !== nodes.length) {
+    const residualNodes = nodes.slice(index);
+    if (residualNodes.length === 0 || !residualNodes.some((node) =>
+      node.type === 'class' || node.type === 'tag' || node.type === 'attribute' || node.type === 'pseudo')) return undefined;
+    return { relation, observedResidual: residualNodes.map((node) => node.toString()).join('') };
+  }
   if (observed.type === 'pseudo' && observed.value === ':global' &&
     observed.nodes.length === 1 && observed.nodes[0]!.nodes.length > 0 &&
     observed.nodes[0]!.nodes.every((part) => part.type === 'class')) {
-    return { relation, observedResidual: observed.nodes[0]!.toString(),
+    return { relation, observedResidual: observed.toString(),
       observedResidualClassCount: observed.nodes[0]!.nodes.length };
   }
   if (observed.type === 'attribute') {
@@ -559,38 +572,22 @@ function parseFunctionalState(pseudo: Pseudo): string | undefined {
 
   const branches: string[] = [];
   for (const selector of pseudo.nodes) {
-    if (selector.nodes.length !== 1) return undefined;
-    const branch = selector.nodes[0]!;
-    if (branch.type === 'pseudo') {
-      const state = branch.value.slice(1);
-      if (isStructuralPseudoState(state)) {
-        branches.push(branch.toString());
-        continue;
-      }
-      if (branch.nodes.length === 0 && isSupportedPseudoState(state)) {
-        branches.push(`:${state}`);
-        continue;
-      }
-    }
-    if (branch.type === 'pseudo' && branch.value === ':global' &&
-      branch.nodes.length === 1 && branch.nodes[0]!.nodes.length === 1 &&
-      branch.nodes[0]!.nodes[0]!.type === 'class') {
-      branches.push(branch.nodes[0]!.toString());
-      continue;
-    }
-    if (branch.type === 'attribute') {
-      const condition = parseAttributeCondition(branch as Attribute);
-      if (!condition) return undefined;
-      branches.push(renderParsedAttributeCondition(condition));
-      continue;
-    }
-    return undefined;
+    if (selector.nodes.length === 0 || !isNativeFunctionalBranch(selector.nodes)) return undefined;
+    branches.push(selector.toString());
   }
 
   const canonicalBranches = [...new Set(branches)].sort();
   return canonicalBranches.length > 0
     ? `${name}(${canonicalBranches.join(',')})`
     : undefined;
+}
+
+function isNativeFunctionalBranch(nodes: readonly Node[]): boolean {
+  return nodes.every((node) => {
+    if (node.type === 'class' || node.type === 'tag' || node.type === 'universal' || node.type === 'combinator') return true;
+    if (node.type === 'attribute') return parseAttributeCondition(node as Attribute) !== undefined;
+    return node.type === 'pseudo' && (!node.nodes || isNativeFunctionalBranch(node.nodes.flatMap((selector) => selector.nodes)));
+  });
 }
 
 function parseAttributeCondition(attribute: Attribute): ParsedAttributeCondition | undefined {

@@ -127,45 +127,43 @@ export function compileGssReference(
     const exports: Record<string, ScopeNodeSchema> = Object.create(null);
     for (const [name, definition] of keyframes) definition.params = `gss_ref_keyframes_${encode(logicalId)}__${encode(name)}`;
     for (const rule of rules) {
-      let targets = exports;
       const selector = selectors.get(rule)!;
-      const mapLocalFilterClasses = (nodes: readonly selectorParser.Node[], initialAfterOf = false): void => {
-        let afterOf = initialAfterOf;
-        for (const node of nodes) {
-          if (node.type === 'tag' && node.value === 'of') {
-            afterOf = true;
+      const mapNestedClasses = (nodes: readonly selectorParser.Node[], global = false): void => {
+        for (const node of [...nodes]) {
+          if (node.type === 'selector') {
+            mapNestedClasses(node.nodes, global);
             continue;
           }
-          if (node.type === 'class' && afterOf) {
+          if (node.type === 'class') {
+            if (global) continue;
             const name = node.value;
             const className = `gss_ref_${encode(logicalId)}__${encode(name)}`;
             exports[name] ??= { selfClassName: className, targets: Object.create(null) };
             node.value = className;
             continue;
           }
-          if (node.type === 'pseudo' && node.nodes) {
-            const hasOf = node.nodes.some((child) => child.nodes.some((nested) =>
-              nested.type === 'tag' && nested.value === 'of'));
-            for (const child of node.nodes) {
-              const childHasOf = child.nodes.some((nested) => nested.type === 'tag' && nested.value === 'of');
-              mapLocalFilterClasses(child.nodes, afterOf || (hasOf && !childHasOf));
-            }
+          if (node.type !== 'pseudo' || !node.nodes) continue;
+          if (node.value === ':global' && node.nodes.length === 1) {
+            const children = node.nodes[0]!.nodes;
+            node.replaceWith(...children);
+            continue;
           }
+          for (const child of node.nodes) mapNestedClasses(child.nodes, global || node.value === ':global');
         }
       };
-      const authored = selector.nodes[0]!;
-      for (const node of authored.nodes) {
-        if (node.type === 'class') {
-          const name = node.value;
-          const className = `gss_ref_${encode(logicalId)}__${encode(name)}`;
-          const scope = targets[name] ??= { selfClassName: className, targets: Object.create(null) };
-          targets = scope.targets as Record<string, ScopeNodeSchema>;
-          node.value = className;
-        } else if (node.type === 'combinator') {
-          // The next authored class starts a descendant ownership path.
-          continue;
-        } else if (node.type === 'pseudo' && node.nodes) {
-          for (const child of node.nodes) mapLocalFilterClasses(child.nodes);
+      for (const authored of selector.nodes) {
+        let branchTargets = exports;
+        for (const node of authored.nodes) {
+          if (node.type === 'pseudo' && node.nodes) mapNestedClasses(node.nodes);
+        }
+        for (const node of authored.nodes) {
+          if (node.type === 'class') {
+            const name = node.value.replace(`gss_ref_${encode(logicalId)}__`, '');
+            const className = `gss_ref_${encode(logicalId)}__${encode(name)}`;
+            const scope = branchTargets[name] ??= { selfClassName: className, targets: Object.create(null) };
+            branchTargets = scope.targets as Record<string, ScopeNodeSchema>;
+            node.value = className;
+          }
         }
       }
       rule.selector = selector.toString();
@@ -265,10 +263,10 @@ function parseReferenceSelector(source: string): selectorParser.Root | undefined
   for (const node of root.nodes[0]!.nodes) {
     if (node.type === 'comment') continue;
     if (hasPseudoElement) return undefined;
-    if (expectClass && node.type === 'class' && !('namespace' in node) && /^[A-Za-z_][A-Za-z0-9_-]*$/.test(node.value) && !node.toString().includes('\\')) {
+    if (expectClass && node.type === 'class' && !('namespace' in node) && !node.toString().includes('\\')) {
       expectClass = false;
       position++;
-    } else if (!expectClass && node.type === 'combinator' && /^[\t\n\r\f ]+$/.test(node.value)) {
+    } else if (!expectClass && node.type === 'combinator' && [' ', '>', '+', '~'].includes(node.value.trim() || ' ')) {
       expectClass = true;
     } else if (!expectClass && node.type === 'pseudo' && /^::(before|after)$/.test(node.value) && node.nodes.length === 0) {
       if (hasAttribute || (statePosition !== undefined && statePosition !== position)) return undefined;
@@ -278,6 +276,12 @@ function parseReferenceSelector(source: string): selectorParser.Root | undefined
       statePosition = position;
     } else if (!expectClass && node.type === 'pseudo' &&
       /^:(?:nth-child|nth-last-child|nth-of-type|nth-last-of-type)$/.test(node.value) && node.nodes.length > 0) {
+      if (hasAttribute || (statePosition !== undefined && statePosition !== position)) return undefined;
+      statePosition = position;
+    } else if (!expectClass && node.type === 'pseudo' && node.nodes.length > 0 &&
+      /^(?::has|:not|:is|:where)$/.test(node.value) && node.nodes.some((selector) =>
+        selector.nodes.some((nested) => nested.type === 'class' || nested.type === 'combinator' ||
+          (nested.type === 'pseudo' && nested.value === ':global'))) ) {
       if (hasAttribute || (statePosition !== undefined && statePosition !== position)) return undefined;
       statePosition = position;
     } else if (!expectClass && node.type === 'attribute' && attributeEquality.test(node.toString().trim())) {

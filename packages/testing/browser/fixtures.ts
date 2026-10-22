@@ -72,6 +72,19 @@ export const fixtures: readonly ReferenceFixture[] = [
       { id: 'fourth', moduleId: 'Nth.gss', path: ['item'], additionalPaths: [['hidden']], expected: { color: 'rgb(0, 0, 0)' } }
     ]
   },
+  {
+    name: 'native-relation-local-markers',
+    modules: [{ id: 'Relation.gss', source:
+      '.card:has(.error .warning) { color: red; } .card:is(.active, .disabled) { background-color: blue; }'
+    }],
+    nodes: [
+      { id: 'card', moduleId: 'Relation.gss', path: ['card'], expected: { color: 'rgb(255, 0, 0)' } },
+      { id: 'error', moduleId: 'Relation.gss', path: ['error'], parent: 'card', expected: {} },
+      { id: 'warning', moduleId: 'Relation.gss', path: ['warning'], parent: 'error', expected: {} },
+      { id: 'active', moduleId: 'Relation.gss', path: ['card'], additionalPaths: [['active']], expected: { 'background-color': 'rgb(0, 0, 255)' } },
+      { id: 'disabled', moduleId: 'Relation.gss', path: ['card'], additionalPaths: [['disabled']], expected: { 'background-color': 'rgb(0, 0, 255)' } }
+    ]
+  },
   ...assetFixtures,
   ...keyframesFixtures,
   ...pseudoElementFixtures,

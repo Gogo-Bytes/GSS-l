@@ -11,7 +11,7 @@ describe('MVP playground catalog', () => {
     });
     try {
       const { default: fixtures } = await server.ssrLoadModule('virtual:reference-fixtures');
-      expect(fixtures).toHaveLength(124);
+      expect(fixtures).toHaveLength(125);
       const labels = fixtures.map(fixtureTitle);
       expect(new Set(labels).size).toBe(fixtures.length);
       expect(fixtures.every((fixture: { name: string; family: string }) => !fixtureTitle(fixture).includes(fixture.name))).toBe(true);
