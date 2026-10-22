@@ -1,5 +1,6 @@
 import { effectsOfProperty } from './property-effects.js';
 import { isSubsequence, matchesOwnedTarget } from './module-local-atom-ranks.js';
+import { isStructuralPseudoState } from './pseudo-state-capabilities.js';
 
 export type DescendantRule = {
   path: readonly string[];
@@ -106,6 +107,8 @@ export function planDescendantConditions<R extends DescendantRule>(
     for (let i = 0; i < retained.length; i++) {
       const left = retained[i]!;
       for (const right of retained.slice(i + 1)) {
+        if (left.rule.states.some((states) => states.some(isStructuralPseudoState)) ||
+          right.rule.states.some((states) => states.some(isStructuralPseudoState))) continue;
         if (left.rule.layer !== right.rule.layer || JSON.stringify(left.rule.conditions) !== JSON.stringify(right.rule.conditions) ||
           left.specificity !== right.specificity || implies(left, right) || implies(right, left) || exclusive(left, right)) continue;
         for (const a of left.declarations) for (const b of right.declarations) {

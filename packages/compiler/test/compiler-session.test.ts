@@ -1279,6 +1279,20 @@ describe('GssCompilerSession', () => {
     }
   });
 
+  it('passes native nth-child formulas through and maps local of classes to identity markers', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const replacement = compiler.replaceStylesheet({ id: 'Nth.gss', source:
+      '.item:nth-child(2n + 1) { color: red; } .item:nth-last-child(2n of .visible, :global(.external)) { color: blue; }'
+    });
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    const visible = replacement.module!.scopeSchema.exports.visible!.selfClassName;
+    expect(visible).toContain('gss-');
+    const css = compiler.finalize().css;
+    expect(css).toContain(':nth-child(2n + 1)');
+    expect(css).toContain(`:nth-last-child(2n of .${visible},.external)`);
+    expect(css).not.toContain(':nth-last-child(2n of .visible');
+  });
+
   it('resolves pseudo effects only within a closed target and keeps host/before/after separate', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
     const replacement = compiler.replaceStylesheet({ id: 'PseudoCascade.gss', source: [
@@ -1807,7 +1821,7 @@ describe('GssCompilerSession', () => {
 
     expect(compiler.replaceStylesheet({
       id: '/project/src/link.gss',
-      source: '.link:nth-child(2n + 1) { color: red; }'
+      source: '.link:unsupported-state { color: red; }'
     })).toMatchObject({
       committed: false,
       generation: 0,

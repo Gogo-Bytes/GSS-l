@@ -552,6 +552,9 @@ function parseRuntimeRelation(
 
 function parseFunctionalState(pseudo: Pseudo): string | undefined {
   const name = pseudo.value.slice(1);
+  if (['nth-child', 'nth-last-child', 'nth-of-type', 'nth-last-of-type'].includes(name)) {
+    return pseudo.toString().slice(1);
+  }
   if (!['not', 'is', 'where'].includes(name)) return undefined;
 
   const branches: string[] = [];

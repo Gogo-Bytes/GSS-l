@@ -612,7 +612,7 @@ function prepareContribution(
       const layer = rule.layer;
       const states = sourceIndex < 0 ? [] : rule.states[sourceIndex]!;
       const attribute = sourceIndex < 0 ? undefined : rule.attributes[sourceIndex]![0];
-      const suffix = attribute ? renderAttributeCondition(attribute) : states.map((state) => `:${state}`).join('');
+      const suffix = attribute ? renderAttributeCondition(attribute) : renderStateSuffix(states, moduleId, nameAllocator, roots);
       const ancestor = sourcePath !== undefined && sourcePath.length < targetPath.length;
       const scope = ensureScopePath(roots, targetPath);
       if (ancestor) {
@@ -714,7 +714,7 @@ function prepareContribution(
         kind: state === 'self' ? 'pure-atom' : 'contextual-atom',
         identity, className,
         // Keep authored class specificity on this target-qualified atom, not a shared weaker atom.
-        selector: `${`.${className}`.repeat(rule.path.length)}${state === 'self' ? '' : `:${state}`}::${pseudoElement}`,
+        selector: `${`.${className}`.repeat(rule.path.length)}${renderStateSuffix([state], moduleId, nameAllocator, roots)}::${pseudoElement}`,
         wrappers, layer, relationRank, source: declaration.source
       });
     }
@@ -1563,6 +1563,51 @@ function canonicalAttributeCondition(condition: ParsedAttributeCondition): strin
 
 function renderAttributeCondition(condition: ParsedAttributeCondition): string {
   return `[${condition.attribute}=${JSON.stringify(condition.value)}]`;
+}
+
+function renderStateSuffix(
+  states: readonly string[],
+  moduleId: string,
+  nameAllocator: NameAllocatorPort,
+  roots: Map<string, MutableScopeNode>
+): string {
+  return states.map((state) => {
+    if (state === 'self') return '';
+    if (!state.startsWith('nth-')) return `:${state}`;
+    const root = selectorParser().astSync(`.gss${`:${state}`}`);
+    const pseudo = root.nodes[0]?.nodes.at(-1);
+    if (!pseudo || pseudo.type !== 'pseudo') return `:${state}`;
+    const selectors = pseudo.nodes ?? [];
+    const hasOf = selectors.some((selector) => selector.nodes.some((node) =>
+      node.type === 'tag' && node.value === 'of'));
+    const rewrite = (nodes: readonly selectorParser.Node[], initialOf: boolean, global: boolean): void => {
+      let inOf = initialOf;
+      for (const node of nodes) {
+        if (node.type === 'tag' && node.value === 'of') {
+          inOf = true;
+          continue;
+        }
+        if (node.type === 'class' && inOf && !global) {
+          const marker = nameAllocator.createScopeMarker(moduleId, [node.value]);
+          ensureScopePath(roots, [node.value]).classNames.add(marker);
+          node.value = marker;
+          continue;
+        }
+        if (node.type === 'pseudo' && node.nodes) {
+          if (node.value === ':global' && node.nodes.length === 1) {
+            const children = node.nodes[0]!.nodes;
+            for (const child of children) rewrite([child], inOf || hasOf, true);
+            node.replaceWith(...children);
+            continue;
+          }
+          const isGlobal = global || node.value === ':global';
+          for (const child of node.nodes) rewrite(child.nodes, inOf || hasOf, isGlobal);
+        }
+      }
+    };
+    for (const selector of selectors) rewrite(selector.nodes, false, false);
+    return pseudo.toString();
+  }).join('');
 }
 
 function renderRelationCombinator(
