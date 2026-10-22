@@ -23,6 +23,8 @@ export type ReferenceFixture = {
     id: string;
     moduleId: string;
     path: readonly string[];
+    /** Additional same-element GSS paths, used for native selector filters such as nth-child(of ...). */
+    additionalPaths?: readonly (readonly string[])[];
     /** Fixture-owned third-party class, never supplied by a GSS ScopeSchema. */
     externalClassName?: string;
     /** Third-party class on an owned node, in addition to its GSS scope class. */
@@ -61,12 +63,12 @@ export const fixtures: readonly ReferenceFixture[] = [
   {
     name: 'native-nth-of-local-marker',
     modules: [{ id: 'Nth.gss', source:
-      '.item { color: black; } .item:nth-child(2n of .item) { color: red; }'
+      '.item { color: black; } .item:nth-child(2n of .visible) { color: red; }'
     }],
     nodes: [
-      { id: 'first', moduleId: 'Nth.gss', path: ['item'], expected: { color: 'rgb(0, 0, 0)' } },
-      { id: 'second', moduleId: 'Nth.gss', path: ['item'], expected: { color: 'rgb(255, 0, 0)' } },
-      { id: 'third', moduleId: 'Nth.gss', path: ['item'], expected: { color: 'rgb(0, 0, 0)' } }
+      { id: 'first', moduleId: 'Nth.gss', path: ['item'], additionalPaths: [['visible']], expected: { color: 'rgb(0, 0, 0)' } },
+      { id: 'second', moduleId: 'Nth.gss', path: ['item'], expected: { color: 'rgb(0, 0, 0)' } },
+      { id: 'third', moduleId: 'Nth.gss', path: ['item'], additionalPaths: [['visible']], expected: { color: 'rgb(255, 0, 0)' } }
     ]
   },
   ...assetFixtures,

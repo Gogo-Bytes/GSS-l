@@ -266,19 +266,28 @@ export async function readDocument(fixture: Fixture, side: 'reference' | 'atomic
       throw new Error('An external fixture node cannot also claim an owned scope');
     }
     let scope: ScopeNodeSchema | undefined;
+    const scopes: ScopeNodeSchema[] = [];
     if (node.externalClassName === undefined) {
-      let targets = fixture[side].scopeSchemas[node.moduleId]!.exports;
-      for (const segment of node.path) {
-        scope = targets[segment];
-        if (!scope) throw new Error(`Missing ${side} mapping: ${node.moduleId}:${node.path.join('.')}`);
-        targets = scope.targets;
+      for (const path of [node.path, ...(node.additionalPaths ?? [])]) {
+        let current: ScopeNodeSchema | undefined;
+        let targets = fixture[side].scopeSchemas[node.moduleId]!.exports;
+        for (const segment of path) {
+          current = targets[segment];
+          if (!current) throw new Error(`Missing ${side} mapping: ${node.moduleId}:${path.join('.')}`);
+          targets = current.targets;
+        }
+        if (current) scopes.push(current);
+        if (!scope) scope = current;
       }
-    } else if (node.path.length > 0) throw new Error('An external fixture node must not have an owned scope path');
+    } else if (node.path.length > 0 || (node.additionalPaths?.length ?? 0) > 0) {
+      throw new Error('An external fixture node must not claim an owned scope path');
+    }
     const element = doc.createElement(node.tag ?? 'div');
     if (element.tagName === 'INPUT') (element as HTMLInputElement).type = 'checkbox';
     element.id = node.id;
-    if (scope) ownedClasses.set(node.id, scope.selfClassName);
-    element.className = node.externalClassName ?? [scope!.selfClassName, node.extraClassName ?? ''].filter(Boolean).join(' ');
+    const classes = [...new Set(scopes.flatMap((entry) => entry.selfClassName.split(/\s+/).filter(Boolean)))];
+    if (scope) ownedClasses.set(node.id, classes.join(' '));
+    element.className = node.externalClassName ?? [...classes, node.extraClassName ?? ''].filter(Boolean).join(' ');
     if (element.tagName !== 'INPUT') element.textContent = node.id;
     const parent = node.parent ? doc.getElementById(node.parent) : doc.body;
     if (!parent) throw new Error(`Missing fixture parent: ${node.parent}`);

@@ -129,13 +129,40 @@ export function compileGssReference(
     for (const rule of rules) {
       let targets = exports;
       const selector = selectors.get(rule)!;
-      selector.walkClasses((reference) => {
-        const name = reference.value;
-        const className = `gss_ref_${encode(logicalId)}__${encode(name)}`;
-        const node = targets[name] ??= { selfClassName: className, targets: Object.create(null) };
-        targets = node.targets as Record<string, ScopeNodeSchema>;
-        reference.value = className;
-      });
+      const mapLocalFilterClasses = (nodes: readonly selectorParser.Node[]): void => {
+        let afterOf = false;
+        for (const node of nodes) {
+          if (node.type === 'tag' && node.value === 'of') {
+            afterOf = true;
+            continue;
+          }
+          if (node.type === 'class' && afterOf) {
+            const name = node.value;
+            const className = `gss_ref_${encode(logicalId)}__${encode(name)}`;
+            exports[name] ??= { selfClassName: className, targets: Object.create(null) };
+            node.value = className;
+            continue;
+          }
+          if (node.type === 'pseudo' && node.nodes) {
+            for (const child of node.nodes) mapLocalFilterClasses(child.nodes);
+          }
+        }
+      };
+      const authored = selector.nodes[0]!;
+      for (const node of authored.nodes) {
+        if (node.type === 'class') {
+          const name = node.value;
+          const className = `gss_ref_${encode(logicalId)}__${encode(name)}`;
+          const scope = targets[name] ??= { selfClassName: className, targets: Object.create(null) };
+          targets = scope.targets as Record<string, ScopeNodeSchema>;
+          node.value = className;
+        } else if (node.type === 'combinator') {
+          // The next authored class starts a descendant ownership path.
+          continue;
+        } else if (node.type === 'pseudo' && node.nodes) {
+          for (const child of node.nodes) mapLocalFilterClasses(child.nodes);
+        }
+      }
       rule.selector = selector.toString();
     }
     scopeSchemas[module.id] = { moduleId: module.id, exports };
