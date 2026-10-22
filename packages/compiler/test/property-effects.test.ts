@@ -68,6 +68,8 @@ const registeredShorthandEffects = {
   font: ['font-style', 'font-variant-caps', 'font-variant-ligatures', 'font-variant-numeric', 'font-variant-east-asian', 'font-variant-alternates', 'font-variant-position', 'font-weight', 'font-stretch', 'font-size', 'line-height', 'font-family', 'font-size-adjust', 'font-language-override', 'font-optical-sizing', 'font-kerning', 'font-feature-settings', 'font-variation-settings'],
   'scroll-timeline': ['scroll-timeline-name', 'scroll-timeline-axis'],
   'view-timeline': ['view-timeline-name', 'view-timeline-axis', 'view-timeline-inset'],
+  'position-try': ['position-try-order', 'position-try-fallbacks'],
+  'text-box': ['text-box-trim', 'text-box-edge'],
   'font-synthesis': ['font-synthesis-weight', 'font-synthesis-style', 'font-synthesis-small-caps', 'font-synthesis-position'],
   'font-variant': ['font-variant-ligatures', 'font-variant-caps', 'font-variant-numeric', 'font-variant-east-asian', 'font-variant-alternates', 'font-variant-position'],
   transition: ['transition-property', 'transition-duration', 'transition-timing-function', 'transition-delay', 'transition-behavior'],

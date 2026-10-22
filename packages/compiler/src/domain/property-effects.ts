@@ -157,6 +157,8 @@ const families: readonly PropertyFamily[] = [
   ]],
   ['scroll-timeline', ['scroll-timeline-name', 'scroll-timeline-axis']],
   ['view-timeline', ['view-timeline-name', 'view-timeline-axis', 'view-timeline-inset']],
+  ['position-try', ['position-try-order', 'position-try-fallbacks']],
+  ['text-box', ['text-box-trim', 'text-box-edge']],
   ['animation', [
     'animation-name',
     'animation-duration',
@@ -293,6 +295,7 @@ export const PROPERTY_EFFECT_INDEPENDENT_PROPERTIES = [
   'position-anchor',
   'position-area',
   'position-visibility',
+  'corner-shape',
   'letter-spacing',
   'text-align',
   'text-overflow',
