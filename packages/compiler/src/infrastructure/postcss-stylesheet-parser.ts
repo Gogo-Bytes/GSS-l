@@ -10,7 +10,7 @@ import selectorParser, {
   type Pseudo
 } from 'postcss-selector-parser';
 import { isSupportedPseudoElement } from '../domain/pseudo-element-capabilities.js';
-import { isSupportedPseudoState } from '../domain/pseudo-state-capabilities.js';
+import { isStructuralPseudoState, isSupportedPseudoState } from '../domain/pseudo-state-capabilities.js';
 import type { GssDiagnostic, GssSourceRange } from '../public-types.js';
 
 import type {
@@ -561,11 +561,16 @@ function parseFunctionalState(pseudo: Pseudo): string | undefined {
   for (const selector of pseudo.nodes) {
     if (selector.nodes.length !== 1) return undefined;
     const branch = selector.nodes[0]!;
-    if (branch.type === 'pseudo' && branch.nodes.length === 0) {
+    if (branch.type === 'pseudo') {
       const state = branch.value.slice(1);
-      if (!isSupportedPseudoState(state)) return undefined;
-      branches.push(`:${state}`);
-      continue;
+      if (isStructuralPseudoState(state)) {
+        branches.push(branch.toString());
+        continue;
+      }
+      if (branch.nodes.length === 0 && isSupportedPseudoState(state)) {
+        branches.push(`:${state}`);
+        continue;
+      }
     }
     if (branch.type === 'pseudo' && branch.value === ':global' &&
       branch.nodes.length === 1 && branch.nodes[0]!.nodes.length === 1 &&
