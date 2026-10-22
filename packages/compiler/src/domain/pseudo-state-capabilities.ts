@@ -49,5 +49,5 @@ export function isSupportedPseudoState(value: string): value is SupportedPseudoS
 }
 
 export function isStructuralPseudoState(value: string): boolean {
-  return structuralPseudoStateSet.has(value);
+  return structuralPseudoStateSet.has(value) || value.startsWith('nth-');
 }
