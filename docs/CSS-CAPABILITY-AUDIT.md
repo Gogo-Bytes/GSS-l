@@ -132,7 +132,7 @@
 ### P1：高实用性、相对可切片
 
 - logical sizing 与完整 logical border family。
-- 常见表单状态和结构伪类的最小独立 slice。
+- 常见表单／媒体状态和结构伪类的最小独立 slice；本轮已补齐 user-valid/user-invalid、any-link 与媒体播放状态的 native passthrough，关系型 `:has()` 等仍保持边界。
 - `aspect-ratio`、`box-sizing`、`contain`、`filter`、`clip-path`、`accent-color` 等常见 independent properties。
 - 更完整的 `@supports`／`@media`／container query grammar 与 nested condition gate。
 - asset URL 形态扩展前，先建立 `image-set`／cursor／mask 的独立 resolver oracle。
