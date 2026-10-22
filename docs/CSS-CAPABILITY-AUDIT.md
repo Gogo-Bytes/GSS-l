@@ -57,11 +57,11 @@
 
 ### 结构伪类为何暂不按普通 state 支持
 
-`:first-child`、`:last-child`、`:only-child`、`:nth-child()`、`:nth-of-type()` 等不是当前节点的独立状态。它们依赖同级 sibling 顺序、父节点 children 集合、公式参数和 selector specificity；`:empty` 还依赖运行时文本／元素内容，`:root` 依赖 document singleton 语义。
+`:nth-child()`、`:nth-of-type()` 等公式结构伪类不是当前节点的独立状态；本轮已将无参数的 `:first-child`、`:last-child`、`:only-child`、`:first-of-type`、`:last-of-type`、`:only-of-type`、`:empty`、`:root` 做 native passthrough。它们依赖同级 sibling 顺序、父节点 children 集合、公式参数和 selector specificity；`:empty` 还依赖运行时文本／元素内容，`:root` 依赖 document singleton 语义。
 
 当前 GSS 的 selector IR 将 pseudo state 绑定到 ownership path node，并以 current／ancestor／runtime-source state 参与有限 coactivity 与排序。直接把结构伪类加入这个白名单会产生错误保证：它既没有 sibling-index／formula IR，也没有与 `+`、`~`、`:has()`、selector list specificity 的统一推理和 native oracle。
 
-因此这些伪类当前保持 fail-closed，不是因为浏览器不能执行，而是因为 compiler 尚不能证明 ownership marker、结构关系和原生层叠在所有 DOM 形状下保持正确。后续若实现，需要独立的结构关系模型、公式解析、specificity／coactivity 验收和动态 DOM oracle，不能仅增加字符串白名单。
+因此公式结构伪类当前仍保持 fail-closed，不是因为浏览器不能执行，而是因为 compiler 尚不能证明 ownership marker、结构关系和原生层叠在所有 DOM 形状下保持正确。无参数结构伪类只作为 terminal native condition 透传，不参与 GSS state ambiguity 推理。后续若实现，需要独立的结构关系模型、公式解析、specificity／coactivity 验收和动态 DOM oracle，不能仅增加字符串白名单。
 
 ### C. Property effect registry
 

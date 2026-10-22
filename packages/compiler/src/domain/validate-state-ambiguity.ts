@@ -1,4 +1,5 @@
 import type { GssDiagnostic } from '../public-types.js';
+import { isStructuralPseudoState } from './pseudo-state-capabilities.js';
 
 type DeclarationCandidate = {
   property: string;
@@ -27,8 +28,10 @@ export function validateStateAmbiguity(
 ): readonly GssDiagnostic[] {
   const stateRules = rules.flatMap((rule): StateRule[] => {
     const states = canonicalStates(rule.states.at(-1) ?? []);
+    const hasStructuralPseudo = states.some(isStructuralPseudoState);
     const isCurrentStateRule =
       states.length > 0 &&
+      !hasStructuralPseudo &&
       rule.relations.every((relation) => relation === 'descendant') &&
       rule.states.slice(0, -1).every((entry) => entry.length === 0) &&
       rule.attributes.every((entry) => entry.length === 0) &&
