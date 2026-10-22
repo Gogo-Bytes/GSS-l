@@ -20,6 +20,14 @@ const registeredShorthandEffects = {
   'padding-block': ['padding-block-start', 'padding-block-end'],
   'inset-inline': ['inset-inline-start', 'inset-inline-end'],
   'inset-block': ['inset-block-start', 'inset-block-end'],
+  'border-inline': [
+    'border-inline-start-width', 'border-inline-start-style', 'border-inline-start-color',
+    'border-inline-end-width', 'border-inline-end-style', 'border-inline-end-color'
+  ],
+  'border-block': [
+    'border-block-start-width', 'border-block-start-style', 'border-block-start-color',
+    'border-block-end-width', 'border-block-end-style', 'border-block-end-color'
+  ],
   'scroll-margin-inline': ['scroll-margin-inline-start', 'scroll-margin-inline-end'],
   'scroll-margin-block': ['scroll-margin-block-start', 'scroll-margin-block-end'],
   'scroll-padding-inline': ['scroll-padding-inline-start', 'scroll-padding-inline-end'],
@@ -70,6 +78,7 @@ const registeredShorthandEffects = {
   'view-timeline': ['view-timeline-name', 'view-timeline-axis', 'view-timeline-inset'],
   'position-try': ['position-try-order', 'position-try-fallbacks'],
   'text-box': ['text-box-trim', 'text-box-edge'],
+  'text-wrap': ['text-wrap-mode', 'text-wrap-style'],
   'font-synthesis': ['font-synthesis-weight', 'font-synthesis-style', 'font-synthesis-small-caps', 'font-synthesis-position'],
   'font-variant': ['font-variant-ligatures', 'font-variant-caps', 'font-variant-numeric', 'font-variant-east-asian', 'font-variant-alternates', 'font-variant-position'],
   transition: ['transition-property', 'transition-duration', 'transition-timing-function', 'transition-delay', 'transition-behavior'],
