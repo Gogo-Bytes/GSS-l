@@ -55,7 +55,7 @@ owner 已决定有限 MVP 结项，当前进入核心能力收敛与真实用户
 ### 浏览器证据
 
 - 当前 Browser oracle：125 fixtures、1267 comparisons、38 controls；Vite host、SSG hydration、multipage lazy/hydration/state controls 通过。
-- Task-board 三引擎真实用户路径：每引擎 76 phases、13 exact image pairs、dev HMR/LKG/recovery、父子 implicit `className`、production lazy/CSS census 通过。删除 `.gss` 的独立实验发现 Chromium/Firefox/WebKit overlay/LKG 行为不一致，失败 artifact 保留在 `artifacts/cross-browser-rendering/task-board/2026-10-23T04-10-04.608Z/`，不宣称删除重建已通过。
+- Task-board 三引擎真实用户路径：每引擎 76 phases、13 exact image pairs、dev HMR/LKG/recovery、父子 implicit `className`、production lazy/CSS census 通过。删除 `.gss` 不属于当前支持契约：独立实验发现 Chromium/Firefox/WebKit 的 overlay/LKG 行为不一致，因此当前只承诺文件修改、非法输入 LKG、恢复和显式重建；删除场景的失败 artifact 保留在 `artifacts/cross-browser-rendering/task-board/2026-10-23T04-10-04.608Z/`，不宣称删除重建已通过。
 - 逻辑／物理修复阶段：三浏览器证据通过，包含 418 个简单 fixture、55 个语义 fixture、每引擎 2772 项读取及方向／writing-mode 动态变化。
 - 安全复用交付：独立审查接受 **Chromium／WebKit** 范围；Article 每引擎 82 phases／22 对精确图像。Firefox Article 的 dev→production 导航问题由 owner 暂缓，不宣称已修复。
 - rank 验收曾因两引擎加载器入口失配，意外跑了原三引擎 gate 并通过。已披露执行范围偏差；这不能消除 Article 的历史 Firefox 失败。
