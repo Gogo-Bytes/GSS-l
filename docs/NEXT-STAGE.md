@@ -8,11 +8,11 @@ owner 已决定结束当前有限 MVP，并明确顺序为“基本核心能力�
 
 ## 有限 MVP 结项
 
-代码与测试基线：`847698c`；本次结项仅调整文档。此处结项不创建 tag、release，不发布包。
+历史结项基线为 `847698c`；当前核心收敛基线为 main 的 `088811d`。此处不创建 tag、release，不发布包。
 
 - 已交付：框架无关编译核心、React/Vite 集成、中文 Playground、Task-board／Article、模块内固定排序、逻辑／物理属性排序修复、保守 rank 复用。
-- 基础验证：当前 1419 项测试，lint／build／类型检查通过。
-- 最近专项：Playground Chromium dev/preview 各 123 cases／1260 comparisons 通过；有界 SSG／hydration Chromium gate 通过，新增无 JS 初始样式检查。
+- 基础验证：Compiler 1539、React 49、Vite 149、Testing 334，共 2071 项测试，lint／build／类型检查通过。
+- 最近专项：Browser oracle 125 fixtures／1267 comparisons／38 controls 通过；Playground dev/preview 同范围通过；有界 SSG／hydration 与 multipage lazy/state controls 通过。
 - 不宣称：任意 CSS 全面支持、全浏览器无缺陷、完整 router 生命周期、独立 production SSR 或流式 SSR 已验收。
 - 历史已知问题保留：Firefox Article 导航和 readiness 原因未确定；性能继续暂缓。
 
@@ -68,6 +68,6 @@ owner 已决定结束当前有限 MVP，并明确顺序为“基本核心能力�
 8. 独立 literal／原生预期、有效负对照与原始失败证据保持不变；视觉对照保持同引擎精确比较，不削弱断言。
 9. 每份报告明确版本、浏览器、实际入口、通过／失败／未测及限制；实验通过不自动升级为普遍兼容承诺。先确定浏览器范围，不擅改既有 gate。
 
-## 下一步待 owner 决定
+## 下一步
 
-当前先按 CORE-AUDIT.md 收敛基本核心能力，首要决定为隐式 className lowering 与严格 TSX 的使用契约。核心阶段选定门禁通过后，再选择脚手架；官方 create-vite React + TypeScript 模板仅是第二步候选，不是当前任务。
+隐式 className lowering 已按“编译期语法糖 + 轻量 TS 兼容类型”决策并完成。当前下一项是核心生命周期的真实用户路径验收：父子 `className={styles.title}`、`.gss` 删除／重建、dev LKG／恢复与 reload/state 记录。该项完成并达到核心门禁后，再选择脚手架；官方 create-vite React + TypeScript 模板仍是首选候选，不是当前已授权接入。

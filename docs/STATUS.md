@@ -1,14 +1,14 @@
 # GSS 工作状态
 
-更新于 2026-10-19。实现基线为 main 的 `081601a`（PR #31）；其文件树与 `dc9ad13` 相同。本文记录这次文档整理之前的实现与验证，不把历史证据当成未来代码的自动验收。
+更新于 2026-10-19。当前实现基线为 main 的 `088811d`；本文保留历史证据与当前交付边界，不把旧快照当成未来代码的自动验收。
 
 有限 MVP 的逐项目标进度及后续 `2f115b1` 基线上的基础验证、演示生产构建结果见 [MVP 进度](MVP-PROGRESS.md)。该核对未新增浏览器验收，也不将历史开放项改判为全部完成。
 
 ## 当前阶段
 
-owner 已决定有限 MVP 结项，进入缺陷收敛、脚手架扩展和真实 SSR 框架实验的规划阶段。结项基线 `847698c`，基础验证 1419 项测试通过；后续 Playground 与有界 SSG 的 Chromium 证据分别见 [Playground 覆盖](PLAYGROUND-COVERAGE.md)、[SSR/SSG 验收](SSR-SSG-ACCEPTANCE.md)。这不覆盖历史 Firefox 失败或完整 production SSR。
+owner 已决定有限 MVP 结项，当前进入核心能力收敛与真实用户路径验收阶段。最新基础验证为 2071 项测试通过；Browser oracle 为 125 fixtures／1267 comparisons／38 controls，Playground 同范围通过。这不覆盖历史 Firefox 失败或完整 production SSR。
 
-新阶段分类、候选与用户路径门禁见 [下一阶段](NEXT-STAGE.md)。owner 已明确先收敛基本核心能力，再接脚手架。当前 CSS selector／state／property／resource 缺口盘点见 [CSS 能力缺口](CSS-CAPABILITY-AUDIT.md)，不自动恢复为任务队列。当前盘点与已复现的严格 TSX className 类型体验限制见 [核心能力盘点](CORE-AUDIT.md)，类型契约待 owner 决定；不直接接脚手架，不新建 SSR/SSG Playground。
+新阶段分类、候选与用户路径门禁见 [下一阶段](NEXT-STAGE.md)。owner 已明确先收敛基本核心能力，再接脚手架。当前 native relation selector、nth-of marker、property/state coverage 已有独立回归；剩余 CSS value／at-rule／resource 扩展不自动恢复为任务队列。隐式 className lowering 已按“编译期语法糖 + 轻量 TS 兼容类型”决策，不直接接脚手架，不新建 SSR/SSG Playground。
 
 ## 已完成交付
 
@@ -50,18 +50,18 @@ owner 已决定有限 MVP 结项，进入缺陷收敛、脚手架扩展和真实
 
 ### 当前 main 的基础验证
 
-历史基线在 `081601a` 上运行 `corepack pnpm verify`，1416 项测试及 lint／build／类型检查通过；当前 sugar 语义收敛后的 verify 为 1419 项。切换旧工作目录后曾缺少 `pngjs`，按现有 lockfile 执行 frozen install 后通过；没有改依赖版本来规避测试。
+当前 main 已运行 `corepack pnpm verify`：Compiler 1539、React 49、Vite 149、Testing 334，共 2071 项测试，另有 lint／build／类型检查通过。
 
 ### 浏览器证据
 
-- 初始 browser 基线：123 fixtures、1260 comparisons、38 controls，另有宿主检查。
+- 当前 Browser oracle：125 fixtures、1267 comparisons、38 controls；Vite host、SSG hydration、multipage lazy/hydration/state controls 通过。
 - 逻辑／物理修复阶段：三浏览器证据通过，包含 418 个简单 fixture、55 个语义 fixture、每引擎 2772 项读取及方向／writing-mode 动态变化。
 - 安全复用交付：独立审查接受 **Chromium／WebKit** 范围；Article 每引擎 82 phases／22 对精确图像。Firefox Article 的 dev→production 导航问题由 owner 暂缓，不宣称已修复。
 - rank 验收曾因两引擎加载器入口失配，意外跑了原三引擎 gate 并通过。已披露执行范围偏差；这不能消除 Article 的历史 Firefox 失败。
 - 通用 browser readiness 曾出现 120 秒超时，原因未确定；owner 授权的固定三次未加仪器样本随后通过。不把这些通过说成已找到因果修复，也不允许无限重试直到绿。
 - Article 截图曾因 locator 自动滚动丢失 hover；已改为相同全页 clip，并检查截图前后交互／滚动／几何状态，保留负对照。
 
-脚本事实：`browser:check`、`task-board:check`、`article:check`、`atom-ranks:check` 的默认执行范围不能被“Firefox 暂缓”自动改写；尤其 Article 和 atom-ranks 默认跑三引擎。需要两引擎复验时先确认已有入口和运行范围，不能假设存在 skip flag 或私自改默认 gate。此次 main 清理后只重跑了 `verify`，没有新一轮浏览器验收。
+脚本事实：`browser:check`、`task-board:check`、`article:check`、`atom-ranks:check` 的默认执行范围不能被“Firefox 暂缓”自动改写；尤其 Article 和 atom-ranks 默认跑三引擎。需要两引擎复验时先确认已有入口和运行范围，不能假设存在 skip flag 或私自改默认 gate。当前 main 已重新运行 browser oracle 与 Playground gate；Firefox Article 仍未重新启动。
 
 普通场景用独立原生 CSS／literal oracle，所有权／结构语义用明确 GSS oracle。图像在同引擎内精确比较，不增加容差／遮罩，不修改业务 CSS、删 fixture 或削弱断言来换取通过。失败和仪器化试验属于证据，不能覆盖原始失败记录。
 
