@@ -70,4 +70,4 @@ owner 已决定结束当前有限 MVP，并明确顺序为“基本核心能力�
 
 ## 下一步
 
-隐式 className lowering 已按“编译期语法糖 + 轻量 TS 兼容类型”决策并完成。当前下一项是核心生命周期的真实用户路径验收：父子 `className={styles.title}`、`.gss` 删除／重建、dev LKG／恢复与 reload/state 记录。该项完成并达到核心门禁后，再选择脚手架；官方 create-vite React + TypeScript 模板仍是首选候选，不是当前已授权接入。
+隐式 className lowering 已按“编译期语法糖 + 轻量 TS 兼容类型”决策并完成。当前核心生命周期验收已完成父子 `className={styles.title}`、dev LKG／恢复、reload/state 记录和 production 用户路径；`.gss` 删除／重建实验发现三引擎 overlay/LKG 行为不一致，作为开放缺陷保留原始 artifact。下一项是先决定是否修复该删除重建行为；未决定前不接脚手架。官方 create-vite React + TypeScript 模板仍是首选候选，不是当前已授权接入。

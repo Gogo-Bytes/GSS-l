@@ -4,6 +4,12 @@ import { initialTasks, labels, statuses } from './data.js';
 import type { Status, Task } from './data.js';
 const Detail = lazy(() => import('./Detail.js'));
 
+function CardShell({ id, selected, className, children }: {
+  id: string; selected: boolean; className: string; children: React.ReactNode;
+}) {
+  return <article aria-label={id} data-probe={`card-${id}`} data-selected={selected ? 'yes' : 'no'} className={className}>{children}</article>;
+}
+
 export function Board({ native }: { native: boolean }) {
   const [tasks, setTasks] = useState(initialTasks);
   const [query, setQuery] = useState('');
@@ -61,7 +67,7 @@ export function Board({ native }: { native: boolean }) {
       </div>
     </form> : null}
     <section aria-label="Tasks" data-probe="grid" className={native ? 'native-grid' : styles.grid.self}>
-      {visible.map((task) => <article key={task.id} aria-label={task.id} data-probe={`card-${task.id}`} data-selected={selected === task.id ? 'yes' : 'no'} className={native ? 'native-card' : styles.card.self}>
+      {visible.map((task) => <CardShell key={task.id} id={task.id} selected={selected === task.id} className={native ? 'native-card' : styles.card}>
         <div data-probe={`top-${task.id}`} className={native ? 'native-card-top' : styles.cardTop.self}><span data-probe={`id-${task.id}`} className={native ? 'native-id' : styles.id.self}>{task.id} / {task.tag}</span>
           <span data-probe={`badge-${task.id}`} data-status={task.status} className={native ? 'native-badge' : styles.badge.self}>{labels[task.status]}</span></div>
         <h2 data-probe={`title-${task.id}`} className={native ? 'native-card-title' : styles.cardTitle.self}>{task.title}</h2>
@@ -73,7 +79,7 @@ export function Board({ native }: { native: boolean }) {
           <button data-probe={`open-${task.id}`} aria-expanded={selected === task.id} className={native ? 'native-primary' : styles.primary.self} onClick={(event) => { detailOpener.current = event.currentTarget; setSelected(task.id); }}>View details</button>
           <button data-probe={`edit-${task.id}`} className={native ? 'native-button' : styles.button.self} onClick={(event) => { editorOpener.current = event.currentTarget; setDraft({ ...task }); }}>Edit task</button>
         </div>
-      </article>)}
+      </CardShell>)}
     </section>
     {!visible.length ? <p data-probe="empty" className={native ? 'native-empty' : styles.empty.self}>No matching tasks. Try another name or clear your filters.</p> : null}
     <Suspense fallback={<p role="status">Opening task details…</p>}>{detail ? <Detail task={detail} native={native} onClose={() => { setSelected(null); detailOpener.current?.focus(); }} /> : null}</Suspense>
