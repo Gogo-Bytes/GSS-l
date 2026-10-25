@@ -2,7 +2,7 @@
 
 ## 决策与当前阶段
 
-owner 已决定结束当前有限 MVP，并明确顺序为“基本核心能力收敛 → 扩展脚手架 → 常见 SSR 框架实验”。**第一步不是接脚手架。** 核心盘点、首要类型体验发现及待决策项见 [核心能力盘点](CORE-AUDIT.md)。本文件中的脚手架／框架仅为第二、三步候选，不授权自动实现。
+owner 已决定结束当前有限 MVP，并明确顺序为“基本核心能力收敛 → 扩展脚手架 → 常见 SSR 框架实验”。核心阶段门禁后，已授权并完成官方 create-vite React TS 的 workspace 外消费与 Vite 8 实验，见 [验收报告](VITE-TEMPLATE-ACCEPTANCE.md)。其余脚手架／框架仍为候选，不授权自动实现。
 
 不再为此新建 SSR/SSG Playground。保留现有 Playground 作为演示／调试台，fixture 作为语义回归，真实脚手架／框架示例作为用户路径验收载体。
 
@@ -11,7 +11,7 @@ owner 已决定结束当前有限 MVP，并明确顺序为“基本核心能力�
 历史结项基线为 `847698c`；当前核心收敛基线为 main 的 `088811d`。此处不创建 tag、release，不发布包。
 
 - 已交付：框架无关编译核心、React/Vite 集成、中文 Playground、Task-board／Article、模块内固定排序、逻辑／物理属性排序修复、保守 rank 复用。
-- 基础验证：Compiler 1539、React 49、Vite 149、Testing 334，共 2071 项测试，lint／build／类型检查通过。
+- 基础验证：Compiler 1539、React 49、Vite 151、Testing 334，共 2073 项测试，lint／build／类型检查通过。
 - 最近专项：Browser oracle 125 fixtures／1267 comparisons／38 controls 通过；Playground dev/preview 同范围通过；有界 SSG／hydration 与 multipage lazy/state controls 通过。
 - 不宣称：任意 CSS 全面支持、全浏览器无缺陷、完整 router 生命周期、独立 production SSR 或流式 SSR 已验收。
 - 历史已知问题保留：Firefox Article 导航和 readiness 原因未确定；性能继续暂缓。
@@ -25,8 +25,8 @@ owner 已决定结束当前有限 MVP，并明确顺序为“基本核心能力�
 | D1 | 历史已知失败 | Firefox Article dev→production 导航失败 | 暂缓，不因新阶段自动重启 |
 | D2 | 未归因的历史失败 | 通用 readiness 曾超时，随后固定样本通过，未找到因果修复 | 保留原始失败；新目标若复现，停止并诊断，不循环重试 |
 | L1 | 已接受体验限制 | class mapping 改变允许 document reload、React 状态重置 | 在真实脚手架中显式暴露；是否要求 state-preserving HMR 需 owner 决定，不默认当 bug 修 |
-| C1 | 验收覆盖缺口 | 浏览器中删除／重建 `.gss` 缺独立实际应用证明，已有 server 测试 | 首批脚手架选定后纳入场景；出现失败再建立缺陷最小复现 |
-| C2 | 验收覆盖缺口 | 普通 className 跨文件传递有转换回归，尚无专门真实用户项目端到端证明 | 纳入真实脚手架的父／子组件场景，不扩展 scope 类型推导 |
+| C1 | 已接受范围边界 | 删除 `.gss` 的三引擎失败实验已保留 | owner 选择不纳入支持契约，不要求新脚手架覆盖删除 |
+| C2 | 已有有界证据 | Task-board 父子字符串路径与官方模板跨文件 `className: string` dev／production 已验收 | 不扩展为跨文件 scope 类型推导或所有组件调用方式证明 |
 | C3 | 验收覆盖缺口 | router、前进／后退、路由懒加载与深链接未整体验收 | 选定真实带路由脚手架后运行，不靠模拟 MPA 宣称通过 |
 | C4 | 验收覆盖缺口 | 有界 SSG 不等于 production SSR bundle／请求时渲染 | 在选定常见 SSR 框架中实验，不先自创 SSR 宿主协议 |
 | N1 | 本轮不做 | 跨文件 scope 推导、跨模块覆盖优先级 | owner 已跳过；普通 className 字符串是主要用法 |
@@ -34,13 +34,13 @@ owner 已决定结束当前有限 MVP，并明确顺序为“基本核心能力�
 
 新缺陷记录必须包含：环境／固定版本、最小步骤、预期来源、实际结果、失败产物与是否违反既有契约。覆盖空白、体验限制和已复现缺陷不能合并计数。
 
-## 2. 脚手架候选（待选择）
+## 2. 脚手架
 
-以下仅是候选和选择理由，不是当前兼容声明；尚未核对其当前版本与官方接入方式。
+首项已按 owner 选择完成；其余仍为候选，不是兼容声明。
 
 | 候选 | 用途 | 需验证的差异 |
 | --- | --- | --- |
-| 官方 create-vite React + TypeScript 模板 | 建议首项：最接近现有 React/Vite 能力，先暴露普通用户接入摩擦 | 正常插件组合、React 刷新、TS client reference、依赖安装和构建 |
+| 官方 create-vite React + TypeScript 模板 | 已完成 create-vite 9.3.1／Vite 8.3.5 的有界 Chromium 外部消费 | 本地 tarballs／strict peer／frozen install／类型／React Refresh／dev LKG／production 已通过；[完整范围](VITE-TEMPLATE-ACCEPTANCE.md) |
 | create-vite React + SWC + TypeScript 模板（若所选版本提供） | 比较另一 React 工具链 | 插件顺序、转换与 source map、开发更新 |
 | React Router 官方脚手架 | 引入真实路由与后续框架模式候选 | 客户端导航、lazy、深链接、框架构建／SSR 模式；具体模式先选定 |
 
@@ -63,11 +63,11 @@ owner 已决定结束当前有限 MVP，并明确顺序为“基本核心能力�
 3. 包尚未发布：实施前检查本地打包是否可安装、workspace 依赖是否正确转换；可用本地 tarball 实验但不发布，不用手改生成包内容掩盖 packaging 缺陷。
 4. 验证 install、类型检查、dev、build、实际 production serve；记录用户必需的配置步骤。测试断言可观测状态，不增加只给测试使用的转换通道。
 5. 普通样式传递：父组件传 `className={styles.title}`、子组件接收字符串；包含可见交互、资源与 lazy。
-6. dev 覆盖修改、无效输入／overlay／LKG／恢复、删除／重建；同时记录是否 reload、React 状态是否保留，不把样式最终更新等同于 HMR 体验无损。
+6. dev 覆盖修改、无效输入／overlay／LKG／恢复；删除 `.gss` 按 owner 选择排除。同时记录是否 reload、React 状态是否保留，不把样式最终更新等同于 HMR 体验无损。
 7. 有路由时才增加导航、前进／后退、懒加载与深链接。SSR/SSG 框架增加无 JS HTML、CSS 链接、hydration mismatch、生产请求及资源结果；流式功能只按框架实际采用范围验收。
 8. 独立 literal／原生预期、有效负对照与原始失败证据保持不变；视觉对照保持同引擎精确比较，不削弱断言。
 9. 每份报告明确版本、浏览器、实际入口、通过／失败／未测及限制；实验通过不自动升级为普遍兼容承诺。先确定浏览器范围，不擅改既有 gate。
 
 ## 下一步
 
-隐式 className lowering 已按“编译期语法糖 + 轻量 TS 兼容类型”决策并完成。当前核心生命周期验收已完成父子 `className={styles.title}`、dev LKG／恢复、reload/state 记录和 production 用户路径。根据 owner 决策，`.gss` 删除不属于当前支持契约；删除／重建的跨引擎失败 artifact 保留，不作为当前 gate。下一项可进入脚手架选择；官方 create-vite React + TypeScript 模板仍是首选候选，但需 owner 明确开始。
+隐式 className lowering 已按“编译期语法糖 + 轻量 TS 兼容类型”决策并完成。当前核心生命周期验收已完成父子 `className={styles.title}`、dev LKG／恢复、reload/state 记录和 production 用户路径。根据 owner 决策，`.gss` 删除不属于当前支持契约；删除／重建的跨引擎失败 artifact 保留，不作为当前 gate。官方 create-vite React TS 外部消费和 Vite 8 实验已按 owner 授权完成。下一项若进入真实路由、其它脚手架或 SSR 框架，需先确定具体目标／版本，不能将本次有界成功当作普遍兼容。

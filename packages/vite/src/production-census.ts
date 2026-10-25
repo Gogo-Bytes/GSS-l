@@ -10,7 +10,8 @@ export function reachableModuleIds(context: Rollup.PluginContext): string[] {
     const info = context.getModuleInfo(id);
     if (!info || info.isExternal) continue;
     visited.add(id);
-    pending.push(...info.importedIds, ...info.dynamicallyImportedIds, ...info.implicitlyLoadedBefore);
+    // Rolldown (Vite 8) exposes static/lazy edges but not Rollup's implicit-load field.
+    pending.push(...info.importedIds, ...info.dynamicallyImportedIds, ...(info.implicitlyLoadedBefore ?? []));
   }
   return [...visited].sort();
 }

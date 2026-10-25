@@ -1,0 +1,2 @@
+.title { color: rgb(180, 20, 30); }
+.art { width: 30px; height: 20px; background-image: url('./art.svg'); }

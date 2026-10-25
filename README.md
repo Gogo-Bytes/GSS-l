@@ -39,6 +39,8 @@ corepack pnpm article
 | [packages/testing/acceptance](packages/testing/acceptance) | task-board、article 和排序验收 |
 | [packages/testing/browser](packages/testing/browser) | 原生 CSS 对照及 Vite 宿主浏览器验证 |
 
+官方 create-vite React TS 的 workspace 外 tarball 消费验收：`corepack pnpm vite-template:check`。已验证 Vite 8.3.5 的有界 Chromium 路径，workspace 仍保留 Vite 7；接入步骤与限制见 [模板验收](docs/VITE-TEMPLATE-ACCEPTANCE.md)。
+
 ## 使用边界
 
 这是有明确准入与 fallback 契约的实现，不是“任意 CSS 都能安全原子化”的承诺。普通场景使用独立编写的原生 CSS 对照；GSS 所有权／结构语义允许与原生 source order 不同，应使用明确的 GSS 预期。
