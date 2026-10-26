@@ -29,6 +29,11 @@ const borderImageLonghands = [
   'border-image-repeat'
 ] as const;
 
+const maskBorderLonghands = [
+  'mask-border-source', 'mask-border-slice', 'mask-border-width',
+  'mask-border-outset', 'mask-border-repeat', 'mask-border-mode'
+] as const;
+
 const families: readonly PropertyFamily[] = [
   ...physicalBoxFamilies,
   ['margin-inline', ['margin-inline-start', 'margin-inline-end']],
@@ -70,11 +75,11 @@ const families: readonly PropertyFamily[] = [
     'border-bottom-right-radius',
     'border-bottom-left-radius'
   ]],
-  ['border-image', borderImageLonghands],
-  ['mask-border', [
-    'mask-border-source', 'mask-border-slice', 'mask-border-width',
-    'mask-border-outset', 'mask-border-repeat', 'mask-border-mode'
+  ['corner-shape', [
+    'corner-top-left-shape', 'corner-top-right-shape', 'corner-bottom-right-shape', 'corner-bottom-left-shape'
   ]],
+  ['border-image', borderImageLonghands],
+  ['mask-border', maskBorderLonghands],
   ['background', [
     'background-image',
     'background-position-x',
@@ -200,7 +205,9 @@ const families: readonly PropertyFamily[] = [
     'mask-repeat',
     'mask-origin',
     'mask-clip',
-    'mask-composite'
+    'mask-composite',
+    // mask resets the separate mask-border family even though it cannot set those values.
+    ...maskBorderLonghands
   ]]
 ];
 
@@ -327,7 +334,6 @@ export const PROPERTY_EFFECT_INDEPENDENT_PROPERTIES = [
   'position-anchor',
   'position-area',
   'position-visibility',
-  'corner-shape',
   'letter-spacing',
   'text-align',
   'text-overflow',

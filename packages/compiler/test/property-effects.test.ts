@@ -48,6 +48,7 @@ const registeredShorthandEffects = {
   'border-color': ['border-top-color', 'border-right-color', 'border-bottom-color', 'border-left-color'],
   'border-radius': ['border-top-left-radius', 'border-top-right-radius', 'border-bottom-right-radius', 'border-bottom-left-radius'],
   'border-image': ['border-image-source', 'border-image-slice', 'border-image-width', 'border-image-outset', 'border-image-repeat'],
+  'corner-shape': ['corner-top-left-shape', 'corner-top-right-shape', 'corner-bottom-right-shape', 'corner-bottom-left-shape'],
   background: ['background-image', 'background-position-x', 'background-position-y', 'background-size', 'background-repeat', 'background-origin', 'background-clip', 'background-attachment', 'background-color', 'background-blend-mode'],
   'background-position': ['background-position-x', 'background-position-y'],
   overflow: ['overflow-x', 'overflow-y'],
@@ -83,7 +84,8 @@ const registeredShorthandEffects = {
   'font-variant': ['font-variant-ligatures', 'font-variant-caps', 'font-variant-numeric', 'font-variant-east-asian', 'font-variant-alternates', 'font-variant-position'],
   transition: ['transition-property', 'transition-duration', 'transition-timing-function', 'transition-delay', 'transition-behavior'],
   animation: ['animation-name', 'animation-duration', 'animation-timing-function', 'animation-delay', 'animation-iteration-count', 'animation-direction', 'animation-fill-mode', 'animation-play-state', 'animation-composition', 'animation-timeline', 'animation-range-start', 'animation-range-end'],
-  mask: ['mask-image', 'mask-mode', 'mask-position', 'mask-size', 'mask-repeat', 'mask-origin', 'mask-clip', 'mask-composite'],
+  mask: ['mask-image', 'mask-mode', 'mask-position', 'mask-size', 'mask-repeat', 'mask-origin', 'mask-clip', 'mask-composite',
+    'mask-border-source', 'mask-border-slice', 'mask-border-width', 'mask-border-outset', 'mask-border-repeat', 'mask-border-mode'],
   'mask-border': ['mask-border-source', 'mask-border-slice', 'mask-border-width', 'mask-border-outset', 'mask-border-repeat', 'mask-border-mode']
 } as const;
 

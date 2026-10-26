@@ -698,6 +698,7 @@ function prepareContribution(
     const condition = canonicalCondition(wrappers);
     const layer = rule.layer;
     const observations = rule.observations.at(-1)!;
+    const nativeSpecificity = observations.some((observation) => observation.nativeSpecificity);
     const observedSpecificity = (observation: ParsedHasCondition) => observation.observedClass
       ? 1 + Number(Boolean(observation.observedState))
       : observation.observedResidualClassCount ??
@@ -705,7 +706,7 @@ function prepareContribution(
     const selectorListSpecificity = observations.length > 1
       ? Math.max(...observations.map(observedSpecificity))
       : undefined;
-    for (const observation of observations) {
+    const branches = observations.map((observation) => {
       const relationIdentity: ObservedRelationIdentity = {
         moduleId,
         layer,
@@ -728,13 +729,20 @@ function prepareContribution(
         })()
         : renderNativeSelector(observation.observedResidual!, moduleId, nameAllocator, roots);
       const observedCombinator = renderObservedCombinator(observation.relation);
+      return { observation, relationIdentity, subjectMarker, observedSelector, observedCombinator };
+    });
+    const nativeList = branches.map(({ observedCombinator, observedSelector }) => `${observedCombinator}${observedSelector}`).join(',');
+    for (const { observation, relationIdentity, subjectMarker, observedSelector, observedCombinator } of branches) {
       const normalizedObservedSelector = selectorListSpecificity !== undefined && selectorListSpecificity > 0
         ? `:where(${observedSelector})`
         : observedSelector;
       const subjectSpecificity = rule.path.length + (selectorListSpecificity ?? 0);
-      // Selector-list branches stay separately observable, but share native list-maximum
-      // specificity through repeated target-qualified markers; weaker reusable atoms stay pure.
-      const selector = `${`.${subjectMarker}`.repeat(subjectSpecificity)}:has(${observedCombinator}${normalizedObservedSelector})`;
+      // A native complex list supplies its own maximum; zero-strength witnesses retain branch identity.
+      // Simple lists keep the existing target-qualified scalar lowering.
+      const selector = nativeSpecificity
+        ? `${`.${subjectMarker}`.repeat(rule.path.length)}:has(${nativeList})${observations.length > 1
+          ? `:where(:has(${observedCombinator}${observedSelector}))` : ''}`
+        : `${`.${subjectMarker}`.repeat(subjectSpecificity)}:has(${observedCombinator}${normalizedObservedSelector})`;
 
       for (const declaration of rule.declarations) {
         const identity: ObservedDeclarationIdentity = {
@@ -797,7 +805,7 @@ function prepareContribution(
     const selector = markers.map((marker, index) => {
       if (index === 0) {
         // The source marker represents the whole ownership prefix, not one authored class.
-        return `${`.${marker}`.repeat(sourcePath.length)}${sourceState ? `:${sourceState}` : ''}${
+        return `${`.${marker}`.repeat(sourcePath.length)}${renderStateSuffix(rule.states[firstRuntimeRelation] ?? [], moduleId, nameAllocator, roots)}${
           sourceAttributeCondition ? renderAttributeCondition(sourceAttributeCondition) : ''
         }`;
       }
@@ -1535,7 +1543,10 @@ function canonicalAttributeCondition(condition: ParsedAttributeCondition): strin
 }
 
 function renderAttributeCondition(condition: ParsedAttributeCondition): string {
-  return `[${condition.attribute}=${JSON.stringify(condition.value)}]`;
+  const attribute = selectorParser.attribute({ attribute: condition.attribute, operator: condition.operator,
+    value: condition.value, quoteMark: '"', raws: {} });
+  attribute.setValue(condition.value, { quoteMark: '"' });
+  return attribute.toString();
 }
 
 function renderStateSuffix(
@@ -1544,50 +1555,8 @@ function renderStateSuffix(
   nameAllocator: NameAllocatorPort,
   roots: Map<string, MutableScopeNode>
 ): string {
-  return states.map((state) => {
-    if (state === 'self') return '';
-    if (!state.startsWith('nth-') && !state.includes('(')) return `:${state}`;
-    const root = selectorParser().astSync(`.gss${`:${state}`}`);
-    const pseudo = root.nodes[0]?.nodes.at(-1);
-    if (!pseudo || pseudo.type !== 'pseudo') return `:${state}`;
-    const selectors = pseudo.nodes ?? [];
-    if (!state.startsWith('nth-')) {
-      return renderNativeSelector(`:${state}`, moduleId, nameAllocator, roots)
-        .replace(/\(\s+/g, '(').replace(/,\s+/g, ',');
-    }
-    const hasOf = selectors.some((selector) => selector.nodes.some((node) =>
-      node.type === 'tag' && node.value === 'of'));
-    const rewrite = (nodes: readonly selectorParser.Node[], initialOf: boolean, global: boolean): void => {
-      let inOf = initialOf;
-      for (const node of nodes) {
-        if (node.type === 'tag' && node.value === 'of') {
-          inOf = true;
-          continue;
-        }
-        if (node.type === 'class' && inOf && !global) {
-          const marker = nameAllocator.createScopeMarker(moduleId, [node.value]);
-          ensureScopePath(roots, [node.value]).classNames.add(marker);
-          node.value = marker;
-          continue;
-        }
-        if (node.type === 'pseudo' && node.nodes) {
-          if (node.value === ':global' && node.nodes.length === 1) {
-            const children = node.nodes[0]!.nodes;
-            for (const child of children) rewrite([child], inOf || hasOf, true);
-            node.replaceWith(...children);
-            continue;
-          }
-          const isGlobal = global || node.value === ':global';
-          for (const child of node.nodes) rewrite(child.nodes, inOf || hasOf, isGlobal);
-        }
-      }
-    };
-    for (const selector of selectors) {
-      const selectorHasOf = selector.nodes.some((node) => node.type === 'tag' && node.value === 'of');
-      rewrite(selector.nodes, hasOf && !selectorHasOf, false);
-    }
-    return pseudo.toString();
-  }).join('');
+  return states.map((state) => state === 'self' ? '' :
+    renderNativeSelector(`:${state}`, moduleId, nameAllocator, roots)).join('');
 }
 
 function renderNativeSelector(
@@ -1607,8 +1576,9 @@ function renderNativeSelector(
       }
       if (node.type !== 'pseudo' || !node.nodes) continue;
       if (node.value === ':global' && node.nodes.length === 1) {
-        const children = node.nodes[0]!.nodes;
-        node.replaceWith(...children);
+        const selector = node.nodes[0]!;
+        rewrite(selector.nodes, true);
+        node.replaceWith(...[...selector.nodes]);
         continue;
       }
       for (const child of node.nodes) rewrite(child.nodes, global || node.value === ':global');

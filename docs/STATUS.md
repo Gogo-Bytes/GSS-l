@@ -6,9 +6,19 @@
 
 ## 当前阶段
 
-owner 已决定有限 MVP 结项，已批准并完成官方 create-vite React TS 外部消费、Vite 8 实验及同模板 React Router Declarative／BrowserRouter 客户端路由验收。最新基础验证为 2083 项测试通过；Browser oracle 为 125 fixtures／1267 comparisons／38 controls，Playground 同范围通过。另已按 owner 授权完成 React Router Framework Mode 的有界 request-time SSR 实验；不覆盖历史 Firefox 失败或通用／完整 SSR。
+owner 已决定有限 MVP 结项，已批准并完成官方 create-vite React TS 外部消费、Vite 8 实验及同模板 React Router Declarative／BrowserRouter 客户端路由验收。最新基础验证为 2103 项测试通过；Browser oracle 为 125 fixtures／1267 comparisons／38 controls，Playground 同范围通过。另已按 owner 授权完成 React Router Framework Mode 的有界 request-time SSR 实验；不覆盖历史 Firefox 失败或通用／完整 SSR。
 
 owner 最新决定是**不再新增框架或验收场景**，当前转为现有能力一致性与真实缺陷驱动的收敛，不继续扩大矩阵。隐式 className 类型、native marker 策略和公共 stylesheet URL／插件数组返回值均已决策；不重复要求 owner 重选。后续先核对已登记 property effects 与已准入 selector marker 的契约一致性，再修复可复现的问题；必要回归复用已有测试载体，具体顺序见 [当前计划](NEXT-STAGE.md)。未覆盖组合不自动算作缺陷，也不自动授权扩语法或 fallback。
+
+## 本轮核心一致性修复
+
+基于 `451dd5c` 核对现有 registry、selector parser/emission 与相关排序规划器，修复 `mask` 缺失 mask-border reset-only effects、`corner-shape` 错判 singleton、nth-of global compound 误改 local、functional attribute 字符串／CSS escape 被破坏、嵌套 global wrapper 遗留及 runtime-source 漏做 marker rewrite。各修复在现有测试文件保留 red→green 回归；没有新框架、fixture 项目或验收矩阵。
+
+owner 已明确将复杂 `:has()` 丢失 native specificity 作为 bug 修复：仅对已准入复杂 residual 保留完整原生 `:has(list)`，每条 emission 另用零 specificity 的 branch witness 保留观察身份；planner 不再用猜测的 class/type 数做这类 list 的强度判断。简单已有路径不变，不新增语法或 DOM 推理。独立 Chromium native/literal 对照在 weaker-only／stronger／both／none 及规则正反序均通过，分支来源与 LKG 回归保留。
+
+逻辑 sizing／border／radius 的排序观察仍未改动：owner 要求统一固定输出顺序，不采用本轮先前建议的扩大 source-order overlap 修补；具体统一优先规则仍待确定，不能把“哪条写在后面就获胜”当成该问题的已批准目标。五族 Policy B／reuse barriers 没有扩展。
+
+证据目录：`artifacts/core-consistency/2026-10-26-audit/`（baseline/remaining probes、各阶段 red logs、最终 verify/browser/playground logs、has-native-red/green）。现有 browser oracle 125／1267／38 与 Playground dev/preview gate 重跑通过；本轮未新增外部 SPA／SSR／Article 执行证据。
 
 ## 已完成交付
 
@@ -54,7 +64,7 @@ owner 最新决定是**不再新增框架或验收场景**，当前转为现有�
 
 ### 当前 main 的基础验证
 
-当前已运行 `corepack pnpm verify`：Compiler 1539、React 49、Vite 161、Testing 334，共 2083 项测试，另有 lint／build／类型检查通过。
+本轮核心一致性修复已运行 `corepack pnpm verify`：Compiler 1559、React 49、Vite 161、Testing 334，共 2103 项测试，另有 lint／build／类型检查通过。
 
 ### 浏览器证据
 

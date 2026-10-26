@@ -502,7 +502,7 @@ function parseHasSelector(nodes: readonly Node[]): ParsedHasCondition | undefine
       observedNodes[1]!.nodes.length === 0 && isSupportedPseudoState(observedNodes[1]!.value.slice(1)))) {
     if (!observedNodes.some((node) =>
       node.type === 'class' || node.type === 'tag' || node.type === 'attribute' || node.type === 'pseudo')) return undefined;
-    return { relation, observedResidual: observedNodes.map((node) => node.toString()).join('') };
+    return { relation, observedResidual: observedNodes.map((node) => node.toString()).join(''), nativeSpecificity: true };
   }
   index += 1;
 
@@ -528,7 +528,7 @@ function parseHasSelector(nodes: readonly Node[]): ParsedHasCondition | undefine
     const residualNodes = nodes.slice(index);
     if (residualNodes.length === 0 || !residualNodes.some((node) =>
       node.type === 'class' || node.type === 'tag' || node.type === 'attribute' || node.type === 'pseudo')) return undefined;
-    return { relation, observedResidual: residualNodes.map((node) => node.toString()).join('') };
+    return { relation, observedResidual: residualNodes.map((node) => node.toString()).join(''), nativeSpecificity: true };
   }
   if (observed.type === 'pseudo' && observed.value === ':global' &&
     observed.nodes.length === 1 && observed.nodes[0]!.nodes.length > 0 &&
@@ -539,7 +539,7 @@ function parseHasSelector(nodes: readonly Node[]): ParsedHasCondition | undefine
   if (observed.type === 'attribute') {
     const condition = parseAttributeCondition(observed as Attribute);
     return condition
-      ? { relation, observedResidual: renderParsedAttributeCondition(condition) }
+      ? { relation, observedResidual: observed.toString() }
       : undefined;
   }
   if (observed.type === 'tag' && observed.namespace === undefined) {
@@ -573,6 +573,8 @@ function parseFunctionalState(pseudo: Pseudo): string | undefined {
   const branches: string[] = [];
   for (const selector of pseudo.nodes) {
     if (selector.nodes.length === 0 || !isNativeFunctionalBranch(selector.nodes)) return undefined;
+    selector.nodes[0]!.spaces.before = '';
+    selector.nodes.at(-1)!.spaces.after = '';
     branches.push(selector.toString());
   }
 
@@ -602,10 +604,6 @@ function parseAttributeCondition(attribute: Attribute): ParsedAttributeCondition
     operator: '=',
     value: attribute.value
   };
-}
-
-function renderParsedAttributeCondition(condition: ParsedAttributeCondition): string {
-  return `[${condition.attribute}=${JSON.stringify(condition.value)}]`;
 }
 
 type SourceSpanReader = (node: postcss.Node) => SourceSpan;

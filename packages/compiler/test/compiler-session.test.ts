@@ -1015,7 +1015,7 @@ describe('GssCompilerSession', () => {
     const css = compiler.finalize().css;
     const marker = (name: string) => replacement.module?.scopeSchema.exports[name]?.selfClassName;
     expect(css).toContain(`:has(.${marker('error')} .${marker('warning')})`);
-    expect(css).toContain(`:is(.${marker('disabled')},.${marker('active')})`);
+    expect(css).toContain(`:is(.${marker('active')},.${marker('disabled')})`);
   });
 
   it('preserves a registered condition around a structural contextual atom', () => {
@@ -1306,6 +1306,101 @@ describe('GssCompilerSession', () => {
     expect(css).toContain(':nth-child(2n + 1)');
     expect(css).toContain(`:nth-last-child(2n of .${visible}, .${selected})`);
     expect(css).not.toContain(':nth-last-child(2n of .visible');
+  });
+
+  it('keeps nth-of global compounds external while mapping following local branches', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const result = compiler.replaceStylesheet({ id: '/project/GlobalNth.gss', source:
+      '.item:nth-child(2n of :global(.external.active), .local) { color: red; }'
+    });
+    expect(result).toMatchObject({ committed: true, diagnostics: [] });
+    const scopes = result.module!.scopeSchema.exports;
+    expect(Object.keys(scopes).sort()).toEqual(['item', 'local']);
+    expect(compiler.finalize().css).toContain(`:nth-child(2n of .external.active, .${scopes.local!.selfClassName})`);
+    expect(compiler.finalize().css).not.toContain(':global(');
+  });
+
+  it.each(['a, b', '( spaced', 'a,  b( c'])('preserves quoted functional attribute text %s', (value) => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const result = compiler.replaceStylesheet({ id: '/project/QuotedSelector.gss', source:
+      `.item:is([data-label="${value}"]) { color: red; }`
+    });
+    expect(result).toMatchObject({ committed: true, diagnostics: [] });
+    expect(compiler.finalize().css).toContain(`:is([data-label="${value}"])`);
+  });
+
+  it('unwraps nested global pseudos without creating external scope markers', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const result = compiler.replaceStylesheet({ id: '/project/NestedGlobal.gss', source:
+      '.item:not(:global(.external:not(:global(.nested)))) { color: red; }'
+    });
+    expect(result).toMatchObject({ committed: true, diagnostics: [] });
+    expect(Object.keys(result.module!.scopeSchema.exports)).toEqual(['item']);
+    const css = compiler.finalize().css;
+    expect(css).toContain(':not(.external:not(.nested))');
+    expect(css).not.toContain(':global(');
+  });
+
+  it('preserves escaped local identities, external spelling and attribute values in nested selectors', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const result = compiler.replaceStylesheet({ id: '/project/EscapedSelector.gss', source: String.raw`
+      .item:is(.a\+b, :global(.external\+name)):not([data-label="a, b( c\20 d"]) { color: red; }
+    ` });
+    expect(result).toMatchObject({ committed: true, diagnostics: [] });
+    const marker = result.module!.scopeSchema.exports['a+b']!.selfClassName;
+    const css = compiler.finalize().css;
+    expect(Object.keys(result.module!.scopeSchema.exports).sort()).toEqual(['a+b', 'item']);
+    expect(css).toContain(`.${marker}`);
+    expect(css).toContain(String.raw`.external\+name`);
+    expect(css).toContain(String.raw`[data-label="a, b( c\20 d"]`);
+    expect(css).not.toContain(':global(');
+  });
+
+  it('preserves escaped terminal spaces in local and global functional class names', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const result = compiler.replaceStylesheet({ id: '/project/TerminalSpace.gss', source: String.raw`
+      .item:is(.a\ ) { color: red; } .externalItem:is(:global(.external\ )) { color: blue; }
+    ` });
+    expect(result).toMatchObject({ committed: true, diagnostics: [] });
+    const scopes = result.module!.scopeSchema.exports;
+    expect(Object.keys(scopes).sort()).toEqual(['a ', 'externalItem', 'item']);
+    expect(compiler.finalize().css).toContain(`:is(.${scopes['a ']!.selfClassName})`);
+    expect(compiler.finalize().css).toContain(String.raw`:is(.external\ )`);
+  });
+
+  it('unwraps directly nested global wrappers without reusing removed AST nodes', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const result = compiler.replaceStylesheet({ id: '/project/DirectGlobal.gss', source:
+      '.item:not(:global(:global(.external.active))) { color: red; }'
+    });
+    expect(result).toMatchObject({ committed: true, diagnostics: [] });
+    expect(Object.keys(result.module!.scopeSchema.exports)).toEqual(['item']);
+    expect(compiler.finalize().css).toContain(':not(.external.active)');
+    expect(compiler.finalize().css).not.toContain(':global(');
+  });
+
+  it.each(['.item[data-label="a\\a b"]', '.source[data-label="a\\a b"] + .item', '.item:has([data-label="a\\a b"])'])(
+    'retains escaped attribute control characters in %s', (selector) => {
+      const compiler = createGssCompilerSession({ projectRoot: '/project' });
+      const result = compiler.replaceStylesheet({ id: '/project/EscapedAttribute.gss', source: `${selector} { color: red; }` });
+      expect(result).toMatchObject({ committed: true, diagnostics: [] });
+      const css = compiler.finalize().css;
+      // CSS \\a is a newline, whereas JSON's \\n is the literal CSS letter n.
+      expect(css).toMatch(/\[data-label="a\\[aA] b"\]/);
+    }
+  );
+
+  it('rewrites functional runtime-source classes through the same local marker owner', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const result = compiler.replaceStylesheet({ id: '/project/RuntimeFilter.gss', source:
+      '.active { display: block; } .trigger:is(.active) + .item { color: red; }'
+    });
+    expect(result).toMatchObject({ committed: true, diagnostics: [] });
+    const classes = result.module!.scopeSchema.exports.active!.selfClassName.split(' ');
+    const marker = classes.find((name) => name.startsWith('gss-s--'));
+    expect(marker).toBeDefined();
+    expect(compiler.finalize().css).toContain(`:is(.${marker}) + .`);
+    expect(compiler.finalize().css).not.toContain(':is(.active)');
   });
 
   it('resolves pseudo effects only within a closed target and keeps host/before/after separate', () => {

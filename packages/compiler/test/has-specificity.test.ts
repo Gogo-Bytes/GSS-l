@@ -6,6 +6,60 @@ const specificityList = '.card:has(.error, .warning:hover) { color: red; }';
 const competingRule = '.card[data-active="yes"] { color: blue; }';
 
 describe('observed selector-list specificity', () => {
+  it.each([false, true])('retains native complex-list specificity for every branch against a class-only competitor (reverse=%s)', (reverse) => {
+    const observed = '.card:has(div .local, .owned) { color: red; }';
+    const competitor = '.card[data-active="yes"] { color: blue; }';
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const replacement = compiler.replaceStylesheet({ id: moduleId, source:
+      (reverse ? [competitor, observed] : [observed, competitor]).join('\n')
+    });
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    const scopes = replacement.module!.scopeSchema.exports;
+    const local = scopes.local!.selfClassName;
+    const owned = scopes.owned!.selfClassName;
+    const redRules = compiler.finalize().manifest.rules.filter((rule) => rule.value === 'red');
+    expect(redRules).toHaveLength(2);
+    expect(new Set(redRules.map((rule) => rule.className)).size).toBe(2);
+    // Native :has(div .local,.owned) has (0,1,1); :where keeps the branch witness at zero.
+    for (const rule of redRules) {
+      expect(rule.selector).toContain(`.${rule.className}:has(div .${local},.${owned}):where(:has(`);
+    }
+    expect(redRules.map((rule) => rule.selector).join('\n')).toContain(`:where(:has(div .${local}))`);
+    expect(redRules.map((rule) => rule.selector).join('\n')).toContain(`:where(:has(.${owned}))`);
+    expect(compiler.finalize().manifest.rules.filter((rule) => rule.value === 'blue')).toHaveLength(1);
+  });
+
+  it.each([false, true])('does not compare guessed scalar specificity against an opaque complex observation (reverse=%s)', (reverse) => {
+    const observed = '.trigger .card:has(div .local, .owned) { color: red; }';
+    const structural = '.trigger:checked + .card { color: blue; }';
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const replacement = compiler.replaceStylesheet({ id: moduleId, source:
+      (reverse ? [structural, observed] : [observed, structural]).join('\n')
+    });
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    const rules = compiler.finalize().manifest.rules;
+    expect(rules.filter((rule) => rule.value === 'red')).toHaveLength(2);
+    expect(rules.filter((rule) => rule.value === 'blue')).toHaveLength(1);
+    for (const rule of rules.filter((rule) => rule.value === 'red')) {
+      expect(rule.selector.startsWith(`.${rule.className}.${rule.className}:has(`)).toBe(true);
+      expect(rule.selector).toContain(':where(:has(');
+    }
+  });
+
+  it('keeps shared observation provenance across different native complex lists and LKG', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const source = '.card:has(div .local, .owned) { color: red; } .card:has(span .other, .owned) { color: red; }';
+    const replacement = compiler.replaceStylesheet({ id: moduleId, source });
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    const before = compiler.finalize();
+    const shared = before.manifest.rules.filter((rule) => rule.selector.endsWith(`:where(:has(.${replacement.module!.scopeSchema.exports.owned!.selfClassName}))`));
+    expect(shared).toHaveLength(2);
+    expect(shared[0]!.selector).not.toBe(shared[1]!.selector);
+    expect(shared.every((rule) => rule.origins.length === 1)).toBe(true);
+    expect(compiler.replaceStylesheet({ id: moduleId, source: '.card:unknown { color: blue; }' }).committed).toBe(false);
+    expect(compiler.finalize()).toEqual(before);
+  });
+
   it.each([false, true])('retains list-maximum specificity on every observed branch (reverse=%s)', (reverse) => {
     const source = (reverse ? [competingRule, specificityList] : [specificityList, competingRule]).join('\n');
     const compiler = createGssCompilerSession({ projectRoot: '/project' });

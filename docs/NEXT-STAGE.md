@@ -4,7 +4,7 @@
 
 owner 已决定：**不再新增框架或验收场景**。工作重心从扩展验收矩阵转为现有能力的正确性、契约一致性与真实缺陷修复。
 
-有限 MVP、官方 Vite React TS 外部消费、客户端路由和 React Router Framework SSR 的已选任务均已交付。当前实现基线为 `main` 的 `4b7a982`；没有待合并实现或已确认但未完成的本轮修复。历史失败、支持范围之外的输入和未覆盖组合不混计为当前缺陷。
+有限 MVP、官方 Vite React TS 外部消费、客户端路由和 React Router Framework SSR 的已选任务均已交付。已交付宿主基线为 `4b7a982`；本轮基于 `451dd5c` 完成现有核心一致性核查与具体 bug 修复，剩余目标是明确统一固定输出排序策略，而不是再扩大 source-order overlap 族。历史失败、支持范围之外的输入和未覆盖组合不混计为当前缺陷。
 
 ## 已完成进度
 
@@ -22,24 +22,26 @@ owner 已决定：**不再新增框架或验收场景**。工作重心从扩展�
 
 ## 后续工作顺序
 
-### 1. 当前：统一进度与契约文档
+### 1. 已完成：统一进度与契约文档
 
 清除仍要求重选已完成类型契约、重做脚手架或继续新增框架的旧指引。保留历史证据及公共 API 变化，明确未测不等于失败。
 
 完成标准：README、STATUS、HANDOFF、核心／CSS 盘点与本计划一致；引用的报告存在；本次整理不宣称新增运行证据。
 
-### 2. 下一实施目标：现有核心实现一致性核查
+### 2. 已执行：现有核心实现一致性核查
 
 只核对已交付能力，不从“缺少某条 CSS／某个框架”推导新功能任务。优先检查最近扩展较多的两处：
 
 - **Property effects**：已登记 shorthand/reset/longhand 是否正确，逻辑／物理潜在重叠是否仍按既定 Policy B 排序，unknown property fallback 是否保持。
 - **Selector marker**：已准入语法中的 local/global identity、嵌套遍历、原生 selector 结构与既有 ownership/schema 是否一致；不推理 DOM，不设计新 selector 语法。
 
-以现有源码、调用者和测试为入口，输出“已确认问题／证据不足／契约限制”，每个问题给具体输入、独立预期与实际输出。此处是核查目标，不预先认定代码存在缺陷。没有反例时报告未发现问题并结束，不为了填表继续扩大范围。
+本轮已沿上述入口核对并修复八类具体缺陷：mask reset-only effects、corner-shape family、nth-of global compound、functional 字符串空白、嵌套 global、runtime-source marker、CSS 属性控制字符 escape，以及复杂 has list 的 native specificity。只在现有文件补回归；独立原生期望和 red/green 证据见 [STATUS](STATUS.md#本轮核心一致性修复)。view-timeline-inset 与 background-blend-mode reset 经主资料核对后保留，未为扩大覆盖随意调整。
 
-### 3. 仅对确认的问题实施必要修复
+逻辑 sizing／border／radius 的原始输出差异已记录，但 owner 明确要求统一固定输出排序，不批准简单扩大“按作者顺序 overlap”作为修复。该目标需要先明确统一优先规则及与现有语义排序的关系；目前不修改 Policy B、reuse barriers 或引入 property priority。后续核查仍区分“可复现违约／证据不足／契约限制”，不为了填表继续扩大范围。
 
-建立最小失败回归，在现有测试载体修复共享根因，保留原始失败；涉及浏览器行为时复用现有 gate，不另建框架、演示应用或验收矩阵。修复完成后运行相关检查和全仓 `verify`；宿主／输出改动再运行受影响的现有 SPA／SSR gate。
+### 3. 下一目标：明确统一固定输出排序规则，再实施必要修复
+
+先由 owner 与主 session 明确统一固定输出规则（例如哪些物理／逻辑属性后发、如何与已有 ownership/native strength/条件上下文配合），不把示例中的 width 优先自行当成最终规则。规则确定后建立最小失败回归，在现有测试载体修复共享根因，保留原始失败；涉及浏览器行为时复用现有 gate，不另建框架、演示应用或验收矩阵。修复完成后运行相关检查和全仓 `verify`；宿主／输出改动再运行受影响的现有 SPA／SSR gate。
 
 常规 bug、诊断和回归由 agent 连续处理，不逐小项询问。若修复需要改变产品能力、作者写法、公共 API／配置、架构或 fallback，先给具体选项和影响再决策。
 
@@ -63,7 +65,7 @@ owner 已决定：**不再新增框架或验收场景**。工作重心从扩展�
 
 ## 验证基线与执行边界
 
-`4b7a982` 的已记录验证：Compiler 1539、React 49、Vite 161、Testing 334，共 **2083 项测试**，lint/build/types 通过；browser oracle **125 fixtures／1267 comparisons／38 controls**；外部 SPA／Declarative 和 Framework SSR gate 通过。完整版本、产物和失败历史见对应报告；`verify` 不包含浏览器验收。
+本轮核心修复的新验证：Compiler 1559、React 49、Vite 161、Testing 334，共 **2103 项测试**，lint/build/types 通过；现有 browser oracle **125 fixtures／1267 comparisons／38 controls** 与 Playground dev/preview 重跑通过。外部 SPA／Declarative 和 Framework SSR 的已交付证据仍保留，本轮没有重跑这两个外部项目。完整版本、产物和失败历史见对应报告；`verify` 不包含浏览器验收。
 
 沿用独立 literal／原生预期、负对照与同引擎精确图像；不删断言或修改业务样式换取通过。浏览器入口及默认引擎范围保持不变，执行前先核对脚本。普通修复可补必要回归；“不新增验收场景”不是取消现有检查或禁止为真实缺陷补回归。
 

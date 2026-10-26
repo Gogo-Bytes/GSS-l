@@ -162,10 +162,11 @@ export function planStructuralRelations(
   } }));
   resolveEquivalentGroups(structural);
   const candidates = [...inherited, ...structural];
-  // Observed branches remain opaque: no general :has implication or ordering.
-  // Their emitted grammar is one local class (+ optional state), an explicit
-  // external class compound, attribute, state or tag.
-  const observedCandidates: Candidate[] = observed.flatMap((rule) => rule.observations.at(-1)!.map((observation) => {
+  // Complex residuals retain native list specificity, not an estimated class/type count.
+  // They cannot license implication/pruning or scalar equal-strength ambiguity diagnostics.
+  const observedCandidates: Candidate[] = observed.filter((rule) =>
+    !rule.observations.at(-1)!.some((observation) => observation.nativeSpecificity)
+  ).flatMap((rule) => rule.observations.at(-1)!.map((observation) => {
     const isTag = observation.observedResidual !== undefined &&
       observation.observedResidualClassCount === undefined &&
       !observation.observedResidual.startsWith(':') && !observation.observedResidual.startsWith('[');

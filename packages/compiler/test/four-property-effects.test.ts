@@ -149,6 +149,18 @@ describe('four independent property effects through the compiler session', () =>
     });
   }
 
+  it.each([false, true])('mask resets mask-border effects unless they are important (%s)', (important) => {
+    const { snapshot } = compile(`.item { mask-border-source: url(mask.svg)${important ? ' !important' : ''}; } .item { mask: none; }`);
+    expect(snapshot.manifest.rules.some((rule) => rule.property === 'mask-border-source')).toBe(important);
+    expect(snapshot.manifest.rules.some((rule) => rule.property === 'mask')).toBe(true);
+  });
+
+  it('keeps a partially overridden corner-shape atomic without losing other corners', () => {
+    const { snapshot } = compile('.item { corner-shape: bevel; } .item { corner-top-left-shape: round; }');
+    expect(snapshot.manifest.rules.map(({ property }) => property)).toEqual(['corner-shape', 'corner-top-left-shape']);
+    expect(snapshot.css.indexOf('corner-shape: bevel;')).toBeLessThan(snapshot.css.indexOf('corner-top-left-shape: round;'));
+  });
+
   // CSS UI 3 §4.1/4.5, Fonts 3 §3.7, Backgrounds 3 §2.10/3.4/6.1:
   // these independent properties are not shorthand subproperties or reset-only effects.
   const shorthandPairs = [

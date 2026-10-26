@@ -30,6 +30,8 @@ export type ParsedHasCondition = {
   observedResidual?: string;
   /** Number of externally supplied classes in a class-only residual compound. */
   observedResidualClassCount?: number;
+  /** Complex admitted residual: browser retains specificity; scalar planner proofs cannot use it. */
+  nativeSpecificity?: true;
 };
 
 export type ParsedCondition = {

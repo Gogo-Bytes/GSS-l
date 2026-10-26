@@ -29,14 +29,22 @@
 - [property effects](../packages/compiler/src/domain/property-effects.ts)、[排序潜在重叠](../packages/compiler/src/domain/module-order-overlap.ts)。
 - [React Adapter](../packages/react/src/index.ts)、[Vite Adapter](../packages/vite/src/index.ts)。
 
-## 后续核查重点：正确性，不是数量
+## 本轮一致性核查：正确性，不是数量
 
-这两处近期扩展较多，适合作为现有核心一致性的入口；尚未在本次文档整理中重新审计代码，也没有预先确认缺陷：
+本轮基于 `451dd5c` 核对以下入口，修复具体反例；不是全量 CSS 正确性证明：
 
 1. **Property effects**：登记的 shorthand reset 是否完整，是否误把 shorthand 当 independent；logical/physical 重叠、重要性、source order 和 partial winner 是否保留既定契约。先看现有 `property-effects`、`four-property-effects`、`logical-physical-order` 回归。
 2. **Selector marker**：已准入输入中的 local/global identity、嵌套 AST 遍历、列表分支与导出 scope 是否一致；原生关系与 specificity 是否在 lowering 中被错误改变。先看 `compiler-session`、`external-target`、`structural-relations` 及既有独立 oracle。
 
-核查结果分为“可复现违约”“证据不足”“已接受边界”。只对第一类直接修复并补最小回归；后两类如影响当前用户路径再决定，不通过新增框架场景或无限添加 fixture 填满矩阵。
+本轮结果：
+
+- Registry：`mask` 补齐已登记 mask-border 的六个 reset-only effects；`corner-shape` 改为四个 physical corner longhands 的 shorthand，partial winner 与 importance 保留。MDN 的 [mask reset-only 列表](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/mask)／[corner-shape 构成](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/corner-shape) 为独立依据。
+- 排除误报：CSSWG [view-timeline](https://drafts.csswg.org/scroll-animations-1/#view-timeline-shorthand) 明确包括 inset；[compositing](https://drafts.csswg.org/compositing-1/#background-blend-mode) 明确 background reset blend-mode，原 registry 不修改。
+- Marker／文本：所有 state suffix 共用 snapshot AST rewrite，修复 nth global compound、runtime-source 漏改、嵌套 global 遗留；移除 serialized CSS 空白正则和 JSON attribute 编码。只清理 AST formatting 字段，保留 quoted whitespace、CSS escape 与 escaped terminal identifier space。
+- 复杂 `has`：已准入 residual 不再猜测 scalar specificity；每个观察分支保留完整原生 `:has(list)` 与零强度 witness，marker／source provenance 分离。修复 `div .local,.owned` 在 weaker-only 匹配时丢失 native type specificity，以及 planner 误报 GSS1205；简单已有 has 路径／准入 grammar 不变，不引入通用 specificity engine 或 DOM 推理。
+- 排序目标待定义：logical sizing／border／radius 的输出观察已保存；owner 要求统一固定输出顺序，不能以作者 source-order 扩大 Policy B 直接补洞。未修改现有五族 overlap/reuse barriers，亦未选定物理／逻辑属性谁优先。
+
+原始输入、red/green 回归与独立 Chromium native/literal 对照保存在 `artifacts/core-consistency/2026-10-26-audit/`；详细进度见 [STATUS](STATUS.md#本轮核心一致性修复)。核查仍区分“可复现违约”“证据不足”“已接受边界”，不通过新增框架场景或无限添加 fixture 填满矩阵。
 
 ## 保留的能力边界（非当前开发目标）
 
@@ -68,6 +76,6 @@
 
 ## 证据使用
 
-当前已记录的 browser oracle 为 125 fixtures／1267 comparisons／38 controls；这不是本次重新运行的结果。普通场景保留独立 native/literal 预期，GSS ownership 语义使用明确 GSS oracle，不用 compiler 输出自证。专项范围与历史失败见 [STATUS](STATUS.md)、[模板验收](VITE-TEMPLATE-ACCEPTANCE.md)、[Framework SSR 验收](FRAMEWORK-SSR-ACCEPTANCE.md)。
+本轮已有 browser oracle 125 fixtures／1267 comparisons／38 controls 与 Playground dev/preview 重跑通过；这些是现有 gate，不增加 fixture 数或验收矩阵。普通场景保留独立 native/literal 预期，GSS ownership 语义使用明确 GSS oracle，不用 compiler 输出自证。专项范围与历史失败见 [STATUS](STATUS.md)、[模板验收](VITE-TEMPLATE-ACCEPTANCE.md)、[Framework SSR 验收](FRAMEWORK-SSR-ACCEPTANCE.md)。
 
 缺少某个语法／框架的覆盖不是自动 bug；扩大能力、公共 API／配置、作者体验、架构或 fallback 时仍需 owner 决策。
