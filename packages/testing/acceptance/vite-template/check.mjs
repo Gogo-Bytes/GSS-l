@@ -16,7 +16,7 @@ const evidence = join(repo, 'artifacts/vite-template', new Date().toISOString().
 await mkdir(evidence, { recursive: true });
 const external = await realpath(await mkdtemp(join(tmpdir(), 'gss-vite-template-')));
 const app = join(external, 'app');
-const report = { passed: false, external, browser: 'Chromium only', commands: [], phases: [], pageErrors: [] };
+const report = { passed: false, external, browser: 'Chromium only', commands: [], phases: [], routing: [], pageErrors: [] };
 let browser, page, server;
 let expectedError = false;
 
@@ -60,6 +60,7 @@ async function color(value) {
 }
 async function observe(phase) {
   const state = await page.evaluate(() => ({
+    pathname: window.location.pathname,
     title: getComputedStyle(document.querySelector('[data-testid="title"]')).color,
     className: document.querySelector('[data-testid="title"]').className,
     count: [...document.querySelectorAll('button')].find((node) => node.textContent.startsWith('Count ')).textContent,
@@ -68,38 +69,91 @@ async function observe(phase) {
   report.phases.push({ phase, ...state });
   return state;
 }
-async function baseline(mode) {
-  await color('rgb(180, 20, 30)');
-  const title = page.getByTestId('title');
-  assert.match(await title.getAttribute('class'), /gss-/);
-  assert.notEqual(await title.getAttribute('class'), '[object Object]');
-  const asset = await page.getByTestId('asset').evaluate(async (node) => {
+async function asset(testId, width, height) {
+  const actual = await page.getByTestId(testId).evaluate(async (node) => {
     const css = getComputedStyle(node);
     const url = css.backgroundImage.slice(5, -2);
     const image = new Image(); image.src = url; await image.decode();
     return { width: css.width, height: css.height, imageWidth: image.naturalWidth, imageHeight: image.naturalHeight };
   });
-  assert.deepEqual(asset, { width: '30px', height: '20px', imageWidth: 3, imageHeight: 2 });
-  const before = await page.evaluate(() => performance.getEntriesByType('resource').map((entry) => entry.name));
-  assert.equal(before.some((url) => /Detail(?:\.tsx|-[^/]+\.js)/.test(url)), false);
-  await page.getByRole('button', { name: 'Open detail' }).click();
-  await page.getByTestId('detail').waitFor();
-  assert.equal(await page.getByTestId('detail').evaluate((node) => getComputedStyle(node).color), 'rgb(20, 100, 40)');
-  assert.equal(await page.evaluate(() => performance.getEntriesByType('resource').some((entry) => /Detail(?:\.tsx|-[^/]+\.js)/.test(entry.name))), true);
+  assert.deepEqual(actual, { width, height, imageWidth: 3, imageHeight: 2 });
+}
+async function centralCss() {
+  return page.locator('link[rel="stylesheet"]').evaluateAll((nodes) =>
+    nodes.filter((node) => /gss-[^/]+\.css/.test(node.href)).map((node) => node.href));
+}
+async function route(mode, phase, path, marker, count, cssLinks) {
+  await page.waitForURL(`http://127.0.0.1:5196${path}`);
+  assert.equal(await page.evaluate(() => window.location.pathname), path);
+  await color('rgb(180, 20, 30)');
+  if (path === '/') {
+    await page.getByRole('heading', { name: 'Home route', exact: true }).waitFor();
+    assert.equal(await page.getByTestId('detail').count(), 0);
+    await asset('asset', '30px', '20px');
+  } else {
+    await page.getByRole('heading', { name: `Detail route ${path.split('/').at(-1)}`, exact: true }).waitFor();
+    assert.equal(await page.getByTestId('home').count(), 0);
+    assert.equal(await page.getByTestId('detail').evaluate((node) => getComputedStyle(node).color), 'rgb(20, 100, 40)');
+    await asset('detail-asset', '24px', '16px');
+  }
+  assert.equal(await page.evaluate(() => window.__consumerDocument ?? null), marker);
+  assert.equal(await page.getByRole('button', { name: `Count ${count}`, exact: true }).count(), 1);
+  if (mode === 'production') {
+    const links = await centralCss();
+    assert.equal(links.length, 1);
+    if (cssLinks) assert.deepEqual(links, cssLinks);
+  }
+  report.routing.push({ mode, phase, path, documentMarker: marker, count, literalStylesAndAssets: true });
+}
+async function baseline(mode) {
+  await color('rgb(180, 20, 30)');
+  const title = page.getByTestId('title');
+  assert.match(await title.getAttribute('class'), /gss-/);
+  assert.notEqual(await title.getAttribute('class'), '[object Object]');
+  const cssLinks = mode === 'production' ? await centralCss() : undefined;
+  await route(mode, 'initial-home', '/', null, 0, cssLinks);
+  const lazyRequested = () => page.evaluate(() => performance.getEntriesByType('resource')
+    .some((entry) => /Detail(?:\.tsx|-[^/]+\.js)/.test(entry.name)));
+  assert.equal(await lazyRequested(), false);
   await page.getByRole('button', { name: 'Count 0', exact: true }).click();
-  await page.getByRole('button', { name: 'Count 1', exact: true }).waitFor();
+  await page.evaluate(() => { window.__consumerDocument = 'client-navigation'; });
+  await page.getByRole('link', { name: 'Open detail', exact: true }).click();
+  await route(mode, 'link-detail', '/details/42', 'client-navigation', 1, cssLinks);
+  assert.equal(await lazyRequested(), true);
+  await page.goBack();
+  await route(mode, 'history-back', '/', 'client-navigation', 1, cssLinks);
+  await page.goForward();
+  await route(mode, 'history-forward', '/details/42', 'client-navigation', 1, cssLinks);
+  await page.getByRole('link', { name: 'Home', exact: true }).click();
+  await route(mode, 'link-home', '/', 'client-navigation', 1, cssLinks);
+  report.routingLazy = { ...report.routingLazy, [mode]: { absentBeforeNavigation: true, requestedOnDetail: true } };
   return observe(mode);
+}
+async function deepLinks(mode) {
+  const response = await page.goto('http://127.0.0.1:5196/details/99');
+  assert.equal(response.status(), 200);
+  assert.match(response.headers()['content-type'], /text\/html/);
+  await route(mode, 'direct-deep-link', '/details/99', null, 0);
+  await page.evaluate(() => { window.__consumerDocument = 'before-reload'; });
+  const reloaded = await page.reload();
+  assert.equal(reloaded.status(), 200);
+  await route(mode, 'reload-deep-link', '/details/99', null, 0);
+  await page.evaluate(() => { window.__consumerDocument = 'deep-link-return'; });
+  await page.getByRole('link', { name: 'Home', exact: true }).click();
+  await route(mode, 'deep-link-home', '/', 'deep-link-return', 0);
 }
 try {
   report.sourceCommit = (await run('git', ['rev-parse', 'HEAD'])).trim();
   report.node = process.version;
   report.pnpm = (await run('corepack', ['pnpm', '--version'])).trim();
+  report.router = JSON.parse(await run('npm', ['view', 'react-router@8.5.0', 'version', 'engines', 'peerDependencies', '--json']));
+  report.routerMode = 'Declarative BrowserRouter, client-only';
   await run('npm', ['exec', '--yes', '--package=create-vite@9.3.1', '--', 'create-vite', 'app', '--template', 'react-ts', '--no-interactive'], external);
   await cp(app, join(evidence, 'official-template'), { recursive: true });
   await cp(join(fixture, 'app'), app, { recursive: true });
   const pkg = JSON.parse(await readFile(join(app, 'package.json'), 'utf8'));
   // Pin the actual template toolchain; never replace Vite 8 with the workspace's Vite 7.
-  Object.assign(pkg.dependencies, { react: '19.3.1', 'react-dom': '19.3.1' });
+  Object.assign(pkg.dependencies, { react: '19.3.1', 'react-dom': '19.3.1', 'react-router': '8.5.0' });
   Object.assign(pkg.devDependencies, { vite: '8.3.5', '@vitejs/plugin-react': '6.1.2', typescript: '6.0.3',
     '@types/node': '24.19.2', '@types/react': '19.3.0', '@types/react-dom': '19.3.0', oxlint: '1.88.0' });
   pkg.packageManager = 'pnpm@8.6.2';
@@ -129,7 +183,7 @@ try {
   await cp(join(app, 'src'), join(evidence, 'consumer-src'), { recursive: true });
   await run('corepack', ['pnpm', 'exec', 'tsc', '-b'], app);
   // Prove package resolution cannot escape to workspace sources or node_modules.
-  const resolution = await run(process.execPath, ['--input-type=module', '-e', `import { realpathSync } from 'node:fs'; import { fileURLToPath } from 'node:url'; for (const name of ['@gss-l/types','@gss-l/compiler','@gss-l/react','@gss-l/vite','vite']) console.log(name,realpathSync(fileURLToPath(import.meta.resolve(name))));`], app);
+  const resolution = await run(process.execPath, ['--input-type=module', '-e', `import { realpathSync } from 'node:fs'; import { fileURLToPath } from 'node:url'; for (const name of ['@gss-l/types','@gss-l/compiler','@gss-l/react','@gss-l/vite','vite','react-router']) console.log(name,realpathSync(fileURLToPath(import.meta.resolve(name))));`], app);
   assert.ok(!resolution.includes(repo), resolution);
   report.resolution = resolution;
   browser = await chromium.launch({ headless: true });
@@ -174,6 +228,7 @@ try {
   expectedError = false;
   assert.equal(await page.getByRole('button', { name: 'Count 2', exact: true }).count(), 1);
   assert.equal((await observe('recovery-same-document-state-preserved')).className, initial.className);
+  await deepLinks('dev');
   await stop();
   await run('corepack', ['pnpm', 'build'], app);
   await cp(join(app, 'dist'), join(evidence, 'dist'), { recursive: true });
@@ -187,6 +242,16 @@ try {
   await page.goto('http://127.0.0.1:5196/');
   assert.equal(await page.locator('link[rel="stylesheet"]').evaluateAll((nodes) => nodes.filter((node) => /gss-[^/]+\.css/.test(node.href)).length), 1);
   await baseline('production');
+  await deepLinks('production');
+  await page.getByRole('link', { name: 'Open detail', exact: true }).click();
+  await route('production', 'before-route-canary', '/details/42', 'deep-link-return', 0);
+  const routeCanary = await page.addStyleTag({ content: '[data-testid="detail"] { color: rgb(1, 2, 3) !important; }' });
+  await assert.rejects(() => route('production', 'corrupted-route', '/details/42', 'deep-link-return', 0), { code: 'ERR_ASSERTION' });
+  await routeCanary.evaluate((node) => node.remove());
+  await route('production', 'restored-route', '/details/42', 'deep-link-return', 0);
+  await page.getByRole('link', { name: 'Home', exact: true }).click();
+  await route('production', 'restored-home', '/', 'deep-link-return', 0);
+  report.routingNegativeControl = { literalRouteColorCorruptionDetected: true, restored: true };
   const canary = await page.addStyleTag({ content: '[data-testid="title"] { color: rgb(1, 2, 3) !important; }' });
   assert.notEqual(await page.getByTestId('title').evaluate((node) => getComputedStyle(node).color), 'rgb(180, 20, 30)');
   await canary.evaluate((node) => node.remove());

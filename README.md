@@ -39,7 +39,7 @@ corepack pnpm article
 | [packages/testing/acceptance](packages/testing/acceptance) | task-board、article 和排序验收 |
 | [packages/testing/browser](packages/testing/browser) | 原生 CSS 对照及 Vite 宿主浏览器验证 |
 
-官方 create-vite React TS 的 workspace 外 tarball 消费验收：`corepack pnpm vite-template:check`。已验证 Vite 8.3.5 的有界 Chromium 路径，workspace 仍保留 Vite 7；接入步骤与限制见 [模板验收](docs/VITE-TEMPLATE-ACCEPTANCE.md)。
+官方 create-vite React TS 的 workspace 外 tarball 消费验收：`corepack pnpm vite-template:check`。已验证 Vite 8.3.5 与 React Router 8.5.0 Declarative／BrowserRouter 的有界 Chromium 客户端路由路径，workspace 仍保留 Vite 7；接入步骤与限制见 [模板验收](docs/VITE-TEMPLATE-ACCEPTANCE.md)。
 
 ## 使用边界
 

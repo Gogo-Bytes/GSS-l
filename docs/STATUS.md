@@ -1,12 +1,12 @@
 # GSS 工作状态
 
-当前核心实现基线为 main 的 `088811d`，后续新增官方 create-vite 外部消费验收与有界 Vite 8 兼容修复，详见 [Vite 模板验收](VITE-TEMPLATE-ACCEPTANCE.md)。本文保留历史证据，不把旧快照当成未来代码的自动验收。
+当前核心实现基线为 main 的 `088811d`，后续新增官方 create-vite 外部消费验收、有界 Vite 8 兼容修复与 Declarative 客户端路由验收，详见 [Vite 模板验收](VITE-TEMPLATE-ACCEPTANCE.md)。本文保留历史证据，不把旧快照当成未来代码的自动验收。
 
 有限 MVP 的逐项目标进度及后续 `2f115b1` 基线上的基础验证、演示生产构建结果见 [MVP 进度](MVP-PROGRESS.md)。该核对未新增浏览器验收，也不将历史开放项改判为全部完成。
 
 ## 当前阶段
 
-owner 已决定有限 MVP 结项，并已批准官方 create-vite React TS 外部消费及 Vite 8 实验。最新基础验证为 2073 项测试通过；Browser oracle 为 125 fixtures／1267 comparisons／38 controls，Playground 同范围通过。这不覆盖历史 Firefox 失败或完整 production SSR。
+owner 已决定有限 MVP 结项，已批准并完成官方 create-vite React TS 外部消费、Vite 8 实验及同模板 React Router Declarative／BrowserRouter 客户端路由验收。最新基础验证为 2073 项测试通过；Browser oracle 为 125 fixtures／1267 comparisons／38 controls，Playground 同范围通过。这不覆盖历史 Firefox 失败或完整 production SSR。
 
 新阶段分类、候选与用户路径门禁见 [下一阶段](NEXT-STAGE.md)。owner 已明确先收敛基本核心能力，再接脚手架。当前 native relation selector、nth-of marker、property/state coverage 已有独立回归；剩余 CSS value／at-rule／resource 扩展不自动恢复为任务队列。隐式 className lowering 已按“编译期语法糖 + 轻量 TS 兼容类型”决策；首个官方脚手架外部消费路径已完成，不新建 SSR/SSG Playground。
 
@@ -55,6 +55,7 @@ owner 已决定有限 MVP 结项，并已批准官方 create-vite React TS 外�
 ### 浏览器证据
 
 - 官方 create-vite 9.3.1 React TS 在 workspace 外安装本地未修改 tarballs，Vite 8.3.5／plugin-react 6.1.2／React 19.3.1／TypeScript 6.0.3；Chromium install／类型／dev／build／preview、跨文件 implicit string className、资源、lazy、overlay／LKG／恢复及 state 记录通过。Rolldown census 缺失 implicit-load 字段已修复，Vite peer 扩展为 7 或 8；workspace 保留 Vite 7。详见 [验收报告](VITE-TEMPLATE-ACCEPTANCE.md)。
+- 同一外部官方模板的 React Router 8.5.0 Declarative／BrowserRouter：Chromium dev 與 production preview 的 Link 导航、back/forward、lazy route、直接深链接／reload、route GSS literal style／资源和 central CSS census 通过，保留六个 HMR/LKG phases，新增 19 个 routing checkpoints／route corruption control。证据 `artifacts/vite-template/2026-10-26T06-45-04.945Z/`；Node >=22.22.0，部署依赖 SPA rewrite，不代表 SSR 或通用 host 已配置。详见 [验收报告](VITE-TEMPLATE-ACCEPTANCE.md#客户端路由验收后续-owner-授权)。
 - 当前 Browser oracle：125 fixtures、1267 comparisons、38 controls；Vite host、SSG hydration、multipage lazy/hydration/state controls 通过。
 - Task-board 三引擎真实用户路径：每引擎 76 phases、13 exact image pairs、dev HMR/LKG/recovery、父子 implicit `className`、production lazy/CSS census 通过。删除 `.gss` 不属于当前支持契约：独立实验发现 Chromium/Firefox/WebKit 的 overlay/LKG 行为不一致，因此当前只承诺文件修改、非法输入 LKG、恢复和显式重建；删除场景的失败 artifact 保留在 `artifacts/cross-browser-rendering/task-board/2026-10-23T04-10-04.608Z/`，不宣称删除重建已通过。
 - 逻辑／物理修复阶段：三浏览器证据通过，包含 418 个简单 fixture、55 个语义 fixture、每引擎 2772 项读取及方向／writing-mode 动态变化。
@@ -88,7 +89,7 @@ owner 已要求先记录、以后再看；不启动 profiling、排序优化或 
 
 ### Firefox 与后续范围
 
-Firefox Article 导航问题仍暂缓。包发布、其他框架适配器、新语法或新 fallback 均未获本轮授权。历史 roadmap 不是自动执行队列；首个官方 React TS／Vite 8 外部消费已按 owner 选择完成；其它脚手架、路由或 SSR 实验的目标仍待选择，见 NEXT-STAGE.md。
+Firefox Article 导航问题仍暂缓。包发布、其他框架适配器、新语法或新 fallback 均未获本轮授权。历史 roadmap 不是自动执行队列；首个官方 React TS／Vite 8 外部消费及同模板 Declarative 客户端路由已按 owner 选择完成；其它脚手架、Router 模式或 SSR 实验的目标仍待选择，见 NEXT-STAGE.md。
 
 ## 本机交接与证据恢复
 

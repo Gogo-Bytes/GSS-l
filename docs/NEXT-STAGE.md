@@ -2,13 +2,13 @@
 
 ## 决策与当前阶段
 
-owner 已决定结束当前有限 MVP，并明确顺序为“基本核心能力收敛 → 扩展脚手架 → 常见 SSR 框架实验”。核心阶段门禁后，已授权并完成官方 create-vite React TS 的 workspace 外消费与 Vite 8 实验，见 [验收报告](VITE-TEMPLATE-ACCEPTANCE.md)。其余脚手架／框架仍为候选，不授权自动实现。
+owner 已决定结束当前有限 MVP，并明确顺序为“基本核心能力收敛 → 扩展脚手架 → 常见 SSR 框架实验”。核心阶段门禁后，已授权并完成官方 create-vite React TS 的 workspace 外消费与 Vite 8 实验，见 [验收报告](VITE-TEMPLATE-ACCEPTANCE.md)。后续 owner 已选择并完成同一模板的 React Router Declarative／BrowserRouter 客户端路由验收；其余脚手架／框架仍为候选，不授权自动实现。
 
 不再为此新建 SSR/SSG Playground。保留现有 Playground 作为演示／调试台，fixture 作为语义回归，真实脚手架／框架示例作为用户路径验收载体。
 
 ## 代办进度总览
 
-最近交付：`c9013d1`（官方 React TS 外部消费与 Vite 8 兼容）；当前没有已授权但尚未完成的实现任务。
+最近交付：官方 React TS 外部消费与 Vite 8 兼容（`c9013d1`）及后续同模板 Declarative 客户端路由验收；当前没有已授权但尚未完成的实现任务。
 
 | 状态 | 项目 | 交付／剩余边界 |
 | --- | --- | --- |
@@ -16,7 +16,7 @@ owner 已决定结束当前有限 MVP，并明确顺序为“基本核心能力�
 | 已完成 | 核心生命周期用户路径 | Task-board 三引擎父子 className、HMR/LKG/恢复、生产输出；每引擎 76 phases／13 精确图像对 |
 | 已完成 | 官方 create-vite React TS 外部消费 | workspace 外未修改 tarballs、strict peers、类型、dev/build/preview、资源/lazy、错误恢复；新模板仅 Chromium |
 | 已完成 | Vite 8 兼容修复 | Rolldown census 可缺失字段回归；peer 为 Vite 7／8，workspace 仍为 Vite 7 |
-| 待选择 | 真实客户端路由（建议下一项） | 导航、前进/后退、lazy route、深链接和 production；先确定 React Router 模式／版本，不默认包含 SSR |
+| 已完成 | 真实客户端路由 | React Router 8.5.0 Declarative／BrowserRouter；dev／production preview 导航、前进/后退、lazy route、深链接／reload；仅 Chromium，不包含 SSR |
 | 可选 | 其它模板／浏览器矩阵 | React SWC 模板、官方新模板 Firefox/WebKit；未授权，不是当前兼容声明 |
 | 待选择 | 真实 SSR 框架实验 | React Router framework mode、Astro + React 或 Next.js；请求时 HTML/CSS、资源与 hydration 尚未整体验收 |
 | 待决策，非当前任务 | 更广 CSS 能力 | 更多 at-rule/resource、value grammar、unknown property 注册策略；既有 fallback 不变 |
@@ -48,7 +48,7 @@ owner 已决定结束当前有限 MVP，并明确顺序为“基本核心能力�
 | L1 | 已接受体验限制 | class mapping 改变允许 document reload、React 状态重置 | 在真实脚手架中显式暴露；是否要求 state-preserving HMR 需 owner 决定，不默认当 bug 修 |
 | C1 | 已接受范围边界 | 删除 `.gss` 的三引擎失败实验已保留 | owner 选择不纳入支持契约，不要求新脚手架覆盖删除 |
 | C2 | 已有有界证据 | Task-board 父子字符串路径与官方模板跨文件 `className: string` dev／production 已验收 | 不扩展为跨文件 scope 类型推导或所有组件调用方式证明 |
-| C3 | 验收覆盖缺口 | router、前进／后退、路由懒加载与深链接未整体验收 | 选定真实带路由脚手架后运行，不靠模拟 MPA 宣称通过 |
+| C3 | 已有有界证据 | 官方外部 Vite 模板中 React Router 8.5.0 Declarative 客户端导航、前进／后退、lazy route、深链接／reload 已验收 | 仅 Chromium dev／production preview；部署需 SPA rewrite，不等于 Framework Router／SSR／全 Router 生命周期证明 |
 | C4 | 验收覆盖缺口 | 有界 SSG 不等于 production SSR bundle／请求时渲染 | 在选定常见 SSR 框架中实验，不先自创 SSR 宿主协议 |
 | N1 | 本轮不做 | 跨文件 scope 推导、跨模块覆盖优先级 | owner 已跳过；普通 className 字符串是主要用法 |
 | N2 | 暂缓 | 性能 profiling／优化 | 未重新授权，不启动 |
@@ -63,7 +63,7 @@ owner 已决定结束当前有限 MVP，并明确顺序为“基本核心能力�
 | --- | --- | --- |
 | 官方 create-vite React + TypeScript 模板 | 已完成 create-vite 9.3.1／Vite 8.3.5 的有界 Chromium 外部消费 | 本地 tarballs／strict peer／frozen install／类型／React Refresh／dev LKG／production 已通过；[完整范围](VITE-TEMPLATE-ACCEPTANCE.md) |
 | create-vite React + SWC + TypeScript 模板（若所选版本提供） | 比较另一 React 工具链 | 插件顺序、转换与 source map、开发更新 |
-| React Router 官方脚手架 | 引入真实路由与后续框架模式候选 | 客户端导航、lazy、深链接、框架构建／SSR 模式；具体模式先选定 |
+| React Router | 同一官方 Vite 模板新增 Declarative／BrowserRouter 已完成 | 8.5.0 客户端导航／lazy／深链接／history 有界通过；独立 Framework mode 官方脚手架／SSR 仍待选择 |
 
 先做一个模板的完整用户路径，再扩展矩阵；不一次引入多个尚未证明的 Adapter 或配置。
 
@@ -91,4 +91,4 @@ owner 已决定结束当前有限 MVP，并明确顺序为“基本核心能力�
 
 ## 下一步
 
-隐式 className lowering 已按“编译期语法糖 + 轻量 TS 兼容类型”决策并完成。当前核心生命周期验收已完成父子 `className={styles.title}`、dev LKG／恢复、reload/state 记录和 production 用户路径。根据 owner 决策，`.gss` 删除不属于当前支持契约；删除／重建的跨引擎失败 artifact 保留，不作为当前 gate。官方 create-vite React TS 外部消费和 Vite 8 实验已按 owner 授权完成。下一项若进入真实路由、其它脚手架或 SSR 框架，需先确定具体目标／版本，不能将本次有界成功当作普遍兼容。
+隐式 className lowering 已按“编译期语法糖 + 轻量 TS 兼容类型”决策并完成。当前核心生命周期验收已完成父子 `className={styles.title}`、dev LKG／恢复、reload/state 记录和 production 用户路径。根据 owner 决策，`.gss` 删除不属于当前支持契约；删除／重建的跨引擎失败 artifact 保留，不作为当前 gate。官方 create-vite React TS 外部消费和 Vite 8 实验已按 owner 授权完成。同模板 React Router 8.5.0 Declarative／BrowserRouter 客户端路由也已按 owner 授权完成；下一项若进入其它脚手架、Router 模式或 SSR 框架，需先确定具体目标／版本，不能将本次有界成功当作普遍兼容。

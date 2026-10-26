@@ -1,1 +1,2 @@
 .detail { color: rgb(20, 100, 40); }
+.art { width: 24px; height: 16px; background-image: url('./art.svg'); }
