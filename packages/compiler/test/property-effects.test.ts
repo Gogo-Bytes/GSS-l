@@ -1,9 +1,9 @@
+import { comparePropertyRenderOrder } from '../src/domain/module-order-policy.js';
 import { describe, expect, it } from 'vitest';
 import {
   PROPERTY_EFFECT_INDEPENDENT_PROPERTIES,
   PROPERTY_EFFECT_REGISTRY_VERSION,
   classifyPropertyEffect,
-  comparePropertyRenderOrder,
   effectsOfProperty,
   isRegisteredPropertyEffect
 } from '../src/domain/property-effects.js';
@@ -200,4 +200,17 @@ describe('PropertyEffectRegistry', () => {
   it('treats unknown properties as independent singleton effects', () => {
     expect(effectsOfProperty('--brand')).toEqual(['--brand']);
   });
+});
+
+it('uses a transitive total property order instead of pairwise containment/lexical cycles', () => {
+  const properties = ['inset', 'bottom', 'height', 'border', 'border-image', 'border-image-source', 'gap', 'grid-gap', 'row-gap', 'inline-size'];
+  for (const a of properties) for (const b of properties) for (const c of properties) {
+    if (comparePropertyRenderOrder(a, b) < 0 && comparePropertyRenderOrder(b, c) < 0) {
+      expect(comparePropertyRenderOrder(a, c), `${a} < ${b} < ${c}`).toBeLessThan(0);
+    }
+  }
+  const permutations = (items: string[]): string[][] => items.length === 0 ? [[]] :
+    items.flatMap((item, index) => permutations(items.filter((_, i) => i !== index)).map((rest) => [item, ...rest]));
+  const expected = ['inset', 'bottom', 'height'].sort(comparePropertyRenderOrder);
+  for (const permutation of permutations(['inset', 'bottom', 'height'])) expect(permutation.sort(comparePropertyRenderOrder)).toEqual(expected);
 });

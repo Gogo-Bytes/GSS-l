@@ -1,4 +1,5 @@
-import { comparePropertyRenderOrder, effectsOfProperty } from './property-effects.js';
+import { effectsOfProperty } from './property-effects.js';
+import { comparePropertyRenderOrder } from './module-order-policy.js';
 import type { SourceSpan } from './parsed-stylesheet.js';
 
 type DeclarationCandidate = {

@@ -1,5 +1,3 @@
-import { compareCodeUnits } from './compare-code-units.js';
-
 export const PROPERTY_EFFECT_REGISTRY_VERSION = 1;
 
 type PropertyFamily = readonly [shorthand: string, longhands: readonly string[]];
@@ -211,6 +209,9 @@ const families: readonly PropertyFamily[] = [
   ]]
 ];
 
+export const PROPERTY_EFFECT_SHORTHANDS: readonly string[] = families
+  .filter(([, effects]) => effects.length > 1).map(([property]) => property);
+
 function createPropertyEffects(): Readonly<Record<string, readonly string[]>> {
   // Authored CSS property names must never inherit entries from Object.prototype.
   const registry: Record<string, readonly string[]> = Object.create(null);
@@ -368,15 +369,4 @@ export function isRegisteredPropertyEffect(property: string): boolean {
 
 export function effectsOfProperty(property: string): readonly string[] {
   return propertyEffects[property] ?? [property];
-}
-
-export function comparePropertyRenderOrder(left: string, right: string): number {
-  if (left === right) return 0;
-  const leftEffects = new Set(effectsOfProperty(left));
-  const rightEffects = new Set(effectsOfProperty(right));
-  const leftContainsRight = [...rightEffects].every((effect) => leftEffects.has(effect));
-  const rightContainsLeft = [...leftEffects].every((effect) => rightEffects.has(effect));
-  if (leftContainsRight && !rightContainsLeft) return -1;
-  if (rightContainsLeft && !leftContainsRight) return 1;
-  return compareCodeUnits(left, right);
 }

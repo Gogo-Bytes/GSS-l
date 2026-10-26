@@ -26,7 +26,7 @@
 
 - [selector parser](../packages/compiler/src/infrastructure/postcss-stylesheet-parser.ts)、[编译会话 marker emission](../packages/compiler/src/application/compiler-session.ts)。
 - [state registry](../packages/compiler/src/domain/pseudo-state-capabilities.ts)、[pseudo-element registry](../packages/compiler/src/domain/pseudo-element-capabilities.ts)。
-- [property effects](../packages/compiler/src/domain/property-effects.ts)、[排序潜在重叠](../packages/compiler/src/domain/module-order-overlap.ts)。
+- [property effects](../packages/compiler/src/domain/property-effects.ts)、[统一属性排序策略](../packages/compiler/src/domain/module-order-policy.ts)。
 - [React Adapter](../packages/react/src/index.ts)、[Vite Adapter](../packages/vite/src/index.ts)。
 
 ## 本轮一致性核查：正确性，不是数量
@@ -42,7 +42,7 @@
 - 排除误报：CSSWG [view-timeline](https://drafts.csswg.org/scroll-animations-1/#view-timeline-shorthand) 明确包括 inset；[compositing](https://drafts.csswg.org/compositing-1/#background-blend-mode) 明确 background reset blend-mode，原 registry 不修改。
 - Marker／文本：所有 state suffix 共用 snapshot AST rewrite，修复 nth global compound、runtime-source 漏改、嵌套 global 遗留；移除 serialized CSS 空白正则和 JSON attribute 编码。只清理 AST formatting 字段，保留 quoted whitespace、CSS escape 与 escaped terminal identifier space。
 - 复杂 `has`：已准入 residual 不再猜测 scalar specificity；每个观察分支保留完整原生 `:has(list)` 与零强度 witness，marker／source provenance 分离。修复 `div .local,.owned` 在 weaker-only 匹配时丢失 native type specificity，以及 planner 误报 GSS1205；简单已有 has 路径／准入 grammar 不变，不引入通用 specificity engine 或 DOM 推理。
-- 排序目标待定义：logical sizing／border／radius 的输出观察已保存；owner 要求统一固定输出顺序，不能以作者 source-order 扩大 Policy B 直接补洞。未修改现有五族 overlap/reuse barriers，亦未选定物理／逻辑属性谁优先。
+- 统一排序已确认并实现：同原生上下文与 GSS 语义高度时，逻辑属性先发、物理属性后发；同属性 tie 仍保留 authored order。五族 box、size/minmax、border/radius、overflow/overscroll 的已登记 effects 共用 overlap／priority／reuse-barrier 定义。最终属性 key 为 priority／严格包含深度／名称，保持传递性；不把潜在别名作 definite effect 剪枝，不扩 GSS1206 准入。
 
 原始输入、red/green 回归与独立 Chromium native/literal 对照保存在 `artifacts/core-consistency/2026-10-26-audit/`；详细进度见 [STATUS](STATUS.md#本轮核心一致性修复)。核查仍区分“可复现违约”“证据不足”“已接受边界”，不通过新增框架场景或无限添加 fixture 填满矩阵。
 
@@ -69,7 +69,7 @@
 
 - 同模块多 scope 排序已交付；native importance/specificity/layer 仍不可被 rank 覆盖，来源／观察绑定、partial winner 和 scope membership 不可丢失。
 - 跨模块同节点优先级不支持；`GSS2107` 是非阻塞 warning，不由 class 顺序解决。
-- 保守 rank 复用规则与 logical/physical Policy B 保持；不开展性能扩展。
+- 保守 rank 复用的连续同写入规则保留，方向屏障统一扩展到已建模 effects。统一 physical-priority 替代旧 Policy B 的 source-order tie；native strength 和语义高度仍优先，不开展性能扩展。
 - React 的可变 alias、跨文件 scope/data-flow 推导和精确 IDE path completion 不在当前目标。
 - class mapping 修改允许 reload/state reset；个别模板的 state-preserving HMR 不提升为通用保证。
 - `.gss` 删除不纳入当前支持契约；框架 SSR 的相对 base、server-only 图差异等限制见 [SSR 报告](FRAMEWORK-SSR-ACCEPTANCE.md)。

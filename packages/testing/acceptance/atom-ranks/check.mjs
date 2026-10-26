@@ -15,7 +15,7 @@ import { checkLogicalPhysicalOrder } from './logical-physical-check.mjs';
 const artifacts = fileURLToPath(new URL('../../../../artifacts/rank-integration/browser/', import.meta.url));
 await mkdir(artifacts, { recursive: true });
 const report = { passed: false, engines: [], compilations: [],
-  scope: 'Module-wide effect ranks for already-admitted same-module compositions; established ownership/structural proofs first, authored order last. Narrow current-node background admission unchanged. No same-node multi-module composition.',
+  scope: 'Module-wide effect ranks for already-admitted same-module compositions; established ownership/structural proofs first, logical-before-physical property priority, authored order last. Narrow current-node background admission unchanged. No same-node multi-module composition.',
   policy: 'Native CSS and exact expected colors authored independently. Real pointer/focus/click-driven aria state; each target sampled separately after foreground/reset. Exact computed values, geometry, scroll and representative decoded RGBA comparisons within each engine. No tolerance or masks.' };
 const normalization = `html { font: 16px/1.5 sans-serif; background: white; } body { margin: 20px; }
   button { display: block; box-sizing: border-box; width: 160px; height: 48px; margin: 12px 0; padding: 4px;
@@ -197,7 +197,7 @@ try {
       console.log(`${engine}: fixed module ${engineReport.fixedModule.fixtures.length} fixtures, ${engineReport.fixedModule.comparisons.length} comparisons, ${engineReport.fixedModule.images.length} exact image pairs, ${engineReport.fixedModule.negativeControls.length} corruptions`);
       engineReport.logicalPhysical = {};
       await checkLogicalPhysicalOrder(native, atomic, directory, engineReport.logicalPhysical);
-      console.log(`${engine}: logical/physical ${engineReport.logicalPhysical.simpleFixtures} simple + ${engineReport.logicalPhysical.semanticFixtures} semantic fixtures, ${engineReport.logicalPhysical.readings.length * 2} readings, ${engineReport.logicalPhysical.images.length} exact image pairs, ${engineReport.logicalPhysical.negativeControls.length} corruptions`);
+      console.log(`${engine}: logical/physical ${engineReport.logicalPhysical.simpleFixtures} simple + ${engineReport.logicalPhysical.semanticFixtures} semantic fixtures, ${engineReport.logicalPhysical.readings.length * 2} paired readings + ${engineReport.logicalPhysical.authoredReadings.length} original-native readings, ${engineReport.logicalPhysical.images.length} exact image pairs, ${engineReport.logicalPhysical.negativeControls.length} corruptions`);
       await checkExternalTargetBoundary(native, atomic, engineReport);
       assert.equal(engineReport.externalTargetBoundaries.length, 6);
       assert.deepEqual(engineReport.errors, []);

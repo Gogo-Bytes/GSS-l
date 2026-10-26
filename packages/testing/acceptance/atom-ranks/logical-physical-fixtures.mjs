@@ -25,7 +25,12 @@ for (const family of ['margin','padding','inset','scroll-margin','scroll-padding
       for (const side of affected) expected[physical(family,side)] = value;
     }
     const source = declarations.map(([name,property,value])=>`.${name}{${property}:${value}}`).join('');
-    fixtures.push({name:`${family}/${mode.writingMode}/${mode.direction}/${shape}/${reverseSource}/${count}`,family,mode,shape,reverseSource,count,source,expected,scopes:['b','c']});
+    // Explicit GSS policy oracle, separate from the unchanged authored/native expected value.
+    const gssOracle = `.c{${logical}:1px}.b{${phys}:2px}`;
+    const gssExpected = Object.fromEntries(sides.map(side=>[physical(family,side),'0px']));
+    for (const side of logicalShort ? mode[axis] : [mode[axis][0]]) gssExpected[physical(family,side)]='1px';
+    for (const side of physicalShort ? sides : [mode[axis][0]]) gssExpected[physical(family,side)]='2px';
+    fixtures.push({name:`${family}/${mode.writingMode}/${mode.direction}/${shape}/${reverseSource}/${count}`,family,mode,shape,reverseSource,count,source,expected,gssOracle,gssExpected,scopes:['b','c']});
   }
 }
 // Keep the original non-directional alias/reset controls too.
@@ -78,7 +83,7 @@ for (const reverse of [false,true]) {
     scopes:['a','b'],oracle:'.b{padding-inline-start:1px}.a{padding-left:2px!important}',strong:true});
   semanticFixtures.push({name:`pseudo-subject/${reverse}`,family:'margin',side:'left',logical:'margin-inline-start',
     source:`${reverse ? '.a::after,.a::before' : '.a::before,.a::after'}{margin-left:2px}.b::before{margin-inline-start:1px}`,
-    scopes:['a','b'],oracle:'.a::before,.a::after{margin-left:2px}.b::before{margin-inline-start:1px}',strong:true,sourceTie:true,pseudo:'::before'});
+    scopes:['a','b'],oracle:'.b::before{margin-inline-start:1px}.a::before,.a::after{margin-left:2px}',strong:true,pseudo:'::before'});
 }
 semanticFixtures.push({name:'owned-partial-shorthand',family:'scroll-margin',side:'left',logical:'scroll-margin-inline',shorthand:true,
   source:'.root .item{scroll-margin:2px;scroll-margin-top:3px}.item{scroll-margin-inline:1px}',scopes:['root.item'],
@@ -87,6 +92,6 @@ for (const reverse of [false,true]) {
   const owned='.root .item{scroll-margin-left:2px}', state='.item:hover{scroll-margin-inline-start:1px}';
   const ownedOracle='.root-item.root-item{scroll-margin-left:2px}', stateOracle='.root-item:hover{scroll-margin-inline-start:1px}';
   semanticFixtures.push({name:`owned-path-guard/${reverse}`,family:'scroll-margin',side:'left',logical:'scroll-margin-inline-start',
-    source:reverse?state+owned:owned+state,scopes:['root.item'],oracle:reverse?stateOracle+ownedOracle:ownedOracle+stateOracle,
-    strong:true,sourceTie:!reverse,hover:true});
+    source:reverse?state+owned:owned+state,scopes:['root.item'],oracle:stateOracle+ownedOracle,
+    strong:true,hover:true});
 }

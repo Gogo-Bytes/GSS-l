@@ -3,7 +3,7 @@ export type OrderableCondition = {
   query: string;
 };
 
-import { comparePropertyRenderOrder } from './property-effects.js';
+import { comparePropertyRenderOrder } from './module-order-policy.js';
 import { compareCodeUnits } from './compare-code-units.js';
 
 export type OrderableRule = {
@@ -39,8 +39,8 @@ export function compareRuleOrder(
   const conditions = compareConditions(left.wrappers ?? [], right.wrappers ?? [], config);
   if (conditions !== 0) return conditions;
 
-  // Module effect-family versions already encode proved semantic height then
-  // authored occurrence. Specificity and importance stay native; relationRank
+  // Module effect-family versions encode semantic height, fixed property priority,
+  // then authored occurrence. Specificity and importance stay native; relationRank
   // is only a residual order for unversioned or equal-version emissions.
   const atomRank = (left.identity.atomRank ?? 0) - (right.identity.atomRank ?? 0);
   if (atomRank !== 0) return atomRank;

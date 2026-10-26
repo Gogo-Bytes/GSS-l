@@ -1,12 +1,12 @@
 # GSS 工作状态
 
-当前实现基线为 main 的 `4b7a982`：核心收敛、官方 Vite 模板、Declarative 客户端路由和 Framework SSR 的已选任务均已交付。本文保留历史证据，不把旧快照当成未来代码的自动验收。后续工作以 [当前计划](NEXT-STAGE.md) 为准。
+已交付宿主基线为 `4b7a982`，最近核心修复基线为 `af02efe`；本轮在其上实现统一固定排序核心：核心收敛、官方 Vite 模板、Declarative 客户端路由和 Framework SSR 的已选任务均已交付。本文保留历史证据，不把旧快照当成未来代码的自动验收。后续工作以 [当前计划](NEXT-STAGE.md) 为准。
 
 有限 MVP 的逐项目标进度及后续 `2f115b1` 基线上的基础验证、演示生产构建结果见 [MVP 进度](MVP-PROGRESS.md)。该核对未新增浏览器验收，也不将历史开放项改判为全部完成。
 
 ## 当前阶段
 
-owner 已决定有限 MVP 结项，已批准并完成官方 create-vite React TS 外部消费、Vite 8 实验及同模板 React Router Declarative／BrowserRouter 客户端路由验收。最新基础验证为 2103 项测试通过；Browser oracle 为 125 fixtures／1267 comparisons／38 controls，Playground 同范围通过。另已按 owner 授权完成 React Router Framework Mode 的有界 request-time SSR 实验；不覆盖历史 Firefox 失败或通用／完整 SSR。
+owner 已决定有限 MVP 结项，已批准并完成官方 create-vite React TS 外部消费、Vite 8 实验及同模板 React Router Declarative／BrowserRouter 客户端路由验收。最新基础验证为 2124 项测试通过；Browser oracle 为 125 fixtures／1267 comparisons／38 controls，Playground 同范围通过。另已按 owner 授权完成 React Router Framework Mode 的有界 request-time SSR 实验；不覆盖历史 Firefox 失败或通用／完整 SSR。
 
 owner 最新决定是**不再新增框架或验收场景**，当前转为现有能力一致性与真实缺陷驱动的收敛，不继续扩大矩阵。隐式 className 类型、native marker 策略和公共 stylesheet URL／插件数组返回值均已决策；不重复要求 owner 重选。后续先核对已登记 property effects 与已准入 selector marker 的契约一致性，再修复可复现的问题；必要回归复用已有测试载体，具体顺序见 [当前计划](NEXT-STAGE.md)。未覆盖组合不自动算作缺陷，也不自动授权扩语法或 fallback。
 
@@ -16,7 +16,7 @@ owner 最新决定是**不再新增框架或验收场景**，当前转为现有�
 
 owner 已明确将复杂 `:has()` 丢失 native specificity 作为 bug 修复：仅对已准入复杂 residual 保留完整原生 `:has(list)`，每条 emission 另用零 specificity 的 branch witness 保留观察身份；planner 不再用猜测的 class/type 数做这类 list 的强度判断。简单已有路径不变，不新增语法或 DOM 推理。独立 Chromium native/literal 对照在 weaker-only／stronger／both／none 及规则正反序均通过，分支来源与 LKG 回归保留。
 
-逻辑 sizing／border／radius 的排序观察仍未改动：owner 要求统一固定输出顺序，不采用本轮先前建议的扩大 source-order overlap 修补；具体统一优先规则仍待确定，不能把“哪条写在后面就获胜”当成该问题的已批准目标。五族 Policy B／reuse barriers 没有扩展。
+owner 已确认统一固定策略：原生 strength／layer／condition／pseudo 上下文不变；已证明 ownership／结构语义高度优先，同高度潜在竞争属性按逻辑先、物理后输出，而不是原生 source order。相同属性及同类型同级声明仍按 authored occurrence 决胜。`module-order-policy.ts` 集中定义潜在重叠、属性优先级、保守复用屏障和属性输出总排序键（优先级／严格 shorthand 包含深度／稳定名称）。已覆盖原五类 box、size/min-size/max-size、border 各 aspect／radius、overflow／overscroll 的已登记方向 effects。潜在别名仍不当作 definite effect 剪枝，GSS1206 原准入／LKG 不变，无新语法／配置。
 
 证据目录：`artifacts/core-consistency/2026-10-26-audit/`（baseline/remaining probes、各阶段 red logs、最终 verify/browser/playground logs、has-native-red/green）。现有 browser oracle 125／1267／38 与 Playground dev/preview gate 重跑通过；本轮未新增外部 SPA／SSR／Article 执行证据。
 
@@ -49,22 +49,22 @@ owner 已明确将复杂 `:has()` 丢失 native specificity 作为 bug 修复：
 
 ## 必须保留的语义契约
 
-1. **模块内排序**：先使用已证明的所有权／结构关系形成语义依赖高度，再按原始规则 source ordinal 和声明位置排序。source order 不是与语义边同等强度的图边，也不存在通用 selector 等级。
+1. **模块内排序**：先使用已证明的所有权／结构关系形成语义依赖高度，再按固定属性优先级（逻辑先、物理后），最后按原始规则 source ordinal 和声明位置排序。source order 不是与语义边同等强度的图边，也不存在通用 selector 等级。
 2. **原生层叠强度**：rank 不覆盖原生 importance／specificity。layer、条件和伪元素主体等上下文必须保持区分。
 3. **来源身份**：共享声明对象不能替代 selector-list 分支身份；保留原始规则、分支、目标／来源／观察绑定，避免错误剪枝或覆盖。部分 shorthand 胜出及 scope membership 也不能丢失。
 4. **不透明关系**：owner 已接受 equal-native-strength 的 `:global()`／`:has()` 竞争在缺少既定语义关系时按 source order 决胜；这不是扩大语法准入。
-5. **逻辑／物理别名（已接受的 Policy B）**：五类方向属性的潜在重叠用于排序，不代表确定相同 effect；不扩大删除、属性准入或运行时映射。浏览器仍负责 direction／writing-mode 映射。
-6. **安全复用**：仅限语义高度为 0、无条件、简单单节点 pure occurrence，完整连续桶的 property／精确 value／importance 相同；保留最早正 rank，不跨越竞争者，不重排后续 rank。五类共 55 个方向属性／效果继续作为复用屏障。
+5. **逻辑／物理别名（统一固定策略替代旧 Policy B 的 source-order tie）**：潜在重叠用于排序，不代表确定相同 effect；同语义高度物理后发，不扩大 definite 删除、属性准入或运行时映射。浏览器仍负责 direction／writing-mode 映射。
+6. **安全复用**：仅限语义高度为 0、无条件、简单单节点 pure occurrence，完整连续桶的 property／精确 value／importance 相同；保留最早正 rank，不跨越竞争者，不重排后续 rank。所有已建模方向 effects（含 shorthand）统一作为保守复用屏障；不再维护分散的五族正则。
 7. **模块边界**：同模块多 scope 组合是支持能力；跨模块同节点优先级仍不支持。`GSS2107` 是保守、非阻塞诊断，不能通过禁用同模块组合来回避排序缺陷。
 8. **准入与 fallback**：既有 external-target 保护及 last-known-good 行为保持不变。新语法、API、配置、fallback 或范围取舍需 owner 明确决定。
 
-关键实现：[fixed-module-ranks.ts](../packages/compiler/src/domain/fixed-module-ranks.ts)、[module-order-overlap.ts](../packages/compiler/src/domain/module-order-overlap.ts)、[compiler-session.ts](../packages/compiler/src/application/compiler-session.ts)。回归入口：[fixed-module-rank-reuse.test.ts](../packages/compiler/test/fixed-module-rank-reuse.test.ts)、[logical-physical-order.test.ts](../packages/compiler/test/logical-physical-order.test.ts)。
+关键实现：[fixed-module-ranks.ts](../packages/compiler/src/domain/fixed-module-ranks.ts)、[module-order-policy.ts](../packages/compiler/src/domain/module-order-policy.ts)、[compiler-session.ts](../packages/compiler/src/application/compiler-session.ts)。回归入口：[fixed-module-rank-reuse.test.ts](../packages/compiler/test/fixed-module-rank-reuse.test.ts)、[logical-physical-order.test.ts](../packages/compiler/test/logical-physical-order.test.ts)。
 
 ## 验收与已知边界
 
 ### 当前 main 的基础验证
 
-本轮核心一致性修复已运行 `corepack pnpm verify`：Compiler 1559、React 49、Vite 161、Testing 334，共 2103 项测试，另有 lint／build／类型检查通过。
+本轮统一排序已运行 `corepack pnpm verify`：Compiler 1580、React 49、Vite 161、Testing 334，共 2124 项测试，另有 lint／build／类型检查通过。
 
 ### 浏览器证据
 
@@ -74,7 +74,9 @@ owner 已明确将复杂 `:has()` 丢失 native specificity 作为 bug 修复：
 - 同一外部官方模板的 React Router 8.5.0 Declarative／BrowserRouter：Chromium dev 與 production preview 的 Link 导航、back/forward、lazy route、直接深链接／reload、route GSS literal style／资源和 central CSS census 通过，保留六个 HMR/LKG phases，新增 19 个 routing checkpoints／route corruption control。证据 `artifacts/vite-template/2026-10-26T06-45-04.945Z/`；Node >=22.22.0，部署依赖 SPA rewrite，不代表 SSR 或通用 host 已配置。详见 [验收报告](VITE-TEMPLATE-ACCEPTANCE.md#客户端路由验收后续-owner-授权)。
 - 当前 Browser oracle：125 fixtures、1267 comparisons、38 controls；Vite host、SSG hydration、multipage lazy/hydration/state controls 通过。
 - Task-board 三引擎真实用户路径：每引擎 76 phases、13 exact image pairs、dev HMR/LKG/recovery、父子 implicit `className`、production lazy/CSS census 通过。删除 `.gss` 不属于当前支持契约：独立实验发现 Chromium/Firefox/WebKit 的 overlay/LKG 行为不一致，因此当前只承诺文件修改、非法输入 LKG、恢复和显式重建；删除场景的失败 artifact 保留在 `artifacts/cross-browser-rendering/task-board/2026-10-23T04-10-04.608Z/`，不宣称删除重建已通过。
-- 逻辑／物理修复阶段：三浏览器证据通过，包含 418 个简单 fixture、55 个语义 fixture、每引擎 2772 项读取及方向／writing-mode 动态变化。
+- 统一固定排序：原 atom-ranks gate 默认三引擎通过，逻辑／物理 carrier 仍为 418 simple／55 semantic、每引擎 2772 paired readings，额外保留 800 次原始 authored-native 断言。原生预期未被改成 GSS 结果：同 fixture 独立记录 raw CSS 值与显式 GSS physical-priority oracle；精确图像和 order corruption controls 保留。
+- Article 受扩展 border 复用屏障影响，atomic census 131→132：form／field 的 identical border 不再跨 rank 合并。业务 CSS 未改；现有 per-engine 入口 Chromium／WebKit 各 82 phases／22 exact image pairs 与负对照通过。默认三引擎 Article script 未改，Firefox Article 未运行。历史 147→131／字节数表保留为当时结果，不是本轮数字。
+- 本轮证据：`artifacts/unified-order-core/`（red、transitivity red、verify/browser/playground、Article 两引擎、census delta）；最终三引擎 rank 产物在 `artifacts/rank-integration/browser/`。首次 rank 全套因 300s wrapper 预算不足中断，后一次因 child 1800s session 上限中断，原始产物均已备份；增加有界预算后同入口全套通过，不是 readiness 缺陷修复。
 - 安全复用交付：独立审查接受 **Chromium／WebKit** 范围；Article 每引擎 82 phases／22 对精确图像。Firefox Article 的 dev→production 导航问题由 owner 暂缓，不宣称已修复。
 - rank 验收曾因两引擎加载器入口失配，意外跑了原三引擎 gate 并通过。已披露执行范围偏差；这不能消除 Article 的历史 Firefox 失败。
 - 通用 browser readiness 曾出现 120 秒超时，原因未确定；owner 授权的固定三次未加仪器样本随后通过。不把这些通过说成已找到因果修复，也不允许无限重试直到绿。

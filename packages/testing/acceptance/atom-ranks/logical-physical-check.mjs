@@ -56,18 +56,15 @@ async function sample(page,fixture,mode,properties) {
 function expectedSemantic(fixture,mode) {
   const result=Object.fromEntries(sides.map(side=>[physical(fixture.family,side),'0px']));
   const applyLogical=()=>{for(const side of fixture.shorthand?mode.inline:[mode.inline[0]]) result[physical(fixture.family,side)]='1px';};
-  if(fixture.sourceTie) { result[physical(fixture.family,fixture.side)]='2px';applyLogical(); }
-  else {
-    applyLogical();
-    if(fixture.strong) result[physical(fixture.family,fixture.side)]='2px';
-  }
+  applyLogical();
+  if(fixture.strong) result[physical(fixture.family,fixture.side)]='2px';
   if(fixture.partial) {for(const side of sides) result[physical(fixture.family,side)]=side==='top'?'3px':'2px';}
   return result;
 }
 export async function checkLogicalPhysicalOrder(native,atomic,directory,report) {
   report.simpleFixtures=simpleFixtures.length;
   report.semanticFixtures=semanticFixtures.length;
-  report.readings=[];report.images=[];report.negativeControls=[];report.compilations=[];
+  report.readings=[];report.authoredReadings=[];report.images=[];report.negativeControls=[];report.compilations=[];
   for(const fixture of [...simpleFixtures,...semanticFixtures]) {
     const semantic=semanticFixtures.includes(fixture),compiled=await compile(fixture);
     report.compilations.push({name:fixture.name,source:fixture.source,exports:compiled.exports,snapshot:compiled.snapshot});
@@ -75,8 +72,15 @@ export async function checkLogicalPhysicalOrder(native,atomic,directory,report) 
       await mount(native,fixture,undefined,reverse,semantic);await mount(atomic,fixture,compiled,reverse,semantic);
       // All mode mutations reuse the same emitted CSS, module exports and DOM.
       for(const mode of semantic?modes:[fixture.mode]) {
-        const expected=semantic?expectedSemantic(fixture,mode):fixture.expected;
+        const expected=semantic?expectedSemantic(fixture,mode):fixture.gssExpected??fixture.expected;
         const properties=fixture.properties??Object.keys(expected);
+        if(fixture.gssOracle) {
+          await native.locator('#subject-css').evaluate((node,css)=>{node.textContent=css;},fixture.source);
+          const authored=await sample(native,fixture,mode,properties);
+          assert.deepEqual(authored.properties,fixture.expected,`${fixture.name}: unchanged authored/native oracle`);
+          report.authoredReadings.push({name:fixture.name,mode,reverse,authored});
+          await native.locator('#subject-css').evaluate((node,css)=>{node.textContent=css;},fixture.gssOracle);
+        }
         const reference=await sample(native,fixture,mode,properties);
         if(expected) assert.deepEqual(reference.properties,expected,`${fixture.name}: independent literal oracle`);
         // Capture while this page still owns the foreground/pointer. Firefox
@@ -100,12 +104,12 @@ export async function checkLogicalPhysicalOrder(native,atomic,directory,report) 
     if(fixture.name==='margin/horizontal-tb/ltr/long-long/false/2'||fixture.name==='prior-nested-scroll/false') {
       const tree=postcss.parse(compiled.snapshot.css);tree.nodes.reverse();
       await atomic.locator('#subject-css').evaluate((node,css)=>{node.textContent=css;},tree.toString());
-      const mode=modes[0],expected=semantic?expectedSemantic(fixture,mode):fixture.expected;
+      const mode=modes[0],expected=semantic?expectedSemantic(fixture,mode):fixture.gssExpected??fixture.expected;
       const corrupted=await sample(atomic,fixture,mode,Object.keys(expected));
       assert.throws(()=>assert.deepEqual(corrupted.properties,expected),assert.AssertionError);
       const property=semantic?'scroll-margin-left':'margin-left';
-      assert.equal(expected[property],semantic?'2px':'1px');
-      assert.equal(corrupted.properties[property],semantic?'1px':'2px');
+      assert.equal(expected[property],'2px');
+      assert.equal(corrupted.properties[property],'1px');
       report.negativeControls.push({name:fixture.name,expected,corrupted});
     }
   }

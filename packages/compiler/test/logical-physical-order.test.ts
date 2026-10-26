@@ -1,16 +1,16 @@
 import { expect, it } from 'vitest';
 import { createGssCompilerSession } from '../src/index.js';
 
-it('orders admitted physical/logical singleton exports by authored occurrence, not property spelling', () => {
+it('orders admitted singleton exports by fixed logical-first physical-last policy', () => {
   const session = createGssCompilerSession({ projectRoot: '/project' });
   expect(session.replaceStylesheet({ id: '/project/Order.gss', source: '.b{margin-left:2px}.c{margin-inline-start:1px}' })).toMatchObject({ committed: true, diagnostics: [] });
   const rules = session.finalize().manifest.rules;
   const schema = session.getScopeSchema('/project/Order.gss')!;
   expect(rules.map(({ property, value }) => [property, value])).toEqual([
-    ['margin-left', '2px'], ['margin-inline-start', '1px']
+    ['margin-inline-start', '1px'], ['margin-left', '2px']
   ]);
-  expect(rules[0]!.className).toBe(schema.exports.b!.selfClassName);
-  expect(rules[1]!.className).toBe(schema.exports.c!.selfClassName);
+  expect(rules[1]!.className).toBe(schema.exports.b!.selfClassName);
+  expect(rules[0]!.className).toBe(schema.exports.c!.selfClassName);
   expect(rules.map(({ className }) => className)).toEqual([
     expect.stringContaining('--rank_1'), expect.stringContaining('--rank_2')
   ]);
@@ -39,9 +39,11 @@ it.each(directionalPairs)('orders %s with potentially overlapping %s without dep
     const source = declarations.map(({ name, property, value }) => `.${name}{${property}:${value}}`).join('');
     expect(session.replaceStylesheet({ id: '/project/Order.gss', source })).toMatchObject({ committed: true, diagnostics: [] });
     const rules = session.finalize().manifest.rules;
-    expect(rules.map(({ property, value }) => [property, value])).toEqual(declarations.map(({ property, value }) => [property, value]));
+    // Explicit GSS policy oracle: stable authored order only within each property kind.
+    const expected = [...declarations].sort((a, b) => Number(!/-inline|-block/.test(a.property)) - Number(!/-inline|-block/.test(b.property)));
+    expect(rules.map(({ property, value }) => [property, value])).toEqual(expected.map(({ property, value }) => [property, value]));
     const schema = session.getScopeSchema('/project/Order.gss')!;
-    declarations.forEach(({ name }, index) => expect(schema.exports[name]!.selfClassName).toBe(rules[index]!.className));
+    expected.forEach(({ name }, index) => expect(schema.exports[name]!.selfClassName).toBe(rules[index]!.className));
   }
 });
 
@@ -102,14 +104,14 @@ it.each([false, true])('retains branch identity and predicate implication across
   expect(targetRules(session, ['item']).filter((rule) => !rule.selector.includes(':focus')).map((rule) => rule.value)).toEqual(['1px', '2px']);
   const pseudo = reverse ? '.item::after,.item::before' : '.item::before,.item::after';
   const separate = compile(`${pseudo}{scroll-margin-left:2px}.b::before{scroll-margin-inline-start:1px}`);
-  expect(separate.finalize().manifest.rules.filter((rule) => rule.selector.endsWith('::before')).map((rule) => rule.value)).toEqual(['2px', '1px']);
+  expect(separate.finalize().manifest.rules.filter((rule) => rule.selector.endsWith('::before')).map((rule) => rule.value)).toEqual(['1px', '2px']);
   expect(separate.finalize().manifest.rules.find((rule) => rule.selector.endsWith('::after'))!.className).not.toContain('--rank_');
 });
 
 it.each([false, true])('preserves the owned-path compatibility guard instead of imposing selector tiers (%s)', (reverse) => {
   const strong = '.root .item{scroll-margin-left:2px}', state = '.item:hover{scroll-margin-inline-start:1px}';
   const session = compile(reverse ? state + strong : strong + state);
-  expect(targetRules(session).map((rule) => rule.value)).toEqual(reverse ? ['1px', '2px'] : ['2px', '1px']);
+  expect(targetRules(session).map((rule) => rule.value)).toEqual(['1px', '2px']);
 });
 
 it('retains actual effects and partially surviving owned shorthands', () => {
@@ -183,4 +185,82 @@ it.each([false, true])('keeps opaque observation and comma-branch identities in 
   expect(observed.map((rule) => rule.selector).join(' ')).toContain(':has(.x)');
   expect(observed.map((rule) => rule.selector).join(' ')).toContain(':has(.y)');
   expect(targetRules(session, ['b']).map((rule) => rule.value)).toEqual(['1px']);
+});
+
+// Owner-approved GSS policy, intentionally independent of native authored order.
+const fixedPairs = [
+  ['width', 'inline-size', '20px', '10px'],
+  ['height', 'block-size', '20px', '10px'],
+  ['min-width', 'min-inline-size', '20px', '10px'],
+  ['max-height', 'max-block-size', '20px', '10px'],
+  ['border-left-color', 'border-inline-start-color', 'red', 'blue'],
+  ['border-top-width', 'border-block-start-width', '2px', '1px'],
+  ['border-top-style', 'border-block-start-style', 'solid', 'dotted'],
+  ['border-top-left-radius', 'border-start-start-radius', '8px', '4px'],
+  ['overflow-x', 'overflow-inline', 'hidden', 'scroll'],
+  ['overscroll-behavior-x', 'overscroll-behavior-inline', 'contain', 'none'],
+  ['scroll-margin-left', 'scroll-margin-inline-start', '2px', '1px']
+];
+it.each(fixedPairs)('fixed policy emits physical %s after logical %s in admitted contexts', (physical, logical, pv, lv) => {
+  for (const reverse of [false, true]) for (const sameBlock of [false, true]) {
+    const declarations = [[physical!, pv!], [logical!, lv!]];
+    if (reverse) declarations.reverse();
+    const source = sameBlock ? `.item{${declarations.map(([p,v]) => `${p}:${v}`).join(';')}}` :
+      declarations.map(([p,v], i) => `.scope${i}{${p}:${v}}`).join('');
+    const session = compile(source);
+    expect(session.finalize().manifest.rules.map(({ property }) => property)).toEqual([logical, physical]);
+    expect(session.finalize().manifest.rules).toHaveLength(2);
+  }
+});
+
+it.each([
+  ['width', 'inline-size'], ['border-left-width', 'border-inline-start-width'],
+  ['border-top-left-radius', 'border-start-start-radius'], ['overflow-x', 'overflow-inline']
+])('keeps %s/%s directional writes as rank-reuse barriers', (physical, logical) => {
+  const value = physical === 'overflow-x' ? 'hidden' : '2px';
+  for (const property of [physical, logical]) {
+    const session = compile(`.a{${property}:${value}}.b{${property}:${value}}`);
+    expect(session.finalize().manifest.rules).toHaveLength(2);
+    expect(session.getScopeSchema('/project/Order.gss')!.exports.a!.selfClassName)
+      .not.toBe(session.getScopeSchema('/project/Order.gss')!.exports.b!.selfClassName);
+  }
+});
+
+it('retains same-property authored ties and separate size/min/max effect families', () => {
+  expect(compile('.a{width:20px}.b{inline-size:10px}.c{width:30px}').finalize().manifest.rules
+    .map(({ property, value }) => [property, value])).toEqual([['inline-size', '10px'], ['width', '20px'], ['width', '30px']]);
+  for (const source of ['.a{width:20px}.b{min-inline-size:10px}', '.a{min-width:20px}.b{max-inline-size:10px}']) {
+    expect(compile(source).finalize().manifest.rules.every((rule) => !rule.className.includes('--rank_'))).toBe(true);
+  }
+});
+
+it.each([false, true])('keeps proved stronger logical ownership/structural refinements above physical priority (%s)', (reverse) => {
+  for (const relation of [' ', ' > ']) {
+    const strong = `.root${relation}.item{inline-size:10px}`;
+    const weak = '.item{width:20px}';
+    expect(targetRules(compile(reverse ? weak + strong : strong + weak)).map(({ property }) => property))
+      .toEqual(['width', 'inline-size']);
+  }
+  const strong = '.item:where(:checked):where(:disabled){scroll-margin-inline-start:1px}';
+  const weak = '.item:where(:checked){scroll-margin-left:2px}';
+  expect(targetRules(compile(reverse ? weak + strong : strong + weak), ['item']).map(({ property }) => property))
+    .toEqual(['scroll-margin-left', 'scroll-margin-inline-start']);
+});
+
+it.each([false, true])('preserves native strength/context bands and partial shorthand survivors (%s)', (reverse) => {
+  for (const [strong, weak] of [
+    ['.a{inline-size:10px!important}', '.b{width:20px}'],
+    ['.a:hover{inline-size:10px}', '.b{width:20px}'],
+    ['@layer a{.a{inline-size:10px}}', '@layer b{.b{width:20px}}'],
+    ['@media (min-width:1px){.a{inline-size:10px}}', '.b{width:20px}'],
+    ['.a::before{inline-size:10px}', '.b::after{width:20px}']
+  ] as const) {
+    const rules = compile(reverse ? weak + strong : strong + weak).finalize().manifest.rules;
+    expect(rules).toHaveLength(2);
+    if (!strong.includes(':hover')) expect(rules.every((rule) => !rule.className.includes('--rank_'))).toBe(true);
+    if (strong.includes('!important')) expect(rules.some((rule) => rule.property === 'inline-size' && rule.important)).toBe(true);
+    if (strong.includes(':hover')) expect(rules.some((rule) => rule.property === 'inline-size' && rule.selector.endsWith(':hover'))).toBe(true);
+  }
+  const rules = compile('.item{border:2px solid red;border-left-color:green;border-inline-color:blue}').finalize().manifest.rules;
+  expect(rules.map(({ property }) => property)).toEqual(['border-inline-color', 'border', 'border-left-color']);
 });

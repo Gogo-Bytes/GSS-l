@@ -2034,7 +2034,7 @@ describe('GssCompilerSession', () => {
     const expectedSchema = { input: { selfClassName: sourceMarker, targets: {
       label: { selfClassName: contextMarker, targets: { icon: { selfClassName: targetMarker, targets: {} } } }
     } } };
-    const expectedCss = `${selector} {\n  background-color: blue;\n}\n\n${selector} {\n  color: red;\n}`;
+    const expectedCss = `${selector} {\n  color: red;\n}\n\n${selector} {\n  background-color: blue;\n}`;
     for (const { replacement, css } of results) {
       expect(replacement.diagnostics).toEqual([]);
       expect(replacement.module?.scopeSchema.exports).toEqual(expectedSchema);
@@ -2080,7 +2080,7 @@ describe('GssCompilerSession', () => {
       }
     };
 
-    const expectedCss = `${selector} {\n  background-color: blue;\n}\n\n${selector} {\n  color: red;\n}`;
+    const expectedCss = `${selector} {\n  color: red;\n}\n\n${selector} {\n  background-color: blue;\n}`;
     for (const { replacement, css } of results) {
       expect(replacement.diagnostics).toEqual([]);
       expect(replacement.module?.scopeSchema.exports).toEqual(expectedSchema);
@@ -2112,7 +2112,7 @@ describe('GssCompilerSession', () => {
         } }
       } }
     };
-    const expectedCss = `${selector} {\n  background-color: blue;\n}\n\n${selector} {\n  color: red;\n}`;
+    const expectedCss = `${selector} {\n  color: red;\n}\n\n${selector} {\n  background-color: blue;\n}`;
     for (const { replacement, css } of results) {
       expect(replacement.diagnostics).toEqual([]);
       expect(replacement.module?.scopeSchema.exports).toEqual(expectedSchema);
@@ -2149,7 +2149,7 @@ describe('GssCompilerSession', () => {
         }
       }
     };
-    const expectedCss = `${selector} {\n  background-color: blue;\n}\n\n${selector} {\n  color: red;\n}`;
+    const expectedCss = `${selector} {\n  color: red;\n}\n\n${selector} {\n  background-color: blue;\n}`;
     for (const { replacement, css } of results) {
       expect(replacement.diagnostics).toEqual([]);
       expect(replacement.module?.scopeSchema.exports).toEqual(expectedSchema);
@@ -2190,7 +2190,7 @@ describe('GssCompilerSession', () => {
         }
       }
     };
-    const expectedCss = `${selector} {\n  background-color: blue;\n}\n\n${selector} {\n  color: red;\n}`;
+    const expectedCss = `${selector} {\n  color: red;\n}\n\n${selector} {\n  background-color: blue;\n}`;
     for (const { replacement, css } of results) {
       expect(replacement.diagnostics).toEqual([]);
       expect(replacement.module?.scopeSchema.exports).toEqual(expectedSchema);
@@ -2245,7 +2245,7 @@ describe('GssCompilerSession', () => {
       }
     };
 
-    const expectedCss = `${selector} {\n  background-color: blue;\n}\n\n${selector} {\n  color: red;\n}`;
+    const expectedCss = `${selector} {\n  color: red;\n}\n\n${selector} {\n  background-color: blue;\n}`;
     for (const { replacement, css } of results) {
       expect(replacement.diagnostics).toEqual([]);
       expect(replacement.module?.scopeSchema.exports).toEqual(expectedSchema);
@@ -2293,7 +2293,7 @@ describe('GssCompilerSession', () => {
       }
     };
 
-    const expectedCss = `${selector} {\n  background-color: blue;\n}\n\n${selector} {\n  color: red;\n}`;
+    const expectedCss = `${selector} {\n  color: red;\n}\n\n${selector} {\n  background-color: blue;\n}`;
     for (const { replacement, css } of results) {
       expect(replacement.diagnostics).toEqual([]);
       expect(replacement.module?.scopeSchema.exports).toEqual(expectedSchema);

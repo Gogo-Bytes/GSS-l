@@ -85,10 +85,10 @@ it.each(directionalProperties)('never compresses directional property %s', (prop
 it.each([
   '.b{margin-left:2px}.c{margin-inline-start:1px}',
   '.a{margin-inline-start:1px}.b{margin-left:2px}.c{margin-inline-start:1px}.d{margin-left:3px}'
-])('retains fixed logical/physical source order and both 1px/2px writes: %s', (source) => {
+])('retains fixed physical priority and both logical/physical writes: %s', (source) => {
   const session = compile(source);
   const selected = new Set(`${classes(session, 'b')} ${classes(session, 'c')}`.split(' '));
-  expect(session.finalize().manifest.rules.filter(({ className }) => selected.has(className)).map(({ value }) => value)).toEqual(['2px', '1px']);
+  expect(session.finalize().manifest.rules.filter(({ className }) => selected.has(className)).map(({ value }) => value)).toEqual(['1px', '2px']);
 });
 
 it('does not canonicalize different value spellings into a reusable run', () => {

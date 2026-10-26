@@ -2,14 +2,13 @@ import type { ParsedDeclaration, ParsedHasCondition, ParsedStyleRule } from './p
 import type { DescendantInstance } from './plan-descendant-conditions.js';
 import { strictlyRefines } from './plan-structural-relations.js';
 import { matchesOwnedTarget } from './module-local-atom-ranks.js';
-import { propertiesMayOverlapForModuleOrder } from './module-order-overlap.js';
-import { effectsOfProperty } from './property-effects.js';
+import { propertiesMayOverlapForModuleOrder, propertyOrderPriority, isPropertyOrderReuseBarrier } from './module-order-policy.js';
 
 type Instance = DescendantInstance<ParsedStyleRule> & { observation?: ParsedHasCondition };
 type Occurrence = { instance: Instance; declaration: ParsedDeclaration; index: number; key: string };
 const context = (target: readonly string[], source?: readonly string[]) => JSON.stringify([target, source]);
 
-/** Module-local effect-family order: semantic dependency height, then original
+/** Module-local effect-family order: semantic dependency height, fixed property priority, then original
  * authored occurrence. Source order is never a semantic edge. Contexts remain
  * distinct until their complete (height, occurrence) tuple proves shareable. */
 export function planFixedModuleRanks(rules: readonly ParsedStyleRule[], instances: readonly Instance[]) {
@@ -75,6 +74,7 @@ export function planFixedModuleRanks(rules: readonly ParsedStyleRule[], instance
       return value;
     };
     const compare = (a: Occurrence, b: Occurrence) => height(a) - height(b) ||
+      propertyOrderPriority(a.declaration.property) - propertyOrderPriority(b.declaration.property) ||
       a.instance.rule.sourceOrdinal - b.instance.rule.sourceOrdinal || a.index - b.index;
     family.sort(compare);
     let rank = 0;
@@ -89,10 +89,6 @@ export function planFixedModuleRanks(rules: readonly ParsedStyleRule[], instance
   } };
 }
 
-// Keep all 55 directional box properties/effects as barriers, even though module
-// ordering now models their potential overlap. This is not an admission rule.
-const directionalBox = (property: string) => /^(?:(?:scroll-)?(?:margin|padding)(?:-|$)|inset(?:-|$)|top$|right$|bottom$|left$)/.test(property);
-
 function reusablePureOccurrence({ instance, declaration }: Occurrence): boolean {
   const rule = instance.rule;
   return rule.conditions.length === 0 && rule.path.length === 1 && instance.targetPath.length === 1 &&
@@ -100,7 +96,7 @@ function reusablePureOccurrence({ instance, declaration }: Occurrence): boolean 
     !rule.externalTarget && !rule.externalCondition && rule.relations.length === 0 &&
     rule.states.every((parts) => parts.length === 0) && rule.attributes.every((parts) => parts.length === 0) &&
     rule.observations.every((parts) => parts.length === 0) && rule.pseudoElements.every((pseudo) => pseudo === null) &&
-    ![declaration.property, ...effectsOfProperty(declaration.property)].some(directionalBox);
+    !isPropertyOrderReuseBarrier(declaration.property);
 }
 
 /** Only contract adjacent, wholly eligible original buckets with identical writes.

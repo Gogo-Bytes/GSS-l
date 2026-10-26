@@ -14,8 +14,8 @@ describe('article rendering business input', () => {
     });
     const { manifest, report } = session.finalize();
     expect(manifest.modules).toEqual(['Article.gss']);
-    // Original business input is unchanged; safe adjacent occurrence versions share.
-    expect(manifest.rules).toHaveLength(131);
+    // Unchanged business CSS; the border directional barrier keeps form/field ranks separate.
+    expect(manifest.rules).toHaveLength(132);
     expect(manifest.preservedRules).toEqual([]);
     expect(report).toMatchObject({ atomicModules: 1, preservedModules: 0, atomicCoverage: 1 });
     for (const property of ['content', 'list-style-type', 'list-style-position', 'overflow-wrap', 'font-family', 'letter-spacing']) {

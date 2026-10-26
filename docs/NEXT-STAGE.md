@@ -4,7 +4,7 @@
 
 owner 已决定：**不再新增框架或验收场景**。工作重心从扩展验收矩阵转为现有能力的正确性、契约一致性与真实缺陷修复。
 
-有限 MVP、官方 Vite React TS 外部消费、客户端路由和 React Router Framework SSR 的已选任务均已交付。已交付宿主基线为 `4b7a982`；本轮基于 `451dd5c` 完成现有核心一致性核查与具体 bug 修复，剩余目标是明确统一固定输出排序策略，而不是再扩大 source-order overlap 族。历史失败、支持范围之外的输入和未覆盖组合不混计为当前缺陷。
+有限 MVP、官方 Vite React TS 外部消费、客户端路由和 React Router Framework SSR 的已选任务均已交付。已交付宿主基线为 `4b7a982`；本轮基于 `451dd5c` 完成现有核心一致性核查与具体 bug 修复，owner 随后确认并已实现统一固定输出排序策略（同语义高度物理属性高于逻辑属性），而不是扩大 source-order overlap 族。历史失败、支持范围之外的输入和未覆盖组合不混计为当前缺陷。
 
 ## 已完成进度
 
@@ -32,16 +32,20 @@ owner 已决定：**不再新增框架或验收场景**。工作重心从扩展�
 
 只核对已交付能力，不从“缺少某条 CSS／某个框架”推导新功能任务。优先检查最近扩展较多的两处：
 
-- **Property effects**：已登记 shorthand/reset/longhand 是否正确，逻辑／物理潜在重叠是否仍按既定 Policy B 排序，unknown property fallback 是否保持。
+- **Property effects**：已登记 shorthand/reset/longhand 是否正确，逻辑／物理潜在重叠是否按已批准统一固定策略排序，unknown property fallback 是否保持。
 - **Selector marker**：已准入语法中的 local/global identity、嵌套遍历、原生 selector 结构与既有 ownership/schema 是否一致；不推理 DOM，不设计新 selector 语法。
 
 本轮已沿上述入口核对并修复八类具体缺陷：mask reset-only effects、corner-shape family、nth-of global compound、functional 字符串空白、嵌套 global、runtime-source marker、CSS 属性控制字符 escape，以及复杂 has list 的 native specificity。只在现有文件补回归；独立原生期望和 red/green 证据见 [STATUS](STATUS.md#本轮核心一致性修复)。view-timeline-inset 与 background-blend-mode reset 经主资料核对后保留，未为扩大覆盖随意调整。
 
-逻辑 sizing／border／radius 的原始输出差异已记录，但 owner 明确要求统一固定输出排序，不批准简单扩大“按作者顺序 overlap”作为修复。该目标需要先明确统一优先规则及与现有语义排序的关系；目前不修改 Policy B、reuse barriers 或引入 property priority。后续核查仍区分“可复现违约／证据不足／契约限制”，不为了填表继续扩大范围。
+owner 已确认：既有语义高度优先，同高度潜在竞争属性固定逻辑先／物理后；同属性同级 authored tie 不变。统一核心集中处理 overlap、priority、reuse barrier 与无循环的属性 render key；原 GSS1206 准入不扩展，潜在别名不剪枝为同一 effect。后续核查仍区分“可复现违约／证据不足／契约限制”，不为了填表继续扩大范围。
 
-### 3. 下一目标：明确统一固定输出排序规则，再实施必要修复
+### 3. 已实现：统一固定输出排序核心
 
-先由 owner 与主 session 明确统一固定输出规则（例如哪些物理／逻辑属性后发、如何与已有 ownership/native strength/条件上下文配合），不把示例中的 width 优先自行当成最终规则。规则确定后建立最小失败回归，在现有测试载体修复共享根因，保留原始失败；涉及浏览器行为时复用现有 gate，不另建框架、演示应用或验收矩阵。修复完成后运行相关检查和全仓 `verify`；宿主／输出改动再运行受影响的现有 SPA／SSR gate。
+`module-order-policy.ts` 是属性竞争、优先级与复用屏障的单一内部入口，module ranks 采用“语义高度 → 属性 priority → source ordinal／声明位置”；最终属性比较使用“priority → 严格 shorthand 包含深度 → 名称”的总键，消除旧 pairwise containment／lexical comparator 循环。
+
+已登记五族 box、sizing/minmax、border/radius、overflow/overscroll 采用同一规则。物理属性后发只在原生强度／上下文与语义高度同级时决胜；不覆盖 important／specificity／更强 ownership。same-block 已拒绝的 margin/padding/inset 组合仍 GSS1206；已准入 sizing/border/radius/scroll 组合有回归。方向别名只用于排序与保守屏障，保留两侧写入应对运行时 writing-mode／direction。
+
+现有逻辑／物理 browser carrier 保留 raw native oracle，并独立断言 GSS fixed-priority oracle，没有新增 fixture／项目／矩阵。下一步仅处理真实反例；没有新的已确认问题时，本任务结束，不自动扩功能或新建验收场景。
 
 常规 bug、诊断和回归由 agent 连续处理，不逐小项询问。若修复需要改变产品能力、作者写法、公共 API／配置、架构或 fallback，先给具体选项和影响再决策。
 
@@ -65,7 +69,7 @@ owner 已决定：**不再新增框架或验收场景**。工作重心从扩展�
 
 ## 验证基线与执行边界
 
-本轮核心修复的新验证：Compiler 1559、React 49、Vite 161、Testing 334，共 **2103 项测试**，lint/build/types 通过；现有 browser oracle **125 fixtures／1267 comparisons／38 controls** 与 Playground dev/preview 重跑通过。外部 SPA／Declarative 和 Framework SSR 的已交付证据仍保留，本轮没有重跑这两个外部项目。完整版本、产物和失败历史见对应报告；`verify` 不包含浏览器验收。
+本轮核心修复的新验证：Compiler 1580、React 49、Vite 161、Testing 334，共 **2124 项测试**，lint/build/types 通过；现有 browser oracle **125 fixtures／1267 comparisons／38 controls** 与 Playground dev/preview 重跑通过。原 atom-ranks 默认三引擎已重跑，逻辑 carrier 418／55 不变，保留 2772 paired+800 authored-native readings/engine；受 border 屏障影响 Article census 为132，Chromium/WebKit 现有入口各82 phases／22 exact image pairs通过，Firefox Article未重启。外部 SPA／Declarative 和 Framework SSR 的已交付证据仍保留，本轮没有重跑这两个外部项目。完整版本、产物和失败历史见对应报告；`verify` 不包含浏览器验收。
 
 沿用独立 literal／原生预期、负对照与同引擎精确图像；不删断言或修改业务样式换取通过。浏览器入口及默认引擎范围保持不变，执行前先核对脚本。普通修复可补必要回归；“不新增验收场景”不是取消现有检查或禁止为真实缺陷补回归。
 
