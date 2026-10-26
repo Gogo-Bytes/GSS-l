@@ -6,6 +6,27 @@ owner 已决定结束当前有限 MVP，并明确顺序为“基本核心能力�
 
 不再为此新建 SSR/SSG Playground。保留现有 Playground 作为演示／调试台，fixture 作为语义回归，真实脚手架／框架示例作为用户路径验收载体。
 
+## 代办进度总览
+
+最近交付：`c9013d1`（官方 React TS 外部消费与 Vite 8 兼容）；当前没有已授权但尚未完成的实现任务。
+
+| 状态 | 项目 | 交付／剩余边界 |
+| --- | --- | --- |
+| 已完成 | 有限 MVP 与核心收敛 | Compiler、React/Vite、隐式字符串引用、property/state 扩展、nth-of marker 和有界 native relation；不是任意 CSS 支持 |
+| 已完成 | 核心生命周期用户路径 | Task-board 三引擎父子 className、HMR/LKG/恢复、生产输出；每引擎 76 phases／13 精确图像对 |
+| 已完成 | 官方 create-vite React TS 外部消费 | workspace 外未修改 tarballs、strict peers、类型、dev/build/preview、资源/lazy、错误恢复；新模板仅 Chromium |
+| 已完成 | Vite 8 兼容修复 | Rolldown census 可缺失字段回归；peer 为 Vite 7／8，workspace 仍为 Vite 7 |
+| 待选择 | 真实客户端路由（建议下一项） | 导航、前进/后退、lazy route、深链接和 production；先确定 React Router 模式／版本，不默认包含 SSR |
+| 可选 | 其它模板／浏览器矩阵 | React SWC 模板、官方新模板 Firefox/WebKit；未授权，不是当前兼容声明 |
+| 待选择 | 真实 SSR 框架实验 | React Router framework mode、Astro + React 或 Next.js；请求时 HTML/CSS、资源与 hydration 尚未整体验收 |
+| 待决策，非当前任务 | 更广 CSS 能力 | 更多 at-rule/resource、value grammar、unknown property 注册策略；既有 fallback 不变 |
+| 明确排除 | `.gss` 删除支持 | owner 已选不承诺删除时 overlay/LKG；失败证据保留，不作为未完成修复任务 |
+| 暂缓 | 性能、Firefox Article 历史问题 | 未重新授权，不自动重启 |
+| 本轮不做 | 跨文件 scope 推导、跨模块同节点优先级 | 已跳过；普通字符串 className 仍为主要用法 |
+| 单独授权 | 发布、release、tag | 尚未执行；本地 tarball 验收不是发布 |
+
+最新验证：全仓 `verify` 2073 项测试及 lint/build/types；Vite 7 browser oracle 125 fixtures／1267 comparisons／38 controls；Vite 8 官方模板有界 Chromium 外部验收。各证据不是全浏览器／全版本保证。
+
 ## 有限 MVP 结项
 
 历史结项基线为 `847698c`；当前核心收敛基线为 main 的 `088811d`。此处不创建 tag、release，不发布包。
