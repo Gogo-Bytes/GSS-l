@@ -1,152 +1,73 @@
-# CSS 能力缺口盘点
+# CSS 能力与边界盘点
 
-## 结论
+## 用途
 
-当前 GSS 的核心不是“任意 CSS 原子化”，而是一个**有界的 selector／cascade／resource 编译器**。已有能力足以覆盖 task-board、Article、Playground 和当前语义 fixture，但与市面 CSS Modules／原生 CSS 的语法覆盖相比仍有大量缺口。
+本文区分已交付能力、已知边界与待核对项，**不是补全 CSS 的任务队列**。当前实现基线为 `4b7a982`；进度与下一项工作以 [当前计划](NEXT-STAGE.md) 为准。owner 已停止新增框架／验收场景，后续以现有实现一致性和真实缺陷为目标。
 
-这些缺口分成三类，不能混计：
+旧盘点中的“nth-* 仍 fail-closed”“需先建立 DOM 关系 IR”“隐式类型待决定”“继续选择更多框架”已被后续实现／决策替代，不再作为开发前提。
 
-1. **已支持**：有 Compiler／Vite／独立 oracle 或真实页面证据。
-2. **已实现但有界**：输入能工作，但只在明确组合、注册条件或 property family 内成立。
-3. **缺失或 fail-closed**：当前会拒绝、整 Module preserved，或没有对应语义实现。
+## 当前能力及不可外推的边界
 
-本盘点只扫描当前源码和测试入口，不把所有缺口自动变成任务；性能、Firefox Article、脚手架和 SSR 框架仍不在本轮。
+| 领域 | 已交付 | 保留边界 |
+| --- | --- | --- |
+| Ownership | local class path、selector-list 分支身份、嵌套 normalization | 不是任意 compound/tag/ID/namespace selector 都准入；现有 path/schema 契约保留 |
+| Native relations | 已准入的 descendant、`>`、`+`、`~` 关系及多关系组合 | GSS 不分析实际 DOM/sibling；仍有 predicate 位置与组合准入限制 |
+| Functional selectors | 有界 `:has()`、`:is()`、`:not()`、`:where()` 嵌套 local marker rewrite；显式 global 保持外部身份 | 不是通用 selector implication engine；不要把扩展 parser 等同于所有组合均正确 |
+| Structural pseudos | 无参数结构状态、`nth-child`／`nth-last-child`／`nth-of-type`／`nth-last-of-type` native passthrough | 公式与运行时匹配交给浏览器；不进行 sibling-index 推理 |
+| nth-of | local class identity marker、嵌套 filter、后续 list branch 与 explicit global 区分 | Browser fixture 是有限证据，不是所有公式／filter 的证明 |
+| State／attributes／pseudo-elements | 注册状态及伪元素、有限 equality attribute／ARIA 条件 | 准确清单查 registry/parser；参数化 pseudo-elements、更广 attributes 与组合仍有边界 |
+| Conditions／layers | 注册 media/supports/container、named layers 与有界 nesting | 未注册条件／layer 的 precedence 不保证；不承诺完整 CSS 条件推理 |
+| Property effects | 显式 family/longhand/independent registry，包含近期 logical sizing/border、text-wrap、timeline、anchor、mask-border 扩展 | 登记不等于完整 value grammar；unknown effect 继续整 Module preserved 或按配置 error |
+| Resources／assets | 有界 `@property`、local keyframes、font-face、URL binding、Vite asset delivery | 不是任意 at-rule/URL/function/resource 的通用实现 |
+| React／宿主 | 编译期字符串语法糖、有限 alias、Vite 7/8；公开 aggregate stylesheet URL | 动态/未知路径保持 JS undefined；非 React 分析不进入 compiler |
+| SSR／路由 | 已有 Declarative 和 React Router Framework 请求时渲染证据 | 仅报告中的版本／场景／Chromium；不推导其它框架、streaming 或任意 client/server graph |
 
-## 当前已覆盖的主干
+准确源码入口：
 
-| 领域 | 当前范围 |
-| --- | --- |
-| Selector ownership | 本地 class ownership path、selector list branch、标准 CSS nesting normalization |
-| Runtime relations | descendant；有界 `>`、`+`、`~`；runtime relation 后接 ownership descendant 的受限 interleaved path |
-| State／attribute | `:hover`、`:focus`、`:focus-visible`、`:focus-within`、`:active`、`:disabled`、`:checked`；一个 equality attribute／ARIA 条件的有界组合 |
-| Functional selectors | 有界 `:not()`、`:is()`、`:where()` 参数；有限 explicit global class；有限 `:has()` observed relation |
-| Pseudo-elements | `::before`、`::after`、`::placeholder`、`::marker`、`::file-selector-button`、`::backdrop`、`::first-line`、`::first-letter`、`::selection` |
-| Conditions／layers | `@media`、`@supports`、`@container`；配置的 named layer；未注册条件／layer 有 warning 且 precedence 不保证 |
-| Property effects | box、border、background、overflow、gap、grid、flex、alignment、font、transition、animation、mask 等 registry family；unknown effect 整 Module preserved |
-| Resources | `@property`、Module-local `@keyframes`、`@font-face`；有界 URL discovery／binding／Vite asset delivery |
-| Safety | transaction、LKG、external target protection、preserved fallback、native importance／specificity 不被 rank 覆盖 |
+- [selector parser](../packages/compiler/src/infrastructure/postcss-stylesheet-parser.ts)、[编译会话 marker emission](../packages/compiler/src/application/compiler-session.ts)。
+- [state registry](../packages/compiler/src/domain/pseudo-state-capabilities.ts)、[pseudo-element registry](../packages/compiler/src/domain/pseudo-element-capabilities.ts)。
+- [property effects](../packages/compiler/src/domain/property-effects.ts)、[排序潜在重叠](../packages/compiler/src/domain/module-order-overlap.ts)。
+- [React Adapter](../packages/react/src/index.ts)、[Vite Adapter](../packages/vite/src/index.ts)。
 
-## 主要能力缺口
+## 后续核查重点：正确性，不是数量
 
-### A. Selector 语法与关系
+这两处近期扩展较多，适合作为现有核心一致性的入口；尚未在本次文档整理中重新审计代码，也没有预先确认缺陷：
 
-**当前策略**：关系和 specificity 由浏览器执行；GSS 只递归 rewrite local class marker，不分析 DOM 关系。
+1. **Property effects**：登记的 shorthand reset 是否完整，是否误把 shorthand 当 independent；logical/physical 重叠、重要性、source order 和 partial winner 是否保留既定契约。先看现有 `property-effects`、`four-property-effects`、`logical-physical-order` 回归。
+2. **Selector marker**：已准入输入中的 local/global identity、嵌套 AST 遍历、列表分支与导出 scope 是否一致；原生关系与 specificity 是否在 lowering 中被错误改变。先看 `compiler-session`、`external-target`、`structural-relations` 及既有独立 oracle。
 
-- 多个 runtime combinator 串联，例如 `A > B + C`、`A + B ~ C`，已按 native selector passthrough 保留关系并注入 marker。
-- 复杂 selector compound：local class 与 tag、ID、多个 local class、namespace、universal selector 的组合不在通用正向范围。
-- `:is()`、`:not()`、`:where()` 和 `:has()` 已支持嵌套 local class marker rewrite；specificity、coactivity 和关系匹配仍完全交给浏览器。
-- `:global()` 在 native functional／observed selector 中保持外部 class，不生成 GSS marker。
-- 外部 target 的 tag、exact-value attribute 有界支持；attribute existence、tag+attribute compound 和更广 external selector 仍 deferred。
-- 无 `:scope`、`@scope`、CSS nesting 中更复杂的 parent selector／selector-list 组合语义。
+核查结果分为“可复现违约”“证据不足”“已接受边界”。只对第一类直接修复并补最小回归；后两类如影响当前用户路径再决定，不通过新增框架场景或无限添加 fixture 填满矩阵。
 
-**影响**：不是“少生成一个 class”这么简单；这些 selector 的 class identity、native specificity、关系 marker、coactive ambiguity 和 fallback 必须一起设计。
+## 保留的能力边界（非当前开发目标）
 
-### B. Pseudo-state 与 pseudo-element
+### Values 与 declaration sequence
 
-本轮先补入常见表单状态：`:required`、`:optional`、`:valid`、`:invalid`、`:in-range`、`:out-of-range`、`:placeholder-shown`、`:read-only`、`:read-write`、`:indeterminate`，以及链接／目标／控件状态 `:link`、`:visited`、`:target`、`:enabled`、`:default`，以及现代 UI 状态 `:open`、`:modal`、`:fullscreen`、`:popover-open`、`:defined`；编译器 state 回归覆盖其 current pseudo path。结构伪类仍单独处理。当前仍缺少大量常见状态：
+- value 多数 opaque；没有完整 `var()`／fallback／CSS-wide keyword／复杂函数的语义类型系统。
+- compatibility transformer 的不可拆 sequence 只有有界 host-target 支持；更多 sequence/target 可能 preserved 或 fail-closed。
+- 未知／future property 不能默认当作 singleton；不能通过放松 fallback 掩盖 effect 不完整。
 
-- 链接／目标：`:link`、`:visited`、`:target`。
-- 表单：`:required`、`:optional`、`:valid`、`:invalid`、`:in-range`、`:out-of-range`、`:placeholder-shown`、`:read-only`、`:read-write`、`:default`、`:indeterminate`、`:user-valid`、`:user-invalid`、`:autofill`。
-- 结构／文档：`:root`、`:empty`、`:first-child`、`:last-child`、`:nth-child()`、`:nth-of-type()` 等。
-- UI／现代元素：`:open`、`:modal`、`:fullscreen`、`:popover-open`、`:defined`、`:playing`、`:paused` 等。
-- 本轮补入 `::cue`、`::target-text`、`::spelling-error`、`::grammar-error`；仍缺少 `::part()`、`::slotted()`、`::highlight()` 参数化 pseudo-element 及更复杂组合。
+### Conditions、layers 与 at-rules
 
-**影响**：state 不是简单字符串白名单；ancestor/current/runtime-source 位置、同节点 coactivity、specificity 和浏览器动态变化都需要独立回归。
+- condition precedence 依赖现有注册／配置，不是通用 implication 系统。
+- anonymous／复杂 layer prelude、更多条件与 layer 交叉组合并非完整公共保证。
+- `@page`、`@counter-style`、`@namespace`、`@scope`、更多 view-transition/custom at-rules 与全局 `@import` ordering 未纳入通用资源语义。
 
-### 结构伪类为何暂不按普通 state 支持
+### Resources 与 assets
 
-`:nth-child()`、`:nth-of-type()` 等公式结构伪类不是当前节点的独立状态；本轮已将无参数的 `:first-child`、`:last-child`、`:only-child`、`:first-of-type`、`:last-of-type`、`:only-of-type`、`:empty`、`:root` 做 native passthrough。它们依赖同级 sibling 顺序、父节点 children 集合、公式参数和 selector specificity；`:empty` 还依赖运行时文本／元素内容，`:root` 依赖 document singleton 语义。
+- local keyframe 的静态引用、条件／layer 组合、font descriptors 和 resource conflicts 均有范围。
+- image-set、复杂 cursor/mask/filter URL、worklet 等没有完整公共支持；URL escape／function nesting 不是通用重写器。
 
-当前 GSS 的 selector IR 将 pseudo state 绑定到 ownership path node，并以 current／ancestor／runtime-source state 参与有限 coactivity 与排序。直接把结构伪类加入这个白名单会产生错误保证：它既没有 sibling-index／formula IR，也没有与 `+`、`~`、`:has()`、selector list specificity 的统一推理和 native oracle。
+### Cascade 与 Adapter
 
-因此公式结构伪类当前仍保持 fail-closed，不是因为浏览器不能执行，而是因为 compiler 尚不能证明 ownership marker、结构关系和原生层叠在所有 DOM 形状下保持正确。无参数结构伪类只作为 terminal native condition 透传，不参与 GSS state ambiguity 推理。后续若实现，需要独立的结构关系模型、公式解析、specificity／coactivity 验收和动态 DOM oracle，不能仅增加字符串白名单。
+- 同模块多 scope 排序已交付；native importance/specificity/layer 仍不可被 rank 覆盖，来源／观察绑定、partial winner 和 scope membership 不可丢失。
+- 跨模块同节点优先级不支持；`GSS2107` 是非阻塞 warning，不由 class 顺序解决。
+- 保守 rank 复用规则与 logical/physical Policy B 保持；不开展性能扩展。
+- React 的可变 alias、跨文件 scope/data-flow 推导和精确 IDE path completion 不在当前目标。
+- class mapping 修改允许 reload/state reset；个别模板的 state-preserving HMR 不提升为通用保证。
+- `.gss` 删除不纳入当前支持契约；框架 SSR 的相对 base、server-only 图差异等限制见 [SSR 报告](FRAMEWORK-SSR-ACCEPTANCE.md)。
 
-### C. Property effect registry
+## 证据使用
 
-当前 registry 是有意有限的。本轮先补入一组无 shorthand 交互、按 independent effect 处理的常见属性：`aspect-ratio`、`box-sizing`、`accent-color`、`filter`、`backdrop-filter`、`clip-path`、`content-visibility`、`scroll-behavior`，以及 `pointer-events`、`user-select`、`touch-action`、`will-change`、`resize`、`appearance`、`color-scheme`、`isolation`、`mix-blend-mode`、`box-decoration-break`、`image-rendering`、`shape-rendering`、`text-rendering`、`scrollbar-gutter`，以及 typography／SVG paint 的 `text-indent`、`word-spacing`、`text-wrap`、`hyphens`、`line-break`、`tab-size`、`text-orientation`、`text-shadow`、`caret-color`、`fill`／`stroke` 系列和 `paint-order`／`vector-effect`，以及 `background-blend-mode`、`text-decoration-skip-ink`、table presentation 属性，以及 `contain`／container 配置、`contain-intrinsic-size` 的 physical width/height shorthand family、scroll-snap 属性，以及 animation family 的 `animation-composition`、font family 的 reset-only／independent longhands、scroll/view timeline family、`view-transition-name`／`view-transition-class` 和 anchor positioning 的独立 properties、`position-try`／`text-box` shorthand family，以及 `field-sizing`、`interpolate-size`、`corner-shape`；Compiler 回归覆盖其 source order／importance／ownership。仍未形成完整 effect family 或未进入 independent list 的方向包括：
+当前已记录的 browser oracle 为 125 fixtures／1267 comparisons／38 controls；这不是本次重新运行的结果。普通场景保留独立 native/literal 预期，GSS ownership 语义使用明确 GSS oracle，不用 compiler 输出自证。专项范围与历史失败见 [STATUS](STATUS.md)、[模板验收](VITE-TEMPLATE-ACCEPTANCE.md)、[Framework SSR 验收](FRAMEWORK-SSR-ACCEPTANCE.md)。
 
-- logical sizing／border：已覆盖 `inline-size`、`block-size`、min/max logical sizing，以及 `border-inline-*`、`border-block-*` family；更完整的 logical cascade 组合仍未全面验证。
-- sizing／layout：`contain`、`container-type`、`container-name` 等。
-- paint／effects：`mask-border` family 已登记；SVG `fill`／`stroke` 已覆盖。filter／backdrop-filter／clip-path 与 mask-border 仍只是 property effect slice，不代表相关 value grammar 已完整建模。
-- interaction／input：`accent-color`、`caret-color`、`resize`、`touch-action`、`user-select`、`pointer-events`。
-- typography：`text-indent`、`word-spacing`、`text-wrap`／`text-wrap-mode`、`font-synthesis`、`font-palette`、`font-optical-sizing`、ruby／writing-mode 相关族。
-- scrolling：`scroll-snap-*`、`scroll-behavior`、更完整的 overscroll／scroll-margin 族。
-- modern view／anchor：`view-transition-*`、`anchor-*`、`position-anchor` 等。
-- 新 CSS shorthand／longhand 及浏览器前缀变体并不自动成为安全 family。
-
-当前 unknown property effect 的行为是**整 Module preserved 或按配置 error**，不是错误地当成 singleton longhand。这保护了正确性，但会让很多常见属性无法获得 atomic output 或 rank 解析。
-
-### D. Values 与 declaration sequence
-
-- value 默认 opaque；没有完整 value token／function／类型模型。
-- `var()`、fallback、注册 custom property 的完整类型／依赖传播有限。
-- `calc()`、`color-mix()`、相对颜色、typed `attr()`、custom functions、复杂 animation／transition value 没有完整语义模型。
-- compatibility transformer 生成的不可拆 declaration sequence 只有有界 host-target 支持；更多浏览器 target、feature override 和 sequence family 会 preserved 或 fail-closed。
-- CSS-wide keywords、initial/inherit/unset/revert/revert-layer 在复杂 shorthand／longhand 组合中的完整 effect 证明未完成。
-- unknown／future property 不能自动安全 atomize；这属于明确的 fallback 边界，不应通过扩大独立 property 名单来掩盖。
-
-### E. Conditions、layers 与 at-rules
-
-- condition grammar 与 precedence 依赖注册／配置；未注册 query 不保证 precedence。
-- mixed condition kind、复杂 nested condition、完整 condition precedence 和更多 layer／condition 交叉组合未完成。
-- 只处理有限 `@layer` 形状；anonymous layer、复杂 layer statement/prelude、更多 native layer edge cases 未形成完整公共契约。
-- parser 当前专门处理 `@font-face`、`@keyframes`、`@property`、named `@layer` 和三类条件；其它 at-rule 会 unsupported，包括 `@page`、`@counter-style`、`@namespace`、`@scope`、view-transition 相关 at-rule、custom at-rule 等。
-- `@import`、namespace 与全局 stylesheet ordering 没有作为普通 Module 资源语义实现。
-
-### F. Global resources 与 assets
-
-- keyframes 支持静态 local name 和有界 animation reference；动态 name、复杂 shorthand／list／var reference、更多条件／layer 组合仍有限。
-- `@font-face` 是不可拆 global resource；更多 descriptor、font tech、复杂 `src` value 和资源冲突组合未完整验证。
-- asset binding 主要围绕可发现的 URL／font／background 路径；`image-set()`、复杂 `cursor`／mask／filter URL、CSS Houdini／paint worklet 等资源形态没有完整公共支持。
-- CSS `url()` 的 value grammar、escape、function nesting 和 callback boundary 仍是有界实现，不是通用 URL 重写器。
-
-### G. Cascade 与 runtime model
-
-- same Module 多 scope 的排序已交付，但不是通用 selector specificity engine；native importance／specificity／layer/context 仍由既定边界约束。
-- cross-Module same-node precedence 不支持，`GSS2107` 仍是 warning，不通过 class 顺序解决。
-- source／target／observation provenance、partial shorthand winner、scope membership 不能丢失；任何更宽的 dedupe／rank reuse 都会触碰这些边界。
-- CSS custom property inheritance、registered property 与 Module isolation 只有有界 native evidence，不是完整 custom-property cascade proof。
-- `@keyframes`、font、property registrations 和 CSS assets 的 global ownership／引用计数有实现，但更多跨 context／跨 Module 组合仍需独立 oracle。
-
-### H. Host／Adapter 侧能力
-
-- React Adapter 的静态 path sugar 已支持 direct path、有限 local alias 和条件 alias target read；可变 alias、跨文件 propagation、动态 data flow 和任意 helper provenance 未支持。
-- GSS path 不存在时按 owner 决定保留普通 JS 的 `undefined` 行为；这与精确 generated declaration／拼写提示是两件事，目前不追求后者。
-- Vite 是当前唯一正式宿主 Adapter；其它 bundler、CSS pipeline、非 React 框架尚未验证。
-- dev HMR 在 scope mapping 改变时允许 document reload／React state reset；不是 state-preserving HMR 保证。
-- SSR／SSG 有界 Vite-managed HTML 证据通过，但独立 production SSR bundle、请求级渲染、streaming SSR、router lifecycle 尚未验证。
-
-## 影响优先级建议
-
-### P0：先确定是否属于当前核心产品目标
-
-这些不是简单补 parser，必须先做语义决策：
-
-1. **Property coverage policy**：unknown property 是继续整 Module preserved，还是扩充 registry；是否接受大量合法 CSS 进入 preserved。
-2. **Selector admission policy**：继续 bounded fail-closed，还是支持复杂 compound／multi-runtime relation；后者会影响 ownership 与 cascade model。
-3. **State／functional selector scope**：要覆盖哪些浏览器状态和结构伪类，哪些明确不做。
-4. **Global resource boundary**：是否把更多 at-rule／resource 视为 GSS Module 能力，还是保持 compiler-only／native CSS escape。
-
-### P1：高实用性、相对可切片
-
-- logical sizing 与完整 logical border family。
-- 常见表单／媒体状态和结构伪类的最小独立 slice；本轮已补齐 user-valid/user-invalid、any-link 与媒体播放状态的 native passthrough，关系型 `:has()` 等仍保持边界。
-- `aspect-ratio`、`box-sizing`、`contain`、`filter`、`clip-path`、`accent-color` 等常见 independent properties。
-- 更完整的 `@supports`／`@media`／container query grammar 与 nested condition gate。
-- asset URL 形态扩展前，先建立 `image-set`／cursor／mask 的独立 resolver oracle。
-
-### P2：平台／框架实验后再决定
-
-- `@scope`、view transitions、anchor positioning、Houdini。
-- streaming SSR、router lifecycle、非 Vite bundler。
-- 全量 TypeScript exact declarations、IDE path completion。
-- 完整 CSS value type system 和任意 selector implication。
-
-## 当前建议
-
-下一步不要直接“补所有 CSS”。应先从这份盘点中选一个**可独立定义输入、语义、fallback、oracle 和浏览器 gate 的 slice**。建议优先在以下两项中选择：
-
-- **Property slice**：补一组最常用、可作为 independent properties 或完整 family 的属性，并验证 unknown/fallback 不变；或
-- **Selector/state slice**：选择一组常见表单／结构状态，先明确 coactivity、specificity、ancestor/runtime 位置，再做独立 native oracle。
-
-在 owner 选择前，不进入脚手架，也不自行扩大 selector、property、resource 或 fallback 语义。
+缺少某个语法／框架的覆盖不是自动 bug；扩大能力、公共 API／配置、作者体验、架构或 fallback 时仍需 owner 决策。

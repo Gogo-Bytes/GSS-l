@@ -2,7 +2,7 @@
 
 ## 范围
 
-owner 已修正阶段顺序：先基本核心能力，再脚手架，最后常见 SSR 框架实验。本轮基线 `529fd5e`，核对公开类型、实现、回归与此前验收；不把检查通过等同于全面证明，不恢复历史路线图，不启动性能或 Firefox Article。
+本文保留 `529fd5e` 起的核心类型发现及后续修复事实；当前交付基线为 `4b7a982`，进度与后续顺序以 [当前计划](NEXT-STAGE.md) 为准。核心、已选脚手架和 Framework SSR 已完成，owner 已停止新增框架／验收场景。下列历史发现不是重新选型或扩功能的任务队列。
 
 ## 首要发现：隐式 className lowering 与 TypeScript 不是一回事
 
@@ -40,15 +40,12 @@ owner 随后决定采用“编译期语法糖 + 轻量 TS 兼容类型”：直�
 | 原子化与整模块 fallback | `compiler-session`、`compatibility-targets` | 已有有界覆盖；不能逐规则混合 fallback 或默默扩大范围 |
 | 资源／URL／source map／来源 | `stylesheet-assets`、`conditional-keyframes`、`css-source-map`、`source-map-annotations`、`diagnostic-ranges` | 有界实现与证据；完整 token 映射和所有诊断位置不在当前承诺 |
 | React 引用、alias、诊断、source map | React 三组测试；Adapter 目录 | 有界支持；隐式 TSX 类型体验见首要发现，不能只查转换输出 |
-| 消费类型及 string className | `packages/types/test/`、父／子转换回归 | 显式 `.self` 可用；隐式 TSX 需要产品决定 |
+| 消费类型及 string className | `packages/types/test/`、父／子转换及真实 Task-board／外部模板回归 | 隐式字符串语法糖已决定并交付，旧 `.self` 兼容；不重新选型 |
 | Vite dev 更新、错误恢复、资源 watch | `dev-css`、`dev-assets`；Playground、Task-board 浏览器记录 | 已有有界覆盖；class mapping 更新允许 reload，不默改为状态保留 |
-| Vite production 全量 census 与元数据 | `production-css`、`production-assets` | 已有回归；独立打包安装属于第二步，不提前接脚手架 |
+| Vite production 全量 census 与元数据 | `production-css`、`production-assets`、`stylesheet-url` 及外部框架报告 | 已有公开 tarball 外部消费、Vite 8 和有界真实 SSR 证据；不外推任意 client/server graph |
 
 ## 处理顺序
 
-1. **先决定类型使用契约**：A/B；随后把真实类型检查纳入相应回归与文档，而非仅检查转换字符串。
-2. **再补核心生命周期浏览器缺口**：普通父／子 string className 的真实渲染、删除／重建 `.gss` 的恢复；在已有测试载体补断言，不新增脚手架。先核对入口和引擎，保留失败证据。
-3. **遇到已支持语义反例再修复**：建立最小复现与独立预期，最小修改、回归、相关 gate；不为填表扩语义。
-4. **核心阶段达到选定门禁后**，再由 owner 选择脚手架／版本，最后进行真实 SSR 框架实验。
+类型契约与父子字符串路径已完成；`.gss` 删除明确不纳入支持契约。后续按 [当前计划](NEXT-STAGE.md#后续工作顺序) 核对现有 property effects 和 selector marker 的一致性，先复现再修复，复用已有回归。不重做类型决策、不新增框架或验收矩阵。
 
-跨文件 scope 类型推导、跨模块覆盖优先级仍跳过；历史 SSR／router 全量覆盖不作为核心阶段自动任务。
+跨文件 scope 类型推导、跨模块覆盖优先级仍跳过；未覆盖组合不自动成为实现任务。

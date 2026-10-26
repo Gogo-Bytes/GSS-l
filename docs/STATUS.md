@@ -1,6 +1,6 @@
 # GSS 工作状态
 
-当前核心实现基线为 main 的 `088811d`，后续新增官方 create-vite 外部消费验收、有界 Vite 8 兼容修复与 Declarative 客户端路由验收，详见 [Vite 模板验收](VITE-TEMPLATE-ACCEPTANCE.md)。本文保留历史证据，不把旧快照当成未来代码的自动验收。
+当前实现基线为 main 的 `4b7a982`：核心收敛、官方 Vite 模板、Declarative 客户端路由和 Framework SSR 的已选任务均已交付。本文保留历史证据，不把旧快照当成未来代码的自动验收。后续工作以 [当前计划](NEXT-STAGE.md) 为准。
 
 有限 MVP 的逐项目标进度及后续 `2f115b1` 基线上的基础验证、演示生产构建结果见 [MVP 进度](MVP-PROGRESS.md)。该核对未新增浏览器验收，也不将历史开放项改判为全部完成。
 
@@ -8,7 +8,7 @@
 
 owner 已决定有限 MVP 结项，已批准并完成官方 create-vite React TS 外部消费、Vite 8 实验及同模板 React Router Declarative／BrowserRouter 客户端路由验收。最新基础验证为 2083 项测试通过；Browser oracle 为 125 fixtures／1267 comparisons／38 controls，Playground 同范围通过。另已按 owner 授权完成 React Router Framework Mode 的有界 request-time SSR 实验；不覆盖历史 Firefox 失败或通用／完整 SSR。
 
-新阶段分类、候选与用户路径门禁见 [下一阶段](NEXT-STAGE.md)。owner 已明确先收敛基本核心能力，再接脚手架。当前 native relation selector、nth-of marker、property/state coverage 已有独立回归；剩余 CSS value／at-rule／resource 扩展不自动恢复为任务队列。隐式 className lowering 已按“编译期语法糖 + 轻量 TS 兼容类型”决策；首个官方脚手架外部消费路径已完成，不新建 SSR/SSG Playground。
+owner 最新决定是**不再新增框架或验收场景**，当前转为现有能力一致性与真实缺陷驱动的收敛，不继续扩大矩阵。隐式 className 类型、native marker 策略和公共 stylesheet URL／插件数组返回值均已决策；不重复要求 owner 重选。后续先核对已登记 property effects 与已准入 selector marker 的契约一致性，再修复可复现的问题；必要回归复用已有测试载体，具体顺序见 [当前计划](NEXT-STAGE.md)。未覆盖组合不自动算作缺陷，也不自动授权扩语法或 fallback。
 
 ## 已完成交付
 
@@ -19,6 +19,10 @@ owner 已决定有限 MVP 结项，已批准并完成官方 create-vite React TS
 | 模块内固定排序 | `399444f`，PR #30 | 已准入的同模块多 scope 竞争统一排序，修复 target-local 排序不足 |
 | 逻辑／物理属性排序 | `1012d98`，PR #31 | 潜在方向别名参与排序族及语义优先级候选，保留所有权／结构优先级 |
 | 安全 rank 复用 | `dc9ad13`，PR #31 | 仅收缩连续、完整且符合条件的同语义 rank 桶，降低真实示例输出 |
+| 核心 CSS／引用收敛 | 至 `088811d` | 隐式字符串引用、有限 alias、property/state 扩展、nth-of 和有界 native relation marker |
+| 官方模板／Vite 8 | `c9013d1` | workspace 外公开 tarball 消费及 Rolldown census 修复，保留 Vite 7 回归 |
+| 客户端路由 | `f54a963` | 官方模板中的 Declarative／BrowserRouter 用户路径 |
+| Framework SSR／公共 CSS URL | `4b7a982` | 真实请求时渲染、无 JS 样式、hydration；`virtual:gss.css?url` 与 `gss(): Plugin[]` |
 
 上述实现全部已合入 main，不存在待合并的正式交付分支。保留的 `prototype/module-local-atom-ranks` 是独立演示原型，不是待合入代码。
 
@@ -91,7 +95,7 @@ owner 已要求先记录、以后再看；不启动 profiling、排序优化或 
 
 ### Firefox 与后续范围
 
-Firefox Article 导航问题仍暂缓。包发布、其他框架适配器、新语法或新 fallback 均未获本轮授权。历史 roadmap 不是自动执行队列；首个官方 React TS／Vite 8 外部消费及同模板 Declarative 客户端路由已按 owner 选择完成；React Router Framework SSR 的有界实验也已完成，其它脚手架、Router 模式或 SSR 实验的目标仍待选择，见 NEXT-STAGE.md。
+Firefox Article 导航问题仍暂缓。包发布、其他框架适配器、新语法或新 fallback 均未获本轮授权。已选模板、路由和 SSR 任务已完成；Astro／Next.js／SWC 等不是下一项候选队列，owner 已要求停止新增验收场景。后续只按 [当前计划](NEXT-STAGE.md) 收敛既有能力，出现新产品目标再决策。
 
 ## 本机交接与证据恢复
 
