@@ -7,8 +7,11 @@ export function emitProductionSnapshot(
   context: Rollup.PluginContext,
   bundle: Rollup.OutputBundle,
   render: (cssFileName: string) => FinalizedGssSnapshot,
-  base: string
-): void {
+  base: string,
+  deferMetadata = false
+): { cssAsset: string; discarded: string[]; metadata: Record<string, string> } {
+  const discarded: string[] = [];
+  const metadata: Record<string, string> = {};
   const mapAsset = 'gss.css.map';
   const linkedCss = (css: string, cssFileName: string) => {
     if (!css) return css;
@@ -33,27 +36,37 @@ export function emitProductionSnapshot(
       snapshot = next;
       break;
     }
-    if (!existing.has(candidate)) delete bundle[candidate];
+    if (!existing.has(candidate)) {
+      delete bundle[candidate];
+      discarded.push(candidate);
+    }
     cssPath = candidate;
     snapshot = next;
   }
   if (cssAsset === undefined) context.error('Cannot stabilize GSS CSS asset URL paths.');
   if (snapshot.css) {
-    if (bundle[mapAsset]) context.error(`GSS output ${mapAsset} already exists.`);
-    context.emitFile({ type: 'asset', fileName: mapAsset,
-      source: JSON.stringify({ ...snapshot.sourceMap, file: cssAsset }) + '\n' });
+    metadata[mapAsset] = JSON.stringify({ ...snapshot.sourceMap, file: cssAsset }) + '\n';
   }
   for (const [fileName, compiler] of [
     ['gss-manifest.json', snapshot.manifest],
     ['gss-report.json', snapshot.report]
   ] as const) {
-    if (bundle[fileName]) context.error(`GSS output ${fileName} already exists.`);
-    context.emitFile({
-      type: 'asset', fileName,
-      source: JSON.stringify({ version: fileName === 'gss-manifest.json' ? 2 : 1,
-        cssAsset, compiler }, null, 2) + '\n'
-    });
+    metadata[fileName] = JSON.stringify({ version: fileName === 'gss-manifest.json' ? 2 : 1,
+      cssAsset, compiler }, null, 2) + '\n';
   }
+  if (!deferMetadata) emitProductionMetadata(context, bundle, metadata);
+  linkProductionStylesheet(bundle, cssAsset, base);
+  return { cssAsset, discarded, metadata };
+}
+
+export function emitProductionMetadata(context: Rollup.PluginContext, bundle: Rollup.OutputBundle, metadata: Record<string, string>): void {
+  for (const [fileName, source] of Object.entries(metadata)) {
+    if (bundle[fileName]) context.error(`GSS output ${fileName} already exists.`);
+    context.emitFile({ type: 'asset', fileName, source });
+  }
+}
+
+export function linkProductionStylesheet(bundle: Rollup.OutputBundle, cssAsset: string, base: string): void {
   for (const entry of Object.values(bundle)) {
     if (entry.type !== 'asset' || !entry.fileName.endsWith('.html')) continue;
     const html = typeof entry.source === 'string' ? entry.source : new TextDecoder().decode(entry.source);

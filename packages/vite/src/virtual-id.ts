@@ -1,11 +1,16 @@
 const GSS_PREFIX = '\0gss-l:';
 export const CENTRAL_CSS_URL = '/@gss-l/central.css';
 const CENTRAL_CSS_ID = '\0gss-l:central.css';
+export const LINKED_CSS_URL = '/@gss-l/stylesheet.css';
+const LINKED_CSS_ID = '\0gss-l:stylesheet.css';
+export const STYLESHEET_URL_IMPORT = 'virtual:gss.css?url';
+export const STYLESHEET_URL_ID = '\0gss-l:stylesheet-url';
 
 export function resolveCentralCssId(id: string): string | undefined {
   const [path, query] = id.split('?');
-  if (path !== CENTRAL_CSS_URL && path !== CENTRAL_CSS_ID) return undefined;
-  return CENTRAL_CSS_ID + (query === undefined ? '' : `?${query}`);
+  const resolved = path === CENTRAL_CSS_URL || path === CENTRAL_CSS_ID ? CENTRAL_CSS_ID
+    : path === LINKED_CSS_URL || path === LINKED_CSS_ID ? LINKED_CSS_ID : undefined;
+  return resolved === undefined ? undefined : resolved + (query === undefined ? '' : `?${query}`);
 }
 
 export function toVirtualGssId(physicalId: string): string {

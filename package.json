@@ -13,6 +13,7 @@
     "test": "pnpm -r --sort --if-present run test",
     "typecheck": "pnpm -r --sort --if-present run typecheck",
     "verify": "pnpm lint && pnpm build && pnpm test && pnpm typecheck",
+    "framework-ssr:check": "pnpm build && pnpm --filter @gss-l/testing framework-ssr:check",
     "vite-template:check": "pnpm build && pnpm --filter @gss-l/testing vite-template:check",
     "playground": "pnpm build && pnpm --filter @gss-l/testing playground",
     "playground:build": "pnpm build && pnpm --filter @gss-l/testing playground:build",

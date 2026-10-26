@@ -41,6 +41,8 @@ corepack pnpm article
 
 官方 create-vite React TS 的 workspace 外 tarball 消费验收：`corepack pnpm vite-template:check`。已验证 Vite 8.3.5 与 React Router 8.5.0 Declarative／BrowserRouter 的有界 Chromium 客户端路由路径，workspace 仍保留 Vite 7；接入步骤与限制见 [模板验收](docs/VITE-TEMPLATE-ACCEPTANCE.md)。
 
+React Router Framework Mode 的真实 SSR 外部验收：`corepack pnpm framework-ssr:check`。通过公共 `virtual:gss.css?url` 与框架正常 `links()` 连接 aggregate CSS；版本、接入步骤及 Chromium 有界范围见 [Framework SSR 验收](docs/FRAMEWORK-SSR-ACCEPTANCE.md)。
+
 ## 使用边界
 
 这是有明确准入与 fallback 契约的实现，不是“任意 CSS 都能安全原子化”的承诺。普通场景使用独立编写的原生 CSS 对照；GSS 所有权／结构语义允许与原生 source order 不同，应使用明确的 GSS 预期。

@@ -1,5 +1,5 @@
 import type { UpdatePayload, ViteDevServer, WebSocket } from 'vite';
-import { CENTRAL_CSS_URL, resolveCentralCssId } from './virtual-id.js';
+import { CENTRAL_CSS_URL, LINKED_CSS_URL, resolveCentralCssId } from './virtual-id.js';
 
 /** One stylesheet owner, refreshed through Vite's native link/CSS HMR transport. */
 export function createDevCssOwner(server: ViteDevServer, readCss: () => string) {
@@ -7,28 +7,30 @@ export function createDevCssOwner(server: ViteDevServer, readCss: () => string) 
   let timestamp = 0;
   const { moduleGraph, hot } = server.environments.client!;
 
-  function refresh(): UpdatePayload | undefined {
+  function refresh(synchronizeOnly = false): UpdatePayload | undefined {
     timestamp = Math.max(Date.now(), timestamp + 1);
-    let hasLink = false;
+    const paths = new Set<string>();
     for (const [id, module] of moduleGraph.idToModuleMap) {
       if (!resolveCentralCssId(id)) continue;
       moduleGraph.invalidateModule(module, new Set(), timestamp, true);
-      hasLink ||= module.type === 'css';
+      if (module.type !== 'css') continue;
+      const linked = id.split('?')[0] === resolveCentralCssId(LINKED_CSS_URL);
+      // Initial socket synchronization must not mutate framework-owned SSR hrefs before hydration.
+      if (!synchronizeOnly || !linked) paths.add(linked ? LINKED_CSS_URL : CENTRAL_CSS_URL);
     }
-    if (!hasLink || server.config.server.hmr === false) return;
+    if (paths.size === 0 || server.config.server.hmr === false) return;
     return {
       type: 'update',
-      updates: [{
-        type: 'css-update', path: CENTRAL_CSS_URL,
-        acceptedPath: CENTRAL_CSS_URL, timestamp
-      }]
+      updates: [...paths].map((path) => ({
+        type: 'css-update', path, acceptedPath: path, timestamp
+      }))
     };
   }
 
   // Initial module discovery can finish before the browser's HMR socket connects.
   // Resend the current snapshot to that client; no custom browser runtime is needed.
   function synchronize(socket: Pick<WebSocket, 'send'>) {
-    const payload = refresh();
+    const payload = refresh(true);
     if (payload) socket.send(JSON.stringify(payload));
   }
   server.ws.on('connection', synchronize);

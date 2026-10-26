@@ -18,6 +18,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p playground/tsconfig.json && tsc -p acceptance/task-board/tsconfig.json && tsc -p acceptance/article/tsconfig.json",
     "browser:reference": "vite browser --host 127.0.0.1 --port 4178 --strictPort",
     "browser:check": "node browser/check.mjs",
+    "framework-ssr:check": "node acceptance/framework-ssr/check.mjs",
     "vite-template:check": "node acceptance/vite-template/check.mjs",
     "playground": "vite playground",
     "playground:build": "vite build playground",

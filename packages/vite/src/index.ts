@@ -1,4 +1,5 @@
 import { readFile, realpath } from 'node:fs/promises';
+import { posix } from 'node:path';
 import {
   createGssCompilerSession,
   type GssCompilerSession,
@@ -7,10 +8,10 @@ import {
   type ReplaceStylesheetResult
 } from '@gss-l/compiler';
 import { isFileLoadingAllowed, normalizePath, type Plugin, type Rollup, type ViteDevServer } from 'vite';
-import { CENTRAL_CSS_URL, fromVirtualGssId, resolveCentralCssId, toVirtualGssId } from './virtual-id.js';
+import { CENTRAL_CSS_URL, LINKED_CSS_URL, STYLESHEET_URL_IMPORT, STYLESHEET_URL_ID, fromVirtualGssId, resolveCentralCssId, toVirtualGssId } from './virtual-id.js';
 import { hasCentralStylesheet } from './central-html.js';
 import { createDevCssOwner } from './dev-css.js';
-import { emitProductionSnapshot } from './production-output.js';
+import { emitProductionSnapshot, emitProductionMetadata, linkProductionStylesheet } from './production-output.js';
 import { reachableModuleIds } from './production-census.js';
 import { emitProductionAssets, isProductionStylesheet, type ProductionStylesheet } from './production-assets.js';
 import { readStylesheetAssets, type StylesheetAsset } from './stylesheet-assets.js';
@@ -22,7 +23,7 @@ export type GssOptions = { adapter: GssSourceAdapter };
 
 const STYLESHEET_META = 'gss-l:stylesheet';
 
-export function gss({ adapter }: GssOptions): Plugin {
+export function gss({ adapter }: GssOptions): Plugin[] {
   if (!adapter) throw new Error('gss({ adapter }) requires an explicit framework Adapter.');
   let session: GssCompilerSession;
   let projectRoot = '';
@@ -35,6 +36,8 @@ export function gss({ adapter }: GssOptions): Plugin {
   let devServer: ViteDevServer | undefined;
   let centralCssHref = CENTRAL_CSS_URL;
   let base = '/';
+  let stylesheetReference: string | undefined;
+  let explicitSnapshot: ReturnType<typeof emitProductionSnapshot> | undefined;
   let cssOwner: ReturnType<typeof createDevCssOwner> | undefined;
   let assetOwner: ReturnType<typeof createDevAssetOwner> | undefined;
   const trackedStylesheets = new Set<string>();
@@ -115,7 +118,41 @@ export function gss({ adapter }: GssOptions): Plugin {
     return { artifact: result.module, source: result.source, assets: result.assets };
   }
 
-  return {
+  function stylesheetUrlModule(context: Rollup.PluginContext): string {
+    if (development) return `export default ${JSON.stringify(`${base}${LINKED_CSS_URL.slice(1)}`)};`;
+    // Native forward reference: Rolldown cannot defer an emitted asset's source.
+    stylesheetReference ??= context.emitFile({ type: 'asset', name: 'gss-url-placeholder', source: '' });
+    return `export default import.meta.ROLLUP_FILE_URL_${stylesheetReference};`;
+  }
+
+  function emitSnapshot(context: Rollup.PluginContext, bundle: Rollup.OutputBundle, deferMetadata = false) {
+    // Replay only the final graph's source snapshots, including Rollup-cached Modules.
+    // Do not read files here: CSS must match the JavaScript generated for this build.
+    session = newSession();
+    let count = 0;
+    if (compatibilityError && reachableModuleIds(context).some((id) => fromVirtualGssId(id))) {
+      context.error(`GSS cannot follow Vite CSS targets: ${compatibilityError}`);
+    }
+    const assets: StylesheetAsset[] = [];
+    for (const id of reachableModuleIds(context)) {
+      const physicalId = fromVirtualGssId(id);
+      const info = context.getModuleInfo(id);
+      if (!physicalId || info?.isExternal) continue;
+      const metadata: unknown = info?.meta[STYLESHEET_META];
+      if (!isProductionStylesheet(metadata)) context.error(`Missing GSS source snapshot for ${physicalId}.`);
+      assets.push(...metadata.assets);
+      const result = session.replaceStylesheet({ id: physicalId, source: metadata.source, assetReferences: metadata.assets });
+      reportDiagnostics(context, result.diagnostics, { id: physicalId, source: metadata.source });
+      if (!result.committed) context.error('GSS census compilation failed.');
+      count += 1;
+    }
+    if (count === 0 && !stylesheetReference) return;
+    const resolveAssetUrl = emitProductionAssets(context, assets, base);
+    return emitProductionSnapshot(context, bundle, (cssFileName) =>
+      session.finalize({ resolveAssetUrl: resolveAssetUrl(cssFileName) }), base, deferMetadata);
+  }
+
+  const plugin: Plugin = {
     name: 'gss-l',
     enforce: 'pre',
     async configResolved(config) {
@@ -144,45 +181,42 @@ export function gss({ adapter }: GssOptions): Plugin {
     buildStart() {
       if (development) return;
       session = newSession();
+      stylesheetReference = undefined;
+      explicitSnapshot = undefined;
       latest.clear();
       trackedStylesheets.clear();
       sourceDependencies.clear();
       cachedStylesheets.clear();
     },
     shouldTransformCachedModule({ id }) {
+      if (id === STYLESHEET_URL_ID) return true;
       if (!development && fromVirtualGssId(id)) {
         cachedStylesheets.add(id);
         return true;
       }
     },
+    renderStart() {
+      if (development || !stylesheetReference) return;
+      // Wait for the full graph, including lazy Modules, before finalizing the href asset.
+      explicitSnapshot = emitSnapshot(this, {}, true);
+    },
+    resolveFileUrl({ referenceId, chunkId }) {
+      if (referenceId !== stylesheetReference || !explicitSnapshot) return null;
+      const fileName = explicitSnapshot.cssAsset;
+      const relativePath = posix.relative(posix.dirname(chunkId), fileName);
+      if (base === '' || base === './') {
+        return `new URL(${JSON.stringify(relativePath)}, import.meta.url).href`;
+      }
+      return JSON.stringify(base + fileName.split('/').map(encodeURIComponent).join('/'));
+    },
     generateBundle: {
       order: 'post',
       handler(_options, bundle) {
         if (development) return;
-        // Replay only the final graph's source snapshots, including Rollup-cached Modules.
-        // Do not read files here: CSS must match the JavaScript generated for this build.
-        session = newSession();
-        let count = 0;
-        if (compatibilityError && reachableModuleIds(this).some((id) => fromVirtualGssId(id))) {
-          this.error(`GSS cannot follow Vite CSS targets: ${compatibilityError}`);
-        }
-        const assets: StylesheetAsset[] = [];
-        for (const id of reachableModuleIds(this)) {
-          const physicalId = fromVirtualGssId(id);
-          const info = this.getModuleInfo(id);
-          if (!physicalId || info?.isExternal) continue;
-          const metadata: unknown = info?.meta[STYLESHEET_META];
-          if (!isProductionStylesheet(metadata)) this.error(`Missing GSS source snapshot for ${physicalId}.`);
-          assets.push(...metadata.assets);
-          const result = session.replaceStylesheet({ id: physicalId, source: metadata.source, assetReferences: metadata.assets });
-          reportDiagnostics(this, result.diagnostics, { id: physicalId, source: metadata.source });
-          if (!result.committed) this.error('GSS census compilation failed.');
-          count += 1;
-        }
-        if (count === 0) return;
-        const resolveAssetUrl = emitProductionAssets(this, assets, base);
-        emitProductionSnapshot(this, bundle, (cssFileName) =>
-          session.finalize({ resolveAssetUrl: resolveAssetUrl(cssFileName) }), base);
+        if (explicitSnapshot) {
+          emitProductionMetadata(this, bundle, explicitSnapshot.metadata);
+          linkProductionStylesheet(bundle, explicitSnapshot.cssAsset, base);
+        } else emitSnapshot(this, bundle);
       }
     },
     configureServer(server) {
@@ -261,7 +295,8 @@ export function gss({ adapter }: GssOptions): Plugin {
     transformIndexHtml: {
       order: 'post',
       handler(html) {
-        if (!development || hasCentralStylesheet(html, centralCssHref)) return html;
+        if (!development || hasCentralStylesheet(html, centralCssHref) ||
+          hasCentralStylesheet(html, `${base}${LINKED_CSS_URL.slice(1)}`)) return html;
         return [{
           tag: 'link',
           attrs: { rel: 'stylesheet', href: centralCssHref, 'data-gss-dev': '' },
@@ -270,6 +305,7 @@ export function gss({ adapter }: GssOptions): Plugin {
       }
     },
     async resolveId(source, importer) {
+      if (source === STYLESHEET_URL_IMPORT || source === STYLESHEET_URL_ID) return STYLESHEET_URL_ID;
       if (development && resolveCentralCssId(source)) return resolveCentralCssId(source);
       if (fromVirtualGssId(source)) return source;
       if (!source.endsWith('.gss') || source.startsWith('\0')) return null;
@@ -278,6 +314,7 @@ export function gss({ adapter }: GssOptions): Plugin {
       return toVirtualGssId(normalizePath(await realpath(resolved.id)));
     },
     async load(id) {
+      if (id === STYLESHEET_URL_ID) return stylesheetUrlModule(this);
       if (development && resolveCentralCssId(id)) return readDevCss();
       const physicalId = fromVirtualGssId(id);
       if (!physicalId) return null;
@@ -289,6 +326,7 @@ export function gss({ adapter }: GssOptions): Plugin {
       };
     },
     async transform(source, id) {
+      if (id === STYLESHEET_URL_ID) return { code: stylesheetUrlModule(this), map: null };
       const physicalId = fromVirtualGssId(id);
       if (physicalId && cachedStylesheets.delete(id)) {
         this.addWatchFile(physicalId);
@@ -329,4 +367,32 @@ export function gss({ adapter }: GssOptions): Plugin {
       return { code: result.code, ...(result.map ? { map: JSON.stringify(result.map) } : {}) };
     }
   };
+  return [plugin, {
+    name: 'gss-l:stylesheet-url-output',
+    generateBundle: {
+      order: 'pre',
+      handler(_options, bundle) {
+        if (!explicitSnapshot) return;
+        // Remove speculative outputs before native manifests inspect the asset graph.
+        if (stylesheetReference) {
+          const placeholder = this.getFileName(stylesheetReference);
+          const referenceAsset = bundle[placeholder];
+          if (referenceAsset?.type === 'asset' && referenceAsset.names.every((name) => name === 'gss-url-placeholder') &&
+            referenceAsset.originalFileNames.length === 0) delete bundle[placeholder];
+          for (const entry of Object.values(bundle)) {
+            if (entry.type === 'chunk' && entry.referencedFiles) {
+              entry.referencedFiles = [...new Set(entry.referencedFiles.flatMap((file) =>
+                file !== placeholder ? [file] : bundle[placeholder]
+                  ? [file, explicitSnapshot!.cssAsset] : [explicitSnapshot!.cssAsset]))];
+            }
+          }
+        }
+        for (const file of explicitSnapshot.discarded) {
+          const entry = bundle[file];
+          if (file !== explicitSnapshot.cssAsset && entry?.type === 'asset' &&
+            entry.names.every((name) => name === 'gss.css') && entry.originalFileNames.length === 0) delete bundle[file];
+        }
+      }
+    }
+  }];
 }

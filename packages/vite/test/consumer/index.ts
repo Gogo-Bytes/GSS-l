@@ -19,3 +19,7 @@ void nestedClassName;
 
 // @ts-expect-error Scope exports are read-only.
 styles.card = styles.other;
+
+import stylesheetHref from 'virtual:gss.css?url';
+const href: string = stylesheetHref;
+void href;
