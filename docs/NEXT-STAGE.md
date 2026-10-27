@@ -71,7 +71,7 @@ owner 已确认：既有语义高度优先，同高度潜在竞争属性固定�
 
 ## 后续工作顺序
 
-本次规划授权的是整理与排序，不自动恢复 Firefox Article／性能，也不启动新框架、验收场景或能力扩展。下一轮工程目标建议为：**受支持编辑路径下的会话事务与资源生命周期一致性**，不重做已经完成的 CSS 排序核查。
+owner 已批准并完成以下 1–4 的一次有界工程核查：**受支持编辑路径下的会话事务与资源生命周期一致性**。未找到新的受支持契约反例，故本轮仅记录核查与验证，不新增实现／测试，不重做已完成的 CSS 排序核查，也不恢复 Firefox Article／性能或扩展框架与能力。
 
 ### 1. 第一优先：会话事务／恢复的一次有界核查
 
@@ -95,6 +95,16 @@ owner 已确认：既有语义高度优先，同高度潜在竞争属性固定�
 实际修复运行相关测试和全仓 `verify`；浏览器行为／宿主输出改变时按既有入口执行受影响 gate，保留独立 oracle、精确图像和失败记录。通过后 commit/push main；报告问题、范围、检查和剩余限制。
 
 两处有界核查结束后，没有具体缺陷就结束本轮。Firefox Article、性能、跨模块语义、新能力和发布均保持下方授权边界，不自动成为下一项。
+
+### 本轮执行结果（基线 `e1cbcdf`）
+
+- **会话事务／恢复**：读现有 `compiler-session`、`session-convergence`、`dev-css`、`stylesheet-url` 测试及对应实现。编译器仅在 prepare 与资源冲突检查成功后替换 contribution／递增 generation；失败不替换 CSS、scope schema 或 module export，恢复重新生成 rank／scope。Vite 仅为最新成功 replacement 更新资源快照，失败保留 LKG，identical-byte recovery 仍发 native CSS update。未发现反例。
+- **比较范围**：现有 convergence 比较完整 CSS、manifest（含 selector、importance、来源）与 report，并单独检查 generation；target-aware 路径另比较 schema。通用 `withoutGeneration` **不含 sourceMap**，也不逐步比较所有 moduleCode／declarationCode／诊断，不将其描述成所有公共字段的全覆盖。已有失败快照断言包含 sourceMap，Unicode 顺序测试包含 map；production-assets 的 watch／fresh 对照比较完整 manifest、CSS、map、report，另有独立字面资源／所有者预期。未因覆盖缺口自行新增测试。
+- **资源／输出**：读 compiler `stylesheet-assets`／`asset-values` 与 Vite `stylesheet-assets`、`dev-assets`、`production-assets`、`production-census`、`production-output` 及插件编排。核对已有绑定／别名、失败资源更新、共享注册所有者变化、资源字节快照、static／lazy census、CSS href／hash／manifest。dev 保留一代旧资源、30 秒后退休是现有 in-flight 处理；preserved fallback 中仍有 URL 不是缺陷。未发现反例；aggregate CSS 与既有 graph 边界不变。
+- **检查**：四组定向执行共 **339** 项通过（241 会话／收敛、28 dev-CSS／URL、27 compiler-assets、43 Vite-assets／census）。另运行 `corepack pnpm verify`：Compiler 1580、React 49、Vite 161、Testing 334，共 **2124** 项及 lint／build／types 通过。命令与原始日志、检查笔记在 `artifacts/lifecycle-consistency/`（01–05 logs、`inspection.md`）。没有新缺陷，red→green 不适用。
+- **readiness 与停止点**：只复核已保存的 core-consistency browser initial／final 成功日志与现有 STATUS 的历史未归因记录；成功不能解释旧 120 秒超时。本轮定向检查无 timeout，不启动新 browser／外部 SPA／SSR 或 flake 采样。仅文档变动，不涉及宿主／URL 输出或排序，故不重跑其浏览器 gate。
+
+两处有界核查已结束；结果是**所读实现与既有测试输入未找到反例**，不是全 CSS、所有编辑时序或所有资源组合的正确性证明。无新实现待推进；下一产品目标未指定时停止，不从下表自动取任务。提交／推送由本轮 parent 在独立审查后处理。
 
 ## 不属于当前代办的事项
 

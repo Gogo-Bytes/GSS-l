@@ -8,7 +8,19 @@
 
 owner 已决定有限 MVP 结项，已批准并完成官方 create-vite React TS 外部消费、Vite 8 实验及同模板 React Router Declarative／BrowserRouter 客户端路由验收。最新基础验证为 2124 项测试通过；Browser oracle 为 125 fixtures／1267 comparisons／38 controls，Playground 同范围通过。另已按 owner 授权完成 React Router Framework Mode 的有界 request-time SSR 实验；不覆盖历史 Firefox 失败或通用／完整 SSR。
 
-owner 最新决定是**不再新增框架或验收场景**，当前转为现有能力一致性与真实缺陷驱动的收敛，不继续扩大矩阵。隐式 className 类型、native marker 策略和公共 stylesheet URL／插件数组返回值均已决策；不重复要求 owner 重选。property effects、selector marker 与统一排序的本轮核查均已交付。后续建议一次有界的会话事务／恢复及资源输出一致性核查，仅在找到具体反例后修复，必要回归复用已有测试载体；遗留问题分类、完成标准与授权边界见 [当前计划](NEXT-STAGE.md#遗留问题清单)。未覆盖组合不自动算作缺陷，也不自动授权扩语法或 fallback。
+owner 最新决定是**不再新增框架或验收场景**，当前转为现有能力一致性与真实缺陷驱动的收敛，不继续扩大矩阵。隐式 className 类型、native marker 策略和公共 stylesheet URL／插件数组返回值均已决策；不重复要求 owner 重选。property effects、selector marker 与统一排序的本轮核查均已交付。owner 批准的会话事务／恢复及资源输出一致性一次有界核查已完成，未找到受支持契约的新反例，本轮仅更新记录；遗留问题分类、完成标准与授权边界见 [当前计划](NEXT-STAGE.md#遗留问题清单)。未覆盖组合不自动算作缺陷，也不自动授权扩语法或 fallback。
+
+## 会话事务／资源生命周期有界核查
+
+基于 `e1cbcdf`，按 [计划 1–4](NEXT-STAGE.md#后续工作顺序) 先读现有测试与实现，再执行定向检查；没有新增运行时代码、测试、fixture、配置或公共契约。
+
+- 会话入口：`compiler-session` 的 prepare／commit／finalize 与对应测试、`session-convergence`；宿主入口：Vite 插件 replacement 编排、`dev-css`、`stylesheet-url`。失败贡献在 commit 前退出，已提交 schema／CSS／export 不被替换；rank／scope 为新 contribution 局部数据。最新 task 身份防止旧异步读取反向覆盖；成功恢复清除失败标记，identical-byte recovery 仍更新 native CSS owner。既有输入未复现污染或恢复遗留。
+- 资源入口：compiler `stylesheet-assets`／`asset-values` 与 Vite `stylesheet-assets`、`dev-assets`、`production-assets`、`production-census`、`production-output` 及已有测试。核对绑定身份、共享资源所有者、失败时字节快照保留、成功替换、static／lazy 可达集、aggregate CSS href／hash／manifest；未发现违约。dev 的一代旧 URL／30 秒退休保留既有 in-flight 契约，fallback 保留 URL 不构成问题。
+- 断言不是只比较数量：convergence 比较 CSS、完整 manifest／report、单独 generation，target-aware 路径另比较 schema；但通用 helper 不比较 sourceMap，也不穷举每步 module code／诊断。已有失败全快照与 Unicode 顺序断言含 map，production watch／fresh 比较 manifest／CSS／map／report 并有独立字面预期。此处记录覆盖限制，不把未测组合认作 bug 或为扩覆盖新增测试。
+- 四组定向检查 **339** 项通过；`corepack pnpm verify` 在重新 build 后再次覆盖这些测试，共 **2124** 项（1580／49／161／334）及 lint／build／types 通过。原始日志 `artifacts/lifecycle-consistency/01-session-baseline.log` 至 `05-verify.log`，详细检查及证据索引 `inspection.md`。无反例，无 root-cause fix／red→green。
+- 仅复核已保存的 core-consistency browser initial／final 成功日志及历史 readiness 未归因记录；没有据通过样本宣称因果修复。本轮无 timeout，不新增采样或 browser／外部 SPA／SSR 执行。代码／宿主输出／排序均未改，无受影响浏览器 gate；历史浏览器证据仍是历史证据。
+
+本轮已按两处有界核查的停止标准结束，不证明任意 CSS、并发时序或资源组合正确；`.gss` 删除、reload／state 保证、跨模块优先级、Firefox Article、性能及发布边界不变。下一目标需新任务，不自动扩大审计。
 
 ## 本轮核心一致性修复
 
