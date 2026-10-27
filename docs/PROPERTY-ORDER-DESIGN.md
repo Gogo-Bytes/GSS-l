@@ -48,7 +48,7 @@ GSS 将样式编译为可复用的 atom class，并允许同一模块的多个 s
 
 当前已实现有界的静态 `margin`／`padding` 展开：在无需 compatibility 变换、所有属性已登记且全部为普通 ownership 规则的模块中，同一规则包含 shorthand 和对应的物理 longhand 时，或无条件／未分层的单节点 scope 之间存在物理 longhand 竞争时，可将 1–4 个静态 `px` 值或无单位零组成的 shorthand 展开；`padding` 只处理无负号的值，`margin` 允许负值。跨 scope 切片要求所有相关 shorthand／longhand 值均可安全处理，且模块不含其他可能重叠的属性；同一规则切片继续沿用自己的准入条件。展开保留原始声明的位置，selector-list 分支共享声明身份；覆盖仍遵循重要性及相应语义和源码顺序。单独且无竞争的 shorthand、其他值／选择器、兼容性和整模块 fallback 暂沿用原路径。独立同属性 rank、跨规则普遍展开和其他 shorthand 未完成。
 
-已知现状：对未展开的无效静态负 padding，既有路径可能错误地将后写的无效 shorthand 当作覆盖，例如 `padding-left: 9px; padding: -1px` 原生值为 9px、当前 GSS 为 0px。此问题在三引擎复现，新展开并未修复；有关是否改变旧路径的确认与证据见 [当前计划](NEXT-STAGE.md)。
+无效值决策：owner 已批准修复已复现的静态负 `px` padding 误剪枝。对于无需 compatibility、属性均已登记且没有 external target／condition 的模块，原子规划前忽略可确定无效的物理／逻辑 padding shorthand 和 longhand；重复声明和逻辑／物理冲突检查使用过滤后、尚未展开的规则，避免确定无效的声明触发误报；有效重复声明仍沿用既有诊断。`-0` 是合法零值，不忽略。仅当各组成值都是已识别的静态 `px`／无单位零且含真正负 `px` 时判无效；其他单位、复杂值和 `var()` 沿用原路径。compatibility 和整模块 preserved fallback 保留原声明及既有行为，除移除无效声明造成的冲突外，既有有效输入准入边界保持不变。重现与验证见 [当前计划](NEXT-STAGE.md)。
 
 ### 安全展开的边界
 

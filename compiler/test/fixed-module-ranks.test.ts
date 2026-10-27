@@ -141,14 +141,86 @@ it.each([false, true])('preserves padding order across simple scopes (%s)', (rev
     .toEqual(reverse ? ['9px', '2px'] : ['2px', '9px']);
 });
 
-it.each(['-1px', '1px -2px', 'var(--space)', 'calc(1px + 2px)', '1.px'])('does not expand unsafe padding shorthand %s', (value) => {
+it.each(['var(--space)', 'calc(1px + 2px)', '1.px'])('does not expand unsafe padding shorthand %s', (value) => {
   const session = compile(`.a { padding: ${value}; padding-left: 2px; }`);
   expect(rulesFor(session, ['a']).map((rule) => rule.property)).toEqual(['padding', 'padding-left']);
 });
 
-it('does not expand padding when an affected longhand is negative', () => {
-  const session = compile('.a { padding: 1px; padding-left: -2px; }');
-  expect(rulesFor(session, ['a']).map((rule) => rule.property)).toEqual(['padding', 'padding-left']);
+it.each([
+  ['.a { padding-left: 9px; padding: -1px; }', 'padding-left', '9px'],
+  ['.a { padding-left: 9px; padding: 1px -2px; }', 'padding-left', '9px'],
+  ['.a { padding: 1px; padding-left: -2px; }', 'padding', '1px'],
+  ['.a { padding-left: 9px; padding: -1px !important; }', 'padding-left', '9px']
+])('ignores provably invalid static negative padding: %s', (source, property, value) => {
+  const session = compile(source);
+  expect(rulesFor(session, ['a']).map((rule) => [rule.property, rule.value])).toEqual([[property, value]]);
+});
+
+it('keeps valid negative zero and leaves var() pending at computed-value time', () => {
+  const zero = compile('.a { padding-left: 9px; padding: -0px; }');
+  expect(rulesFor(zero, ['a']).some((rule) => rule.value === '-0px')).toBe(true);
+  expect(rulesFor(zero, ['a']).some((rule) => rule.value === '9px')).toBe(false);
+  const variable = compile('.a { padding-left: 9px; padding: var(--missing); }');
+  expect(rulesFor(variable, ['a']).map((rule) => rule.property)).toEqual(['padding']);
+});
+
+it.each(['padding-inline', 'padding-block'])('ignores invalid static negative %s shorthand', (property) => {
+  const side = `${property}-start`;
+  const session = compile(`.a { ${side}: 9px; ${property}: -1px; }`);
+  expect(rulesFor(session, ['a']).map((rule) => [rule.property, rule.value])).toEqual([[side, '9px']]);
+});
+
+it('ignores invalid padding before logical and physical conflict validation', () => {
+  const session = compile('.a { padding-inline-start: 3px; padding: -1px; }');
+  expect(rulesFor(session, ['a']).map((rule) => [rule.property, rule.value])).toEqual([['padding-inline-start', '3px']]);
+  const stillConflicting = createGssCompilerSession({ projectRoot: '/project' });
+  expect(stillConflicting.replaceStylesheet({ id: '/project/Fixed.gss', source: '.a { margin-inline-start: 1px; margin: 2px; padding: -1px; }' }))
+    .toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1206' }] });
+});
+
+it.each([
+  '.a { padding: -1px; padding: 1px; }',
+  '.a { padding: 1px; padding: -1px; }',
+  '.a { padding-left: -1px; padding-left: 1px; }',
+  '.a { padding-left: 1px; padding-left: -1px; }'
+])('ignores invalid declarations before duplicate validation: %s', (source) => {
+  const session = compile(source);
+  expect(rulesFor(session, ['a']).map((rule) => rule.value)).toEqual(['1px']);
+});
+
+it('still rejects duplicate valid padding declarations', () => {
+  const session = createGssCompilerSession({ projectRoot: '/project' });
+  expect(session.replaceStylesheet({ id: '/project/Fixed.gss', source: '.a { padding: 1px; padding: 2px; }' }))
+    .toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1204' }] });
+});
+
+it('retains unknown and var-based padding values for browser evaluation', () => {
+  for (const value of ['-1px var(--size)', 'calc(-1px)', '-1em']) {
+    const session = compile(`.a { padding: ${value}; }`);
+    expect(rulesFor(session, ['a']).map((rule) => rule.value)).toEqual([value]);
+  }
+});
+
+it('ignores proven invalid padding under runtime state and keeps its scope', () => {
+  const session = compile('.a:hover { padding-left: 9px; padding: -1px; }');
+  expect(session.finalize().manifest.rules.map((rule) => [rule.property, rule.value])).toEqual([['padding-left', '9px']]);
+  expect(session.getScopeSchema('/project/Fixed.gss')!.exports.a).toBeDefined();
+});
+
+it('retains selector-list scopes even when their only declaration is invalid', () => {
+  const session = compile('.a, .b { padding: -1px; }');
+  expect(session.finalize().manifest.rules).toEqual([]);
+  expect(Object.keys(session.getScopeSchema('/project/Fixed.gss')!.exports).sort()).toEqual(['a', 'b']);
+});
+
+it('retains invalid padding in preserved fallback and compatibility paths', () => {
+  const preserved = createGssCompilerSession({ projectRoot: '/project' });
+  const result = preserved.replaceStylesheet({ id: '/project/Fixed.gss', source: '.a { padding-left: 9px; padding: -1px; future-paint: red; }' });
+  expect(result.module?.compilationMode).toBe('preserved');
+  expect(preserved.finalize().css).toContain('padding: -1px;');
+  const compatible = createGssCompilerSession({ projectRoot: '/project', compatibilityTargetStages: [{ safari: '6.0' }] });
+  expect(compatible.replaceStylesheet({ id: '/project/Fixed.gss', source: '.a { padding-left: 9px; padding: -1px; }' }).committed).toBe(true);
+  expect(compatible.finalize().manifest.rules.some((rule) => rule.property === 'padding')).toBe(true);
 });
 
 it('retains padding shorthand when a cross-scope side is unsafe or a directional alias participates', () => {

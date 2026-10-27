@@ -15,7 +15,7 @@ import { classifyPropertyEffect, isRegisteredPropertyEffect } from '../domain/pr
 import { planDescendantConditions } from '../domain/plan-descendant-conditions.js';
 import { supportsCurrentBackgroundRanks } from '../domain/module-local-atom-ranks.js';
 import { planFixedModuleRanks } from '../domain/fixed-module-ranks.js';
-import { expandSafeBoxRules } from '../domain/expand-safe-box.js';
+import { discardInvalidStaticPadding, expandSafeBoxRules } from '../domain/expand-safe-box.js';
 import { planStructuralRelations } from '../domain/plan-structural-relations.js';
 import { resolveTargetDeclarations } from '../domain/resolve-target-declarations.js';
 import { compareCodeUnits } from '../domain/compare-code-units.js';
@@ -161,12 +161,13 @@ export function prepareContribution(
     suggestion: 'Use animation-name for the local keyframe and separate longhands for other animation components.'
   }] };
   const rewrittenRules = rewriteKeyframeReferences(parsed.rules, keyframeNames);
-  // Preserved/compatibility paths must keep authored declarations intact. The
-  // first expansion slice is restricted to modules guaranteed to stay atomic.
-  const semanticRules = !compatibility && rewrittenRules.every((rule) =>
-    rule.externalTarget === undefined && rule.externalCondition === undefined && isPureOwnershipRule(rule) &&
+  // Preserved/compatibility paths must keep authored declarations intact.
+  const atomicRules = !compatibility && rewrittenRules.every((rule) =>
+    rule.externalTarget === undefined && rule.externalCondition === undefined &&
     rule.declarations.every(({ property }) => isRegisteredPropertyEffect(property)))
-    ? expandSafeBoxRules(rewrittenRules) : rewrittenRules;
+    ? discardInvalidStaticPadding(rewrittenRules) : rewrittenRules;
+  const semanticRules = atomicRules !== rewrittenRules && atomicRules.every(isPureOwnershipRule)
+    ? expandSafeBoxRules(atomicRules) : atomicRules;
   const plannedResources = parsed.resources.map((resource) =>
     planResource(resource, moduleId, bindings, nameAllocator, compatibility));
   if (plannedResources.some((resource) => resource === undefined)) {
@@ -271,11 +272,11 @@ export function prepareContribution(
       }]
     };
   }
-  const declarationDiagnostics = validateDeclarationSequences(input.id, parsed.rules);
+  const declarationDiagnostics = validateDeclarationSequences(input.id, atomicRules);
   if (declarationDiagnostics.some(({ severity }) => severity === 'error')) {
     return { diagnostics: declarationDiagnostics };
   }
-  const logicalPhysicalDiagnostics = validateLogicalPhysicalConflicts(input.id, parsed.rules);
+  const logicalPhysicalDiagnostics = validateLogicalPhysicalConflicts(input.id, atomicRules);
   if (logicalPhysicalDiagnostics.some(({ severity }) => severity === 'error')) {
     return { diagnostics: logicalPhysicalDiagnostics };
   }

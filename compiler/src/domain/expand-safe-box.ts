@@ -6,6 +6,23 @@ const sides = ['top', 'right', 'bottom', 'left'] as const;
 // value evaluation. Unknown syntax and var() remain on the existing path.
 const length = /^(?:[+-]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)px|[+-]?0(?:\.0+)?)$/i;
 
+/** Discard only padding declarations proven invalid at parse time. A var()
+ * declaration is not invalid until computed-value time and must remain. */
+export function discardInvalidStaticPadding(rules: readonly ParsedStyleRule[]): readonly ParsedStyleRule[] {
+  return rules.map((rule) => {
+    const declarations = rule.declarations.filter(({ property, value }) => {
+      const max = property === 'padding' ? 4 :
+        property === 'padding-inline' || property === 'padding-block' ? 2 :
+        /^padding-(?:top|right|bottom|left|inline-start|inline-end|block-start|block-end)$/.test(property) ? 1 : 0;
+      if (!max) return true;
+      const values = value.trim().split(/\s+/);
+      if (values.length > max || !values.every((entry) => length.test(entry))) return true;
+      return !values.some((entry) => /px$/i.test(entry) && Number.parseFloat(entry) < 0);
+    });
+    return declarations.length === rule.declarations.length ? rule : { ...rule, declarations };
+  });
+}
+
 export function expandSafeBoxRules(rules: readonly ParsedStyleRule[]): readonly ParsedStyleRule[] {
   return (['margin', 'padding'] as const).reduce((current, property) => expandFamily(current, property), rules);
 }

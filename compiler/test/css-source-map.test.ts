@@ -276,3 +276,14 @@ it('maps cross-scope expanded padding atoms to their authored declarations', () 
     source: 'box.gss', line: 1, column: source.indexOf('padding-left:')
   });
 });
+
+
+it('maps the retained declaration after an invalid padding shorthand is ignored', () => {
+  const source = '.box { padding-left: 9px; padding: -1px; }';
+  const session = createGssCompilerSession({ projectRoot: '/project' });
+  expect(session.replaceStylesheet({ id: '/project/box.gss', source }).committed).toBe(true);
+  const snapshot = session.finalize();
+  expect(originalPositionFor(new TraceMap(snapshot.sourceMap), generatedPosition(snapshot.css, 'padding-left:'))).toMatchObject({
+    source: 'box.gss', line: 1, column: source.indexOf('padding-left:')
+  });
+});
