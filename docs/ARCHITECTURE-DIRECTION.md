@@ -1,6 +1,6 @@
 # 核心工作流与架构方向
 
-> 状态：目标与现状映射；owner 已要求开始推进。会话职责已完成第一步拆分，同规则 longhand 已有有界准入；独立 rank 与安全 shorthand 展开的完整目标尚未实施。当前运行行为以 [STATUS](STATUS.md) 和代码为准；进度与下一步见 [NEXT-STAGE](NEXT-STAGE.md)。
+> 状态：目标与现状映射；owner 已要求开始推进。会话职责和排序器语义高度已拆分，同规则 longhand 已有有界准入；独立 rank 与安全 shorthand 展开的完整目标尚未实施。当前运行行为以 [STATUS](STATUS.md) 和代码为准；进度与下一步见 [NEXT-STAGE](NEXT-STAGE.md)。
 
 ## 产品目标与现有边界
 

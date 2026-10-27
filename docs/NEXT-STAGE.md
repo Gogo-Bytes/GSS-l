@@ -6,6 +6,8 @@ owner 已要求开始推进核心架构与属性排序目标；[架构方向](AR
 
 已确认原生强度／上下文和已证明的所有权／结构语义优先，同语义高度时逻辑属性先、物理属性后；同属性 rank、shorthand 安全展开及跨属性排序与复用的完整算法尚需设计。不能安全展开的既有输入暂时沿用原 shorthand 处理和 fallback，不额外拒绝。owner 仍要求**不自行新增框架或验收场景**；保留独立 oracle、历史失败及现有验证边界。
 
+排序器职责拆分：将既有语义边和高度计算从 `fixed-module-ranks.ts` 移到 `semantic-order-heights.ts`，竞争族和 rank 编号策略不变；当前高度仍在 effect 重叠竞争族内计算，不是独立同属性 rank 的完成。排序、复用、逻辑／物理和收敛定向 236 项及 `verify` 2139 项、lint／build／types 通过；本次为行为保持式拆分，未重跑浏览器 gate。
+
 会话拆分检查：Compiler 会话、收敛、名称及 parser seam 共 249 项定向测试通过；`corepack pnpm verify` 的 lint、build、2124 项测试和 typecheck 通过。该切片没有修改 CSS 输出或宿主行为，未运行浏览器 gate。
 
 快照拆分：`finalize-snapshot.ts` 负责汇总已提交贡献、排序、CSS／map／manifest／report；`module-contribution.ts` 继续负责准备贡献，session 负责提交及失效。仅移动现有逻辑，未改排序或公开接口。会话、收敛、source map、资源及 `:has()` 共 291 项定向测试通过；`corepack pnpm verify` 共 2139 项及 lint／build／types 通过。输出逻辑未改，未重跑浏览器 gate。

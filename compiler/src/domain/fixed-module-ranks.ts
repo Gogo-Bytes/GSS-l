@@ -1,12 +1,10 @@
 import type { ParsedDeclaration, ParsedHasCondition, ParsedStyleRule } from './parsed-stylesheet.js';
 import type { DescendantInstance } from './plan-descendant-conditions.js';
-import { strictlyRefines } from './plan-structural-relations.js';
-import { matchesOwnedTarget } from './module-local-atom-ranks.js';
+import { semanticOrderHeights, type OrderOccurrence } from './semantic-order-heights.js';
 import { propertiesMayOverlapForModuleOrder, propertyOrderPriority, isPropertyOrderReuseBarrier } from './module-order-policy.js';
 
 type Instance = DescendantInstance<ParsedStyleRule> & { observation?: ParsedHasCondition };
-type Occurrence = { instance: Instance; declaration: ParsedDeclaration; index: number; key: string };
-const context = (target: readonly string[], source?: readonly string[]) => JSON.stringify([target, source]);
+type Occurrence = OrderOccurrence;
 
 /** Module-local effect-family order: semantic dependency height, fixed property priority, then original
  * authored occurrence. Source order is never a semantic edge. Contexts remain
@@ -27,24 +25,6 @@ export function planFixedModuleRanks(rules: readonly ParsedStyleRule[], instance
   const ranks = new Map<string, number>();
   const overlap = (a: Occurrence, b: Occurrence) =>
     propertiesMayOverlapForModuleOrder(a.declaration.property, b.declaration.property);
-  const opaque = (rule: ParsedStyleRule) => Boolean(rule.externalTarget || rule.externalCondition || rule.observations.some((parts) => parts.length));
-  const precedes = (a: Occurrence, b: Occurrence) => {
-    if (opaque(a.instance.rule) || opaque(b.instance.rule) || !overlap(a, b) ||
-      context(a.instance.targetPath) !== context(b.instance.targetPath)) return false;
-    // Predicate implication at a bound target cannot erase the broader rule's
-    // authored ownership requirement. An inherited .button:hover does not prove
-    // refinement of .root .button merely because both bind to root.button.
-    if (matchesOwnedTarget(a.instance.rule.path, b.instance.rule.path) && strictlyRefines(b.instance, a.instance)) return true;
-    // Equivalent predicates retain the owned-resolution specificity proof, including
-    // partially surviving shorthands whose emitted pure atom has specificity one.
-    return !strictlyRefines(a.instance, b.instance) &&
-      a.instance.rule.relations.every((relation) => relation === 'descendant') &&
-      b.instance.rule.relations.every((relation) => relation === 'descendant') &&
-      context(a.instance.targetPath, a.instance.sourcePath) === context(b.instance.targetPath, b.instance.sourcePath) &&
-      JSON.stringify(a.instance.rule.states[a.instance.sourceIndex] ?? []) === JSON.stringify(b.instance.rule.states[b.instance.sourceIndex] ?? []) &&
-      JSON.stringify(a.instance.rule.attributes[a.instance.sourceIndex] ?? []) === JSON.stringify(b.instance.rule.attributes[b.instance.sourceIndex] ?? []) &&
-      a.instance.specificity < b.instance.specificity;
-  };
   for (const first of occurrences) {
     if (!pending.delete(first)) continue;
     const family = [first];
@@ -60,20 +40,8 @@ export function planFixedModuleRanks(rules: readonly ParsedStyleRule[], instance
       }
     }
     if (new Set(family.map(({ declaration }) => declaration)).size < 2) continue;
-    const heights = new Map<Occurrence, number>();
-    const visiting = new Set<Occurrence>();
-    const height = (occurrence: Occurrence): number => {
-      const cached = heights.get(occurrence);
-      if (cached !== undefined) return cached;
-      if (visiting.has(occurrence)) throw new Error('Cyclic module semantic ordering constraints');
-      visiting.add(occurrence);
-      const value = family.filter((other) => precedes(other, occurrence))
-        .reduce((maximum, other) => Math.max(maximum, height(other) + 1), 0);
-      visiting.delete(occurrence);
-      heights.set(occurrence, value);
-      return value;
-    };
-    const compare = (a: Occurrence, b: Occurrence) => height(a) - height(b) ||
+    const heights = semanticOrderHeights(family);
+    const compare = (a: Occurrence, b: Occurrence) => heights.get(a)! - heights.get(b)! ||
       propertyOrderPriority(a.declaration.property) - propertyOrderPriority(b.declaration.property) ||
       a.instance.rule.sourceOrdinal - b.instance.rule.sourceOrdinal || a.index - b.index;
     family.sort(compare);
