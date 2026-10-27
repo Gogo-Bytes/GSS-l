@@ -118,6 +118,61 @@ it.each([
   expect(compile(source).finalize().manifest.rules.some((rule) => rule.property === 'margin')).toBe(true);
 });
 
+it.each([
+  ['1px', ['1px', '1px', '1px', '1px']],
+  ['1px 2px', ['1px', '2px', '1px', '2px']],
+  ['1px 2px 3px', ['1px', '2px', '3px', '2px']],
+  ['1px 2px 3px 4px', ['1px', '2px', '3px', '4px']]
+])('expands static padding %s and retains the later side and origins', (value, expected) => {
+  const source = `.a { padding: ${value}; padding-left: 9px; }`;
+  const rules = rulesFor(compile(source), ['a']);
+  for (const [index, side] of ['top', 'right', 'bottom', 'left'].entries()) {
+    const rule = rules.find((entry) => entry.property === `padding-${side}`)!;
+    expect(rule.value).toBe(side === 'left' ? '9px' : expected[index]);
+    expect(rule.origins[0]?.range.start).toBe(source.indexOf(side === 'left' ? 'padding-left:' : 'padding:'));
+  }
+});
+
+it.each([false, true])('preserves padding order across simple scopes (%s)', (reverse) => {
+  const authored = ['.a { padding: 1px 2px; }', '.b { padding-left: 9px; }'];
+  const session = compile((reverse ? authored.reverse() : authored).join(' '));
+  expect(rulesFor(session, ['a']).filter((rule) => rule.property.startsWith('padding-'))).toHaveLength(4);
+  expect(session.finalize().manifest.rules.filter((rule) => rule.property === 'padding-left').map((rule) => rule.value))
+    .toEqual(reverse ? ['9px', '2px'] : ['2px', '9px']);
+});
+
+it.each(['-1px', '1px -2px', 'var(--space)', 'calc(1px + 2px)', '1.px'])('does not expand unsafe padding shorthand %s', (value) => {
+  const session = compile(`.a { padding: ${value}; padding-left: 2px; }`);
+  expect(rulesFor(session, ['a']).map((rule) => rule.property)).toEqual(['padding', 'padding-left']);
+});
+
+it('does not expand padding when an affected longhand is negative', () => {
+  const session = compile('.a { padding: 1px; padding-left: -2px; }');
+  expect(rulesFor(session, ['a']).map((rule) => rule.property)).toEqual(['padding', 'padding-left']);
+});
+
+it('retains padding shorthand when a cross-scope side is unsafe or a directional alias participates', () => {
+  for (const source of [
+    '.a { padding: 1px; } .b { padding-left: -2px; }',
+    '.a { padding: 1px; } .b { padding-left: 2px; } .c { padding-inline-start: 3px; }'
+  ]) expect(compile(source).finalize().manifest.rules.some((rule) => rule.property === 'padding')).toBe(true);
+});
+
+it('retains padding shorthand during preserved fallback', () => {
+  const session = createGssCompilerSession({ projectRoot: '/project' });
+  const result = session.replaceStylesheet({ id: '/project/Fixed.gss', source: '.a { padding: 1px; } .b { padding-left: 2px; future-paint: red; }' });
+  expect(result.module?.compilationMode).toBe('preserved');
+  expect(session.finalize().css).toContain('padding: 1px;');
+});
+
+it('expands margin and padding independently without losing importance', () => {
+  const session = compile('.a { margin: -1px; margin-left: 2px; padding: 1px !important; padding-left: 2px; }');
+  const rules = rulesFor(session, ['a']);
+  expect(rules.find((rule) => rule.property === 'margin-top')?.value).toBe('-1px');
+  expect(rules.find((rule) => rule.property === 'margin-left')?.value).toBe('2px');
+  expect(rules.find((rule) => rule.property === 'padding-left')).toMatchObject({ value: '1px', important: true });
+});
+
 it('preserves authored shorthand precedence when var cannot be expanded', () => {
   const laterShorthand = compile('.a { margin-left: 9px; margin: var(--space); }');
   expect(rulesFor(laterShorthand, ['a']).map((rule) => [rule.property, rule.value])).toEqual([['margin', 'var(--space)']]);

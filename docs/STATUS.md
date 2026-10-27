@@ -5,11 +5,13 @@
 有限 MVP 的逐项目标进度及后续 `2f115b1` 基线上的基础验证、演示生产构建结果见 [MVP 进度](MVP-PROGRESS.md)。该核对未新增浏览器验收，也不将历史开放项改判为全部完成。
 
 
-目录迁移现状：产品代码位于 `compiler/`、`adapters/react/`、`integrations/vite/`、`types/`；测试基础设施位于 `tests/`，Playground 暂仍在其中。最新迁移验证和外部证据见 [当前计划](NEXT-STAGE.md)。同属性独立 rank 与完整安全 shorthand 展开仍未完成；静态 margin 同规则与跨单节点 scope 展开已有有界切片，范围见当前计划。
+目录迁移现状：产品代码位于 `compiler/`、`adapters/react/`、`integrations/vite/`、`types/`；测试基础设施位于 `tests/`，Playground 暂仍在其中。最新迁移验证和外部证据见 [当前计划](NEXT-STAGE.md)。同属性独立 rank 与完整安全 shorthand 展开仍未完成；静态 margin／padding 同规则与跨单节点 scope 展开已有有界切片，范围见当前计划。
+
+已复现的既有边界：`.a { padding-left: 9px; padding: -1px; }` 三引擎原生值为 9px，现有原子化路径为 0px；处理确认及证据见 [当前计划](NEXT-STAGE.md)。
 
 ## 当前阶段
 
-owner 已决定有限 MVP 结项，已批准并完成官方 create-vite React TS 外部消费、Vite 8 实验及同模板 React Router Declarative／BrowserRouter 客户端路由验收。最新基础验证为 2163 项测试通过；Browser oracle 为 125 fixtures／1267 comparisons／38 controls，Playground 同范围通过。另已按 owner 授权完成 React Router Framework Mode 的有界 request-time SSR 实验；不覆盖历史 Firefox 失败或通用／完整 SSR。
+owner 已决定有限 MVP 结项，已批准并完成官方 create-vite React TS 外部消费、Vite 8 实验及同模板 React Router Declarative／BrowserRouter 客户端路由验收。最新基础验证为 2179 项测试通过；Browser oracle 为 125 fixtures／1267 comparisons／38 controls，Playground 同范围通过。另已按 owner 授权完成 React Router Framework Mode 的有界 request-time SSR 实验；不覆盖历史 Firefox 失败或通用／完整 SSR。
 
 owner 已要求按整体规划推进核心架构与排序目标，确认更强 GSS 语义优先、同高度逻辑先／物理后；[架构方向](ARCHITECTURE-DIRECTION.md) 和 [属性排序设计](PROPERTY-ORDER-DESIGN.md) 区分目标与当前行为。会话提交／失效、贡献准备与快照汇总已分离；产品包已迁至 `compiler/`、`adapters/react/`、`integrations/vite/` 和 `types/`，测试基础设施已迁至 `tests/`，示例职责尚待整理。可原子化的 pure ownership 规则内及跨规则累积的已登记逻辑／物理 longhand 对已准入。preserved 模式、shorthand 及其他上下文仍可能报告 GSS1206，独立同属性 rank 与安全展开目标尚未完成。无法安全展开的既有输入暂时沿用当前 shorthand 处理和 fallback，不额外拒绝。
 

@@ -15,7 +15,7 @@ import { classifyPropertyEffect, isRegisteredPropertyEffect } from '../domain/pr
 import { planDescendantConditions } from '../domain/plan-descendant-conditions.js';
 import { supportsCurrentBackgroundRanks } from '../domain/module-local-atom-ranks.js';
 import { planFixedModuleRanks } from '../domain/fixed-module-ranks.js';
-import { expandSafeMarginRules } from '../domain/expand-safe-margin.js';
+import { expandSafeBoxRules } from '../domain/expand-safe-box.js';
 import { planStructuralRelations } from '../domain/plan-structural-relations.js';
 import { resolveTargetDeclarations } from '../domain/resolve-target-declarations.js';
 import { compareCodeUnits } from '../domain/compare-code-units.js';
@@ -166,7 +166,7 @@ export function prepareContribution(
   const semanticRules = !compatibility && rewrittenRules.every((rule) =>
     rule.externalTarget === undefined && rule.externalCondition === undefined && isPureOwnershipRule(rule) &&
     rule.declarations.every(({ property }) => isRegisteredPropertyEffect(property)))
-    ? expandSafeMarginRules(rewrittenRules) : rewrittenRules;
+    ? expandSafeBoxRules(rewrittenRules) : rewrittenRules;
   const plannedResources = parsed.resources.map((resource) =>
     planResource(resource, moduleId, bindings, nameAllocator, compatibility));
   if (plannedResources.some((resource) => resource === undefined)) {

@@ -259,3 +259,20 @@ it('maps cross-scope expanded margin atoms to the originating shorthand', () => 
     source: 'box.gss', line: 1, column: source.indexOf('margin-left:')
   });
 });
+
+
+it('maps cross-scope expanded padding atoms to their authored declarations', () => {
+  const source = '.a { padding: 1px 2px; } .b { padding-left: 9px; }';
+  const session = createGssCompilerSession({ projectRoot: '/project' });
+  expect(session.replaceStylesheet({ id: '/project/box.gss', source }).committed).toBe(true);
+  const snapshot = session.finalize();
+  const map = new TraceMap(snapshot.sourceMap);
+  for (const side of ['top', 'right', 'bottom', 'left']) {
+    expect(originalPositionFor(map, generatedPosition(snapshot.css, `padding-${side}:`))).toMatchObject({
+      source: 'box.gss', line: 1, column: source.indexOf('padding:')
+    });
+  }
+  expect(originalPositionFor(map, generatedPosition(snapshot.css, 'padding-left: 9px;'))).toMatchObject({
+    source: 'box.gss', line: 1, column: source.indexOf('padding-left:')
+  });
+});
