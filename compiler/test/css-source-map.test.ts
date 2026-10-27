@@ -243,3 +243,19 @@ it('restores expanded margin output after an invalid replacement', () => {
   expect(recovered.sourceMap).toEqual(initial.sourceMap);
   expect(recovered.manifest).toEqual(initial.manifest);
 });
+
+it('maps cross-scope expanded margin atoms to the originating shorthand', () => {
+  const source = '.a { margin: 1px 2px; } .b { margin-left: 9px; }';
+  const session = createGssCompilerSession({ projectRoot: '/project' });
+  expect(session.replaceStylesheet({ id: '/project/box.gss', source }).committed).toBe(true);
+  const snapshot = session.finalize();
+  const map = new TraceMap(snapshot.sourceMap);
+  for (const side of ['top', 'right', 'bottom', 'left']) {
+    expect(originalPositionFor(map, generatedPosition(snapshot.css, `margin-${side}:`))).toMatchObject({
+      source: 'box.gss', line: 1, column: source.indexOf('margin:')
+    });
+  }
+  expect(originalPositionFor(map, generatedPosition(snapshot.css, 'margin-left: 9px;'))).toMatchObject({
+    source: 'box.gss', line: 1, column: source.indexOf('margin-left:')
+  });
+});

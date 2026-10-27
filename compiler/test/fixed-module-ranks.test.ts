@@ -52,7 +52,7 @@ it('uses original declaration ordinals on every comma branch and retains shortha
   const nested = compile('.root .item { margin-left: 2px; } .item { margin: 1px; }');
   expect(rulesFor(nested, ['root', 'item']).map((rule) => rule.property)).toEqual(['margin', 'margin-left']);
   expect(rulesFor(nested, ['item']).map((rule) => rule.property)).toEqual(['margin']);
-  expect(compile('.a { margin-left: 2px; } .b { margin: 1px; }').finalize().manifest.rules.map((rule) => rule.property)).toEqual(['margin-left', 'margin']);
+  expect(compile('.a { margin-left: 2px; } .b { margin: 1px; }').finalize().manifest.rules.filter((rule) => rule.property === 'margin-left').map((rule) => rule.value)).toEqual(['2px', '1px']);
 });
 
 it.each([
@@ -88,6 +88,36 @@ it.each([false, true])('keeps expanded side ordering for composed scopes (%s)', 
   expect(emitted.findIndex((rule) => rule.className === a.className) < emitted.findIndex((rule) => rule.className === b.className)).toBe(!reverse);
 });
 
+it.each([false, true])('expands static margin across distinct scopes in authored order (%s)', (reverse) => {
+  const authored = ['.a { margin: 1px 2px; }', '.b { margin-left: 9px; }'];
+  const source = (reverse ? authored.reverse() : authored).join(' ');
+  const session = compile(source);
+  const a = rulesFor(session, ['a']);
+  expect(Object.fromEntries(a.map((rule) => [rule.property, rule.value]))).toEqual({
+    'margin-top': '1px', 'margin-right': '2px', 'margin-bottom': '1px', 'margin-left': '2px'
+  });
+  expect(a.every((rule) => rule.origins[0]?.range.start === source.indexOf('margin:'))).toBe(true);
+  expect(session.finalize().manifest.rules.filter((rule) => rule.property === 'margin-left').map((rule) => rule.value))
+    .toEqual(reverse ? ['9px', '2px'] : ['2px', '9px']);
+});
+
+it('retains shared selector-list membership after cross-scope expansion', () => {
+  const session = compile('.a, .b { margin: 1px; } .c { margin-left: 9px; }');
+  const a = rulesFor(session, ['a']);
+  const b = rulesFor(session, ['b']);
+  expect(a).toHaveLength(4);
+  expect(b.map((rule) => rule.className)).toEqual(a.map((rule) => rule.className));
+  expect(rulesFor(session, ['c']).map((rule) => [rule.property, rule.value])).toEqual([['margin-left', '9px']]);
+});
+
+it.each([
+  '.a { margin: var(--space); } .b { margin-left: 9px; }',
+  '.a { margin: 1px; } .b { margin-left: var(--space); }',
+  '.a { margin: 1px; } .b { margin-left: 9px; } .c { margin-inline-start: 3px; }'
+])('retains shorthand when cross-scope effects or values are not proved safe: %s', (source) => {
+  expect(compile(source).finalize().manifest.rules.some((rule) => rule.property === 'margin')).toBe(true);
+});
+
 it('preserves authored shorthand precedence when var cannot be expanded', () => {
   const laterShorthand = compile('.a { margin-left: 9px; margin: var(--space); }');
   expect(rulesFor(laterShorthand, ['a']).map((rule) => [rule.property, rule.value])).toEqual([['margin', 'var(--space)']]);
@@ -105,6 +135,14 @@ it('keeps authored shorthand in preserved fallback', () => {
   expect(result.module?.compilationMode).toBe('preserved');
   expect(session.finalize().css).toContain('margin: 1px;');
   expect(session.finalize().css).toContain('margin-left: 2px;');
+});
+
+it('keeps cross-scope margin authored in preserved fallback', () => {
+  const session = createGssCompilerSession({ projectRoot: '/project' });
+  const result = session.replaceStylesheet({ id: '/project/Fixed.gss', source: '.a { margin: 1px; } .b { margin-left: 9px; future-paint: red; }' });
+  expect(result.module?.compilationMode).toBe('preserved');
+  expect(session.finalize().css).toContain('margin: 1px;');
+  expect(session.finalize().css).toContain('margin-left: 9px;');
 });
 
 it('keeps shorthand on runtime-selector and compatibility paths', () => {
