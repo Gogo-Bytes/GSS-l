@@ -2,7 +2,9 @@
 
 ## 当前方向
 
-owner 已决定：**不再新增框架或验收场景**。工作重心从扩展验收矩阵转为现有能力的正确性、契约一致性与真实缺陷修复。
+owner 请求梳理核心工作流与目标架构，已确认新的属性排序设计方向；[架构方向](ARCHITECTURE-DIRECTION.md) 记录当前实现、优先级、阶段状态和验证要求，[属性排序设计](PROPERTY-ORDER-DESIGN.md) 记录详细目标。设计尚未实施或验证，本次文档整理不是实现授权。现有代码仍对部分同规则逻辑／物理混用报 `GSS1206`，目标行为不得描述为已交付。
+
+已确认原生强度／上下文和已证明的所有权／结构语义优先，同语义高度时逻辑属性先、物理属性后；同属性 rank、shorthand 安全展开、跨属性排序与复用的完整算法及不安全展开的 fallback 尚需设计。owner 仍要求**不自行新增框架或验收场景**；保留独立 oracle、历史失败及现有验证边界。
 
 有限 MVP、官方 Vite React TS 外部消费、客户端路由和 React Router Framework SSR 的已选任务均已交付。已交付宿主基线为 `4b7a982`；本轮基于 `451dd5c` 完成现有核心一致性核查与具体 bug 修复，owner 随后确认并已实现统一固定输出排序策略（同语义高度物理属性高于逻辑属性），而不是扩大 source-order overlap 族。历史失败、支持范围之外的输入和未覆盖组合不混计为当前缺陷。
 
@@ -37,7 +39,7 @@ owner 已决定：**不再新增框架或验收场景**。工作重心从扩展�
 
 本轮已沿上述入口核对并修复八类具体缺陷：mask reset-only effects、corner-shape family、nth-of global compound、functional 字符串空白、嵌套 global、runtime-source marker、CSS 属性控制字符 escape，以及复杂 has list 的 native specificity。只在现有文件补回归；独立原生期望和 red/green 证据见 [STATUS](STATUS.md#本轮核心一致性修复)。view-timeline-inset 与 background-blend-mode reset 经主资料核对后保留，未为扩大覆盖随意调整。
 
-owner 已确认：既有语义高度优先，同高度潜在竞争属性固定逻辑先／物理后；同属性同级 authored tie 不变。统一核心集中处理 overlap、priority、reuse barrier 与无循环的属性 render key；原 GSS1206 准入不扩展，潜在别名不剪枝为同一 effect。后续核查仍区分“可复现违约／证据不足／契约限制”，不为了填表继续扩大范围。
+当时已确认：既有语义高度优先，同高度潜在竞争属性固定逻辑先／物理后；同属性同级 authored tie 不变。统一核心集中处理 overlap、priority、reuse barrier 与无循环的属性 render key；当时 GSS1206 准入未扩展，潜在别名不剪枝为同一 effect。新目标见上方当前方向。
 
 ### 3. 已实现：统一固定输出排序核心
 
@@ -45,7 +47,7 @@ owner 已确认：既有语义高度优先，同高度潜在竞争属性固定�
 
 已登记五族 box、sizing/minmax、border/radius、overflow/overscroll 采用同一规则。物理属性后发只在原生强度／上下文与语义高度同级时决胜；不覆盖 important／specificity／更强 ownership。same-block 已拒绝的 margin/padding/inset 组合仍 GSS1206；已准入 sizing/border/radius/scroll 组合有回归。方向别名只用于排序与保守屏障，保留两侧写入应对运行时 writing-mode／direction。
 
-现有逻辑／物理 browser carrier 保留 raw native oracle，并独立断言 GSS fixed-priority oracle，没有新增 fixture／项目／矩阵。下一步仅处理真实反例；没有新的已确认问题时，本任务结束，不自动扩功能或新建验收场景。
+当时的逻辑／物理 browser carrier 保留 raw native oracle，并独立断言 GSS fixed-priority oracle，没有新增 fixture／项目／矩阵。该轮已结束；后续设计以当前方向为准。
 
 常规 bug、诊断和回归由 agent 连续处理，不逐小项询问。若修复需要改变产品能力、作者写法、公共 API／配置、架构或 fallback，先给具体选项和影响再决策。
 
@@ -67,9 +69,9 @@ owner 已确认：既有语义高度优先，同高度潜在竞争属性固定�
 | 验证／部署边界 | 外部 SSR 只覆盖指定 React Router／版本／Chromium；任意 server/client graph、相对 base、streaming 未获保证 | 沿用 [SSR 报告](FRAMEWORK-SSR-ACCEPTANCE.md)；本轮排序交付未重跑外部 SPA／SSR，不把历史证据视为最新重验 |
 | 发布状态 | 包尚未公开发布，仍使用本地 tarball 验收 | publication／release／tag 需单独授权；不是实现缺陷 |
 
-**本次盘点没有新复现的阻塞性产品 bug，也没有未完成的排序修复。** 上表不等于全部都要实现：历史失败、证据不足、已接受限制与能力缺口必须分别处理。
+**当时的盘点没有新复现的阻塞性产品 bug，也没有未完成的排序修复。** 此后新增的排序目标尚未实施；上表不等于全部都要实现。
 
-## 后续工作顺序
+## 已完成的会话资源核查顺序
 
 owner 已批准并完成以下 1–4 的一次有界工程核查：**受支持编辑路径下的会话事务与资源生命周期一致性**。未找到新的受支持契约反例，故本轮仅记录核查与验证，不新增实现／测试，不重做已完成的 CSS 排序核查，也不恢复 Firefox Article／性能或扩展框架与能力。
 
@@ -94,7 +96,7 @@ owner 已批准并完成以下 1–4 的一次有界工程核查：**受支持�
 
 实际修复运行相关测试和全仓 `verify`；浏览器行为／宿主输出改变时按既有入口执行受影响 gate，保留独立 oracle、精确图像和失败记录。通过后 commit/push main；报告问题、范围、检查和剩余限制。
 
-两处有界核查结束后，没有具体缺陷就结束本轮。Firefox Article、性能、跨模块语义、新能力和发布均保持下方授权边界，不自动成为下一项。
+两处有界核查结束后结束该轮。当前新目标见本文开头；Firefox Article、性能、跨模块语义及发布仍保持原授权边界。
 
 ### 本轮执行结果（基线 `e1cbcdf`）
 
