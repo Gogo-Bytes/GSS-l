@@ -6,6 +6,8 @@ owner 已要求开始推进核心架构与属性排序目标；[架构方向](AR
 
 已确认原生强度／上下文和已证明的所有权／结构语义优先，同语义高度时逻辑属性先、物理属性后；同属性 rank、shorthand 安全展开及跨属性排序与复用的完整算法尚需设计。不能安全展开的既有输入暂时沿用原 shorthand 处理和 fallback，不额外拒绝。owner 仍要求**不自行新增框架或验收场景**；保留独立 oracle、历史失败及现有验证边界。
 
+静态 inset 展开切片：复用四方向展开，`inset` 对应 `top`／`right`／`bottom`／`left`，支持静态 px（包括负值）及无单位零。适用既有同规则和无条件、未分层单节点跨 scope 的安全边界；`auto`、`var()`、逻辑方向别名、compatibility 和 preserved fallback 沿用既有路径。独立同属性 rank、其他 shorthand 和复杂值仍未完成。 最终 `verify` 2211 项及 lint／build／types 通过；原 atom-ranks 三引擎入口与 Chromium browser oracle 125／1267／38 通过，每引擎另有 7 组、21 个原生 CSS 与 literal scope 对照。原始产物备份、red 与验证日志见 `artifacts/safe-inset-expansion/`。
+
 静态 padding 展开切片：复用静态四方向展开，同时对 shorthand 和对应 longhand 仅接受无负号的 px／无单位零；`margin` 继续允许负值。适用既有同规则和无条件、未分层单节点跨 scope 的安全边界；该切片当时对负值、`var()`、方向别名、compatibility 及 preserved fallback 沿用原路径；随后已按下述无效 padding 修复处理确定无效的静态负 px。独立同属性 rank、其他 shorthand 及复杂值仍未完成。`verify` 2179 项及 lint／build／types 通过；原 atom-ranks 三引擎及 Chromium 独立 browser oracle 125／1267／38 通过，每引擎另验证 18 个 scope 结果和 2 个无效值控制，日志及历史产物备份见 `artifacts/safe-padding-expansion/`。
 
 无效 padding 修复：原 `.a { padding-left: 9px; padding: -1px; }` 在三引擎原生值为 9px、GSS 为 0px（证据 `artifacts/safe-padding-expansion/invalid-order-probe.log`），owner 已批准修复可确定无效的静态负 px。无 compatibility、属性均已登记且无 external target／condition 时，规划前忽略可确定无效的物理／逻辑 padding shorthand 和 longhand；合法 `-0`、`var()`、未知语法及 preserved／compatibility 路径保留；重复声明和逻辑／物理冲突检查在过滤后、展开前进行，不因已丢弃的无效声明误报，有效重复声明仍保留原诊断。其他单位、external、compatibility 下的无效值行为未纳入此切片。 最终 `verify` 2194 项及 lint／build／types 通过；原 atom-ranks 三引擎入口通过，另每引擎 11 个 literal／独立原生 CSS 对照通过，Chromium browser oracle 125／1267／38 通过。red、最终日志与旧产物备份见 `artifacts/invalid-padding/`；先后为调整冲突和重复声明检查而主动中断的两次 rank 验收及其产物也分别保留。

@@ -287,3 +287,20 @@ it('maps the retained declaration after an invalid padding shorthand is ignored'
     source: 'box.gss', line: 1, column: source.indexOf('padding-left:')
   });
 });
+
+
+it('maps cross-scope expanded inset atoms to their original declarations', () => {
+  const source = '.a { inset: 1px 2px; } .b { left: 9px; }';
+  const session = createGssCompilerSession({ projectRoot: '/project' });
+  expect(session.replaceStylesheet({ id: '/project/box.gss', source }).committed).toBe(true);
+  const snapshot = session.finalize();
+  const map = new TraceMap(snapshot.sourceMap);
+  for (const side of ['top', 'right', 'bottom', 'left']) {
+    expect(originalPositionFor(map, generatedPosition(snapshot.css, `${side}:`))).toMatchObject({
+      source: 'box.gss', line: 1, column: source.indexOf('inset:')
+    });
+  }
+  expect(originalPositionFor(map, generatedPosition(snapshot.css, 'left: 9px;'))).toMatchObject({
+    source: 'box.gss', line: 1, column: source.indexOf('left:')
+  });
+});

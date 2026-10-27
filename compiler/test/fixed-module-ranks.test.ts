@@ -245,6 +245,77 @@ it('expands margin and padding independently without losing importance', () => {
   expect(rules.find((rule) => rule.property === 'padding-left')).toMatchObject({ value: '1px', important: true });
 });
 
+it.each([
+  ['1px', ['1px', '1px', '1px', '1px']],
+  ['1px 2px', ['1px', '2px', '1px', '2px']],
+  ['1px 2px 3px', ['1px', '2px', '3px', '2px']],
+  ['1px 2px 3px 4px', ['1px', '2px', '3px', '4px']],
+  ['-1px', ['-1px', '-1px', '-1px', '-1px']]
+])('expands safe inset %s and keeps its source and later side', (value, expected) => {
+  const source = `.a { inset: ${value}; left: 9px; }`;
+  const rules = rulesFor(compile(source), ['a']);
+  for (const [index, side] of ['top', 'right', 'bottom', 'left'].entries()) {
+    const rule = rules.find((entry) => entry.property === side)!;
+    expect(rule.value).toBe(side === 'left' ? '9px' : expected[index]);
+    expect(rule.origins[0]?.range.start).toBe(source.indexOf(side === 'left' ? 'left:' : 'inset:'));
+  }
+});
+
+it.each([false, true])('keeps inset ordering across simple scopes (%s)', (reverse) => {
+  const authored = ['.a { inset: 1px 2px; }', '.b { left: 9px; }'];
+  const session = compile((reverse ? authored.reverse() : authored).join(' '));
+  expect(rulesFor(session, ['a'])).toHaveLength(4);
+  expect(session.finalize().manifest.rules.filter((rule) => rule.property === 'left').map((rule) => rule.value))
+    .toEqual(reverse ? ['9px', '2px'] : ['2px', '9px']);
+});
+
+it.each(['var(--space)', 'auto', 'calc(1px + 2px)', '1.px'])('retains unsupported inset shorthand %s', (value) => {
+  const session = compile(`.a { inset: ${value}; left: 2px; }`);
+  expect(rulesFor(session, ['a']).map((rule) => rule.property)).toEqual(['inset', 'left']);
+});
+
+it('retains source order and importance for inset side overrides', () => {
+  const later = compile('.a { left: 9px; inset: 1px; }');
+  expect(rulesFor(later, ['a']).find((rule) => rule.property === 'left')?.value).toBe('1px');
+  const important = compile('.a { inset: 1px !important; left: 9px; }');
+  expect(rulesFor(important, ['a']).find((rule) => rule.property === 'left')).toMatchObject({ value: '1px', important: true });
+});
+
+it('preserves selector-list membership for cross-scope inset expansion', () => {
+  const session = compile('.a, .b { inset: 1px; } .c { left: 9px; }');
+  const a = rulesFor(session, ['a']);
+  const b = rulesFor(session, ['b']);
+  expect(a).toHaveLength(4);
+  expect(b.map((rule) => rule.className)).toEqual(a.map((rule) => rule.className));
+  expect(rulesFor(session, ['c']).map((rule) => [rule.property, rule.value])).toEqual([['left', '9px']]);
+});
+
+it('retains inset when a logical alias participates across scopes', () => {
+  const session = compile('.a { inset: 1px; } .b { left: 9px; } .c { inset-inline-start: 3px; }');
+  expect(session.finalize().manifest.rules.some((rule) => rule.property === 'inset')).toBe(true);
+});
+
+it('retains inset logical conflict diagnosis and last-known-good state', () => {
+  const session = compile('.a { color: red; }');
+  const before = session.finalize();
+  expect(session.replaceStylesheet({ id: '/project/Fixed.gss', source: '.a { inset: 1px; inset-inline-start: 2px; }' }))
+    .toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1206' }] });
+  expect(session.finalize()).toEqual(before);
+});
+
+it('keeps inset on preserved and compatibility paths', () => {
+  const preserved = createGssCompilerSession({ projectRoot: '/project' });
+  const result = preserved.replaceStylesheet({ id: '/project/Fixed.gss', source: '.a { inset: 1px; left: 9px; future-paint: red; }' });
+  expect(result.module?.compilationMode).toBe('preserved');
+  expect(preserved.finalize().css).toContain('inset: 1px;');
+  const compatibility = createGssCompilerSession({ projectRoot: '/project', compatibilityTargetStages: [{ safari: '6.0' }] });
+  const compatible = compatibility.replaceStylesheet({ id: '/project/Fixed.gss', source: '.a { inset: 1px; left: 9px; }' });
+  expect(compatible).toMatchObject({ committed: true, module: { compilationMode: 'preserved' } });
+  const css = compatibility.finalize().css;
+  expect(css).toContain('left: 1px;');
+  expect(css.indexOf('left: 1px;')).toBeLessThan(css.indexOf('left: 9px;'));
+});
+
 it('preserves authored shorthand precedence when var cannot be expanded', () => {
   const laterShorthand = compile('.a { margin-left: 9px; margin: var(--space); }');
   expect(rulesFor(laterShorthand, ['a']).map((rule) => [rule.property, rule.value])).toEqual([['margin', 'var(--space)']]);

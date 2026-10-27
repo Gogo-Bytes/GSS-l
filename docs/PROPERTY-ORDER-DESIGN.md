@@ -1,6 +1,6 @@
 # 属性展开、原子排序与复用：设计结论
 
-> 状态：2026-10-27 讨论形成的目标设计；同规则 longhand 有界准入及受限静态 margin／padding 展开已开始，其余目标未完成。当前实现与验证以 [STATUS.md](STATUS.md) 和 [NEXT-STAGE.md](NEXT-STAGE.md) 为准；本文不宣称现有代码已具备全部下述行为。
+> 状态：2026-10-27 讨论形成的目标设计；同规则 longhand 有界准入及受限静态 margin／padding／inset 展开已开始，其余目标未完成。当前实现与验证以 [STATUS.md](STATUS.md) 和 [NEXT-STAGE.md](NEXT-STAGE.md) 为准；本文不宣称现有代码已具备全部下述行为。
 
 > 后续确认：在原生强度及可比较上下文相同时，已证明的 GSS 所有权／结构语义优先；语义高度相同时逻辑属性先、物理属性后。更强的逻辑属性不会因物理属性固定顺序而让位。无法证明安全展开的既有输入暂时沿用当前 shorthand 处理和 fallback，不额外拒绝。核心工作流、进度与剩余设计问题见 [架构方向](ARCHITECTURE-DIRECTION.md)。
 
@@ -46,7 +46,7 @@ GSS 将样式编译为可复用的 atom class，并允许同一模块的多个 s
 
 判定可移除声明时，必须证明它的**全部** effect 都被覆盖；只覆盖 `margin` 的左侧时仍要保留其余三个方向。不能把运行时才可能相同的逻辑／物理 effect 当成确定相同后剪枝，也不能因为一个值相同就跨越竞争声明复用 atom。涉及 `var()`、CSS-wide 关键字、隐含 reset、资源及复杂值时，只有能证明完整原生语义和来源得到保留才展开；否则执行已批准的现有处理及 fallback。每扩展一个属性族，应在现有测试载体中验证正反顺序、部分覆盖、重要性、不同 scope、来源／source map 和不安全值，并使用独立原生或明确的 GSS 预期。
 
-当前已实现有界的静态 `margin`／`padding` 展开：在无需 compatibility 变换、所有属性已登记且全部为普通 ownership 规则的模块中，同一规则包含 shorthand 和对应的物理 longhand 时，或无条件／未分层的单节点 scope 之间存在物理 longhand 竞争时，可将 1–4 个静态 `px` 值或无单位零组成的 shorthand 展开；`padding` 只处理无负号的值，`margin` 允许负值。跨 scope 切片要求所有相关 shorthand／longhand 值均可安全处理，且模块不含其他可能重叠的属性；同一规则切片继续沿用自己的准入条件。展开保留原始声明的位置，selector-list 分支共享声明身份；覆盖仍遵循重要性及相应语义和源码顺序。单独且无竞争的 shorthand、其他值／选择器、兼容性和整模块 fallback 暂沿用原路径。独立同属性 rank、跨规则普遍展开和其他 shorthand 未完成。
+当前已实现有界的静态 `margin`／`padding`／`inset` 展开：在无需 compatibility 变换、所有属性已登记且全部为普通 ownership 规则的模块中，同一规则包含 shorthand 和对应的物理 longhand 时，或无条件／未分层的单节点 scope 之间存在物理 longhand 竞争时，可将 1–4 个静态 `px` 值或无单位零组成的 shorthand 展开；`padding` 只处理无负号的值，`margin` 和 `inset` 允许负值；`inset` 对应的物理属性是 `top`／`right`／`bottom`／`left`。跨 scope 切片要求所有相关 shorthand／longhand 值均可安全处理，且模块不含其他可能重叠的属性；同一规则切片继续沿用自己的准入条件。展开保留原始声明的位置，selector-list 分支共享声明身份；覆盖仍遵循重要性及相应语义和源码顺序。单独且无竞争的 shorthand、其他值／选择器、兼容性和整模块 fallback 暂沿用原路径。独立同属性 rank、跨规则普遍展开和其他 shorthand 未完成。
 
 无效值决策：owner 已批准修复已复现的静态负 `px` padding 误剪枝。对于无需 compatibility、属性均已登记且没有 external target／condition 的模块，原子规划前忽略可确定无效的物理／逻辑 padding shorthand 和 longhand；重复声明和逻辑／物理冲突检查使用过滤后、尚未展开的规则，避免确定无效的声明触发误报；有效重复声明仍沿用既有诊断。`-0` 是合法零值，不忽略。仅当各组成值都是已识别的静态 `px`／无单位零且含真正负 `px` 时判无效；其他单位、复杂值和 `var()` 沿用原路径。compatibility 和整模块 preserved fallback 保留原声明及既有行为，除移除无效声明造成的冲突外，既有有效输入准入边界保持不变。重现与验证见 [当前计划](NEXT-STAGE.md)。
 

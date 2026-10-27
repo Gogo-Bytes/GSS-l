@@ -24,15 +24,16 @@ export function discardInvalidStaticPadding(rules: readonly ParsedStyleRule[]): 
 }
 
 export function expandSafeBoxRules(rules: readonly ParsedStyleRule[]): readonly ParsedStyleRule[] {
-  return (['margin', 'padding'] as const).reduce((current, property) => expandFamily(current, property), rules);
+  return (['margin', 'padding', 'inset'] as const).reduce((current, property) => expandFamily(current, property), rules);
 }
 
-function expandFamily(rules: readonly ParsedStyleRule[], shorthand: 'margin' | 'padding'): readonly ParsedStyleRule[] {
+function expandFamily(rules: readonly ParsedStyleRule[], shorthand: 'margin' | 'padding' | 'inset'): readonly ParsedStyleRule[] {
   const declarations = [...new Set(rules.flatMap((rule) => rule.declarations))];
-  const isSide = (property: string) => sides.some((side) => property === `${shorthand}-${side}`);
+  const sideProperty = (side: string) => shorthand === 'inset' ? side : `${shorthand}-${side}`;
+  const isSide = (property: string) => sides.some((side) => property === sideProperty(side));
   // Padding rejects negative lengths; a partially expanded invalid shorthand
   // would incorrectly apply its otherwise valid sides.
-  const safeLength = (value: string) => length.test(value) && (shorthand === 'margin' || !value.startsWith('-'));
+  const safeLength = (value: string) => length.test(value) && (shorthand !== 'padding' || !value.startsWith('-'));
   // Cross-scope ranks preserve authored order only with proven static competing
   // values and no other participating alias.
   const crossScopeSafe = rules.every((rule) => rule.path.length === 1 && rule.layer === 'unlayered' && rule.conditions.length === 0) &&
@@ -57,7 +58,7 @@ function expandFamily(rules: readonly ParsedStyleRule[], shorthand: 'margin' | '
     if (!replacement) {
       const [top, right = top, bottom = top, left = right] = values;
       replacement = [top, right, bottom, left].map((value, index) => ({
-        ...declaration, property: `${shorthand}-${sides[index]}`, value: value!
+        ...declaration, property: sideProperty(sides[index]!), value: value!
       }));
       expanded.set(declaration, replacement);
     }
