@@ -1,6 +1,6 @@
 # GSS 工作状态
 
-已交付宿主基线为 `4b7a982`，最近核心修复基线为 `af02efe`；本轮在其上实现统一固定排序核心：核心收敛、官方 Vite 模板、Declarative 客户端路由和 Framework SSR 的已选任务均已交付。本文保留历史证据，不把旧快照当成未来代码的自动验收。后续工作以 [当前计划](NEXT-STAGE.md) 为准。
+已交付宿主基线为 `4b7a982`，核心修复为 `af02efe`，统一固定排序为 `e04327b`：核心收敛、官方 Vite 模板、Declarative 客户端路由和 Framework SSR 的已选任务均已交付。本文保留历史证据，不把旧快照当成未来代码的自动验收。后续工作以 [当前计划](NEXT-STAGE.md) 为准。
 
 有限 MVP 的逐项目标进度及后续 `2f115b1` 基线上的基础验证、演示生产构建结果见 [MVP 进度](MVP-PROGRESS.md)。该核对未新增浏览器验收，也不将历史开放项改判为全部完成。
 
@@ -8,7 +8,7 @@
 
 owner 已决定有限 MVP 结项，已批准并完成官方 create-vite React TS 外部消费、Vite 8 实验及同模板 React Router Declarative／BrowserRouter 客户端路由验收。最新基础验证为 2124 项测试通过；Browser oracle 为 125 fixtures／1267 comparisons／38 controls，Playground 同范围通过。另已按 owner 授权完成 React Router Framework Mode 的有界 request-time SSR 实验；不覆盖历史 Firefox 失败或通用／完整 SSR。
 
-owner 最新决定是**不再新增框架或验收场景**，当前转为现有能力一致性与真实缺陷驱动的收敛，不继续扩大矩阵。隐式 className 类型、native marker 策略和公共 stylesheet URL／插件数组返回值均已决策；不重复要求 owner 重选。后续先核对已登记 property effects 与已准入 selector marker 的契约一致性，再修复可复现的问题；必要回归复用已有测试载体，具体顺序见 [当前计划](NEXT-STAGE.md)。未覆盖组合不自动算作缺陷，也不自动授权扩语法或 fallback。
+owner 最新决定是**不再新增框架或验收场景**，当前转为现有能力一致性与真实缺陷驱动的收敛，不继续扩大矩阵。隐式 className 类型、native marker 策略和公共 stylesheet URL／插件数组返回值均已决策；不重复要求 owner 重选。property effects、selector marker 与统一排序的本轮核查均已交付。后续建议一次有界的会话事务／恢复及资源输出一致性核查，仅在找到具体反例后修复，必要回归复用已有测试载体；遗留问题分类、完成标准与授权边界见 [当前计划](NEXT-STAGE.md#遗留问题清单)。未覆盖组合不自动算作缺陷，也不自动授权扩语法或 fallback。
 
 ## 本轮核心一致性修复
 
@@ -18,7 +18,7 @@ owner 已明确将复杂 `:has()` 丢失 native specificity 作为 bug 修复：
 
 owner 已确认统一固定策略：原生 strength／layer／condition／pseudo 上下文不变；已证明 ownership／结构语义高度优先，同高度潜在竞争属性按逻辑先、物理后输出，而不是原生 source order。相同属性及同类型同级声明仍按 authored occurrence 决胜。`module-order-policy.ts` 集中定义潜在重叠、属性优先级、保守复用屏障和属性输出总排序键（优先级／严格 shorthand 包含深度／稳定名称）。已覆盖原五类 box、size/min-size/max-size、border 各 aspect／radius、overflow／overscroll 的已登记方向 effects。潜在别名仍不当作 definite effect 剪枝，GSS1206 原准入／LKG 不变，无新语法／配置。
 
-证据目录：`artifacts/core-consistency/2026-10-26-audit/`（baseline/remaining probes、各阶段 red logs、最终 verify/browser/playground logs、has-native-red/green）。现有 browser oracle 125／1267／38 与 Playground dev/preview gate 重跑通过；本轮未新增外部 SPA／SSR／Article 执行证据。
+证据目录：`artifacts/core-consistency/2026-10-26-audit/`（baseline/remaining probes、各阶段 red logs、最终 verify/browser/playground logs、has-native-red/green）。该核心 bug 修复阶段的 browser oracle 125／1267／38 与 Playground dev/preview gate 重跑通过，未新增外部 SPA／SSR／Article 执行证据；后续统一排序阶段的 Article 两引擎复验见下文。
 
 ## 已完成交付
 
@@ -33,6 +33,8 @@ owner 已确认统一固定策略：原生 strength／layer／condition／pseudo
 | 官方模板／Vite 8 | `c9013d1` | workspace 外公开 tarball 消费及 Rolldown census 修复，保留 Vite 7 回归 |
 | 客户端路由 | `f54a963` | 官方模板中的 Declarative／BrowserRouter 用户路径 |
 | Framework SSR／公共 CSS URL | `4b7a982` | 真实请求时渲染、无 JS 样式、hydration；`virtual:gss.css?url` 与 `gss(): Plugin[]` |
+| 核心一致性修复 | `af02efe` | shorthand/reset、local/global marker、CSS 文本序列化与复杂 has 原生 specificity |
+| 统一固定排序核心 | `e04327b` | 同语义高度逻辑先／物理后，统一潜在竞争／复用屏障，消除属性比较器循环 |
 
 上述实现全部已合入 main，不存在待合并的正式交付分支。保留的 `prototype/module-local-atom-ranks` 是独立演示原型，不是待合入代码。
 
