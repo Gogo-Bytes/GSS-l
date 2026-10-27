@@ -1,6 +1,6 @@
 # 属性展开、原子排序与复用：设计结论
 
-> 状态：2026-10-27 讨论形成的目标设计；同规则 longhand 有界准入已开始，其余目标未完成。当前实现与验证以 [STATUS.md](STATUS.md) 和 [NEXT-STAGE.md](NEXT-STAGE.md) 为准；本文不宣称现有代码已具备全部下述行为。
+> 状态：2026-10-27 讨论形成的目标设计；同规则 longhand 有界准入及受限静态 margin 展开已开始，其余目标未完成。当前实现与验证以 [STATUS.md](STATUS.md) 和 [NEXT-STAGE.md](NEXT-STAGE.md) 为准；本文不宣称现有代码已具备全部下述行为。
 
 > 后续确认：在原生强度及可比较上下文相同时，已证明的 GSS 所有权／结构语义优先；语义高度相同时逻辑属性先、物理属性后。更强的逻辑属性不会因物理属性固定顺序而让位。无法证明安全展开的既有输入暂时沿用当前 shorthand 处理和 fallback，不额外拒绝。核心工作流、进度与剩余设计问题见 [架构方向](ARCHITECTURE-DIRECTION.md)。
 
@@ -40,11 +40,13 @@ GSS 将样式编译为可复用的 atom class，并允许同一模块的多个 s
 
 如果 shorthand 和 longhand 来自不同 scope，则安全展开后可能产生同名属性的竞争。例如 `.a { margin: 1px }` 与 `.b { margin-left: 2px }` 被组合时，两个 scope 都会涉及 `margin-left`；它们按同属性的组合规则处理。
 
+当前已实现一个有界切片：仅在无需 compatibility 变换、所有属性已登记且全部为普通 ownership 规则的模块中，同一规则同时包含 `margin` 和物理 margin longhand 时，将由 1–4 个静态 `px` 值或无单位零组成的 `margin` 展开；随后按重要性及声明位置选择同名方向的胜出声明。展开保留原始声明的位置，selector-list 分支共享声明身份。单独的 shorthand、其他值／选择器、兼容性和整模块 fallback 暂沿用原路径。独立同属性 rank、跨规则普遍展开和其他 shorthand 未完成。
+
 ### 安全展开的边界
 
 不能把 shorthand 简单按空格拆词后当作通用解法。含 `var()` 的值可能要在浏览器运行时才能确定；某些 shorthand 会重置不明显的 longhand，值也可能涉及复杂语法。展开需要保留完整效果、声明顺序、importance、资源身份、来源和原生语义。
 
-对于暂时无法证明安全展开的既有输入，沿用当前 shorthand 处理和现有 fallback，不额外拒绝；不能猜测展开结果。此选择不自动扩大其他语法或改变未知属性的既有 fallback。
+对于暂时无法证明安全展开的既有输入，沿用当前 shorthand 处理和现有 fallback，不额外拒绝；不能猜测展开结果。同一规则中同强度时，后写 shorthand 可以覆盖先前的 longhand；反向顺序时后写 longhand 覆盖对应方向。更早的 `!important` 声明仍优先。`var()` 在计算时失效也不会让浏览器恢复先前被层叠淘汰的声明，详见 [CSS Variables 规范](https://www.w3.org/TR/css-variables-1/#invalid-variables)。此选择不自动扩大其他语法或改变未知属性的既有 fallback。
 
 ## rank 只处理同属性 atom 的优先级
 

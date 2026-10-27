@@ -42,17 +42,83 @@ it('orders child blue above ordinary green and owned red without unrelated struc
   expect(session.finalize().manifest.rules.filter((rule) => rule.property === 'background-color').map((rule) => rule.value)).toEqual(['red', 'blue']);
 });
 
-it('uses original declaration ordinals on every comma branch and retains partial shorthand winners', () => {
+it('uses original declaration ordinals on every comma branch and retains shorthand winners', () => {
   for (const selectors of ['.a, .b', '.b, .a']) {
     const session = compile(`${selectors} { margin-left: 2px; margin: 1px; }`);
-    for (const path of [['a'], ['b']]) expect(rulesFor(session, path).map((rule) => [rule.property, rule.value])).toEqual([['margin', '1px']]);
+    for (const path of [['a'], ['b']]) expect(Object.fromEntries(rulesFor(session, path).map((rule) => [rule.property, rule.value]))).toEqual({ 'margin-top': '1px', 'margin-right': '1px', 'margin-bottom': '1px', 'margin-left': '1px' });
     const reversed = compile(`${selectors} { margin: 1px; margin-left: 2px; }`);
-    for (const path of [['a'], ['b']]) expect(rulesFor(reversed, path).map((rule) => rule.property)).toEqual(['margin', 'margin-left']);
+    for (const path of [['a'], ['b']]) expect(Object.fromEntries(rulesFor(reversed, path).map((rule) => [rule.property, rule.value]))).toEqual({ 'margin-top': '1px', 'margin-right': '1px', 'margin-bottom': '1px', 'margin-left': '2px' });
   }
   const nested = compile('.root .item { margin-left: 2px; } .item { margin: 1px; }');
   expect(rulesFor(nested, ['root', 'item']).map((rule) => rule.property)).toEqual(['margin', 'margin-left']);
   expect(rulesFor(nested, ['item']).map((rule) => rule.property)).toEqual(['margin']);
   expect(compile('.a { margin-left: 2px; } .b { margin: 1px; }').finalize().manifest.rules.map((rule) => rule.property)).toEqual(['margin-left', 'margin']);
+});
+
+it.each([
+  ['1px', ['1px', '1px', '1px', '1px']],
+  ['1px 2px', ['1px', '2px', '1px', '2px']],
+  ['1px 2px 3px', ['1px', '2px', '3px', '2px']],
+  ['1px 2px 3px 4px', ['1px', '2px', '3px', '4px']]
+])('expands safe margin %s and keeps shorthand source provenance', (value, expected) => {
+  const source = `.a { margin: ${value}; margin-left: 9px; }`;
+  const session = compile(source);
+  const rules = rulesFor(session, ['a']);
+  for (const [index, side] of ['top', 'right', 'bottom', 'left'].entries()) {
+    const rule = rules.find((entry) => entry.property === `margin-${side}`)!;
+    expect(rule.value).toBe(side === 'left' ? '9px' : expected[index]);
+    const start = source.indexOf(side === 'left' ? 'margin-left:' : 'margin:');
+    expect(rule.origins[0]?.range.start).toBe(start);
+  }
+});
+
+it.each(['var(--space)', '1.px', 'calc(1px + 2px)', '1px 2px 3px 4px 5px'])('retains unsupported margin shorthand %s', (value) => {
+  const session = compile(`.a { margin: ${value}; margin-left: 2px; }`);
+  expect(rulesFor(session, ['a']).map((rule) => rule.property)).toEqual(['margin', 'margin-left']);
+});
+
+it.each([false, true])('keeps expanded side ordering for composed scopes (%s)', (reverse) => {
+  const rules = ['.a { margin: 1px; margin-left: 2px; }', '.b { margin-left: 3px; }'];
+  const session = compile((reverse ? rules.reverse() : rules).join(' '));
+  const a = rulesFor(session, ['a']).find((rule) => rule.property === 'margin-left')!;
+  const b = rulesFor(session, ['b']).find((rule) => rule.property === 'margin-left')!;
+  const emitted = session.finalize().manifest.rules;
+  expect(a.value).toBe('2px');
+  expect(b.value).toBe('3px');
+  expect(emitted.findIndex((rule) => rule.className === a.className) < emitted.findIndex((rule) => rule.className === b.className)).toBe(!reverse);
+});
+
+it('preserves authored shorthand precedence when var cannot be expanded', () => {
+  const laterShorthand = compile('.a { margin-left: 9px; margin: var(--space); }');
+  expect(rulesFor(laterShorthand, ['a']).map((rule) => [rule.property, rule.value])).toEqual([['margin', 'var(--space)']]);
+  const laterLonghand = compile('.a { margin: var(--space); margin-left: 9px; }');
+  expect(rulesFor(laterLonghand, ['a']).map((rule) => rule.property)).toEqual(['margin', 'margin-left']);
+  const important = compile('.a { margin-left: 9px !important; margin: var(--space); }');
+  expect(rulesFor(important, ['a'])).toEqual(expect.arrayContaining([
+    expect.objectContaining({ property: 'margin-left', value: '9px', important: true })
+  ]));
+});
+
+it('keeps authored shorthand in preserved fallback', () => {
+  const session = createGssCompilerSession({ projectRoot: '/project' });
+  const result = session.replaceStylesheet({ id: '/project/Fixed.gss', source: '.a { margin: 1px; margin-left: 2px; future-paint: red; }' });
+  expect(result.module?.compilationMode).toBe('preserved');
+  expect(session.finalize().css).toContain('margin: 1px;');
+  expect(session.finalize().css).toContain('margin-left: 2px;');
+});
+
+it('keeps shorthand on runtime-selector and compatibility paths', () => {
+  const state = compile('.a:hover { margin: 1px; margin-left: 2px; }');
+  expect(state.finalize().manifest.rules.map((rule) => rule.property)).toEqual(['margin', 'margin-left']);
+  const compatibility = createGssCompilerSession({ projectRoot: '/project', compatibilityTargetStages: [{ safari: '6.0' }] });
+  expect(compatibility.replaceStylesheet({ id: '/project/Fixed.gss', source: '.a { margin: 1px; margin-left: 2px; }' }).committed).toBe(true);
+  expect(compatibility.finalize().manifest.rules.map((rule) => rule.property)).toEqual(['margin', 'margin-left']);
+});
+
+it('preserves importance when safe margin and longhand overlap', () => {
+  const session = compile('.a { margin: 1px !important; margin-left: 2px; }');
+  const left = rulesFor(session, ['a']).find((rule) => rule.property === 'margin-left')!;
+  expect(left).toMatchObject({ value: '1px', important: true });
 });
 
 it('never leaks a late repeated red occurrence into an early-only export', () => {

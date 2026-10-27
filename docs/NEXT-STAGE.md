@@ -6,6 +6,8 @@ owner 已要求开始推进核心架构与属性排序目标；[架构方向](AR
 
 已确认原生强度／上下文和已证明的所有权／结构语义优先，同语义高度时逻辑属性先、物理属性后；同属性 rank、shorthand 安全展开及跨属性排序与复用的完整算法尚需设计。不能安全展开的既有输入暂时沿用原 shorthand 处理和 fallback，不额外拒绝。owner 仍要求**不自行新增框架或验收场景**；保留独立 oracle、历史失败及现有验证边界。
 
+静态 margin 展开切片：普通 ownership、无 compatibility、所有属性已登记的模块内，同一规则的 `margin` 与物理 margin longhand 共存且值均为静态 px／无单位零时，将 1–4 个值展开后处理覆盖；原始声明校验、source map 和整模块 preserved fallback 保留。`var()`、复杂值、单独 shorthand、其他 selector／属性、跨规则完整展开和独立 rank 仍沿用当前行为。owner 已确认无法展开的 shorthand 在同强度下遵循正常源码顺序：后写 margin 可覆盖更早的 margin-left；更早声明的 !important 仍优先，不改该 fallback。 `verify` 通过 2155 项及 lint／build／types；原 atom-ranks 三引擎入口全部通过，每引擎 418 simple／59 semantic、2852 paired／800 authored-native readings 和原有精确图像／负对照。另对每引擎 8 条显式计算样式和两种 scope 组合顺序检查，包括无效变量及重要性；日志与先前产物备份见 `artifacts/safe-margin-expansion/`。
+
 排序器职责拆分：将既有语义边和高度计算从 `fixed-module-ranks.ts` 移到 `semantic-order-heights.ts`，竞争族和 rank 编号策略不变；当前高度仍在 effect 重叠竞争族内计算，不是独立同属性 rank 的完成。排序、复用、逻辑／物理和收敛定向 236 项及 `verify` 2139 项、lint／build／types 通过；本次为行为保持式拆分，未重跑浏览器 gate。
 
 会话拆分检查：Compiler 会话、收敛、名称及 parser seam 共 249 项定向测试通过；`corepack pnpm verify` 的 lint、build、2124 项测试和 typecheck 通过。该切片没有修改 CSS 输出或宿主行为，未运行浏览器 gate。

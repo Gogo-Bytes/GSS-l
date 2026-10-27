@@ -15,6 +15,7 @@ import { classifyPropertyEffect, isRegisteredPropertyEffect } from '../domain/pr
 import { planDescendantConditions } from '../domain/plan-descendant-conditions.js';
 import { supportsCurrentBackgroundRanks } from '../domain/module-local-atom-ranks.js';
 import { planFixedModuleRanks } from '../domain/fixed-module-ranks.js';
+import { expandSafeMarginRules } from '../domain/expand-safe-margin.js';
 import { planStructuralRelations } from '../domain/plan-structural-relations.js';
 import { resolveTargetDeclarations } from '../domain/resolve-target-declarations.js';
 import { compareCodeUnits } from '../domain/compare-code-units.js';
@@ -159,7 +160,13 @@ export function prepareContribution(
     message: 'An animation shorthand word matches both a local keyframe and an animation component keyword or timeline identifier.',
     suggestion: 'Use animation-name for the local keyframe and separate longhands for other animation components.'
   }] };
-  const semanticRules = rewriteKeyframeReferences(parsed.rules, keyframeNames);
+  const rewrittenRules = rewriteKeyframeReferences(parsed.rules, keyframeNames);
+  // Preserved/compatibility paths must keep authored declarations intact. The
+  // first expansion slice is restricted to modules guaranteed to stay atomic.
+  const semanticRules = !compatibility && rewrittenRules.every((rule) =>
+    rule.externalTarget === undefined && rule.externalCondition === undefined && isPureOwnershipRule(rule) &&
+    rule.declarations.every(({ property }) => isRegisteredPropertyEffect(property)))
+    ? expandSafeMarginRules(rewrittenRules) : rewrittenRules;
   const plannedResources = parsed.resources.map((resource) =>
     planResource(resource, moduleId, bindings, nameAllocator, compatibility));
   if (plannedResources.some((resource) => resource === undefined)) {

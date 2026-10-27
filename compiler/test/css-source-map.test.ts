@@ -215,3 +215,31 @@ it('maps preserved and resource blocks without borrowing unrelated Module origin
     { moduleId: 'p.gss', range: { start: preserved.indexOf('.icon'), end: preserved.length } }
   ]);
 });
+
+it('maps expanded margin sides back to their authored declarations', () => {
+  const source = '.box { margin: 1px 2px; margin-left: 9px; }';
+  const session = createGssCompilerSession({ projectRoot: '/project' });
+  expect(session.replaceStylesheet({ id: '/project/box.gss', source }).committed).toBe(true);
+  const snapshot = session.finalize();
+  const map = new TraceMap(snapshot.sourceMap);
+  for (const side of ['top', 'right', 'bottom', 'left']) {
+    expect(originalPositionFor(map, generatedPosition(snapshot.css, `margin-${side}:`))).toMatchObject({
+      source: 'box.gss', line: 1, column: source.indexOf(side === 'left' ? 'margin-left:' : 'margin:')
+    });
+  }
+});
+
+it('restores expanded margin output after an invalid replacement', () => {
+  const session = createGssCompilerSession({ projectRoot: '/project' });
+  const id = '/project/box.gss';
+  const source = '.box { margin: 1px 2px; margin-left: 9px; }';
+  expect(session.replaceStylesheet({ id, source }).committed).toBe(true);
+  const initial = session.finalize();
+  expect(session.replaceStylesheet({ id, source: '.box { color: red; color: blue; }' }).committed).toBe(false);
+  expect(session.finalize()).toEqual(initial);
+  expect(session.replaceStylesheet({ id, source }).committed).toBe(true);
+  const recovered = session.finalize();
+  expect(recovered.css).toBe(initial.css);
+  expect(recovered.sourceMap).toEqual(initial.sourceMap);
+  expect(recovered.manifest).toEqual(initial.manifest);
+});
