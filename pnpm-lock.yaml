@@ -24,11 +24,11 @@ importers:
         specifier: ^2.1.8
         version: 2.1.8
 
-  packages/compiler:
+  compiler:
     dependencies:
       '@gss-l/types':
         specifier: workspace:*
-        version: link:../types
+        version: link:../packages/types
       '@jridgewell/gen-mapping':
         specifier: ^0.3.13
         version: 0.3.13
@@ -65,7 +65,7 @@ importers:
         version: 7.29.8
       '@gss-l/compiler':
         specifier: workspace:*
-        version: link:../compiler
+        version: link:../../compiler
       '@gss-l/types':
         specifier: workspace:*
         version: link:../types
@@ -88,7 +88,7 @@ importers:
     devDependencies:
       '@gss-l/compiler':
         specifier: workspace:*
-        version: link:../compiler
+        version: link:../../compiler
       '@gss-l/react':
         specifier: workspace:^
         version: link:../react
@@ -126,7 +126,7 @@ importers:
     dependencies:
       '@gss-l/compiler':
         specifier: workspace:*
-        version: link:../compiler
+        version: link:../../compiler
       '@gss-l/types':
         specifier: workspace:*
         version: link:../types

@@ -1,3 +1,4 @@
 packages:
+  - compiler
   - packages/*
   - packages/vite/test/consumer

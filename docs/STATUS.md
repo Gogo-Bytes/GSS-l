@@ -8,7 +8,7 @@
 
 owner 已决定有限 MVP 结项，已批准并完成官方 create-vite React TS 外部消费、Vite 8 实验及同模板 React Router Declarative／BrowserRouter 客户端路由验收。最新基础验证为 2139 项测试通过；Browser oracle 为 125 fixtures／1267 comparisons／38 controls，Playground 同范围通过。另已按 owner 授权完成 React Router Framework Mode 的有界 request-time SSR 实验；不覆盖历史 Firefox 失败或通用／完整 SSR。
 
-owner 已要求按整体规划推进核心架构与排序目标，确认更强 GSS 语义优先、同高度逻辑先／物理后；[架构方向](ARCHITECTURE-DIRECTION.md) 和 [属性排序设计](PROPERTY-ORDER-DESIGN.md) 区分目标与当前行为。会话提交／失效、贡献准备与快照汇总已分离；可原子化的 pure ownership 规则内及跨规则累积的已登记逻辑／物理 longhand 对已准入。preserved 模式、shorthand 及其他上下文仍可能报告 GSS1206，独立同属性 rank 与安全展开目标尚未完成。无法安全展开的既有输入暂时沿用当前 shorthand 处理和 fallback，不额外拒绝。
+owner 已要求按整体规划推进核心架构与排序目标，确认更强 GSS 语义优先、同高度逻辑先／物理后；[架构方向](ARCHITECTURE-DIRECTION.md) 和 [属性排序设计](PROPERTY-ORDER-DESIGN.md) 区分目标与当前行为。会话提交／失效、贡献准备与快照汇总已分离；编译器包迁至顶层 `compiler/`，其余目录尚未迁移。可原子化的 pure ownership 规则内及跨规则累积的已登记逻辑／物理 longhand 对已准入。preserved 模式、shorthand 及其他上下文仍可能报告 GSS1206，独立同属性 rank 与安全展开目标尚未完成。无法安全展开的既有输入暂时沿用当前 shorthand 处理和 fallback，不额外拒绝。
 
 owner 仍要求**不自行新增框架或验收场景**。隐式 className 类型、native marker 策略和公共 stylesheet URL／插件数组返回值均已决策；不重复要求重选。property effects、selector marker、统一排序及会话事务／资源生命周期的有界核查已交付；遗留问题和授权边界见 [当前计划](NEXT-STAGE.md)。
 
@@ -74,7 +74,7 @@ owner 已确认统一固定策略：原生 strength／layer／condition／pseudo
 7. **模块边界**：同模块多 scope 组合是支持能力；跨模块同节点优先级仍不支持。`GSS2107` 是保守、非阻塞诊断，不能通过禁用同模块组合来回避排序缺陷。
 8. **准入与 fallback**：既有 external-target 保护及 last-known-good 行为保持不变。新语法、API、配置、fallback 或范围取舍需 owner 明确决定。
 
-关键实现：[fixed-module-ranks.ts](../packages/compiler/src/domain/fixed-module-ranks.ts)、[module-order-policy.ts](../packages/compiler/src/domain/module-order-policy.ts)、[compiler-session.ts](../packages/compiler/src/application/compiler-session.ts)。回归入口：[fixed-module-rank-reuse.test.ts](../packages/compiler/test/fixed-module-rank-reuse.test.ts)、[logical-physical-order.test.ts](../packages/compiler/test/logical-physical-order.test.ts)。
+关键实现：[fixed-module-ranks.ts](../compiler/src/domain/fixed-module-ranks.ts)、[module-order-policy.ts](../compiler/src/domain/module-order-policy.ts)、[compiler-session.ts](../compiler/src/application/compiler-session.ts)。回归入口：[fixed-module-rank-reuse.test.ts](../compiler/test/fixed-module-rank-reuse.test.ts)、[logical-physical-order.test.ts](../compiler/test/logical-physical-order.test.ts)。
 
 ## 验收与已知边界
 

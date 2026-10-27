@@ -163,7 +163,8 @@ try {
   pkg.pnpm = { overrides: {} };
   report.tarballs = [];
   for (const name of ['types', 'compiler', 'react', 'vite']) {
-    await run('corepack', ['pnpm', 'pack', '--pack-destination', tarballs], join(repo, 'packages', name));
+    await run('corepack', ['pnpm', 'pack', '--pack-destination', tarballs],
+      name === 'compiler' ? join(repo, 'compiler') : join(repo, 'packages', name));
     const file = join(tarballs, `gss-l-${name}-0.0.0.tgz`);
     const dependency = `file:../tarballs/gss-l-${name}-0.0.0.tgz`;
     pkg.devDependencies[`@gss-l/${name}`] = dependency;

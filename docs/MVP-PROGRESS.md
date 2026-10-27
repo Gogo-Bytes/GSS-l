@@ -14,7 +14,7 @@ owner 已决定按本文件的有限范围结项，结项基线为 `847698c`；�
 
 | 目标 | 进度 | 当前实现／回归入口 |
 | --- | --- | --- |
-| 框架无关编译核心：解析、作用域、所有权与结构关系、属性效果 | 已交付 | `packages/compiler/src/domain/`；`postcss-stylesheet-parser`、`descendant-conditions`、`structural-relations`、`property-effects` 测试 |
+| 框架无关编译核心：解析、作用域、所有权与结构关系、属性效果 | 已交付 | `compiler/src/domain/`；`postcss-stylesheet-parser`、`descendant-conditions`、`structural-relations`、`property-effects` 测试 |
 | 编译会话：事务替换、失效、全量 finalize、资源回收与确定性输出 | 已交付 | `compiler-session.test.ts`、`session-convergence.test.ts` |
 | 安全边界：有界准入、整模块 preserved fallback、失败保留 last-known-good | 已交付 | `compiler-session.test.ts`、`external-target.test.ts`、`compatibility-targets.test.ts`；不扩大 fallback |
 | 资源、URL 绑定、来源映射和生产元数据 | 已交付有界实现 | `stylesheet-assets.test.ts`、`css-source-map.test.ts`、`diagnostic-ranges.test.ts`；Vite production assets/CSS 测试，不承诺完整 token 级映射 |

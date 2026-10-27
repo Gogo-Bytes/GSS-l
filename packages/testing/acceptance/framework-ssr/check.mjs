@@ -166,7 +166,8 @@ try {
   pkg.packageManager = 'pnpm@8.6.2'; pkg.pnpm = { overrides: {} };
   await mkdir(join(external, 'tarballs')); await mkdir(join(evidence, 'tarballs'));
   for (const name of ['types', 'compiler', 'react', 'vite']) {
-    await run('corepack', ['pnpm', 'pack', '--pack-destination', join(external, 'tarballs')], join(repo, 'packages', name));
+    await run('corepack', ['pnpm', 'pack', '--pack-destination', join(external, 'tarballs')],
+      name === 'compiler' ? join(repo, 'compiler') : join(repo, 'packages', name));
     const file = join(external, 'tarballs', `gss-l-${name}-0.0.0.tgz`);
     const dependency = `file:../tarballs/gss-l-${name}-0.0.0.tgz`;
     pkg.devDependencies[`@gss-l/${name}`] = dependency;

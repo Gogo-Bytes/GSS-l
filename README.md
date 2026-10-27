@@ -29,9 +29,9 @@ corepack pnpm article
 
 | 位置 | 职责 |
 | --- | --- |
-| [packages/compiler/src/domain](packages/compiler/src/domain) | 属性效果、所有权／结构关系、模块内排序与原子标识 |
-| [packages/compiler/src/application](packages/compiler/src/application) | 编译会话、模块生命周期、资源与输出组织 |
-| [packages/compiler/src/public-types.ts](packages/compiler/src/public-types.ts) | 当前编译器公共类型与配置契约 |
+| [compiler/src/domain](compiler/src/domain) | 属性效果、所有权／结构关系、模块内排序与原子标识 |
+| [compiler/src/application](compiler/src/application) | 编译会话、模块生命周期、资源与输出组织 |
+| [compiler/src/public-types.ts](compiler/src/public-types.ts) | 当前编译器公共类型与配置契约 |
 | [packages/react/src](packages/react/src) | React／JSX 分析和转换，包括跨模块组合诊断 |
 | [packages/vite/src](packages/vite/src) | 开发更新、生产汇总、资源与宿主集成 |
 | [packages/types/src](packages/types/src) | 作用域类型辅助 |
