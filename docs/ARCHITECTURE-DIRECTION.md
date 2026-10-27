@@ -1,6 +1,6 @@
 # 核心工作流与架构方向
 
-> 状态：2026-10-27 的目标与现状映射；尚未实施或验证。当前运行行为以 [STATUS](STATUS.md) 和代码为准；进度与下一步见 [NEXT-STAGE](NEXT-STAGE.md)。本文不是实施授权。
+> 状态：目标与现状映射；owner 已要求开始推进。会话职责已完成第一步拆分，排序与 shorthand 目标尚未实施。当前运行行为以 [STATUS](STATUS.md) 和代码为准；进度与下一步见 [NEXT-STAGE](NEXT-STAGE.md)。
 
 ## 产品目标与现有边界
 
@@ -15,7 +15,7 @@ GSS 以 CSS 为输入，生成可组合的 scope 引用、原子 CSS 与必要�
 5. **复用与提交**：相同输出身份可在 finalize 汇总；模块内连续相同 pure occurrence 仅在既有证明条件下复用，不能跨竞争者或丢失 scope membership／来源。完整贡献及资源冲突检查成功后 session 才替换旧版本；失败不污染旧结果。
 6. **宿主交付**：Vite 开发期跟踪最新异步任务、资源与 CSS 更新；生产期按最终可达 static／lazy 图中的快照汇总 CSS、map、manifest 和资源。aggregate CSS URL 与已交付的 SSR 接入范围见 [STATUS](STATUS.md)。
 
-现状入口：[compiler-session](../packages/compiler/src/application/compiler-session.ts)、[CSS parser](../packages/compiler/src/infrastructure/postcss-stylesheet-parser.ts)、[React Adapter](../packages/react/src/index.ts)、[Vite](../packages/vite/src/index.ts)。
+现状入口：[compiler-session](../packages/compiler/src/application/compiler-session.ts)、[module-contribution](../packages/compiler/src/application/module-contribution.ts)、[CSS parser](../packages/compiler/src/infrastructure/postcss-stylesheet-parser.ts)、[React Adapter](../packages/react/src/index.ts)、[Vite](../packages/vite/src/index.ts)。
 
 ## 排序：已确认的目标
 
@@ -32,7 +32,7 @@ GSS 以 CSS 为输入，生成可组合的 scope 引用、原子 CSS 与必要�
 | 优先级 | 目标 | 当前证据与待设计 |
 | --- | --- | --- |
 | 1 | 统一规则绑定、occurrence 和身份 | `ParsedStyleRule` 使用多组下标对应数组；rank 结合规则／声明对象、target、source、observation 构造身份。设计模型时保留 selector 分支、局部绑定和全部来源。 |
-| 2 | 理清贡献构建、会话提交和快照 | `compiler-session.ts` 同时负责准入、多个 planner、生成和会话；先明确输入输出与事务，再决定拆分。 |
+| 2 | 理清贡献构建、会话提交和快照 | 已将会话提交／失效从贡献准备与快照汇总中拆出；`module-contribution.ts` 内的准入、planner 和生成仍需进一步划分。 |
 | 3 | 分离语义证明、同属性 rank、固定属性顺序及最终输出 | 保留原生强度、语义高度与 opaque 关系的既定约定；不要仅调整 comparator 或删除 `GSS1206`。 |
 | 4 | 集中关系计划、marker 和 scope membership | 统一可共享的身份与生成计划，保留不同关系的专用证明；不可假设 ownership 等价于 DOM 祖先。 |
 | 5 | 明确 property effect、潜在别名和准入 | `supportsCurrentBackgroundRanks` 是有界特例，先解释现有安全证明，再判断是否能替代。 |
@@ -47,7 +47,7 @@ GSS 以 CSS 为输入，生成可组合的 scope 引用、原子 CSS 与必要�
 | --- | --- | --- |
 | 核心工作流和目标梳理 | 本文完成初步映射 | 已区分当前行为、目标和未决问题；不声称完整语义证明。 |
 | 排序／展开详细设计 | 待设计 | 对具体 shorthand、reset、来源及不安全情况列出证明和处理；给出同属性 rank、跨属性顺序、语义关系与复用的无循环规则，以及可执行的独立预期。涉及新 fallback／范围须 owner 决策。 |
-| 仓库及编译器迁移 | 待授权和设计 | 基于已审阅模型划分可回退切片，保留包接口、构建脚本与现有能力；目录迁移先核实 workspace、外部消费和脚本路径。 |
+| 仓库及编译器迁移 | 已开始 | 会话生命周期已分离，相关 249 项定向测试及 `verify` 通过；贡献准备与快照仍在同一内部模块。其余切片基于已审阅模型推进，保留包接口和能力；目录迁移先核实 workspace、外部消费和脚本路径。 |
 | 验证与交付 | 依实现切片执行 | 同规则正反顺序、不同 scope、同属性多 rank、强弱 ownership／结构、LTR／RTL／writing-mode、importance／specificity／layer／条件、selector 分支、资源／map／LKG 均用受影响的既有载体和独立预期核对；保留原生 oracle 和显式 GSS oracle。运行相关检查及 `verify`，宿主／浏览器输出改变时核对实际入口并运行受影响既有 gate。 |
 
-本次 owner 请求是整理目标和进度，不是实现排序或重构的授权。实施前确认具体范围；若未来任务已明确授权，则按该授权推进，不逐个询问常规实现切片。仍不自动新增框架、演示项目或验收矩阵；Firefox Article、性能和发布边界见 [STATUS](STATUS.md)。
+owner 已要求开始推进目标；按已确认语义及这里的阶段推进，不逐个询问常规实现切片。新的 fallback 或尚未确定的语义范围仍需 owner 决策。仍不自动新增框架、演示项目或验收矩阵；Firefox Article、性能和发布边界见 [STATUS](STATUS.md)。

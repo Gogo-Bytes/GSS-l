@@ -8,7 +8,7 @@
 
 owner 已决定有限 MVP 结项，已批准并完成官方 create-vite React TS 外部消费、Vite 8 实验及同模板 React Router Declarative／BrowserRouter 客户端路由验收。最新基础验证为 2124 项测试通过；Browser oracle 为 125 fixtures／1267 comparisons／38 controls，Playground 同范围通过。另已按 owner 授权完成 React Router Framework Mode 的有界 request-time SSR 实验；不覆盖历史 Firefox 失败或通用／完整 SSR。
 
-owner 已请求整理核心工作流与目标架构，并确认排序目标中更强 GSS 语义优先、同高度逻辑先／物理后；[架构方向](ARCHITECTURE-DIRECTION.md) 和 [属性排序设计](PROPERTY-ORDER-DESIGN.md) 是尚未实施的目标，不改变本文所记当前行为。当前仍对部分同规则逻辑／物理混用报告 GSS1206。未安全展开 shorthand 的 fallback 等仍待决策；本次文档整理不是实现授权。
+owner 已要求开始推进核心架构与排序目标，确认更强 GSS 语义优先、同高度逻辑先／物理后；[架构方向](ARCHITECTURE-DIRECTION.md) 和 [属性排序设计](PROPERTY-ORDER-DESIGN.md) 区分目标与当前行为。会话提交／失效已从贡献准备／快照汇总拆出，相关定向测试与全仓 verify 通过；排序目标尚未实施，当前仍对部分同规则逻辑／物理混用报告 GSS1206。未安全展开 shorthand 的 fallback 等仍待决策。
 
 owner 仍要求**不自行新增框架或验收场景**。隐式 className 类型、native marker 策略和公共 stylesheet URL／插件数组返回值均已决策；不重复要求重选。property effects、selector marker、统一排序及会话事务／资源生命周期的有界核查已交付；遗留问题和授权边界见 [当前计划](NEXT-STAGE.md)。
 
