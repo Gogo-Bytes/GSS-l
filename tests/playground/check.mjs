@@ -7,7 +7,7 @@ import { build, createServer, preview } from 'vite';
 import { chromium } from 'playwright';
 
 const sourceRoot = fileURLToPath(new URL('.', import.meta.url));
-const artifacts = fileURLToPath(new URL('../../../artifacts/playground/', import.meta.url));
+const artifacts = fileURLToPath(new URL('../../artifacts/playground/', import.meta.url));
 let sandbox;
 const report = { expectedDevErrors: [], pageErrors: [] };
 let server;
@@ -193,7 +193,7 @@ try {
   await cp(sourceRoot, root, { recursive: true, filter: (source) => source !== join(sourceRoot, 'dist') });
   const tsconfig = JSON.parse(await readFile(join(root, 'tsconfig.json'), 'utf8'));
   await writeFile(join(root, 'tsconfig.json'), JSON.stringify({ ...tsconfig,
-    extends: fileURLToPath(new URL('../../../tsconfig.base.json', import.meta.url)) }));
+    extends: fileURLToPath(new URL('../../tsconfig.base.json', import.meta.url)) }));
   await symlink(fileURLToPath(new URL('../browser/', import.meta.url)), join(sandbox, 'browser'), 'dir');
   await symlink(fileURLToPath(new URL('../node_modules/', import.meta.url)), join(sandbox, 'node_modules'), 'dir');
   const configFile = join(root, 'vite.config.ts');

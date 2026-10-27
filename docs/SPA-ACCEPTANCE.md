@@ -10,14 +10,14 @@
 
 | 场景 | 现有入口 | 结论／边界 |
 | --- | --- | --- |
-| Playground 单页演示、HMR／恢复与预置 fixture | `packages/testing/playground/check.mjs` | 已有且本轮后续专项通过的 Chromium dev/preview gate；详见 Playground 覆盖核对，不等同于路由或完整业务验收 |
-| React 单页真实交互、开发／生产样式对照 | `packages/testing/acceptance/task-board/check-engine.mjs`、`article/check-engine.mjs` | 历史已有独立原生对照及精确图像证据；Article Firefox 导航问题仍暂缓，不宣称三引擎全通过 |
+| Playground 单页演示、HMR／恢复与预置 fixture | `tests/playground/check.mjs` | 已有且本轮后续专项通过的 Chromium dev/preview gate；详见 Playground 覆盖核对，不等同于路由或完整业务验收 |
+| React 单页真实交互、开发／生产样式对照 | `tests/acceptance/task-board/check-engine.mjs`、`article/check-engine.mjs` | 历史已有独立原生对照及精确图像证据；Article Firefox 导航问题仍暂缓，不宣称三引擎全通过 |
 | CSS-only 更新 | Task-board `dev/css-only-resource-hmr` | class mapping 不变时，验证资源样式更新且 document 不替换 |
 | class mapping 改变 | Task-board `dev/class-map-edit-reload` | 当前允许且显式验证 document reload、React 状态重置；不保证无刷新或保留 React 状态 |
 | 无效修改与恢复 | Task-board `dev/class-map-recovery-reload` | 验证错误 overlay、last-known-good 样式、无效修改时 document 保留；恢复后允许 reload |
 | 删除／重建、晚发现模块、晚连接 HMR client | `integrations/vite/test/dev-css.test.ts` | 有真实 Vite server 自动化测试，但这些测试本身不是浏览器交互验收 |
 | 资源更新／丢失／恢复 | `integrations/vite/test/dev-assets.test.ts` | 有宿主回归；不能据此推导任意应用状态下的浏览器恢复行为 |
-| 懒加载与 hydration | `packages/testing/browser/vite-multipage-lazy-check.mjs`、`vite-host-check.mjs` | 有有界 MPA/lazy、SSG hydration fixture；不是完整 SPA router 验收 |
+| 懒加载与 hydration | `tests/browser/vite-multipage-lazy-check.mjs`、`vite-host-check.mjs` | 有有界 MPA/lazy、SSG hydration fixture；不是完整 SPA router 验收 |
 
 ## 缺口分类
 

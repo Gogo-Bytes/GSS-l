@@ -20,11 +20,11 @@ owner 已决定按本文件的有限范围结项，结项基线为 `847698c`；�
 | 资源、URL 绑定、来源映射和生产元数据 | 已交付有界实现 | `stylesheet-assets.test.ts`、`css-source-map.test.ts`、`diagnostic-ranges.test.ts`；Vite production assets/CSS 测试，不承诺完整 token 级映射 |
 | React 引用发现、静态 scope 校验、className lowering 与消费类型 | 已交付有界实现 | `adapters/react/test/`、`types/test/`；React 分析不进入编译核心 |
 | Vite 开发更新／恢复和生产中央 CSS 输出 | 已交付 | `integrations/vite/test/` 的 dev CSS/assets、production CSS/assets 与诊断测试 |
-| 中文 Playground | 已交付 | `packages/testing/playground/`、`playground.test.ts` |
-| Task-board、Article 真实页面与独立原生参考 | 已交付指定范围 | `packages/testing/acceptance/`；浏览器历史证据与 Firefox 限制见 STATUS |
+| 中文 Playground | 已交付 | `tests/playground/`、`playground.test.ts` |
+| Task-board、Article 真实页面与独立原生参考 | 已交付指定范围 | `tests/acceptance/`；浏览器历史证据与 Firefox 限制见 STATUS |
 | 同模块多 scope 固定排序、逻辑／物理潜在别名排序 | 已交付 | `fixed-module-ranks.test.ts`、`logical-physical-order.test.ts` |
 | 保守连续 rank 桶复用 | 已交付 | `fixed-module-rank-reuse.test.ts`；方向属性屏障与既定复用限制保持不变 |
-| 独立 oracle 与浏览器验收 | 有界覆盖已交付，非全量覆盖 | `packages/testing/test/compile-gss-reference*.test.ts`、`packages/testing/browser/`；不能用编译器自身输出充当独立预期 |
+| 独立 oracle 与浏览器验收 | 有界覆盖已交付，非全量覆盖 | `tests/test/compile-gss-reference*.test.ts`、`tests/browser/`；不能用编译器自身输出充当独立预期 |
 
 SPA 的已有验收、允许整页 reload 的 HMR 行为与客户端路由覆盖缺口见 [SPA 验收结论](SPA-ACCEPTANCE.md)。
 

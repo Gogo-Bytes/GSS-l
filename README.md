@@ -23,7 +23,7 @@ corepack pnpm task-board
 corepack pnpm article
 ```
 
-`verify` 包括 lint、build、单元测试和类型检查，**不包括浏览器验收**。其他脚本以根目录及 `packages/testing/package.json` 为准；运行浏览器验收前先读 [验收边界](docs/STATUS.md#验收与已知边界)。
+`verify` 包括 lint、build、单元测试和类型检查，**不包括浏览器验收**。其他脚本以根目录及 `tests/package.json` 为准；运行浏览器验收前先读 [验收边界](docs/STATUS.md#验收与已知边界)。
 
 ## 代码导航
 
@@ -35,9 +35,9 @@ corepack pnpm article
 | [adapters/react/src](adapters/react/src) | React／JSX 分析和转换，包括跨模块组合诊断 |
 | [integrations/vite/src](integrations/vite/src) | 开发更新、生产汇总、资源与宿主集成 |
 | [types/src](types/src) | 作用域类型辅助 |
-| [packages/testing/playground](packages/testing/playground) | 中文编译器、适配器及生命周期演示 |
-| [packages/testing/acceptance](packages/testing/acceptance) | task-board、article 和排序验收 |
-| [packages/testing/browser](packages/testing/browser) | 原生 CSS 对照及 Vite 宿主浏览器验证 |
+| [tests/playground](tests/playground) | 中文编译器、适配器及生命周期演示 |
+| [tests/acceptance](tests/acceptance) | task-board、article 和排序验收 |
+| [tests/browser](tests/browser) | 原生 CSS 对照及 Vite 宿主浏览器验证 |
 
 官方 create-vite React TS 的 workspace 外 tarball 消费验收：`corepack pnpm vite-template:check`。已验证 Vite 8.3.5 与 React Router 8.5.0 Declarative／BrowserRouter 的有界 Chromium 客户端路由路径，workspace 仍保留 Vite 7；接入步骤与限制见 [模板验收](docs/VITE-TEMPLATE-ACCEPTANCE.md)。
 

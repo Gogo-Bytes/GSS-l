@@ -176,7 +176,7 @@ try {
   await cp(source, root, { recursive: true, filter: (path) => path !== join(source, 'dist') });
   await symlink(fileURLToPath(new URL('../../node_modules/', import.meta.url)), join(sandbox, 'node_modules'), 'dir');
   const tsconfig = JSON.parse(await readFile(join(root, 'tsconfig.json'), 'utf8'));
-  await writeFile(join(root, 'tsconfig.json'), JSON.stringify({ ...tsconfig, extends: fileURLToPath(new URL('../../../../tsconfig.base.json', import.meta.url)) }));
+  await writeFile(join(root, 'tsconfig.json'), JSON.stringify({ ...tsconfig, extends: fileURLToPath(new URL('../../../tsconfig.base.json', import.meta.url)) }));
   const configFile = join(root, 'vite.config.ts');
   const browserType = { chromium, firefox, webkit }[engine];
   report.executable = browserType.executablePath();

@@ -37,7 +37,7 @@ GSS 以 CSS 为输入，生成可组合的 scope 引用、原子 CSS 与必要�
 | 4 | 集中关系计划、marker 和 scope membership | 统一可共享的身份与生成计划，保留不同关系的专用证明；不可假设 ownership 等价于 DOM 祖先。 |
 | 5 | 明确 property effect、潜在别名和准入 | `supportsCurrentBackgroundRanks` 是有界特例，先解释现有安全证明，再判断是否能替代。 |
 | 6 | 检验 Adapter／宿主的实际 seam | React／Vite 分离有用，但只有一个实现不能证明 Vue、Svelte 或其他构建工具可直接接入；不预建通用插件框架。 |
-| 7 | 让仓库第一层反映职责 | `compiler/`、`adapters/react/`、`integrations/vite/`、`types/` 已迁移；`tests/` 和 `examples/` 尚需按职责整理，须保留独立参考实现和验收入口。 |
+| 7 | 让仓库第一层反映职责 | `compiler/`、`adapters/react/`、`integrations/vite/`、`types/` 已迁移；测试基础设施已迁至 `tests/`，`examples/` 尚需按职责整理，须保留独立参考实现和验收入口。 |
 
 删除候选而非已授权删除：`validate-state-ambiguity.ts` 静态搜索未见调用；可读名称完整解码器主要由测试使用，但其可逆性／碰撞断言可能有价值；`NameAllocatorPort` 和 `CssParserPort` 还支持内部测试。先核实使用与替代验证，再决定。保留独立参考实现、精确图像、负对照及历史失败证据。
 
@@ -47,7 +47,7 @@ GSS 以 CSS 为输入，生成可组合的 scope 引用、原子 CSS 与必要�
 | --- | --- | --- |
 | 核心工作流和目标梳理 | 本文完成初步映射 | 已区分当前行为、目标和未决问题；不声称完整语义证明。 |
 | 排序／展开详细设计 | 进行中 | 属性排序文档已列出 occurrence 约束候选及独立预期；仍需证明跨竞争族／共享 atom 的无循环投影，定义具体 shorthand、reset、来源与不安全情况。涉及新 fallback／范围须 owner 决策。 |
-| 仓库及编译器迁移 | 已开始 | 会话生命周期及快照汇总已分离；Compiler、React、Vite 与 types 已按职责迁移并保留包名。冻结 lockfile 离线安装、`verify`、外部 Vite 模板和 Framework SSR 现有入口通过；测试／示例目录和内部模型继续按切片迁移。 |
+| 仓库及编译器迁移 | 已开始 | 会话生命周期及快照汇总已分离；Compiler、React、Vite 与 types 已按职责迁移并保留包名。冻结 lockfile 离线安装、`verify`、外部 Vite 模板和 Framework SSR 现有入口通过；测试基础设施已迁至 `tests/`；示例目录和内部模型继续按切片迁移。 |
 | 验证与交付 | 依实现切片执行 | 同规则正反顺序、不同 scope、同属性多 rank、强弱 ownership／结构、LTR／RTL／writing-mode、importance／specificity／layer／条件、selector 分支、资源／map／LKG 均用受影响的既有载体和独立预期核对；保留原生 oracle 和显式 GSS oracle。运行相关检查及 `verify`，宿主／浏览器输出改变时核对实际入口并运行受影响既有 gate。 |
 
 owner 已要求开始推进目标；按已确认语义及这里的阶段推进，不逐个询问常规实现切片。超出已确认行为的 fallback 或尚未确定的语义范围仍需 owner 决策。仍不自动新增框架、演示项目或验收矩阵；Firefox Article、性能和发布边界见 [STATUS](STATUS.md)。

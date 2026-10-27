@@ -12,7 +12,7 @@ import { fixtures } from './fixtures.mjs';
 import { checkFixedModuleRanks } from './fixed-check.mjs';
 import { checkLogicalPhysicalOrder } from './logical-physical-check.mjs';
 
-const artifacts = fileURLToPath(new URL('../../../../artifacts/rank-integration/browser/', import.meta.url));
+const artifacts = fileURLToPath(new URL('../../../artifacts/rank-integration/browser/', import.meta.url));
 await mkdir(artifacts, { recursive: true });
 const report = { passed: false, engines: [], compilations: [],
   scope: 'Module-wide effect ranks for already-admitted same-module compositions; established ownership/structural proofs first, logical-before-physical property priority, authored order last. Narrow current-node background admission unchanged. No same-node multi-module composition.',

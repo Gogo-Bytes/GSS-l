@@ -6,7 +6,7 @@ Playground 是交互式能力演示／调试台，也是一个有真实 React/Vi
 
 本轮在 `677cc18` 代码基线上核对案例目录、实际断言，并首次运行 `corepack pnpm playground:check` 通过。**按现有演示台定位，主要范围已有覆盖，未发现本轮必须修复的缺口。** 不因此引入 router 或扩大产品语义。
 
-入口：`packages/testing/playground/check.mjs`。默认仅 **Chromium**，先在临时副本运行 dev，再 build/preview；HMR 探针不修改作者源码。此轮此前没有 `artifacts/playground/` 旧目录，未覆盖旧产物。
+入口：`tests/playground/check.mjs`。默认仅 **Chromium**，先在临时副本运行 dev，再 build/preview；HMR 探针不修改作者源码。此轮此前没有 `artifacts/playground/` 旧目录，未覆盖旧产物。
 
 ## 实际覆盖
 
@@ -23,7 +23,7 @@ Playground 是交互式能力演示／调试台，也是一个有真实 React/Vi
 | 辅助文字可读性 | 生产桌面态指定 UI 辅助文字 4.5:1 对比度，并有刻意降低对比度的负对照；不是完整无障碍审计 |
 | 错误收集 | `pageErrors: []`；HMR 错误由 overlay 断言确认，不要求一定出现 pageerror |
 
-目录数量及部分内容另由 `packages/testing/test/playground.test.ts` 核对。Compiler-only 114 和 Adapter 15 不能加到浏览器效果案例数中。
+目录数量及部分内容另由 `tests/test/playground.test.ts` 核对。Compiler-only 114 和 Adapter 15 不能加到浏览器效果案例数中。
 
 ## 边界与剩余覆盖机会
 

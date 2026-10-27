@@ -4,6 +4,9 @@
 
 有限 MVP 的逐项目标进度及后续 `2f115b1` 基线上的基础验证、演示生产构建结果见 [MVP 进度](MVP-PROGRESS.md)。该核对未新增浏览器验收，也不将历史开放项改判为全部完成。
 
+
+目录迁移现状：产品代码位于 `compiler/`、`adapters/react/`、`integrations/vite/`、`types/`；测试基础设施位于 `tests/`，Playground 暂仍在其中。最新迁移验证和外部证据见 [当前计划](NEXT-STAGE.md)。同属性独立 rank 与安全 shorthand 展开仍未完成。
+
 ## 当前阶段
 
 owner 已决定有限 MVP 结项，已批准并完成官方 create-vite React TS 外部消费、Vite 8 实验及同模板 React Router Declarative／BrowserRouter 客户端路由验收。最新基础验证为 2139 项测试通过；Browser oracle 为 125 fixtures／1267 comparisons／38 controls，Playground 同范围通过。另已按 owner 授权完成 React Router Framework Mode 的有界 request-time SSR 实验；不覆盖历史 Firefox 失败或通用／完整 SSR。

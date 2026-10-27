@@ -8,8 +8,8 @@ import { finished } from 'node:stream/promises';
 import { fileURLToPath, URL } from 'node:url';
 import { join } from 'node:path';
 
-assert.equal(process.argv.length, 2, 'All three engines and exact images are required; no skip flags');
-const root = fileURLToPath(new URL('../../../../artifacts/article-rendering/', import.meta.url));
+assert.ok(process.argv.slice(2).every((argument) => argument === '--computed-only'), 'Only --computed-only is supported; omit it for full rendering coverage');
+const root = fileURLToPath(new URL('../../../artifacts/cross-browser-rendering/task-board/', import.meta.url));
 const run = join(root, new Date().toISOString().replaceAll(':', '-'));
 await mkdir(run, { recursive: true });
 const results = [];
@@ -17,8 +17,8 @@ for (const engine of ['chromium', 'firefox', 'webkit']) {
   const artifacts = join(run, engine);
   await mkdir(artifacts);
   const log = createWriteStream(join(artifacts, 'check.log'));
-  const child = spawn(process.execPath, [fileURLToPath(new URL('./check-engine.mjs', import.meta.url)), engine], {
-    env: { ...process.env, ARTICLE_ARTIFACTS: artifacts }, stdio: ['ignore', 'pipe', 'pipe']
+  const child = spawn(process.execPath, [fileURLToPath(new URL('./check-engine.mjs', import.meta.url)), engine, ...process.argv.slice(2)], {
+    env: { ...process.env, TASK_BOARD_ARTIFACTS: artifacts }, stdio: ['ignore', 'pipe', 'pipe']
   });
   for (const stream of [child.stdout, child.stderr]) stream.on('data', (data) => { log.write(data); process.stdout.write(data); });
   const exit = await new Promise((resolve) => {
@@ -31,9 +31,9 @@ for (const engine of ['chromium', 'firefox', 'webkit']) {
   catch (error) { result = { passed: false, error: String(error) }; }
   results.push({ engine, exit, artifacts, ...result });
 }
-const summary = { run, comparison: 'Within each engine only: GSS versus manually authored semantic native CSS. Shared React logic has separate explicit behavior assertions.',
-  passed: results.length === 3 && results.every((result) => result.exit === 0 && result.passed), results };
+const summary = { run, comparison: 'GSS versus independent native CSS within each engine; never across engines',
+  passed: results.every((result) => result.exit === 0 && result.passed), results };
 await writeFile(join(run, 'result.json'), JSON.stringify(summary, null, 2));
 await writeFile(join(root, 'latest.json'), JSON.stringify({ run, passed: summary.passed }, null, 2));
-console.log(`Article evidence: ${run}`);
+console.log(`Task board evidence: ${run}`);
 if (!summary.passed) process.exitCode = 1;

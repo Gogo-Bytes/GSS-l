@@ -138,7 +138,7 @@ importers:
         specifier: ^7.3.6
         version: 7.3.6(@types/node@22.20.4)(lightningcss@1.33.0)
 
-  packages/testing:
+  tests:
     dependencies:
       postcss:
         specifier: ^8.4.49
@@ -149,13 +149,13 @@ importers:
     devDependencies:
       '@gss-l/compiler':
         specifier: workspace:*
-        version: link:../../compiler
+        version: link:../compiler
       '@gss-l/react':
         specifier: workspace:^
-        version: link:../../adapters/react
+        version: link:../adapters/react
       '@gss-l/vite':
         specifier: workspace:^
-        version: link:../../integrations/vite
+        version: link:../integrations/vite
       '@types/node':
         specifier: ^22.20.4
         version: 22.20.4

@@ -11,7 +11,7 @@ import console from 'node:console';
 import { chromium } from 'playwright';
 
 const fixture = dirname(fileURLToPath(import.meta.url));
-const repo = fileURLToPath(new URL('../../../../', import.meta.url));
+const repo = fileURLToPath(new URL('../../../', import.meta.url));
 const evidence = join(repo, 'artifacts/framework-ssr', new Date().toISOString().replaceAll(':', '-'));
 await mkdir(evidence, { recursive: true });
 const external = await realpath(await mkdtemp(join(tmpdir(), 'gss-framework-ssr-')));

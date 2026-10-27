@@ -8,7 +8,7 @@ import { chromium } from 'playwright';
 import { checkViteHostCompatibility, checkViteSsgHydration } from './vite-host-check.mjs';
 import { checkViteMultipageLazy } from './vite-multipage-lazy-check.mjs';
 
-const root = fileURLToPath(new URL('../../../', import.meta.url));
+const root = fileURLToPath(new URL('../../', import.meta.url));
 const url = 'http://127.0.0.1:4178/';
 const artifact = path.join(root, 'artifacts/browser-reference.json');
 const controls = [

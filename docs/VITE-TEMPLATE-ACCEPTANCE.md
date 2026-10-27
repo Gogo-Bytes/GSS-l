@@ -13,7 +13,7 @@ corepack pnpm install --frozen-lockfile
 corepack pnpm vite-template:check
 ```
 
-新 gate 位于 `packages/testing/acceptance/vite-template/check.mjs`，只运行 Chromium；使用仓库已安装的 Playwright，不增加依赖。端口为 5196，要求空闲。需要 npm registry 网络访问和已安装的 Playwright Chromium。
+新 gate 位于 `tests/acceptance/vite-template/check.mjs`，只运行 Chromium；使用仓库已安装的 Playwright，不增加依赖。端口为 5196，要求空闲。需要 npm registry 网络访问和已安装的 Playwright Chromium。
 
 - 官方入口：https://vite.dev/guide/；官方支持 `react-ts` template，Node 要求 20.19+／22.12+，命令为 `vite`／`vite build`／`vite preview`。
 - 实际生成：`npm exec --yes --package=create-vite@9.3.1 -- create-vite app --template react-ts --no-interactive`。

@@ -56,7 +56,7 @@ owner 已确认采用插件组方案。`gss()` 现在返回 Vite plugin array，
 corepack pnpm framework-ssr:check
 ```
 
-脚本：`packages/testing/acceptance/framework-ssr/check.mjs`。需要 registry/GitHub 网络、Node 22.22.0+、已安装 Playwright Chromium、空闲端口 5197；每次运行写独立时间目录，保留外部 consumer，不覆盖失败。
+脚本：`tests/acceptance/framework-ssr/check.mjs`。需要 registry/GitHub 网络、Node 22.22.0+、已安装 Playwright Chromium、空闲端口 5197；每次运行写独立时间目录，保留外部 consumer，不覆盖失败。
 
 - 官方文档：https://reactrouter.com/start/framework/installation 与 https://reactrouter.com/start/framework/rendering。
 - 实际生成：`npm exec --yes --package=create-react-router@8.5.0 -- create-react-router app --no-install --no-git-init --yes`；保存 pristine template 后才覆盖最小演示源文件。
