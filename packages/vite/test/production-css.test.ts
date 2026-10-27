@@ -60,6 +60,18 @@ it('emits one central CSS asset and injects its final name into built HTML', asy
   expect(html).not.toContain('/@gss-l/central.css');
 });
 
+it('builds a same-rule logical and physical longhand pair in fixed order', async () => {
+  const output = await bundle(await fixture({ 'Card.gss': '.card { margin-left: 2px; margin-inline-start: 1px; }' }));
+  const manifest = JSON.parse(asset(output, 'gss-manifest.json'));
+  const rules = manifest.compiler.rules.filter((rule: { property: string }) =>
+    rule.property === 'margin-inline-start' || rule.property === 'margin-left');
+  expect(rules.map((rule: { property: string }) => rule.property)).toEqual(['margin-inline-start', 'margin-left']);
+  const css = asset(output, manifest.cssAsset);
+  expect(css).toContain('margin-inline-start: 1px');
+  expect(css).toContain('margin-left: 2px');
+  expect(css.indexOf('margin-inline-start: 1px')).toBeLessThan(css.indexOf('margin-left: 2px'));
+});
+
 it('links a Vite-managed SSG React render to the same production CSS and class names', async () => {
   const root = await fixture({
     'index.html': '<!doctype html><html><head></head><body><div id="app"><!--ssg--></div><script type="module" src="/main.tsx"></script></body></html>',

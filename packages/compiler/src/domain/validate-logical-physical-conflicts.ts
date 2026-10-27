@@ -1,4 +1,5 @@
 import type { GssDiagnostic } from '../public-types.js';
+import { classifyPropertyEffect } from './property-effects.js';
 
 const conflictingPhysicalProperties: Readonly<Record<string, readonly string[]>> = {
   'margin-inline': ['margin', 'margin-left', 'margin-right'],
@@ -37,9 +38,19 @@ type RuleCandidate = {
 
 export function validateLogicalPhysicalConflicts(
   id: string,
-  rules: readonly RuleCandidate[]
+  rules: readonly RuleCandidate[],
+  allowSameRuleLonghands = true
 ): readonly GssDiagnostic[] {
-  const propertiesByContext = new Map<string, Set<string>>();
+  const propertiesByContext = new Map<string, Map<string, Set<RuleCandidate>>>();
+  function add(key: string, rule: RuleCandidate) {
+    const properties = propertiesByContext.get(key) ?? new Map<string, Set<RuleCandidate>>();
+    for (const { property } of rule.declarations) {
+      const owners = properties.get(property) ?? new Set<RuleCandidate>();
+      owners.add(rule);
+      properties.set(property, owners);
+    }
+    propertiesByContext.set(key, properties);
+  }
   for (const rule of rules) {
     const key = JSON.stringify([
       rule.path,
@@ -53,9 +64,7 @@ export function validateLogicalPhysicalConflicts(
       rule.observations,
       rule.pseudoElements
     ]);
-    const properties = propertiesByContext.get(key) ?? new Set<string>();
-    for (const declaration of rule.declarations) properties.add(declaration.property);
-    propertiesByContext.set(key, properties);
+    add(key, rule);
   }
 
   const ownershipRules = rules.filter(isPureOwnershipRule);
@@ -74,18 +83,22 @@ export function validateLogicalPhysicalConflicts(
         candidate.layer,
         candidate.conditions
       ]);
-      const properties = propertiesByContext.get(key) ?? new Set<string>();
-      for (const declaration of candidate.declarations) properties.add(declaration.property);
-      propertiesByContext.set(key, properties);
+      add(key, candidate);
     }
   }
 
   for (const properties of propertiesByContext.values()) {
     for (const logical of Object.keys(conflictingPhysicalProperties).sort()) {
       if (!properties.has(logical)) continue;
-      const physical = conflictingPhysicalProperties[logical]!.find((property) =>
-        properties.has(property)
-      );
+      const physical = conflictingPhysicalProperties[logical]!.find((property) => {
+        if (!properties.has(property)) return false;
+        const owners = new Set([...properties.get(logical)!, ...properties.get(property)!]);
+        // The fixed module rank planner already orders both longhands from one
+        // pure ownership rule. Keep other accumulation and shorthand guards.
+        return !(allowSameRuleLonghands && owners.size === 1 && isPureOwnershipRule([...owners][0]!) &&
+          classifyPropertyEffect(logical).kind === 'longhand' &&
+          classifyPropertyEffect(property).kind === 'longhand');
+      });
       if (!physical) continue;
       return [{
         code: 'GSS1206',

@@ -428,11 +428,15 @@ export function prepareContribution(
   })));
   if (compatibility && physicalDeclarations.some(({ declaration, physical }) =>
     physical === undefined || !physicalAssetsPreserved(declaration.value, physical))) {
+    const preservedConflicts = validateLogicalPhysicalConflicts(input.id, parsed.rules, false);
+    if (preservedConflicts.length) return { diagnostics: preservedConflicts };
     return { diagnostics: [{ code: 'GSS1101', severity: 'error', phase: 'validate', id: input.id,
       reason: 'capability-not-registered', message: 'Compatibility transformation cannot preserve this declaration shape.' }] };
   }
   if (compatibility && physicalDeclarations.some(({ declaration, physical }) =>
     physical?.some((entry) => entry.important !== declaration.important))) {
+    const preservedConflicts = validateLogicalPhysicalConflicts(input.id, parsed.rules, false);
+    if (preservedConflicts.length) return { diagnostics: preservedConflicts };
     return { diagnostics: [{ code: 'GSS1101', severity: 'error', phase: 'validate', id: input.id,
       reason: 'capability-not-registered', message: 'Compatibility transformation changed declaration importance.' }] };
   }
@@ -446,6 +450,10 @@ export function prepareContribution(
     physical?.some((entry) => entry.property !== declaration.property))
     .map(({ declaration }) => declaration.property))].sort();
   if (compatibilityFallback.length > 0) {
+    // Preserved CSS keeps authored order, so it cannot implement the new fixed
+    // logical/physical order. Retain the old conflict guard for this path.
+    const preservedConflicts = validateLogicalPhysicalConflicts(input.id, parsed.rules, false);
+    if (preservedConflicts.length) return { diagnostics: preservedConflicts };
     if (hasExplicitGlobal || config.atomizationFallback === 'error') {
       return { diagnostics: [{ code: 'GSS1101', severity: 'error', phase: 'validate', id: input.id,
         reason: 'capability-not-registered', message: 'Compatibility sequence cannot be safely atomized.' }] };
@@ -461,6 +469,8 @@ export function prepareContribution(
       .filter((property) => !isRegisteredPropertyEffect(property))
   )].sort();
   if (unsupportedProperties.length > 0) {
+    const preservedConflicts = validateLogicalPhysicalConflicts(input.id, parsed.rules, false);
+    if (preservedConflicts.length) return { diagnostics: preservedConflicts };
     // Preserved-mode selector rewriting cannot safely lower :global() yet.
     if (hasExplicitGlobal || config.atomizationFallback === 'error') {
       return {

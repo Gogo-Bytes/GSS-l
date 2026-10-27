@@ -6,6 +6,16 @@ const id = '/project/card.gss';
 const oldSafari = [{ safari: '6.0' }];
 
 describe('host-resolved compatibility targets', () => {
+  it('retains the old conflict guard before compatibility preserved fallback', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project', compatibilityTargetStages: oldSafari });
+    expect(session.replaceStylesheet({ id, source: '.card { color: red; }' }).committed).toBe(true);
+    const before = session.finalize();
+    const result = session.replaceStylesheet({ id, source:
+      '.card { margin-left: 2px; margin-inline-start: 1px; flex-direction: column; }' });
+    expect(result).toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1206' }] });
+    expect(session.finalize()).toEqual(before);
+  });
+
   it('keeps a transformed declaration sequence in one semantic atom', () => {
     const session = createGssCompilerSession({ projectRoot: '/project', compatibilityTargetStages: oldSafari });
     expect(session.replaceStylesheet({ id, source: '.card { display: flex; }' })).toMatchObject({

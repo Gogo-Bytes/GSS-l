@@ -115,4 +115,28 @@ export async function checkLogicalPhysicalOrder(native,atomic,directory,report) 
   }
   assert.equal(report.simpleFixtures,418);
   assert.equal(report.negativeControls.length,2);
+  // The same-rule oracle is deliberately physical-last even when authored in reverse.
+  report.sameRuleReadings=[];
+  for(const family of ['margin','padding','inset']) for(const reverseSource of [false,true]) {
+    const logical=`${family}-inline-start`, phys=physical(family,'left');
+    const parts=[`${logical}:1px`,`${phys}:2px`];
+    const fixture={name:`same-rule/${family}/${reverseSource}`,family,scopes:['a'],
+      source:`.a{${(reverseSource?parts.reverse():parts).join(';')}}`,
+      oracle:`.a{${logical}:1px;${phys}:2px}`};
+    const compiled=await compile(fixture);
+    for(const reverse of [false,true]) {
+      await mount(native,fixture,undefined,reverse);await mount(atomic,fixture,compiled,reverse);
+      for(const mode of modes) {
+        const expected=Object.fromEntries(sides.map(side=>[physical(family,side),'0px']));
+        expected[physical(family,mode.inline[0])]='1px';
+        expected[phys]='2px';
+        const properties=Object.keys(expected);
+        const reference=await sample(native,fixture,mode,properties);
+        const actual=await sample(atomic,fixture,mode,properties);
+        assert.deepEqual(reference.properties,expected,`${fixture.name}: literal oracle`);
+        assert.deepEqual(actual,reference,`${fixture.name}/${mode.writingMode}/${mode.direction}/${reverse}`);
+        report.sameRuleReadings.push({name:fixture.name,mode,reverse,reference,actual});
+      }
+    }
+  }
 }

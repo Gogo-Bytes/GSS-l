@@ -1,6 +1,69 @@
 import { expect, it } from 'vitest';
 import { createGssCompilerSession } from '../src/index.js';
 
+it.each([
+  ['margin-inline-start', 'margin-left'],
+  ['padding-inline-start', 'padding-left'],
+  ['inset-inline-start', 'left']
+])('admits same-rule logical %s and physical %s longhands in either authored order', (logical, physical) => {
+  for (const reverse of [false, true]) {
+    const declarations = [`${logical}:1px`, `${physical}:2px`];
+    if (reverse) declarations.reverse();
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    const result = session.replaceStylesheet({ id: '/project/Order.gss', source: `.a{${declarations.join(';')}}` });
+    expect(result).toMatchObject({ committed: true, diagnostics: [] });
+    const rules = session.finalize().manifest.rules;
+    const classes = result.module!.scopeSchema.exports.a!.selfClassName.split(' ');
+    expect(rules.map(({ property }) => property)).toEqual([logical, physical]);
+    expect(rules.every(({ className }) => classes.includes(className))).toBe(true);
+  }
+});
+
+it('keeps same-property scope order while a same-rule physical longhand remains last', () => {
+  const session = createGssCompilerSession({ projectRoot: '/project' });
+  const result = session.replaceStylesheet({ id: '/project/Order.gss', source:
+    '.a{margin-inline-start:1px;margin-left:2px}.b{margin-inline-start:3px}' });
+  expect(result).toMatchObject({ committed: true, diagnostics: [] });
+  const rules = session.finalize().manifest.rules;
+  expect(rules.map(({ property, value }) => [property, value])).toEqual([
+    ['margin-inline-start', '1px'], ['margin-inline-start', '3px'], ['margin-left', '2px']
+  ]);
+  const { a, b } = result.module!.scopeSchema.exports;
+  expect(a!.selfClassName.split(' ')).toEqual(expect.arrayContaining([rules[0]!.className, rules[2]!.className]));
+  expect(b!.selfClassName.split(' ')).toContain(rules[1]!.className);
+});
+
+it('preserves importance on both same-rule directional longhands', () => {
+  const session = createGssCompilerSession({ projectRoot: '/project' });
+  const result = session.replaceStylesheet({ id: '/project/Order.gss', source:
+    '.a{margin-inline-start:1px!important;margin-left:2px}' });
+  expect(result).toMatchObject({ committed: true, diagnostics: [] });
+  const rules = session.finalize().manifest.rules;
+  expect(rules.map(({ property, important }) => [property, important])).toEqual([
+    ['margin-inline-start', true], ['margin-left', false]
+  ]);
+  expect(session.finalize().css).toContain('margin-inline-start: 1px !important;');
+});
+
+it('retains existing handling for a shorthand with a runtime variable', () => {
+  const session = createGssCompilerSession({ projectRoot: '/project' });
+  const result = session.replaceStylesheet({ id: '/project/Order.gss', source: '.a{margin:var(--space)}' });
+  expect(result).toMatchObject({ committed: true, diagnostics: [], module: { compilationMode: 'atomic' } });
+  expect(session.finalize().manifest.rules.map(({ property, value }) => [property, value]))
+    .toEqual([['margin', 'var(--space)']]);
+});
+
+it('keeps the last good snapshot when the new longhand pair would enter preserved mode', () => {
+  const session = createGssCompilerSession({ projectRoot: '/project' });
+  const id = '/project/Order.gss';
+  expect(session.replaceStylesheet({ id, source: '.a{color:red}' }).committed).toBe(true);
+  const before = session.finalize();
+  const result = session.replaceStylesheet({ id, source:
+    '.a{margin-left:2px;margin-inline-start:1px;future-paint:1}' });
+  expect(result).toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1206' }] });
+  expect(session.finalize()).toEqual(before);
+});
+
 it('orders admitted singleton exports by fixed logical-first physical-last policy', () => {
   const session = createGssCompilerSession({ projectRoot: '/project' });
   expect(session.replaceStylesheet({ id: '/project/Order.gss', source: '.b{margin-left:2px}.c{margin-inline-start:1px}' })).toMatchObject({ committed: true, diagnostics: [] });
@@ -161,7 +224,7 @@ it.each(['error', 'preserve-module'] as const)('converges actual lifecycle updat
       expect(session.replaceStylesheet({ id: `/project/${id}`, source }).committed).toBe(true);
       live.set(id, source); assertClean();
       const before = session.finalize(), schema = session.getScopeSchema(`/project/${id}`);
-      for (const rejected of ['.box{margin-left:2px;margin-inline-start:1px}', '.root .item{margin-left:2px}.item{margin-inline-start:1px}']) {
+      for (const rejected of ['.box{margin-left:2px;margin-inline:1px}', '.root .item{margin-left:2px}.item{margin-inline-start:1px}']) {
         const update = session.replaceStylesheet({ id: `/project/${id}`, source: rejected });
         expect(update).toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1206', reason: 'logical-physical-property-conflict' }] });
         const clean = createGssCompilerSession({ projectRoot: '/project', atomizationFallback });

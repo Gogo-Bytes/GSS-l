@@ -2,11 +2,13 @@
 
 ## 当前方向
 
-owner 已要求开始推进核心架构与属性排序目标；[架构方向](ARCHITECTURE-DIRECTION.md) 记录当前实现、优先级、阶段状态和验证要求，[属性排序设计](PROPERTY-ORDER-DESIGN.md) 记录排序目标。会话提交／失效已从贡献准备与快照汇总中拆出，保持公共接口及行为；排序目标尚未实施，现有代码仍对部分同规则逻辑／物理混用报 `GSS1206`。
+owner 已要求开始推进核心架构与属性排序目标；[架构方向](ARCHITECTURE-DIRECTION.md) 记录当前实现、优先级、阶段状态和验证要求，[属性排序设计](PROPERTY-ORDER-DESIGN.md) 记录排序目标。会话提交／失效已从贡献准备与快照汇总中拆出，保持公共接口及行为。可原子化的同一 pure ownership 规则的已登记逻辑／物理 longhand 对已准入；preserved 模式、跨规则累积、shorthand 和其他上下文仍可能报 `GSS1206`，独立同属性 rank 与安全展开的完整目标尚未实施。
 
-已确认原生强度／上下文和已证明的所有权／结构语义优先，同语义高度时逻辑属性先、物理属性后；同属性 rank、shorthand 安全展开、跨属性排序与复用的完整算法及不安全展开的 fallback 尚需设计。owner 仍要求**不自行新增框架或验收场景**；保留独立 oracle、历史失败及现有验证边界。
+已确认原生强度／上下文和已证明的所有权／结构语义优先，同语义高度时逻辑属性先、物理属性后；同属性 rank、shorthand 安全展开及跨属性排序与复用的完整算法尚需设计。不能安全展开的既有输入暂时沿用原 shorthand 处理和 fallback，不额外拒绝。owner 仍要求**不自行新增框架或验收场景**；保留独立 oracle、历史失败及现有验证边界。
 
 会话拆分检查：Compiler 会话、收敛、名称及 parser seam 共 249 项定向测试通过；`corepack pnpm verify` 的 lint、build、2124 项测试和 typecheck 通过。该切片没有修改 CSS 输出或宿主行为，未运行浏览器 gate。
+
+同规则 longhand 切片：先确认 `margin`／`padding`／`inset` 的 longhand 正反顺序由 `GSS1206` 拒绝，再在现有 rank 规划下仅放开同一 pure ownership 规则、同一来源的 longhand 对；preserved／兼容性失败路径保留旧冲突诊断与 LKG。现有 Playground 示例同步为 atomic，Vite 生产构建有回归。最终 `corepack pnpm verify`：Compiler 1588、React 49、Vite 162、Testing 334，共 2133 项及 lint／build／types 通过。原 atom-ranks 三引擎入口通过，每引擎保留 418 simple／55 semantic、2772 paired／800 authored-native readings 和负对照，另测 60 条同规则方向读取。该 gate 开始后补了 preserved／兼容性失败保护，随后对最终 build 的三引擎各复核 60 次计算样式及 preserved fallback／LKG；日志见 `artifacts/same-rule-logical-physical/`，原 rank 产物备份于该目录的 `browser-before/`。独立同属性 rank、安全 shorthand 展开及其他上下文仍未完成。
 
 有限 MVP、官方 Vite React TS 外部消费、客户端路由和 React Router Framework SSR 的已选任务均已交付。已交付宿主基线为 `4b7a982`；本轮基于 `451dd5c` 完成现有核心一致性核查与具体 bug 修复，owner 随后确认并已实现统一固定输出排序策略（同语义高度物理属性高于逻辑属性），而不是扩大 source-order overlap 族。历史失败、支持范围之外的输入和未覆盖组合不混计为当前缺陷。
 
@@ -71,7 +73,7 @@ owner 已要求开始推进核心架构与属性排序目标；[架构方向](AR
 | 验证／部署边界 | 外部 SSR 只覆盖指定 React Router／版本／Chromium；任意 server/client graph、相对 base、streaming 未获保证 | 沿用 [SSR 报告](FRAMEWORK-SSR-ACCEPTANCE.md)；本轮排序交付未重跑外部 SPA／SSR，不把历史证据视为最新重验 |
 | 发布状态 | 包尚未公开发布，仍使用本地 tarball 验收 | publication／release／tag 需单独授权；不是实现缺陷 |
 
-**当时的盘点没有新复现的阻塞性产品 bug，也没有未完成的排序修复。** 此后新增的排序目标尚未实施；上表不等于全部都要实现。
+**当时的盘点没有新复现的阻塞性产品 bug，也没有未完成的排序修复。** 此后新增的排序目标尚未全部实施；上表不等于全部都要实现。
 
 ## 已完成的会话资源核查顺序
 

@@ -111,7 +111,7 @@ const compilerNames: Record<string, string> = {
   compatibility: '目标驱动的兼容声明序列', 'property-fallback': '整 Module 保留回退',
   'strict-property': '严格模式拒绝未知属性效果', 'duplicate-property': '重复属性：拒绝并保留旧快照',
   'local-compound': '拒绝未支持的本地复合类名', 'external-existence': '拒绝延期的外部属性存在目标',
-  'logical-physical-overlap': '拒绝运行时方向相关的属性冲突',
+  'logical-physical-overlap': '同一规则的逻辑与物理长属性按固定顺序输出',
   'multiple-runtime-witnesses': '多个 native runtime relation 与 marker', 'keyword-shorthand': '拒绝有歧义的动画简写'
 };
 export function compilerTitle(entry: { id: string; title: string }) {

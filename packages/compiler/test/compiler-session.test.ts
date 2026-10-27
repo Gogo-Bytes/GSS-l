@@ -489,7 +489,7 @@ describe('GssCompilerSession', () => {
 
     const replacement = compiler.replaceStylesheet({
       id: '/project/src/box.gss',
-      source: '.box { margin-inline-start: 1rem; margin-left: 2rem; }'
+      source: '.box { margin-inline: 1rem; margin-left: 2rem; }'
     });
 
     expect(replacement).toMatchObject({

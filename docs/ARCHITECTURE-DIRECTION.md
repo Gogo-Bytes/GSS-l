@@ -1,6 +1,6 @@
 # 核心工作流与架构方向
 
-> 状态：目标与现状映射；owner 已要求开始推进。会话职责已完成第一步拆分，排序与 shorthand 目标尚未实施。当前运行行为以 [STATUS](STATUS.md) 和代码为准；进度与下一步见 [NEXT-STAGE](NEXT-STAGE.md)。
+> 状态：目标与现状映射；owner 已要求开始推进。会话职责已完成第一步拆分，同规则 longhand 已有有界准入；独立 rank 与安全 shorthand 展开的完整目标尚未实施。当前运行行为以 [STATUS](STATUS.md) 和代码为准；进度与下一步见 [NEXT-STAGE](NEXT-STAGE.md)。
 
 ## 产品目标与现有边界
 
@@ -21,9 +21,9 @@ GSS 以 CSS 为输入，生成可组合的 scope 引用、原子 CSS 与必要�
 
 目标设计详见 [属性展开、原子排序与复用](PROPERTY-ORDER-DESIGN.md)。owner 已确认：在原生强度及可比较上下文相同的条件下，**已证明的所有权／结构语义优先；语义高度相同才按逻辑属性先、物理属性后**。浏览器决定方向映射。更强语义属于逻辑属性时也不能让物理属性固定顺序覆盖它；这一决定不再重问。
 
-同属性 atom 的 rank 保留同模块组合和 authored occurrence；不同属性的潜在重叠使用固定属性顺序，不把潜在别名当作确定相同 effect 剪枝。不同属性的局部 rank 数值不能直接互相比较。目标包括允许同规则 `.a { margin-inline-start: 1px; margin-left: 2px; }`：在同等条件下 LTR 的左边距为 2px，RTL 中二者可分别作用于两侧。当前代码仍报 `GSS1206`；目标不等于已交付。
+同属性 atom 的 rank 保留同模块组合和 authored occurrence；不同属性的潜在重叠使用固定属性顺序，不把潜在别名当作确定相同 effect 剪枝。不同属性的局部 rank 数值不能直接互相比较。当前已允许可原子化的同一 pure ownership 规则中的已登记逻辑／物理 longhand 对，包括 `.a { margin-inline-start: 1px; margin-left: 2px; }`；preserved 模式、跨规则累积、shorthand 和其他上下文仍有原准入保护。独立同属性 rank 的目标尚未完成。
 
-可证明安全时先展开 shorthand，按 importance／声明顺序处理同规则的同名 longhand；不能对 `var()`、复杂语法或隐含 reset 猜测展开。尚未决定不安全展开时的 fallback、允许的具体范围、实现算法和所有 rank／属性／语义交叉规则。现有 Lightning CSS 兼容性转换不是已验证的通用 shorthand 展开器。Tailwind 属性排序是参考，不直接替代 GSS 语义。
+可证明安全时先展开 shorthand，按 importance／声明顺序处理同规则的同名 longhand；不能对 `var()`、复杂语法或隐含 reset 猜测展开。owner 已决定不能安全展开的既有输入暂时沿用当前 shorthand 处理和 fallback，不额外拒绝；具体安全展开范围、实现算法和所有 rank／属性／语义交叉规则仍需设计。现有 Lightning CSS 兼容性转换不是已验证的通用 shorthand 展开器。Tailwind 属性排序是参考，不直接替代 GSS 语义。
 
 现有排序涉及目标内 effect 胜出、结构关系的 `relationRank`、模块组合的 `atomRank`、最终 CSS 输出比较；这些是不同职责，不能把局部 rank 当成全局优先级。现有实现把潜在重叠的不同属性放入竞争族；目标是分离同属性 rank 与跨属性顺序，同时保留语义证明和来源身份。不能未经证明地使用 `(语义高度, 属性, rank)` 总键：高度依赖竞争族，atom 可能跨绑定共享，需证明全局一致、传递性和复用安全。
 
@@ -50,4 +50,4 @@ GSS 以 CSS 为输入，生成可组合的 scope 引用、原子 CSS 与必要�
 | 仓库及编译器迁移 | 已开始 | 会话生命周期已分离，相关 249 项定向测试及 `verify` 通过；贡献准备与快照仍在同一内部模块。其余切片基于已审阅模型推进，保留包接口和能力；目录迁移先核实 workspace、外部消费和脚本路径。 |
 | 验证与交付 | 依实现切片执行 | 同规则正反顺序、不同 scope、同属性多 rank、强弱 ownership／结构、LTR／RTL／writing-mode、importance／specificity／layer／条件、selector 分支、资源／map／LKG 均用受影响的既有载体和独立预期核对；保留原生 oracle 和显式 GSS oracle。运行相关检查及 `verify`，宿主／浏览器输出改变时核对实际入口并运行受影响既有 gate。 |
 
-owner 已要求开始推进目标；按已确认语义及这里的阶段推进，不逐个询问常规实现切片。新的 fallback 或尚未确定的语义范围仍需 owner 决策。仍不自动新增框架、演示项目或验收矩阵；Firefox Article、性能和发布边界见 [STATUS](STATUS.md)。
+owner 已要求开始推进目标；按已确认语义及这里的阶段推进，不逐个询问常规实现切片。超出已确认行为的 fallback 或尚未确定的语义范围仍需 owner 决策。仍不自动新增框架、演示项目或验收矩阵；Firefox Article、性能和发布边界见 [STATUS](STATUS.md)。

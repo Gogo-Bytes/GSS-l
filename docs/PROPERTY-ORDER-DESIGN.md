@@ -1,8 +1,8 @@
 # 属性展开、原子排序与复用：设计结论
 
-> 状态：2026-10-27 讨论形成的目标设计，尚未实施或验证。当前实现与已交付行为仍以 [STATUS.md](STATUS.md) 和 [NEXT-STAGE.md](NEXT-STAGE.md) 为准；本文不宣称现有代码已具备下述行为，也不是实施授权。
+> 状态：2026-10-27 讨论形成的目标设计；同规则 longhand 有界准入已开始，其余目标未完成。当前实现与验证以 [STATUS.md](STATUS.md) 和 [NEXT-STAGE.md](NEXT-STAGE.md) 为准；本文不宣称现有代码已具备全部下述行为。
 
-> 后续确认：在原生强度及可比较上下文相同时，已证明的 GSS 所有权／结构语义优先；语义高度相同时逻辑属性先、物理属性后。更强的逻辑属性不会因物理属性固定顺序而让位。核心工作流、进度与剩余设计问题见 [架构方向](ARCHITECTURE-DIRECTION.md)。
+> 后续确认：在原生强度及可比较上下文相同时，已证明的 GSS 所有权／结构语义优先；语义高度相同时逻辑属性先、物理属性后。更强的逻辑属性不会因物理属性固定顺序而让位。无法证明安全展开的既有输入暂时沿用当前 shorthand 处理和 fallback，不额外拒绝。核心工作流、进度与剩余设计问题见 [架构方向](ARCHITECTURE-DIRECTION.md)。
 
 ## 目标
 
@@ -44,7 +44,7 @@ GSS 将样式编译为可复用的 atom class，并允许同一模块的多个 s
 
 不能把 shorthand 简单按空格拆词后当作通用解法。含 `var()` 的值可能要在浏览器运行时才能确定；某些 shorthand 会重置不明显的 longhand，值也可能涉及复杂语法。展开需要保留完整效果、声明顺序、importance、资源身份、来源和原生语义。
 
-对于暂时无法证明安全展开的情况，目标是保留语义，不能猜测结果。究竟保留什么形式、是否使用现有整模块 preserved fallback 或报错，需要结合具体输入和现有契约另行设计；本文不决定新的 fallback 行为。
+对于暂时无法证明安全展开的既有输入，沿用当前 shorthand 处理和现有 fallback，不额外拒绝；不能猜测展开结果。此选择不自动扩大其他语法或改变未知属性的既有 fallback。
 
 ## rank 只处理同属性 atom 的优先级
 
@@ -91,14 +91,14 @@ rank 数字与生成的 class 名在本文中仅是示意；当前实现有无 r
 }
 ```
 
-目标是不再仅因为两者可能重叠就拒绝这个例子。当前实现仍会对该输入报 `GSS1206`；放开需要设计与验证，不能视为已经支持。语义强于固定属性顺序已确认；不同 rank、条件和原生强度如何具体参与排序仍需给出无歧义规则。未来官方文档应向用户解释固定顺序和覆盖行为。
+可原子化的同一 pure ownership 规则中，已登记的逻辑／物理 longhand 对已不再仅因潜在重叠而被 `GSS1206` 拒绝；跨规则累积、shorthand 和其他上下文仍保留现有准入保护。会进入 preserved 模式的模块仍保留原冲突拒绝：该模式按 authored 顺序输出，尚不能保证固定属性顺序。语义强于固定属性顺序已确认；独立同属性 rank、条件和原生强度如何具体参与排序仍需进一步设计。未来官方文档应向用户解释固定顺序和覆盖行为。
 
 Tailwind 参考：[margin utilities](https://tailwindcss.com/docs/margin)、[冲突 utility 的处理](https://tailwindcss.com/docs/styling-with-utility-classes#conflicting-utility-classes)。这是对处理思路的参考，不意味着 GSS 完全复制 Tailwind 的语义。
 
 ## 与当前实现的差异
 
 - 当前 atom rank 会将可能 effect 重叠的不同属性纳入竞争族；目标设计将同属性 rank 和不同属性固定顺序分开。
-- 当前 `GSS1206` 对部分同上下文逻辑／物理组合予以拒绝；目标方向允许上述混用示例，具体准入范围待设计。
+- 当前 `GSS1206` 仍对部分跨规则累积、shorthand 和其他上下文的逻辑／物理组合予以拒绝；目标方向的完整准入范围待设计。
 - 当前实现通过 effect registry 处理 shorthand 和部分胜出，并不等同于本文提出的“安全展开后再处理 atom”的完整流程。
 - 现有 ownership／结构语义及其与排序的关系需要单独核对。本文未决定删除相关语义，也未证明同属性 rank 与固定属性顺序的所有组合都能无损表达它们。
 
@@ -133,4 +133,4 @@ Tailwind 参考：[margin utilities](https://tailwindcss.com/docs/margin)、[冲
 - `.early{color:red}.middle{color:blue}.late{color:red}`：`early+middle` 为蓝、`middle+late` 为红；复用不能跨过竞争声明。
 - `margin` 与 `margin-left` 的两种 authored 顺序：安全展开后分别得到左侧 2px 和 1px；同一属性的 `!important`、各 scope 的部分胜出、原始来源与 map 均需保留。
 
-这些用例需要由既有 compiler、独立浏览器／literal oracle 和会话恢复载体验证；不以当前实现的输出作为新策略的唯一预期。`var()` 等无法安全展开的已支持输入如何处理仍待 owner 决定，不能因为候选模型成立而自行改变 fallback。
+这些用例需要由既有 compiler、独立浏览器／literal oracle 和会话恢复载体验证；不以当前实现的输出作为新策略的唯一预期。`var()` 等无法安全展开的已支持输入暂时沿用当前处理和 fallback。
