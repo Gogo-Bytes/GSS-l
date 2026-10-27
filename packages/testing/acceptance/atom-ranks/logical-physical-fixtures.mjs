@@ -53,6 +53,15 @@ for (const extra of extras) for (const reverseSource of [false,true]) {
 // Explicit GSS oracles: ownership and strict-child priority, NOT the raw
 // authored child CSS (whose equal-specificity source tie would yield 1px).
 export const semanticFixtures = [];
+for (const reverse of [false,true]) for (const logicalStrong of [false,true]) {
+  const logical='.item{margin-inline-start:1px}', physical='.item{margin-left:2px}';
+  const strong=logicalStrong ? '.root '+logical : '.root '+physical;
+  const weak=logicalStrong ? physical : logical;
+  semanticFixtures.push({name:`margin/accumulated/${logicalStrong}/${reverse}`,family:'margin',side:'left',
+    logical:'margin-inline-start',source:reverse?weak+strong:strong+weak,scopes:['root.item'],
+    oracle:logicalStrong?'.root-item{margin-left:2px;margin-inline-start:1px}':'.root-item{margin-inline-start:1px;margin-left:2px}',
+    strong:true,logicalStrong});
+}
 for (const family of ['margin','padding','inset','scroll-margin','scroll-padding']) {
   for (const kind of ['owned','child']) for (const reverse of [false,true]) for (const shorthand of [false,true]) {
     const side = kind === 'owned' ? 'top' : 'left';

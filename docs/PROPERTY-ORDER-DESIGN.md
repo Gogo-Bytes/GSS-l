@@ -91,14 +91,14 @@ rank 数字与生成的 class 名在本文中仅是示意；当前实现有无 r
 }
 ```
 
-可原子化的同一 pure ownership 规则中，已登记的逻辑／物理 longhand 对已不再仅因潜在重叠而被 `GSS1206` 拒绝；跨规则累积、shorthand 和其他上下文仍保留现有准入保护。会进入 preserved 模式的模块仍保留原冲突拒绝：该模式按 authored 顺序输出，尚不能保证固定属性顺序。语义强于固定属性顺序已确认；独立同属性 rank、条件和原生强度如何具体参与排序仍需进一步设计。未来官方文档应向用户解释固定顺序和覆盖行为。
+可原子化的 pure ownership 规则内及跨规则累积的已登记逻辑／物理 longhand 对已不再仅因潜在重叠而被 `GSS1206` 拒绝；shorthand 和其他上下文仍保留现有准入保护。会进入 preserved 模式的模块仍保留原冲突拒绝：该模式按 authored 顺序输出，尚不能保证固定属性顺序。语义强于固定属性顺序已确认；独立同属性 rank、条件和原生强度如何具体参与排序仍需进一步设计。未来官方文档应向用户解释固定顺序和覆盖行为。
 
 Tailwind 参考：[margin utilities](https://tailwindcss.com/docs/margin)、[冲突 utility 的处理](https://tailwindcss.com/docs/styling-with-utility-classes#conflicting-utility-classes)。这是对处理思路的参考，不意味着 GSS 完全复制 Tailwind 的语义。
 
 ## 与当前实现的差异
 
 - 当前 atom rank 会将可能 effect 重叠的不同属性纳入竞争族；目标设计将同属性 rank 和不同属性固定顺序分开。
-- 当前 `GSS1206` 仍对部分跨规则累积、shorthand 和其他上下文的逻辑／物理组合予以拒绝；目标方向的完整准入范围待设计。
+- 当前 `GSS1206` 仍对部分 shorthand 和非 pure ownership 上下文的逻辑／物理组合予以拒绝；目标方向的完整准入范围待设计。
 - 当前实现通过 effect registry 处理 shorthand 和部分胜出，并不等同于本文提出的“安全展开后再处理 atom”的完整流程。
 - 现有 ownership／结构语义及其与排序的关系需要单独核对。本文未决定删除相关语义，也未证明同属性 rank 与固定属性顺序的所有组合都能无损表达它们。
 

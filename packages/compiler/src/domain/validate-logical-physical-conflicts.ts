@@ -39,7 +39,7 @@ type RuleCandidate = {
 export function validateLogicalPhysicalConflicts(
   id: string,
   rules: readonly RuleCandidate[],
-  allowSameRuleLonghands = true
+  allowPureLonghands = true
 ): readonly GssDiagnostic[] {
   const propertiesByContext = new Map<string, Map<string, Set<RuleCandidate>>>();
   function add(key: string, rule: RuleCandidate) {
@@ -93,9 +93,9 @@ export function validateLogicalPhysicalConflicts(
       const physical = conflictingPhysicalProperties[logical]!.find((property) => {
         if (!properties.has(property)) return false;
         const owners = new Set([...properties.get(logical)!, ...properties.get(property)!]);
-        // The fixed module rank planner already orders both longhands from one
-        // pure ownership rule. Keep other accumulation and shorthand guards.
-        return !(allowSameRuleLonghands && owners.size === 1 && isPureOwnershipRule([...owners][0]!) &&
+        // The fixed module rank planner orders pure ownership longhands across
+        // targets, preserving proven ownership before fixed property priority.
+        return !(allowPureLonghands && [...owners].every(isPureOwnershipRule) &&
           classifyPropertyEffect(logical).kind === 'longhand' &&
           classifyPropertyEffect(property).kind === 'longhand');
       });

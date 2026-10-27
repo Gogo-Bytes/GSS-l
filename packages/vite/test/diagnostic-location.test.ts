@@ -71,7 +71,7 @@ it('reports a real production error with physical file, location and source fram
 });
 
 it.each([
-  ['Compiler', '.card { margin-inline-start: 1px; } .outer .card { margin-left: 2px; }', 'GSS'],
+  ['Compiler', '.card { margin-inline: 1px; } .outer .card { margin-left: 2px; }', 'GSS'],
   ['resource IO', '.card { background: url(missing.svg); }', 'Cannot read GSS asset']
 ])('does not invent CSS locations for %s errors', async (_kind, source, message) => {
   const { server } = await fixture(source!);

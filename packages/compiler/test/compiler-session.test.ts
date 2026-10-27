@@ -470,7 +470,7 @@ describe('GssCompilerSession', () => {
     const replacement = compiler.replaceStylesheet({
       id: '/project/src/family.gss',
       source: `
-        .son { margin-inline-start: 1rem; }
+        .son { margin-inline: 1rem; }
         .father .son { margin-left: 2rem; }
       `
     });

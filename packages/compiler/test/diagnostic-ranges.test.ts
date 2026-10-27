@@ -164,7 +164,7 @@ it('does not attribute resource/registry or cross-candidate errors to an unrelat
   for (const source of [
     '.unrelated { color: red; } @font-face { font-family: Missing; }',
     `.unrelated { color: red; } ${registration.replace('1px', '2px')}`,
-    '.unrelated { color: red; } .inner { margin-inline-start: 1px; } .outer .inner { margin-left: 2px; }'
+    '.unrelated { color: red; } .inner { margin-inline: 1px; } .outer .inner { margin-left: 2px; }'
   ]) {
     const result = compiler.replaceStylesheet({ id, source });
     expect(result.committed).toBe(false);

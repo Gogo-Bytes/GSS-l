@@ -2,13 +2,15 @@
 
 ## 当前方向
 
-owner 已要求开始推进核心架构与属性排序目标；[架构方向](ARCHITECTURE-DIRECTION.md) 记录当前实现、优先级、阶段状态和验证要求，[属性排序设计](PROPERTY-ORDER-DESIGN.md) 记录排序目标。会话提交／失效已从贡献准备与快照汇总中拆出，保持公共接口及行为。可原子化的同一 pure ownership 规则的已登记逻辑／物理 longhand 对已准入；preserved 模式、跨规则累积、shorthand 和其他上下文仍可能报 `GSS1206`，独立同属性 rank 与安全展开的完整目标尚未实施。
+owner 已要求开始推进核心架构与属性排序目标；[架构方向](ARCHITECTURE-DIRECTION.md) 记录当前实现、优先级、阶段状态和验证要求，[属性排序设计](PROPERTY-ORDER-DESIGN.md) 记录排序目标。会话提交／失效已从贡献准备与快照汇总中拆出，保持公共接口及行为。可原子化的 pure ownership 规则内及跨规则累积的已登记逻辑／物理 longhand 对已准入；preserved 模式、shorthand 和其他上下文仍可能报 `GSS1206`，独立同属性 rank 与安全展开的完整目标尚未实施。
 
 已确认原生强度／上下文和已证明的所有权／结构语义优先，同语义高度时逻辑属性先、物理属性后；同属性 rank、shorthand 安全展开及跨属性排序与复用的完整算法尚需设计。不能安全展开的既有输入暂时沿用原 shorthand 处理和 fallback，不额外拒绝。owner 仍要求**不自行新增框架或验收场景**；保留独立 oracle、历史失败及现有验证边界。
 
 会话拆分检查：Compiler 会话、收敛、名称及 parser seam 共 249 项定向测试通过；`corepack pnpm verify` 的 lint、build、2124 项测试和 typecheck 通过。该切片没有修改 CSS 输出或宿主行为，未运行浏览器 gate。
 
 同规则 longhand 切片：先确认 `margin`／`padding`／`inset` 的 longhand 正反顺序由 `GSS1206` 拒绝，再在现有 rank 规划下仅放开同一 pure ownership 规则、同一来源的 longhand 对；preserved／兼容性失败路径保留旧冲突诊断与 LKG。现有 Playground 示例同步为 atomic，Vite 生产构建有回归。最终 `corepack pnpm verify`：Compiler 1588、React 49、Vite 162、Testing 334，共 2133 项及 lint／build／types 通过。原 atom-ranks 三引擎入口通过，每引擎保留 418 simple／55 semantic、2772 paired／800 authored-native readings 和负对照，另测 60 条同规则方向读取。该 gate 开始后补了 preserved／兼容性失败保护，随后对最终 build 的三引擎各复核 60 次计算样式及 preserved fallback／LKG；日志见 `artifacts/same-rule-logical-physical/`，原 rank 产物备份于该目录的 `browser-before/`。独立同属性 rank、安全 shorthand 展开及其他上下文仍未完成。
+
+跨规则 pure ownership longhand 切片：先以父子 scope 的逻辑／物理两种强弱关系复现 GSS1206，再开放可原子化的已登记 longhand 对；已证明的 ownership 仍先于固定属性顺序。Compiler 对 margin／padding／inset 的两种强弱及正反源码顺序有定向回归，shorthand、外部目标及 preserved／兼容性路径继续保留既有保护。最终 `corepack pnpm verify`：Compiler 1594、React 49、Vite 162、Testing 334，共 2139 项及 lint／build／types 通过；首次全仓运行中 Vite 的诊断位置测试仍用新准入输入作负例，更换为仍拒绝的 shorthand 后重跑通过，首次失败保存在 `artifacts/ownership-longhands/verify.log`。原 atom-ranks 三引擎入口每引擎通过 418 simple／59 semantic、2852 paired／800 authored-native readings、精确图像和负对照；原 Chromium browser oracle 125／1267／38 与 Vite host、SSG、multipage 通过。日志及先前结果备份在 `artifacts/ownership-longhands/`。独立同属性 rank、安全 shorthand 展开和非 pure ownership 上下文仍未完成。
 
 有限 MVP、官方 Vite React TS 外部消费、客户端路由和 React Router Framework SSR 的已选任务均已交付。已交付宿主基线为 `4b7a982`；本轮基于 `451dd5c` 完成现有核心一致性核查与具体 bug 修复，owner 随后确认并已实现统一固定输出排序策略（同语义高度物理属性高于逻辑属性），而不是扩大 source-order overlap 族。历史失败、支持范围之外的输入和未覆盖组合不混计为当前缺陷。
 

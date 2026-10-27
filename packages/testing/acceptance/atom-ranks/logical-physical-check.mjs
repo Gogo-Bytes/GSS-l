@@ -56,8 +56,9 @@ async function sample(page,fixture,mode,properties) {
 function expectedSemantic(fixture,mode) {
   const result=Object.fromEntries(sides.map(side=>[physical(fixture.family,side),'0px']));
   const applyLogical=()=>{for(const side of fixture.shorthand?mode.inline:[mode.inline[0]]) result[physical(fixture.family,side)]='1px';};
+  if(fixture.logicalStrong && fixture.strong) result[physical(fixture.family,fixture.side)]='2px';
   applyLogical();
-  if(fixture.strong) result[physical(fixture.family,fixture.side)]='2px';
+  if(!fixture.logicalStrong && fixture.strong) result[physical(fixture.family,fixture.side)]='2px';
   if(fixture.partial) {for(const side of sides) result[physical(fixture.family,side)]=side==='top'?'3px':'2px';}
   return result;
 }

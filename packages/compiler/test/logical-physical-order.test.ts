@@ -45,6 +45,24 @@ it('preserves importance on both same-rule directional longhands', () => {
   expect(session.finalize().css).toContain('margin-inline-start: 1px !important;');
 });
 
+it.each([
+  ['.root .item{margin-left:2px}', '.item{margin-inline-start:1px}', ['margin-inline-start', 'margin-left']],
+  ['.root .item{margin-inline-start:1px}', '.item{margin-left:2px}', ['margin-left', 'margin-inline-start']],
+  ['.root .item{padding-left:2px}', '.item{padding-inline-start:1px}', ['padding-inline-start', 'padding-left']],
+  ['.root .item{padding-inline-start:1px}', '.item{padding-left:2px}', ['padding-left', 'padding-inline-start']],
+  ['.root .item{left:2px}', '.item{inset-inline-start:1px}', ['inset-inline-start', 'left']],
+  ['.root .item{inset-inline-start:1px}', '.item{left:2px}', ['left', 'inset-inline-start']]
+] as const)('admits accumulated longhands and preserves ownership: %s', (strong, weak, expected) => {
+  for (const reverse of [false, true]) {
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    const result = session.replaceStylesheet({ id: '/project/Order.gss', source: reverse ? weak + strong : strong + weak });
+    expect(result).toMatchObject({ committed: true, diagnostics: [] });
+    const classes = result.module!.scopeSchema.exports.root!.targets.item!.selfClassName.split(' ');
+    const rules = session.finalize().manifest.rules.filter(({ className }) => classes.includes(className));
+    expect(rules.map(({ property }) => property)).toEqual(expected);
+  }
+});
+
 it('retains existing handling for a shorthand with a runtime variable', () => {
   const session = createGssCompilerSession({ projectRoot: '/project' });
   const result = session.replaceStylesheet({ id: '/project/Order.gss', source: '.a{margin:var(--space)}' });
@@ -224,7 +242,7 @@ it.each(['error', 'preserve-module'] as const)('converges actual lifecycle updat
       expect(session.replaceStylesheet({ id: `/project/${id}`, source }).committed).toBe(true);
       live.set(id, source); assertClean();
       const before = session.finalize(), schema = session.getScopeSchema(`/project/${id}`);
-      for (const rejected of ['.box{margin-left:2px;margin-inline:1px}', '.root .item{margin-left:2px}.item{margin-inline-start:1px}']) {
+      for (const rejected of ['.box{margin-left:2px;margin-inline:1px}', '.root .item{margin-left:2px}.item{margin-inline:1px}']) {
         const update = session.replaceStylesheet({ id: `/project/${id}`, source: rejected });
         expect(update).toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1206', reason: 'logical-physical-property-conflict' }] });
         const clean = createGssCompilerSession({ projectRoot: '/project', atomizationFallback });
