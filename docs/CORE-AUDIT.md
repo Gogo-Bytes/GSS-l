@@ -9,7 +9,7 @@
 之前对话中将 `<Child className={styles.title} />` 描述为普通字符串传递的完整现有能力，需纠正；本轮已实现一个最小语法糖修复，但仍保留明确边界：
 
 - Adapter 能在 JSX/TSX 源码中将它 lowering 为 `.self`；现在生成的 GSS 引用类型也可赋给 `string`。
-- `packages/types/src/index.ts` 使用带 brand、兼容 `.self` 和递归子路径的编译期 `string & children` 引用；`packages/types/test/` 与 `packages/vite/test/consumer/` 已覆盖直接 string 赋值。
+- `types/src/index.ts` 使用带 brand、兼容 `.self` 和递归子路径的编译期 `string & children` 引用；`types/test/` 与 `integrations/vite/test/consumer/` 已覆盖直接 string 赋值。
 - React Adapter 已对直接静态 GSS 路径在普通表达式上下文做最小 lowering；普通函数、`window`／`document` 和模板字符串回归已覆盖。变量 alias 初始化、JSX 属性和既有 typed-prop/alias 流程仍按原有边界处理。
 - 这不是完整 alias/data-flow lowering：可变 alias、跨文件传播仍沿用既有诊断／边界；不可证明的动态／未知路径按 owner 决定保留普通 JS 的 `undefined` 行为，不额外报错；本轮新增了不可变条件 alias 的静态目标读取（如 `branch.title`）展开；旧 `.self` 写法保持兼容。
 
@@ -40,7 +40,7 @@ owner 随后决定采用“编译期语法糖 + 轻量 TS 兼容类型”：直�
 | 原子化与整模块 fallback | `compiler-session`、`compatibility-targets` | 已有有界覆盖；不能逐规则混合 fallback 或默默扩大范围 |
 | 资源／URL／source map／来源 | `stylesheet-assets`、`conditional-keyframes`、`css-source-map`、`source-map-annotations`、`diagnostic-ranges` | 有界实现与证据；完整 token 映射和所有诊断位置不在当前承诺 |
 | React 引用、alias、诊断、source map | React 三组测试；Adapter 目录 | 有界支持；隐式 TSX 类型体验见首要发现，不能只查转换输出 |
-| 消费类型及 string className | `packages/types/test/`、父／子转换及真实 Task-board／外部模板回归 | 隐式字符串语法糖已决定并交付，旧 `.self` 兼容；不重新选型 |
+| 消费类型及 string className | `types/test/`、父／子转换及真实 Task-board／外部模板回归 | 隐式字符串语法糖已决定并交付，旧 `.self` 兼容；不重新选型 |
 | Vite dev 更新、错误恢复、资源 watch | `dev-css`、`dev-assets`；Playground、Task-board 浏览器记录 | 已有有界覆盖；class mapping 更新允许 reload，不默改为状态保留 |
 | Vite production 全量 census 与元数据 | `production-css`、`production-assets`、`stylesheet-url` 及外部框架报告 | 已有公开 tarball 外部消费、Vite 8 和有界真实 SSR 证据；不外推任意 client/server graph |
 

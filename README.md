@@ -32,9 +32,9 @@ corepack pnpm article
 | [compiler/src/domain](compiler/src/domain) | 属性效果、所有权／结构关系、模块内排序与原子标识 |
 | [compiler/src/application](compiler/src/application) | 编译会话、模块生命周期、资源与输出组织 |
 | [compiler/src/public-types.ts](compiler/src/public-types.ts) | 当前编译器公共类型与配置契约 |
-| [packages/react/src](packages/react/src) | React／JSX 分析和转换，包括跨模块组合诊断 |
-| [packages/vite/src](packages/vite/src) | 开发更新、生产汇总、资源与宿主集成 |
-| [packages/types/src](packages/types/src) | 作用域类型辅助 |
+| [adapters/react/src](adapters/react/src) | React／JSX 分析和转换，包括跨模块组合诊断 |
+| [integrations/vite/src](integrations/vite/src) | 开发更新、生产汇总、资源与宿主集成 |
+| [types/src](types/src) | 作用域类型辅助 |
 | [packages/testing/playground](packages/testing/playground) | 中文编译器、适配器及生命周期演示 |
 | [packages/testing/acceptance](packages/testing/acceptance) | task-board、article 和排序验收 |
 | [packages/testing/browser](packages/testing/browser) | 原生 CSS 对照及 Vite 宿主浏览器验证 |

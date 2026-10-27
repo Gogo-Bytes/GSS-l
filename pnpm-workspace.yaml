@@ -1,4 +1,7 @@
 packages:
   - compiler
+  - types
+  - adapters/*
+  - integrations/*
   - packages/*
-  - packages/vite/test/consumer
+  - integrations/vite/test/consumer

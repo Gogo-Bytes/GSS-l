@@ -18,8 +18,8 @@ owner 已决定按本文件的有限范围结项，结项基线为 `847698c`；�
 | 编译会话：事务替换、失效、全量 finalize、资源回收与确定性输出 | 已交付 | `compiler-session.test.ts`、`session-convergence.test.ts` |
 | 安全边界：有界准入、整模块 preserved fallback、失败保留 last-known-good | 已交付 | `compiler-session.test.ts`、`external-target.test.ts`、`compatibility-targets.test.ts`；不扩大 fallback |
 | 资源、URL 绑定、来源映射和生产元数据 | 已交付有界实现 | `stylesheet-assets.test.ts`、`css-source-map.test.ts`、`diagnostic-ranges.test.ts`；Vite production assets/CSS 测试，不承诺完整 token 级映射 |
-| React 引用发现、静态 scope 校验、className lowering 与消费类型 | 已交付有界实现 | `packages/react/test/`、`packages/types/test/`；React 分析不进入编译核心 |
-| Vite 开发更新／恢复和生产中央 CSS 输出 | 已交付 | `packages/vite/test/` 的 dev CSS/assets、production CSS/assets 与诊断测试 |
+| React 引用发现、静态 scope 校验、className lowering 与消费类型 | 已交付有界实现 | `adapters/react/test/`、`types/test/`；React 分析不进入编译核心 |
+| Vite 开发更新／恢复和生产中央 CSS 输出 | 已交付 | `integrations/vite/test/` 的 dev CSS/assets、production CSS/assets 与诊断测试 |
 | 中文 Playground | 已交付 | `packages/testing/playground/`、`playground.test.ts` |
 | Task-board、Article 真实页面与独立原生参考 | 已交付指定范围 | `packages/testing/acceptance/`；浏览器历史证据与 Firefox 限制见 STATUS |
 | 同模块多 scope 固定排序、逻辑／物理潜在别名排序 | 已交付 | `fixed-module-ranks.test.ts`、`logical-physical-order.test.ts` |

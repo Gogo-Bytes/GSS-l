@@ -27,7 +27,7 @@
 - [selector parser](../compiler/src/infrastructure/postcss-stylesheet-parser.ts)、[模块贡献 marker emission](../compiler/src/application/module-contribution.ts)。
 - [state registry](../compiler/src/domain/pseudo-state-capabilities.ts)、[pseudo-element registry](../compiler/src/domain/pseudo-element-capabilities.ts)。
 - [property effects](../compiler/src/domain/property-effects.ts)、[统一属性排序策略](../compiler/src/domain/module-order-policy.ts)。
-- [React Adapter](../packages/react/src/index.ts)、[Vite Adapter](../packages/vite/src/index.ts)。
+- [React Adapter](../adapters/react/src/index.ts)、[Vite Adapter](../integrations/vite/src/index.ts)。
 
 ## 本轮一致性核查：正确性，不是数量
 

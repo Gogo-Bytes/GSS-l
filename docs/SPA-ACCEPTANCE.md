@@ -4,7 +4,7 @@
 
 已有单页 React 应用的有界验收，不是 SPA 尚未验收；但不能据此宣称完整客户端路由生命周期已验收。历史浏览器通过范围以 [STATUS.md](STATUS.md) 为准；后续 Playground 专项已复跑 Chromium dev/preview 并通过，范围见 [Playground 覆盖核对](PLAYGROUND-COVERAGE.md)，不代表其他浏览器 gate 重跑。
 
-普通跨文件 `className` 字符串传递不要求跨文件 scope 推导。父组件 `<Card className={styles.card} />` 在父文件内 lowering 成 `.self`，子组件 `props.className` 保持字符串。`packages/react/test/transform-react-gss-usage.test.ts` 本轮新增显式的父／子独立转换回归；这验证转换契约，不冒充真实浏览器或 TypeScript 类型兼容性验收。
+普通跨文件 `className` 字符串传递不要求跨文件 scope 推导。父组件 `<Card className={styles.card} />` 在父文件内 lowering 成 `.self`，子组件 `props.className` 保持字符串。`adapters/react/test/transform-react-gss-usage.test.ts` 本轮新增显式的父／子独立转换回归；这验证转换契约，不冒充真实浏览器或 TypeScript 类型兼容性验收。
 
 ## 已有覆盖与明确结论
 
@@ -15,8 +15,8 @@
 | CSS-only 更新 | Task-board `dev/css-only-resource-hmr` | class mapping 不变时，验证资源样式更新且 document 不替换 |
 | class mapping 改变 | Task-board `dev/class-map-edit-reload` | 当前允许且显式验证 document reload、React 状态重置；不保证无刷新或保留 React 状态 |
 | 无效修改与恢复 | Task-board `dev/class-map-recovery-reload` | 验证错误 overlay、last-known-good 样式、无效修改时 document 保留；恢复后允许 reload |
-| 删除／重建、晚发现模块、晚连接 HMR client | `packages/vite/test/dev-css.test.ts` | 有真实 Vite server 自动化测试，但这些测试本身不是浏览器交互验收 |
-| 资源更新／丢失／恢复 | `packages/vite/test/dev-assets.test.ts` | 有宿主回归；不能据此推导任意应用状态下的浏览器恢复行为 |
+| 删除／重建、晚发现模块、晚连接 HMR client | `integrations/vite/test/dev-css.test.ts` | 有真实 Vite server 自动化测试，但这些测试本身不是浏览器交互验收 |
+| 资源更新／丢失／恢复 | `integrations/vite/test/dev-assets.test.ts` | 有宿主回归；不能据此推导任意应用状态下的浏览器恢复行为 |
 | 懒加载与 hydration | `packages/testing/browser/vite-multipage-lazy-check.mjs`、`vite-host-check.mjs` | 有有界 MPA/lazy、SSG hydration fixture；不是完整 SPA router 验收 |
 
 ## 缺口分类

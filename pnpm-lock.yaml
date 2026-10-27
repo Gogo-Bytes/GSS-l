@@ -24,11 +24,36 @@ importers:
         specifier: ^2.1.8
         version: 2.1.8
 
+  adapters/react:
+    dependencies:
+      '@babel/parser':
+        specifier: ^7.26.3
+        version: 7.26.3
+      '@babel/traverse':
+        specifier: ^7.26.4
+        version: 7.26.4
+      '@babel/types':
+        specifier: ^7.26.3
+        version: 7.29.8
+      '@gss-l/compiler':
+        specifier: workspace:*
+        version: link:../../compiler
+      '@gss-l/types':
+        specifier: workspace:*
+        version: link:../../types
+      magic-string:
+        specifier: ^0.30.17
+        version: 0.30.21
+    devDependencies:
+      '@types/babel__traverse':
+        specifier: ^7.20.6
+        version: 7.20.6
+
   compiler:
     dependencies:
       '@gss-l/types':
         specifier: workspace:*
-        version: link:../packages/types
+        version: link:../types
       '@jridgewell/gen-mapping':
         specifier: ^0.3.13
         version: 0.3.13
@@ -52,84 +77,14 @@ importers:
         specifier: ^0.3.31
         version: 0.3.31
 
-  packages/react:
-    dependencies:
-      '@babel/parser':
-        specifier: ^7.26.3
-        version: 7.26.3
-      '@babel/traverse':
-        specifier: ^7.26.4
-        version: 7.26.4
-      '@babel/types':
-        specifier: ^7.26.3
-        version: 7.29.8
-      '@gss-l/compiler':
-        specifier: workspace:*
-        version: link:../../compiler
-      '@gss-l/types':
-        specifier: workspace:*
-        version: link:../types
-      magic-string:
-        specifier: ^0.30.17
-        version: 0.30.21
-    devDependencies:
-      '@types/babel__traverse':
-        specifier: ^7.20.6
-        version: 7.20.6
-
-  packages/testing:
-    dependencies:
-      postcss:
-        specifier: ^8.4.49
-        version: 8.5.28
-      postcss-selector-parser:
-        specifier: ^7.0.0
-        version: 7.1.6
-    devDependencies:
-      '@gss-l/compiler':
-        specifier: workspace:*
-        version: link:../../compiler
-      '@gss-l/react':
-        specifier: workspace:^
-        version: link:../react
-      '@gss-l/vite':
-        specifier: workspace:^
-        version: link:../vite
-      '@types/node':
-        specifier: ^22.20.4
-        version: 22.20.4
-      '@types/react':
-        specifier: ^19.2.0
-        version: 19.3.0
-      '@types/react-dom':
-        specifier: ^19.2.0
-        version: 19.3.0(@types/react@19.3.0)
-      playwright:
-        specifier: 1.58.2
-        version: 1.58.2
-      pngjs:
-        specifier: 7.0.0
-        version: 7.0.0
-      react:
-        specifier: ^19.2.0
-        version: 19.3.0
-      react-dom:
-        specifier: ^19.2.0
-        version: 19.3.0(react@19.3.0)
-      vite:
-        specifier: ^7.3.6
-        version: 7.3.6(@types/node@22.20.4)(lightningcss@1.33.0)
-
-  packages/types: {}
-
-  packages/vite:
+  integrations/vite:
     dependencies:
       '@gss-l/compiler':
         specifier: workspace:*
         version: link:../../compiler
       '@gss-l/types':
         specifier: workspace:*
-        version: link:../types
+        version: link:../../types
       mrmime:
         specifier: ^2.0.1
         version: 2.0.1
@@ -139,7 +94,7 @@ importers:
     devDependencies:
       '@gss-l/react':
         specifier: workspace:*
-        version: link:../react
+        version: link:../../adapters/react
       '@types/node':
         specifier: ^22.20.4
         version: 22.20.4
@@ -168,20 +123,65 @@ importers:
         specifier: ^8.18.3
         version: 8.21.3
 
-  packages/vite/test/consumer:
+  integrations/vite/test/consumer:
     dependencies:
       '@gss-l/react':
         specifier: workspace:*
-        version: link:../../../react
+        version: link:../../../../adapters/react
       '@gss-l/types':
         specifier: workspace:*
-        version: link:../../../types
+        version: link:../../../../types
       '@gss-l/vite':
         specifier: workspace:*
         version: link:../..
       vite:
         specifier: ^7.3.6
         version: 7.3.6(@types/node@22.20.4)(lightningcss@1.33.0)
+
+  packages/testing:
+    dependencies:
+      postcss:
+        specifier: ^8.4.49
+        version: 8.5.28
+      postcss-selector-parser:
+        specifier: ^7.0.0
+        version: 7.1.6
+    devDependencies:
+      '@gss-l/compiler':
+        specifier: workspace:*
+        version: link:../../compiler
+      '@gss-l/react':
+        specifier: workspace:^
+        version: link:../../adapters/react
+      '@gss-l/vite':
+        specifier: workspace:^
+        version: link:../../integrations/vite
+      '@types/node':
+        specifier: ^22.20.4
+        version: 22.20.4
+      '@types/react':
+        specifier: ^19.2.0
+        version: 19.3.0
+      '@types/react-dom':
+        specifier: ^19.2.0
+        version: 19.3.0(@types/react@19.3.0)
+      playwright:
+        specifier: 1.58.2
+        version: 1.58.2
+      pngjs:
+        specifier: 7.0.0
+        version: 7.0.0
+      react:
+        specifier: ^19.2.0
+        version: 19.3.0
+      react-dom:
+        specifier: ^19.2.0
+        version: 19.3.0(react@19.3.0)
+      vite:
+        specifier: ^7.3.6
+        version: 7.3.6(@types/node@22.20.4)(lightningcss@1.33.0)
+
+  types: {}
 
 packages:
 
@@ -244,7 +244,7 @@ packages:
     dependencies:
       '@babel/code-frame': 7.29.7
       '@babel/generator': 7.29.8
-      '@babel/parser': 7.26.3
+      '@babel/parser': 7.29.9
       '@babel/template': 7.29.7
       '@babel/types': 7.29.8
       debug: 4.4.3
