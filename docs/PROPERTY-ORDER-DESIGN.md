@@ -111,3 +111,26 @@ Tailwind 参考：[margin utilities](https://tailwindcss.com/docs/margin)、[冲
 5. 设计与现有行为的迁移和独立预期，覆盖正反声明顺序、LTR／RTL、不同 writing-mode、scope 组合、shorthand 部分覆盖和失败恢复；不把现有测试改成自我对照。
 
 这些是待设计和验证的问题，不代表已经发现具体实现缺陷，也不自动授权扩大其他 CSS 语法或改变公共 API。
+
+## 排序约束：待验证的内部模型
+
+以下是下一步的设计候选，不是已证明可直接替换现有 planner 的算法。先保留每个 selector 分支、声明位置和 target／source／observation 绑定为独立 occurrence；按 layer、条件、伪元素主体和 importance 等现有上下文规则处理，不把原生 specificity 简化为可跨上下文比较的一个分数。生成规则时继续由浏览器处理原生强度。
+
+对于可证明会竞争且处于可比较上下文的 occurrence：
+
+1. **语义约束**：已有证明表明 B 的所有权／结构条件严格强于 A 时，要求 A 先于 B；未知或 opaque 关系不能伪造这种证明。
+2. **固定属性约束**：语义高度相同、不同属性具有已登记的逻辑／物理潜在重叠时，逻辑属性先、物理属性后；潜在重叠不代表可以删去任一声明。
+3. **同属性约束**：语义高度相同且属性相同的竞争声明按 authored rule／声明位置决定先后；不同属性的本地 rank 数值没有可比较意义。
+4. **复用**：只有合并后仍能满足所有相关约束、scope membership、来源与原生强度时才能共享 identity。图中两点合并可能引入环，即便合并前两点之间没有直接边，因此连续相同值本身不是完整证明。
+
+如果语义高度能在完整竞争范围内一致计算，所有严格语义边都使高度增加，固定属性与同属性边只在同高度内比较，则可以用高度、固定属性键和同属性顺序构造候选顺序；但现有高度来自具体竞争族，作用于不同 target、属性与共享 atom 时是否存在一致且不循环的投影尚未证明。不能以本段替代这个证明，也不能仅把 `atomRank` 改为 per-property 后继续将其数字作为全局比较键。
+
+验证候选设计至少使用以下独立预期，并覆盖相反 authored 顺序：
+
+- `.a{margin-inline-start:1px;margin-left:2px}`：两个声明保留，同语义高度物理后发；横排 LTR 左侧 2px，RTL 左侧 2px、右侧 1px。
+- `.a{margin-inline-start:1px}.b{margin-inline-start:2px}.c{margin-left:3px}`：同高度时两个逻辑声明都在物理声明之前，`a+b` 保留同属性后写胜出；`b+c` 重叠时物理后发。物理属性的本地 rank 不得与逻辑 rank 直接比较。
+- `.root > .item{margin-inline-start:1px}.root .item{margin-left:2px}`：两个选择器原生强度相同并同时命中时，更强 child 语义使逻辑属性后发胜出；不把普通 ownership 路径当成必有的 DOM 祖先。
+- `.early{color:red}.middle{color:blue}.late{color:red}`：`early+middle` 为蓝、`middle+late` 为红；复用不能跨过竞争声明。
+- `margin` 与 `margin-left` 的两种 authored 顺序：安全展开后分别得到左侧 2px 和 1px；同一属性的 `!important`、各 scope 的部分胜出、原始来源与 map 均需保留。
+
+这些用例需要由既有 compiler、独立浏览器／literal oracle 和会话恢复载体验证；不以当前实现的输出作为新策略的唯一预期。`var()` 等无法安全展开的已支持输入如何处理仍待 owner 决定，不能因为候选模型成立而自行改变 fallback。
