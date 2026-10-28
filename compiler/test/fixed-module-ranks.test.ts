@@ -555,3 +555,90 @@ it('allows negative scroll-margin but leaves negative scroll-padding on the exis
   const padding = rulesFor(compile('.a{scroll-padding:-1px;scroll-padding-left:9px}'), ['a']);
   expect(padding.map(({ property }) => property)).toEqual(['scroll-padding', 'scroll-padding-left']);
 });
+
+for (const family of ['margin', 'padding', 'inset', 'scroll-margin', 'scroll-padding']) for (const axis of ['inline', 'block']) {
+  const shorthand = `${family}-${axis}`;
+  it.each(['1px', '1px 2px', '0 +0.0'])(`expands ${shorthand} %s into logical sides without physical mapping`, (value) => {
+    const source = `.a{${shorthand}:${value};${shorthand}-start:9px}`;
+    const rules = rulesFor(compile(source), ['a']);
+    expect(rules).toHaveLength(2);
+    expect(rules.find(({ property }) => property === `${shorthand}-start`)).toMatchObject({ value: '9px', origins: [{ range: { start: source.indexOf(`${shorthand}-start:`) } }] });
+    expect(rules.find(({ property }) => property === `${shorthand}-end`)).toMatchObject({ value: value.split(' ')[1] ?? value, origins: [{ range: { start: source.indexOf(`${shorthand}:`) } }] });
+  });
+
+  it.each([false, true])(`preserves ${shorthand} source order and importance (%s)`, (reverse) => {
+    for (const important of ['none', 'short', 'long']) {
+      const declarations = [`${shorthand}:1px 2px${important === 'short' ? '!important' : ''}`, `${shorthand}-start:9px${important === 'long' ? '!important' : ''}`];
+      const rules = rulesFor(compile(`.a{${(reverse ? declarations.reverse() : declarations).join(';')}}`), ['a']);
+      expect(rules).toHaveLength(2);
+      expect(rules.find(({ property }) => property === `${shorthand}-start`)).toMatchObject({
+        value: important === 'short' || (important === 'none' && reverse) ? '1px' : '9px', important: important !== 'none'
+      });
+    }
+  });
+
+  it.each([false, true])(`preserves ${shorthand} cross-scope membership, order and recovery (%s)`, (reverse) => {
+    const authored = [`.a,.b{${shorthand}:1px 2px}`, `.c{${shorthand}-start:9px}`];
+    const source = (reverse ? authored.reverse() : authored).join('');
+    const session = compile(source);
+    expect(rulesFor(session, ['a'])).toHaveLength(2);
+    expect(rulesFor(session, ['b'])).toEqual(rulesFor(session, ['a']));
+    expect(rulesFor(session, ['c']).map(({ property, value }) => [property, value])).toEqual([[`${shorthand}-start`, '9px']]);
+    expect(session.finalize().manifest.rules.filter(({ property }) => property === `${shorthand}-start`).map(({ value }) => value)).toEqual(reverse ? ['9px', '1px'] : ['1px', '9px']);
+    const before = session.finalize();
+    expect(session.replaceStylesheet({ id: '/project/Fixed.gss', source: `.a{${shorthand}:1px;${shorthand}:2px}` })).toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1204' }] });
+    expect(session.finalize()).toEqual(before);
+    expect(session.replaceStylesheet({ id: '/project/Fixed.gss', source }).committed).toBe(true);
+    expect(session.finalize().css).toBe(before.css);
+    expect(session.finalize().sourceMap).toEqual(before.sourceMap);
+  });
+
+  it(`keeps unsafe ${shorthand} values and contexts on the existing path`, () => {
+    for (const value of ['var(--space)', 'calc(1px + 2px)', 'auto', '1%', '1px 2px 3px', 'inherit']) {
+      expect(compile(`.a{${shorthand}:${value};${shorthand}-start:9px}`).finalize().manifest.rules.some(({ property }) => property === shorthand)).toBe(true);
+    }
+    for (const source of [
+      `.a{${shorthand}:1px}`,
+      `.a:hover{${shorthand}:1px;${shorthand}-start:9px}`,
+      `.a{${shorthand}:1px}.root .b{${shorthand}-start:9px}`,
+      `.a{${shorthand}:1px}.b{${shorthand}-start:var(--space)}`,
+      `.a{${shorthand}:1px;${shorthand}-start:9px}.b{${family === 'inset' ? 'left' : `${family}-left`}:3px}`
+    ]) expect(compile(source).finalize().manifest.rules.some(({ property }) => property === shorthand)).toBe(true);
+    const source = `.a{${shorthand}:1px;${shorthand}-start:9px}`;
+    const compatibility = createGssCompilerSession({ projectRoot: '/project', compatibilityTargetStages: [{ chrome: '120.0' }] });
+    expect(compatibility.replaceStylesheet({ id: '/project/Fixed.gss', source }).committed).toBe(true);
+    expect(compatibility.finalize().manifest.rules.some(({ property }) => property === shorthand)).toBe(true);
+    const preserved = createGssCompilerSession({ projectRoot: '/project' });
+    expect(preserved.replaceStylesheet({ id: '/project/Fixed.gss', source: `${source}.unknown{future-paint:1}` })).toMatchObject({ committed: true, module: { compilationMode: 'preserved' }, diagnostics: [{ code: 'GSS1104' }] });
+    expect(preserved.finalize().manifest.rules).toHaveLength(0);
+    expect(preserved.finalize().css).toContain(`${shorthand}: 1px;`);
+  });
+}
+
+it('expands signed logical margins and insets while preserving padding negative-value boundaries', () => {
+  for (const family of ['margin', 'inset', 'scroll-margin']) {
+    expect(rulesFor(compile(`.a{${family}-inline:-1px -2px;${family}-inline-start:9px}`), ['a']).find(({ property }) => property === `${family}-inline-end`)?.value).toBe('-2px');
+  }
+  expect(rulesFor(compile('.a{padding-inline-start:9px;padding-inline:-1px}'), ['a']).map(({ property, value }) => [property, value])).toEqual([['padding-inline-start', '9px']]);
+  for (const family of ['padding', 'scroll-padding']) {
+    expect(compile(`.a{${family}-inline:-0;${family}-inline-start:9px}`).finalize().manifest.rules.some(({ property }) => property === `${family}-inline`)).toBe(true);
+  }
+  expect(compile('.a{scroll-padding-inline:-1px;scroll-padding-inline-start:9px}').finalize().manifest.rules.some(({ property }) => property === 'scroll-padding-inline')).toBe(true);
+});
+
+it('keeps inline and block expansions independent and supports end-side competitors', () => {
+  for (const family of ['margin', 'padding', 'inset', 'scroll-margin', 'scroll-padding']) {
+    const session = compile(`.a{${family}-inline:1px 2px;${family}-inline-end:9px;${family}-block:3px 4px;${family}-block-end:8px}`);
+    expect(Object.fromEntries(rulesFor(session, ['a']).map(({ property, value }) => [property, value]))).toEqual({
+      [`${family}-inline-start`]: '1px', [`${family}-inline-end`]: '9px', [`${family}-block-start`]: '3px', [`${family}-block-end`]: '8px'
+    });
+  }
+});
+
+it('keeps same-rule scroll logical/physical alias competition on the original shorthand path', () => {
+  for (const family of ['scroll-margin', 'scroll-padding']) for (const axis of ['inline', 'block']) {
+    const shorthand = `${family}-${axis}`;
+    const session = compile(`.a{${shorthand}:1px 2px;${shorthand}-start:9px;${family}-left:3px}`);
+    expect(session.finalize().manifest.rules.some(({ property }) => property === shorthand)).toBe(true);
+  }
+});

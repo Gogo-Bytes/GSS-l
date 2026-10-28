@@ -15,7 +15,7 @@ owner 已要求按整体规划实施核心架构与属性排序目标；先读 d
 
 常规 bug、诊断、必要回归与实施顺序自行完成，不逐切片请 owner 选择。修复复用已有测试载体；不新增框架/演示应用/验收矩阵。需要改变能力、作者体验、语法、公共 API/配置、架构或 fallback 才先给选项和后果。
 
-排序目标不要重问：在原生强度／可比较上下文相同时，已证明 ownership／结构语义优先，同语义高度逻辑先、物理后；同属性 rank 与不同属性固定顺序应分开。无法安全展开的既有输入暂时沿用当前 shorthand 处理和 fallback，不额外拒绝；owner 已单独批准对可确定无效的静态负 px padding 在有界原子化路径中按 CSS 忽略，具体限制见当前计划。静态 margin／padding／inset／scroll-margin／scroll-padding 同规则及跨单节点 scope 展开有受限实现（scroll 两族遇逻辑别名竞争保留原 shorthand），同属性 atomRank 已与跨属性输出位置 orderSlot 分开，保留既有竞争族投影与输出位置复用屏障；完整展开及跨位置复用仍需设计。生成 ranked class 包含两个数，最终排序不比较局部 rank；不可只删 GSS1206 或省去位置身份。当前实现及历史排序证据见 STATUS，新目标见架构方向。跨文件 scope 推导、跨模块同节点优先级仍跳过；.gss 删除不纳入支持契约；性能和历史 Firefox Article 暂缓。
+排序目标不要重问：在原生强度／可比较上下文相同时，已证明 ownership／结构语义优先，同语义高度逻辑先、物理后；同属性 rank 与不同属性固定顺序应分开。无法安全展开的既有输入暂时沿用当前 shorthand 处理和 fallback，不额外拒绝；owner 已单独批准对可确定无效的静态负 px padding 在有界原子化路径中按 CSS 忽略，具体限制见当前计划。静态 margin／padding／inset／scroll-margin／scroll-padding 同规则及跨单节点 scope 展开有受限实现（包括五族 inline/block 静态双向展开；逻辑轴及 scroll 物理两族遇其他潜在别名竞争保留原 shorthand，逻辑方向不在编译期映射），同属性 atomRank 已与跨属性输出位置 orderSlot 分开，保留既有竞争族投影与输出位置复用屏障；完整展开及跨位置复用仍需设计。生成 ranked class 包含两个数，最终排序不比较局部 rank；不可只删 GSS1206 或省去位置身份。当前实现及历史排序证据见 STATUS，新目标见架构方向。跨文件 scope 推导、跨模块同节点优先级仍跳过；.gss 删除不纳入支持契约；性能和历史 Firefox Article 暂缓。
 
 保留独立 oracle、严格断言、精确图像及失败证据；复现失败后诊断，不循环重试直到绿。浏览器脚本默认范围不变，执行前查实际入口。修复运行相关检查与 verify；宿主/输出改变时加跑受影响的现有 gate。完整且通过后直接提交/push main，报告 commit、检查与结果；不完整/已知失败的实现不推送。发布、release、tag 仍需明确授权。
 ```

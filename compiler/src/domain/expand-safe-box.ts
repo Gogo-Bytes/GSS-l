@@ -25,20 +25,27 @@ export function discardInvalidStaticPadding(rules: readonly ParsedStyleRule[]): 
 }
 
 export function expandSafeBoxRules(rules: readonly ParsedStyleRule[]): readonly ParsedStyleRule[] {
-  return boxShorthands.reduce((current, property) => expandFamily(current, property), rules);
+  return boxShorthands.reduce((current, family) => {
+    const physical = expandFamily(current, family);
+    const inline = expandFamily(physical, family, 'inline');
+    return expandFamily(inline, family, 'block');
+  }, rules);
 }
 
-function expandFamily(rules: readonly ParsedStyleRule[], shorthand: typeof boxShorthands[number]): readonly ParsedStyleRule[] {
+function expandFamily(rules: readonly ParsedStyleRule[], family: typeof boxShorthands[number], axis?: 'inline' | 'block'): readonly ParsedStyleRule[] {
+  const shorthand = axis ? `${family}-${axis}` : family;
   const declarations = [...new Set(rules.flatMap((rule) => rule.declarations))];
-  const sideProperty = (side: string) => shorthand === 'inset' ? side : `${shorthand}-${side}`;
-  const isSide = (property: string) => sides.some((side) => property === sideProperty(side));
+  const properties = axis ? ['start', 'end'].map((side) => `${shorthand}-${side}`) :
+    sides.map((side) => family === 'inset' ? side : `${family}-${side}`);
+  const isSide = (property: string) => properties.includes(property);
   // Padding and scroll-padding reject negative lengths; a partially expanded invalid shorthand
   // would incorrectly apply its otherwise valid sides.
-  const nonnegative = shorthand === 'padding' || shorthand === 'scroll-padding';
+  const nonnegative = family === 'padding' || family === 'scroll-padding';
   const safeLength = (value: string) => length.test(value) && (!nonnegative || !value.startsWith('-'));
-  // The new scroll families retain their existing shorthand path whenever a
-  // logical alias participates, including same-rule expansion candidates.
-  if (shorthand.startsWith('scroll-') && declarations.some(({ property }) =>
+  // Scroll boxes and logical axes require isolation from potential aliases even
+  // within one rule. Logical expansion writes start/end, never mapped physical
+  // sides. See PROPERTY-ORDER-DESIGN.md for the fallback and direction contract.
+  if ((axis || family.startsWith('scroll-')) && declarations.some(({ property }) =>
     property !== shorthand && !isSide(property) && propertiesMayOverlapForModuleOrder(property, shorthand))) return rules;
   // Cross-scope ranks preserve authored order only with proven static competing
   // values and no other participating alias.
@@ -46,7 +53,7 @@ function expandFamily(rules: readonly ParsedStyleRule[], shorthand: typeof boxSh
     declarations.some(({ property }) => isSide(property)) && declarations.every(({ property, value }) => {
       if (property === shorthand) {
         const values = value.trim().split(/\s+/);
-        return values.length <= 4 && values.every(safeLength);
+        return values.length <= properties.length && values.every(safeLength);
       }
       if (isSide(property)) return safeLength(value);
       return !propertiesMayOverlapForModuleOrder(property, shorthand);
@@ -59,12 +66,13 @@ function expandFamily(rules: readonly ParsedStyleRule[], shorthand: typeof boxSh
       longhands.some(({ value }) => !safeLength(value))) return rule;
     const declaration = shorthands[0]!;
     const values = declaration.value.trim().split(/\s+/);
-    if (values.length > 4 || values.some((value) => !safeLength(value))) return rule;
+    if (values.length > properties.length || values.some((value) => !safeLength(value))) return rule;
     let replacement = expanded.get(declaration);
     if (!replacement) {
-      const [top, right = top, bottom = top, left = right] = values;
-      replacement = [top, right, bottom, left].map((value, index) => ({
-        ...declaration, property: sideProperty(sides[index]!), value: value!
+      const [first, second = first, third = first, fourth = second] = values;
+      const distributed = [first, second, third, fourth];
+      replacement = properties.map((property, index) => ({
+        ...declaration, property, value: distributed[index]!
       }));
       expanded.set(declaration, replacement);
     }

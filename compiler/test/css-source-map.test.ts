@@ -320,3 +320,16 @@ it.each(['scroll-margin', 'scroll-padding'])('maps expanded %s sides and the com
     source: 'scroll.gss', line: 1, column: source.indexOf(`${family}-left:`)
   });
 });
+
+it.each(['margin', 'padding', 'inset', 'scroll-margin', 'scroll-padding'])('maps expanded logical %s declarations to authored sources', (family) => {
+  for (const axis of ['inline', 'block']) {
+    const property = `${family}-${axis}`;
+    const source = `.a{${property}:1px 2px}.b{${property}-start:9px}`;
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    expect(session.replaceStylesheet({ id: '/project/box.gss', source }).committed).toBe(true);
+    const snapshot = session.finalize();
+    const map = new TraceMap(snapshot.sourceMap);
+    for (const side of ['start', 'end']) expect(originalPositionFor(map, generatedPosition(snapshot.css, `${property}-${side}:`))).toMatchObject({ source: 'box.gss', line: 1, column: source.indexOf(`${property}:`) });
+    expect(originalPositionFor(map, generatedPosition(snapshot.css, `${property}-start: 9px;`))).toMatchObject({ source: 'box.gss', line: 1, column: source.indexOf(`${property}-start:`) });
+  }
+});
