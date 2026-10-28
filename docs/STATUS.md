@@ -9,6 +9,8 @@
 
 静态负 px padding 误剪枝已在 owner 确认后按受限范围修复；原始三引擎反例、适用范围及 compatibility 等未改变路径见 [当前计划](NEXT-STAGE.md)。
 
+最新排序输入重构已集中 occurrence 身份并采用具名绑定查询 rank；534 个既有排序 fixtures 的完整公开输出与 `e9b42bc` 基线一致，`verify` 2211 项通过。当前仍按 effect 竞争族编号，独立同属性 rank 尚未实施；本次未重跑浏览器 gate，已有浏览器记录属于先前实现的验证。细节与后续有界目标见当前计划及属性排序文档。
+
 ## 当前阶段
 
 owner 已决定有限 MVP 结项，已批准并完成官方 create-vite React TS 外部消费、Vite 8 实验及同模板 React Router Declarative／BrowserRouter 客户端路由验收。最新基础验证为 2211 项测试通过；Browser oracle 为 125 fixtures／1267 comparisons／38 controls，Playground 同范围通过。另已按 owner 授权完成 React Router Framework Mode 的有界 request-time SSR 实验；不覆盖历史 Firefox 失败或通用／完整 SSR。

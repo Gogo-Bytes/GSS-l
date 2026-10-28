@@ -15,6 +15,7 @@ import { classifyPropertyEffect, isRegisteredPropertyEffect } from '../domain/pr
 import { planDescendantConditions } from '../domain/plan-descendant-conditions.js';
 import { supportsCurrentBackgroundRanks } from '../domain/module-local-atom-ranks.js';
 import { planFixedModuleRanks } from '../domain/fixed-module-ranks.js';
+import type { OrderBinding } from '../domain/order-occurrences.js';
 import { discardInvalidStaticPadding, expandSafeBoxRules } from '../domain/expand-safe-box.js';
 import { planStructuralRelations } from '../domain/plan-structural-relations.js';
 import { resolveTargetDeclarations } from '../domain/resolve-target-declarations.js';
@@ -515,8 +516,8 @@ export function prepareContribution(
       relationRank: 0, declarations: rule.declarations
     })))
   ]);
-  const rankIdentity = (declaration: ParsedDeclaration, rule: ParsedStyleRule, target: readonly string[], source?: readonly string[], observation?: ParsedHasCondition) => {
-    const atomRank = moduleRanks.get(declaration, rule, target, source, observation);
+  const rankIdentity = (declaration: ParsedDeclaration, binding: OrderBinding) => {
+    const atomRank = moduleRanks.get(declaration, binding);
     return atomRank === undefined ? {} : { atomRank };
   };
 
@@ -547,14 +548,14 @@ export function prepareContribution(
         const selector = `.${sourceMarker}${suffix} ${`.${targetMarker}`.repeat(rule.path.length - 1)}`;
         for (const declaration of instance.declarations) rules.push({
           kind: 'contextual-atom', className: targetMarker, selector, wrappers, layer, relationRank,
-          source: declaration.source, identity: { ...relationIdentity, ...rankIdentity(declaration, rule, targetPath, sourcePath), property: declaration.property,
+          source: declaration.source, identity: { ...relationIdentity, ...rankIdentity(declaration, instance), property: declaration.property,
             ...identifyAssetValue(declaration.value, bindings), important: declaration.important }
         });
       } else {
         for (const declaration of instance.declarations) {
           const identity: PureDeclarationIdentity = {
             layer, condition, state: attribute ? canonicalAttributeCondition(attribute) : states.join(':') || 'self',
-            ...rankIdentity(declaration, rule, targetPath, sourcePath),
+            ...rankIdentity(declaration, instance),
             property: declaration.property, ...identifyAssetValue(declaration.value, bindings), important: declaration.important,
             ...(rule.path.length > 1 ? { ownership: { moduleId, path: targetPath, specificity: rule.path.length } } : {})
           };
@@ -585,7 +586,7 @@ export function prepareContribution(
           layer,
           condition,
           state: 'self',
-          ...rankIdentity(declaration, rule, target.path),
+          ...rankIdentity(declaration, { rule, targetPath: target.path }),
           property: declaration.property,
           ...identifyAssetValue(declaration.value, bindings),
           important: declaration.important
@@ -609,7 +610,8 @@ export function prepareContribution(
   for (const rule of localRules) {
     if (isPseudoElementRule(rule)) ensureScopePath(roots, rule.path);
   }
-  for (const { rule, targetPath, sourcePath, declarations, relationRank } of plannedPseudos.instances) {
+  for (const instance of plannedPseudos.instances) {
+    const { rule, targetPath, declarations, relationRank } = instance;
     const pseudoElement = rule.pseudoElements.at(-1)!;
     const state = rule.states.at(-1)!.join(':') || 'self';
     const wrappers = rule.conditions;
@@ -619,7 +621,7 @@ export function prepareContribution(
     for (const declaration of declarations) {
       const identity: PureDeclarationIdentity = {
         layer, condition, state, pseudoElement,
-        ...rankIdentity(declaration, rule, targetPath, sourcePath),
+        ...rankIdentity(declaration, instance),
         property: declaration.property,
         ...identifyAssetValue(declaration.value, bindings),
         important: declaration.important,
@@ -691,7 +693,7 @@ export function prepareContribution(
       for (const declaration of rule.declarations) {
         const identity: ObservedDeclarationIdentity = {
           ...relationIdentity,
-          ...rankIdentity(declaration, rule, rule.path, undefined, observation),
+          ...rankIdentity(declaration, { rule, targetPath: rule.path, observation }),
           property: declaration.property,
           ...identifyAssetValue(declaration.value, bindings),
           important: declaration.important
@@ -709,7 +711,8 @@ export function prepareContribution(
     }
   }
 
-  for (const { rule, declarations, relationRank } of plannedStructural.instances) {
+  for (const instance of plannedStructural.instances) {
+    const { rule, declarations, relationRank } = instance;
     const wrappers = rule.conditions;
     const condition = canonicalCondition(wrappers);
     const layer = rule.layer;
@@ -760,7 +763,7 @@ export function prepareContribution(
     for (const declaration of declarations) {
       const identity: ContextualDeclarationIdentity = {
         ...relationIdentity,
-        ...rankIdentity(declaration, rule, rule.path, sourcePath),
+        ...rankIdentity(declaration, instance),
         property: declaration.property,
         ...identifyAssetValue(declaration.value, bindings),
         important: declaration.important
@@ -800,7 +803,7 @@ export function prepareContribution(
       const identity: PureDeclarationIdentity = {
         layer: rule.layer, condition: canonicalCondition(rule.conditions),
         state: `external-condition:${rule.externalCondition!}`,
-        ...rankIdentity(declaration, rule, rule.path),
+        ...rankIdentity(declaration, { rule, targetPath: rule.path }),
         ownership: { moduleId, path: rule.path, specificity: rule.path.length },
         property: declaration.property,
         ...identifyAssetValue(declaration.value, bindings),
@@ -842,7 +845,7 @@ export function prepareContribution(
       const identity: PureDeclarationIdentity = {
         layer: rule.layer, condition: canonicalCondition(rule.conditions),
         state: `external:${rule.externalTarget!}`,
-        ...rankIdentity(declaration, rule, rule.path),
+        ...rankIdentity(declaration, { rule, targetPath: rule.path }),
         ownership: { moduleId, path: rule.path, specificity: rule.path.length },
         property: declaration.property,
         ...identifyAssetValue(declaration.value, bindings),

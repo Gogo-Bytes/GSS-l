@@ -4,6 +4,7 @@
 
 | 工作 | 现有入口 | 必须区分的语义 |
 | --- | --- | --- |
+| 排序 occurrence 身份 | [order-occurrences.ts](order-occurrences.ts) | 声明对象、selector 分支和 target／source／observation 绑定共同标识 occurrence；它不是可复用 atom 的身份。收集保留剪枝前的声明及位置。 |
 | 属性写入与重置 | [property-effects.ts](property-effects.ts)、[expand-safe-box.ts](expand-safe-box.ts) | shorthand 与 longhand 对同一 effect 的竞争按原生强度和声明顺序处理；安全展开与保留原声明各有边界。 |
 | 胜出和语义关系 | [resolve-target-declarations.ts](resolve-target-declarations.ts)、[semantic-order-heights.ts](semantic-order-heights.ts) | 按 effect 判断部分胜出；已证明的 ownership／结构关系与原生强度都不能被简单属性排序替代。 |
 | 模块内排序和复用 | [fixed-module-ranks.ts](fixed-module-ranks.ts)、[rule-order-planner.ts](rule-order-planner.ts) | rank 保留必要的竞争顺序和 scope membership；相同值不一定可跨竞争者复用。当前 rank 仍按潜在重叠族规划，独立同属性 rank 是目标。 |

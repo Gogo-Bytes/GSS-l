@@ -124,6 +124,21 @@ Tailwind 参考：[margin utilities](https://tailwindcss.com/docs/margin)、[冲
 
 ## 排序约束：待验证的内部模型
 
+### 已实现的 occurrence 身份边界
+
+`compiler/src/domain/order-occurrences.ts` 集中排序输入的具体模型与收集：`OrderBinding` 表达规则分支和 target／source／observation 绑定，`OrderInstance` 保留 planner 的强度、来源位置及声明集合，`OrderOccurrence` 将绑定与当前语义规则中的声明及其下标连接起来。该规则已完成适用的安全展开，声明仍携带原始来源。语义高度和 rank 规划使用同一个模型，生成阶段按具名绑定查询 rank；已有 instance 的路径直接来自 planner。
+
+身份采用本次 contribution 准备中的声明对象编号、规则分支对象编号，以及 target／source／observation 的序列化值。保持现有编码，不对 observation 做新的等价归一化。它只用于本次规划和查询，不写入公共 API，也不直接作为 class 名或复用证明。
+
+- selector-list 分支即使共享声明对象，也不能合为一个 occurrence：例如 `.a::before, .a::after` 的主体不同，`.a:focus, .a:where(:checked)` 的谓词也不同。
+- 同一规则绑定到不同目标或状态来源时必须分开；同一 `:has()` 的不同 observation 也保留独立身份。重新构造但值相同的路径可查回原 occurrence，不能依赖路径数组对象相同。
+- 收集读取 `instance.rule.declarations` 及其下标，保持候选竞争范围；不能改成已经剪枝的 `instance.declarations`，否则竞争者可能丢失、声明顺序位置可能移动。这里的下标属于展开后的语义规则，不是 parser 源码偏移。相同完整身份继续沿用原 Map 去重行为。
+- occurrence 分离不禁止最终 atom 复用；复用仍由现有完整连续桶、安全条件和来源汇总决定。`.early{color:red}.middle{color:blue}.late{color:red}` 仍不能将两个红色跨竞争者合并。
+
+这是行为保持式重构；parser 的平行数组、各关系 planner 的专用模型、effect 竞争族编号及最终输出策略保持现状，不代表全链路绑定模型或独立同属性 rank 已完成。验证使用既有排序／复用／来源／收敛测试，并将 534 个既有排序 fixtures 的完整 replacement 与 finalize 输出和重构前基线逐字段比较；证据见 [当前计划](NEXT-STAGE.md)。
+
+### 尚未实施的排序投影
+
 以下是下一步的设计候选，不是已证明可直接替换现有 planner 的算法。先保留每个 selector 分支、声明位置和 target／source／observation 绑定为独立 occurrence；按 layer、条件、伪元素主体和 importance 等现有上下文规则处理，不把原生 specificity 简化为可跨上下文比较的一个分数。生成规则时继续由浏览器处理原生强度。
 
 对于可证明会竞争且处于可比较上下文的 occurrence：

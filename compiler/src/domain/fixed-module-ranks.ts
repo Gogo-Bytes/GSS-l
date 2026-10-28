@@ -1,26 +1,13 @@
-import type { ParsedDeclaration, ParsedHasCondition, ParsedStyleRule } from './parsed-stylesheet.js';
-import type { DescendantInstance } from './plan-descendant-conditions.js';
-import { semanticOrderHeights, type OrderOccurrence } from './semantic-order-heights.js';
+import type { ParsedDeclaration, ParsedStyleRule } from './parsed-stylesheet.js';
+import { collectOrderOccurrences, type OrderBinding, type OrderInstance, type OrderOccurrence as Occurrence } from './order-occurrences.js';
+import { semanticOrderHeights } from './semantic-order-heights.js';
 import { propertiesMayOverlapForModuleOrder, propertyOrderPriority, isPropertyOrderReuseBarrier } from './module-order-policy.js';
-
-type Instance = DescendantInstance<ParsedStyleRule> & { observation?: ParsedHasCondition };
-type Occurrence = OrderOccurrence;
 
 /** Module-local effect-family order: semantic dependency height, fixed property priority, then original
  * authored occurrence. Source order is never a semantic edge. Contexts remain
  * distinct until their complete (height, occurrence) tuple proves shareable. */
-export function planFixedModuleRanks(rules: readonly ParsedStyleRule[], instances: readonly Instance[]) {
-  const declarationIds = new Map([...new Set(rules.flatMap((rule) => rule.declarations))].map((declaration, index) => [declaration, index]));
-  // Parser selector-list branches share declaration objects. Rule identity preserves
-  // the original branch (predicates, runtime relations and pseudo subject); paths
-  // distinguish its concrete emission bindings. Never merge those before proofs.
-  const branchIds = new Map(rules.map((rule, index) => [rule, index]));
-  const key = (declaration: ParsedDeclaration, rule: ParsedStyleRule, target: readonly string[], source?: readonly string[], observation?: ParsedHasCondition) =>
-    JSON.stringify([declarationIds.get(declaration), branchIds.get(rule), target, source, observation]);
-  const occurrences = [...new Map(instances.flatMap((instance) => instance.rule.declarations.map((declaration, index) => {
-    const occurrence = { instance, declaration, index, key: key(declaration, instance.rule, instance.targetPath, instance.sourcePath, instance.observation) };
-    return [occurrence.key, occurrence] as const;
-  }))).values()];
+export function planFixedModuleRanks(rules: readonly ParsedStyleRule[], instances: readonly OrderInstance[]) {
+  const { occurrences, key } = collectOrderOccurrences(rules, instances);
   const pending = new Set(occurrences);
   const ranks = new Map<string, number>();
   const overlap = (a: Occurrence, b: Occurrence) =>
@@ -52,8 +39,8 @@ export function planFixedModuleRanks(rules: readonly ParsedStyleRule[], instance
     });
     reuseContiguousPureRanks(family, heights, ranks);
   }
-  return { get(declaration: ParsedDeclaration, rule: ParsedStyleRule, target: readonly string[], source?: readonly string[], observation?: ParsedHasCondition): number | undefined {
-    return ranks.get(key(declaration, rule, target, source, observation));
+  return { get(declaration: ParsedDeclaration, binding: OrderBinding): number | undefined {
+    return ranks.get(key(declaration, binding));
   } };
 }
 

@@ -31,7 +31,7 @@ GSS 以 CSS 为输入，生成可组合的 scope 引用、原子 CSS 与必要�
 
 | 优先级 | 目标 | 当前证据与待设计 |
 | --- | --- | --- |
-| 1 | 统一规则绑定、occurrence 和身份 | `ParsedStyleRule` 使用多组下标对应数组；rank 结合规则／声明对象、target、source、observation 构造身份。设计模型时保留 selector 分支、局部绑定和全部来源。 |
+| 1 | 统一规则绑定、occurrence 和身份 | 排序入口已通过 `order-occurrences.ts` 集中声明／分支／绑定身份，生成阶段按具名绑定查询 rank；parser 平行数组与其他 planner 的专用模型尚未统一。保留 selector 分支、局部绑定和全部来源，具体契约见属性排序文档。 |
 | 2 | 理清贡献构建、会话提交和快照 | 已分离会话提交／失效、贡献准备与快照汇总；`module-contribution.ts` 内的准入、planner 和生成仍需进一步划分。 |
 | 3 | 分离语义证明、同属性 rank、固定属性顺序及最终输出 | 保留原生强度、语义高度与 opaque 关系的既定约定；不要仅调整 comparator 或删除 `GSS1206`。 |
 | 4 | 集中关系计划、marker 和 scope membership | 统一可共享的身份与生成计划，保留不同关系的专用证明；不可假设 ownership 等价于 DOM 祖先。 |

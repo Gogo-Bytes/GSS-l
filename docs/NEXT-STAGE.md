@@ -6,6 +6,10 @@ owner 已要求开始推进核心架构与属性排序目标；[架构方向](AR
 
 已确认原生强度／上下文和已证明的所有权／结构语义优先，同语义高度时逻辑属性先、物理属性后；同属性 rank、shorthand 安全展开及跨属性排序与复用的完整算法尚需设计。不能安全展开的既有输入暂时沿用原 shorthand 处理和 fallback，不额外拒绝。owner 仍要求**不自行新增框架或验收场景**；保留独立 oracle、历史失败及现有验证边界。
 
+排序 occurrence 建模切片：新增 `order-occurrences.ts`，集中声明、selector 分支与 target／source／observation 的身份收集；语义高度与 rank 使用同一具体模型，生成阶段以具名绑定查询 rank，已有 planner instance 直接传递。声明候选和原始下标、Map 去重、effect 竞争族、rank 数字、class 身份及复用规则均保持现状。parser 平行数组与各关系 planner 尚未整体统一。重构前后既有 363 项排序／复用／来源／收敛定向测试通过，最终 `verify` 2211 项及 lint／build／types 通过；534 个既有 rank fixtures 的完整 replacement（含导出代码、类型声明、schema、诊断）和 finalize（CSS／map／manifest／report／generation）与 `e9b42bc` 基线完全一致。日志、比较脚本及基线在 `artifacts/order-occurrences/`；没有改动测试 oracle，也未新增浏览器运行证据。
+
+下一步聚焦同属性独立 rank 与跨属性输出顺序的数据契约：在完整 occurrence 和现有语义高度上验证投影，特别保留未展开 shorthand 的 source-order 竞争与共享 atom 的约束。须同时解释“同属性多档 rank 不能压过同高度物理属性后发”和“强语义逻辑属性仍胜出”；证明成立前保持现有 rank 编号及输出比较器。具体反例和约束见属性排序文档，不能把本次身份收集拆分视为该算法已完成。
+
 静态 inset 展开切片：复用四方向展开，`inset` 对应 `top`／`right`／`bottom`／`left`，支持静态 px（包括负值）及无单位零。适用既有同规则和无条件、未分层单节点跨 scope 的安全边界；`auto`、`var()`、逻辑方向别名、compatibility 和 preserved fallback 沿用既有路径。独立同属性 rank、其他 shorthand 和复杂值仍未完成。 最终 `verify` 2211 项及 lint／build／types 通过；原 atom-ranks 三引擎入口与 Chromium browser oracle 125／1267／38 通过，每引擎另有 7 组、21 个原生 CSS 与 literal scope 对照。原始产物备份、red 与验证日志见 `artifacts/safe-inset-expansion/`。
 
 静态 padding 展开切片：复用静态四方向展开，同时对 shorthand 和对应 longhand 仅接受无负号的 px／无单位零；`margin` 继续允许负值。适用既有同规则和无条件、未分层单节点跨 scope 的安全边界；该切片当时对负值、`var()`、方向别名、compatibility 及 preserved fallback 沿用原路径；随后已按下述无效 padding 修复处理确定无效的静态负 px。独立同属性 rank、其他 shorthand 及复杂值仍未完成。`verify` 2179 项及 lint／build／types 通过；原 atom-ranks 三引擎及 Chromium 独立 browser oracle 125／1267／38 通过，每引擎另验证 18 个 scope 结果和 2 个无效值控制，日志及历史产物备份见 `artifacts/safe-padding-expansion/`。

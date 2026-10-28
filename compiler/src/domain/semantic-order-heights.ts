@@ -1,11 +1,9 @@
-import type { ParsedDeclaration, ParsedHasCondition, ParsedStyleRule } from './parsed-stylesheet.js';
-import type { DescendantInstance } from './plan-descendant-conditions.js';
+import type { ParsedStyleRule } from './parsed-stylesheet.js';
+import type { OrderOccurrence } from './order-occurrences.js';
 import { strictlyRefines } from './plan-structural-relations.js';
 import { matchesOwnedTarget } from './module-local-atom-ranks.js';
 import { propertiesMayOverlapForModuleOrder } from './module-order-policy.js';
 
-type Instance = DescendantInstance<ParsedStyleRule> & { observation?: ParsedHasCondition };
-export type OrderOccurrence = { instance: Instance; declaration: ParsedDeclaration; index: number; key: string };
 const context = (target: readonly string[], source?: readonly string[]) => JSON.stringify([target, source]);
 
 /** Only proven ownership/structural relations form semantic edges; authored order is not an edge. */
