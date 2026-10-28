@@ -2,6 +2,7 @@ import type { ParsedDeclaration, ParsedStyleRule } from './parsed-stylesheet.js'
 import { propertiesMayOverlapForModuleOrder } from './module-order-policy.js';
 
 const sides = ['top', 'right', 'bottom', 'left'] as const;
+const boxShorthands = ['margin', 'padding', 'inset', 'scroll-margin', 'scroll-padding'] as const;
 // Deliberately limited to values whose grammar and serialization need no CSS
 // value evaluation. Unknown syntax and var() remain on the existing path.
 const length = /^(?:[+-]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)px|[+-]?0(?:\.0+)?)$/i;
@@ -24,16 +25,21 @@ export function discardInvalidStaticPadding(rules: readonly ParsedStyleRule[]): 
 }
 
 export function expandSafeBoxRules(rules: readonly ParsedStyleRule[]): readonly ParsedStyleRule[] {
-  return (['margin', 'padding', 'inset'] as const).reduce((current, property) => expandFamily(current, property), rules);
+  return boxShorthands.reduce((current, property) => expandFamily(current, property), rules);
 }
 
-function expandFamily(rules: readonly ParsedStyleRule[], shorthand: 'margin' | 'padding' | 'inset'): readonly ParsedStyleRule[] {
+function expandFamily(rules: readonly ParsedStyleRule[], shorthand: typeof boxShorthands[number]): readonly ParsedStyleRule[] {
   const declarations = [...new Set(rules.flatMap((rule) => rule.declarations))];
   const sideProperty = (side: string) => shorthand === 'inset' ? side : `${shorthand}-${side}`;
   const isSide = (property: string) => sides.some((side) => property === sideProperty(side));
-  // Padding rejects negative lengths; a partially expanded invalid shorthand
+  // Padding and scroll-padding reject negative lengths; a partially expanded invalid shorthand
   // would incorrectly apply its otherwise valid sides.
-  const safeLength = (value: string) => length.test(value) && (shorthand !== 'padding' || !value.startsWith('-'));
+  const nonnegative = shorthand === 'padding' || shorthand === 'scroll-padding';
+  const safeLength = (value: string) => length.test(value) && (!nonnegative || !value.startsWith('-'));
+  // The new scroll families retain their existing shorthand path whenever a
+  // logical alias participates, including same-rule expansion candidates.
+  if (shorthand.startsWith('scroll-') && declarations.some(({ property }) =>
+    property !== shorthand && !isSide(property) && propertiesMayOverlapForModuleOrder(property, shorthand))) return rules;
   // Cross-scope ranks preserve authored order only with proven static competing
   // values and no other participating alias.
   const crossScopeSafe = rules.every((rule) => rule.path.length === 1 && rule.layer === 'unlayered' && rule.conditions.length === 0) &&

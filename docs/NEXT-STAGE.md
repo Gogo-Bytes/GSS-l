@@ -6,6 +6,10 @@ owner 已要求开始推进核心架构与属性排序目标；[架构方向](AR
 
 已确认原生强度／上下文和已证明的所有权／结构语义优先，同语义高度时逻辑属性先、物理属性后；同属性 rank 已与跨属性输出位置分开；shorthand 完整展开及更宽复用仍需设计。不能安全展开的既有输入暂时沿用原 shorthand 处理和 fallback，不额外拒绝。owner 仍要求**不自行新增框架或验收场景**；保留独立 oracle、历史失败及现有验证边界。
 
+静态 scroll box 展开切片：`scroll-margin`／`scroll-padding` 复用现有四方向展开，支持静态 `px`／无单位零；前者可为负值，后者仅接受无负号值。保留普通 ownership／已登记属性／无 compatibility 的入口，同规则物理 longhand 竞争或受限跨单节点 scope 竞争时展开；新两族一旦存在逻辑方向别名竞争，整个属性族保留原路径。`auto`、百分比、`var()`、复杂值、原 fallback 及无效值过滤边界不变，`atomRank`／`orderSlot` 策略不变。规则及规范依据见属性排序文档。
+
+该切片 `verify` **2259** 项（Compiler 1714／React 49／Vite 162／Testing 334）及 lint／build／types 通过。新增 37 项回归覆盖四方向分配、重要性和顺序、selector-list／scope membership、源位置／map、重复声明失败／恢复、alias／非 pure／compatibility／preserved 边界。`artifacts/safe-scroll-box-expansion/` 保留初始 red、测试配置和 preserved warning 断言修正、lint 失败及最终 `verify-final.log`；旧浏览器产物已备份。原 atom-ranks 默认三引擎入口通过，保留每引擎 418 simple／59 semantic、2852 paired／800 authored-native readings 及原有精确图像和负对照（`rank-browser.log`）。每引擎另有 43 组 scope、每组四侧的独立 authored-native／literal 对照通过，覆盖独立／组合 scope、正反顺序、重要性、变量和负 scroll-margin（`browser-regression.mjs`／`.log`）。原 Chromium browser oracle 125 fixtures／1267 comparisons／38 controls 与 Vite host、SSG、multipage 检查通过（`browser-oracle.log`）。此处验证声明和计算样式等价，未新增滚动吸附交互、外部 SPA／SSR 或其他框架验收。
+
 排序 occurrence 建模切片：新增 `order-occurrences.ts`，集中声明、selector 分支与 target／source／observation 的身份收集；语义高度与 rank 使用同一具体模型，生成阶段以具名绑定查询 rank，已有 planner instance 直接传递。声明候选和原始下标、Map 去重、effect 竞争族、rank 数字、class 身份及复用规则均保持现状。parser 平行数组与各关系 planner 尚未整体统一。重构前后既有 363 项排序／复用／来源／收敛定向测试通过，最终 `verify` 2211 项及 lint／build／types 通过；534 个既有 rank fixtures 的完整 replacement（含导出代码、类型声明、schema、诊断）和 finalize（CSS／map／manifest／report／generation）与 `e9b42bc` 基线完全一致。日志、比较脚本及基线在 `artifacts/order-occurrences/`；没有改动测试 oracle，也未新增浏览器运行证据。
 
 同属性 rank／跨属性输出分离：`atomRank` 按属性独立编号，`orderSlot` 保留原 effect 竞争族在语义高度 → 固定属性 priority → authored tie 上的输出投影。生成／汇总身份保留两个数，最终比较器只读取输出位置；连续安全桶复用时同时复用二者，不重编号后续声明。原生强度、`relationRank`、准入、静态展开及不安全 shorthand／compatibility／preserved 路径保持原契约。生成的 ranked class 增加 `--order_` 编码，仍从 schema／导出取得，不增加公共配置或 manifest 字段。完整证明、反例及当前保守复用边界见属性排序文档。

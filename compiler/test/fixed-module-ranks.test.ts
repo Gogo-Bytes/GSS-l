@@ -464,3 +464,94 @@ it.each([false, true])('keeps unresolved shorthand order separate from per-prope
   expect(rules.map(({ className }) => className.match(/--rank_([0-9]+)/)?.[1])).toEqual(['1', '1']);
   expect(rules.map(({ className }) => className.match(/--order_([0-9]+)/)?.[1])).toEqual(['1', '2']);
 });
+
+for (const family of ['scroll-margin', 'scroll-padding']) {
+  it.each([
+    ['1px', ['1px', '1px', '1px', '1px']],
+    ['1px 2px', ['1px', '2px', '1px', '2px']],
+    ['1px 2px 3px', ['1px', '2px', '3px', '2px']],
+    ['1px 2px 3px 4px', ['1px', '2px', '3px', '4px']],
+    ['0 +0.0 0px', ['0', '+0.0', '0px', '+0.0']]
+  ])(`expands safe ${family} %s with original declaration provenance`, (value, expected) => {
+    const source = `.a{${family}:${value};${family}-left:9px}`;
+    const rules = rulesFor(compile(source), ['a']);
+    expect(rules).toHaveLength(4);
+    for (const [index, side] of ['top', 'right', 'bottom', 'left'].entries()) {
+      const rule = rules.find(({ property }) => property === `${family}-${side}`)!;
+      expect(rule.value).toBe(side === 'left' ? '9px' : expected[index]);
+      expect(rule.origins[0]?.range.start).toBe(source.indexOf(side === 'left' ? `${family}-left:` : `${family}:`));
+    }
+  });
+
+  it.each([false, true])(`preserves ${family} declaration order and important winners (%s)`, (reverse) => {
+    for (const important of ['none', 'short', 'long']) {
+      const short = `${family}:1px 2px${important === 'short' ? '!important' : ''}`;
+      const long = `${family}-left:9px${important === 'long' ? '!important' : ''}`;
+      const session = compile(`.a{${(reverse ? [long, short] : [short, long]).join(';')}}`);
+      const rules = rulesFor(session, ['a']);
+      expect(rules).toHaveLength(4);
+      expect(rules.find(({ property }) => property === `${family}-left`)).toMatchObject({
+        value: important === 'short' || (important === 'none' && reverse) ? '2px' : '9px',
+        important: important !== 'none'
+      });
+    }
+  });
+
+  it.each([false, true])(`preserves ${family} cross-scope ordering, selector-list membership and recovery (%s)`, (reverse) => {
+    const authored = [`.a,.b{${family}:1px 2px}`, `.c{${family}-left:9px}`];
+    const source = (reverse ? authored.reverse() : authored).join('');
+    const session = compile(source);
+    expect(rulesFor(session, ['a'])).toHaveLength(4);
+    expect(rulesFor(session, ['b']).map(({ className }) => className)).toEqual(rulesFor(session, ['a']).map(({ className }) => className));
+    expect(rulesFor(session, ['c']).map(({ property, value }) => [property, value])).toEqual([[`${family}-left`, '9px']]);
+    expect(session.finalize().manifest.rules.filter(({ property }) => property === `${family}-left`).map(({ value }) => value))
+      .toEqual(reverse ? ['9px', '2px'] : ['2px', '9px']);
+    const before = session.finalize();
+    expect(session.replaceStylesheet({ id: '/project/Fixed.gss', source: `.a{${family}:1px;${family}:2px}` }))
+      .toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1204' }] });
+    expect(session.finalize()).toEqual(before);
+    expect(session.replaceStylesheet({ id: '/project/Fixed.gss', source }).committed).toBe(true);
+    expect(session.finalize().css).toBe(before.css);
+    expect(session.finalize().sourceMap).toEqual(before.sourceMap);
+  });
+
+  it.each(['var(--space)', 'calc(1px + 2px)', '1%', 'auto', '1.px', '1px 2px 3px 4px 5px'])(`keeps unsupported ${family} %s on its existing shorthand path`, (value) => {
+    expect(rulesFor(compile(`.a{${family}:${value};${family}-left:9px}`), ['a']).map(({ property }) => property))
+      .toEqual([family, `${family}-left`]);
+  });
+
+  it(`keeps ${family} alias competition and non-pure rules outside expansion`, () => {
+    for (const source of [
+      `.a{${family}:1px;${family}-left:9px}.b{${family}-inline-start:3px}`,
+      `.a{${family}:1px;${family}-left:9px;${family}-inline-start:3px}`,
+      `.a:hover{${family}:1px;${family}-left:9px}`
+    ]) expect(compile(source).finalize().manifest.rules.some(({ property }) => property === family)).toBe(true);
+    for (const source of [
+      `.a{${family}:1px}.root .b{${family}-left:9px}`,
+      `.a{${family}:1px}.b{${family}-left:var(--space)}`
+    ]) expect(compile(source).finalize().manifest.rules.some(({ property }) => property === family)).toBe(true);
+  });
+
+  it(`keeps ${family} compatibility and whole-module preserved fallback intact`, () => {
+    const source = `.a{${family}:1px;${family}-left:9px}`;
+    const compatibility = createGssCompilerSession({ projectRoot: '/project', compatibilityTargetStages: [{ chrome: '120.0' }] });
+    expect(compatibility.replaceStylesheet({ id: '/project/Fixed.gss', source }).committed).toBe(true);
+    expect(compatibility.finalize().manifest.rules.some(({ property }) => property === family)).toBe(true);
+    const preserved = createGssCompilerSession({ projectRoot: '/project' });
+    expect(preserved.replaceStylesheet({ id: '/project/Fixed.gss', source: `${source}.unknown{future-paint:1}` }))
+      .toMatchObject({ committed: true, module: { compilationMode: 'preserved' }, diagnostics: [{ code: 'GSS1104' }] });
+    expect(preserved.finalize().manifest.rules).toHaveLength(0);
+    expect(preserved.finalize().report.preservedModules).toBe(1);
+    expect(preserved.finalize().css).toContain(`${family}: 1px;`);
+    expect(preserved.finalize().css).toContain(`${family}-left: 9px;`);
+  });
+}
+
+it('allows negative scroll-margin but leaves negative scroll-padding on the existing path', () => {
+  const margin = rulesFor(compile('.a{scroll-margin:-1px -2px;scroll-margin-left:9px}'), ['a']);
+  expect(margin.find(({ property }) => property === 'scroll-margin-top')?.value).toBe('-1px');
+  expect(margin.find(({ property }) => property === 'scroll-margin-right')?.value).toBe('-2px');
+  expect(margin.find(({ property }) => property === 'scroll-margin-left')?.value).toBe('9px');
+  const padding = rulesFor(compile('.a{scroll-padding:-1px;scroll-padding-left:9px}'), ['a']);
+  expect(padding.map(({ property }) => property)).toEqual(['scroll-padding', 'scroll-padding-left']);
+});

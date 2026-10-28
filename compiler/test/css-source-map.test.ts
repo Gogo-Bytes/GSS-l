@@ -304,3 +304,19 @@ it('maps cross-scope expanded inset atoms to their original declarations', () =>
     source: 'box.gss', line: 1, column: source.indexOf('left:')
   });
 });
+
+it.each(['scroll-margin', 'scroll-padding'])('maps expanded %s sides and the competing longhand to their own sources', (family) => {
+  const source = `.a{${family}:1px 2px}.b{${family}-left:9px}`;
+  const session = createGssCompilerSession({ projectRoot: '/project' });
+  expect(session.replaceStylesheet({ id: '/project/scroll.gss', source }).committed).toBe(true);
+  const snapshot = session.finalize();
+  const map = new TraceMap(snapshot.sourceMap);
+  for (const side of ['top', 'right', 'bottom', 'left']) {
+    expect(originalPositionFor(map, generatedPosition(snapshot.css, `${family}-${side}:`))).toMatchObject({
+      source: 'scroll.gss', line: 1, column: source.indexOf(`${family}:`)
+    });
+  }
+  expect(originalPositionFor(map, generatedPosition(snapshot.css, `${family}-left: 9px;`))).toMatchObject({
+    source: 'scroll.gss', line: 1, column: source.indexOf(`${family}-left:`)
+  });
+});
