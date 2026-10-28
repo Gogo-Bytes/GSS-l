@@ -13,11 +13,13 @@
 
 此前 shorthand 切片加入静态 scroll-margin／scroll-padding 的四方向展开，保留逻辑别名竞争和不安全值的原路径；未扩大负值过滤、compatibility 或 preserved 范围。`verify` 2259 项、原 atom-ranks 三引擎、Chromium browser oracle 125／1267／38 及每引擎 43 组四侧原生对照通过；具体边界和证据见当前计划。
 
-最新逻辑轴切片加入五族 inline/block 的静态双向展开，生成 start/end 而不映射物理方向；遇其他潜在别名仍保留原路径，排序和 fallback 不变。`verify` 2347 项、原 atom-ranks 三引擎、Chromium browser oracle 125／1267／38 及每引擎 654 组原生／字面对照通过；适用边界及完整运行证据见当前计划。
+此前逻辑轴切片加入五族 inline/block 的静态双向展开，生成 start/end 而不映射物理方向；遇其他潜在别名仍保留原路径，排序和 fallback 不变。`verify` 2347 项、原 atom-ranks 三引擎、Chromium browser oracle 125／1267／38 及每引擎 654 组原生／字面对照通过；适用边界及完整运行证据见当前计划。
+
+最新百分比切片在原安全展开边界内支持 margin／padding／inset／scroll-padding 的静态百分比，百分比计算由浏览器负责；scroll-margin 和负百分比 padding 保持原路径。`verify` 2400 项、原 atom-ranks 三引擎、Chromium browser oracle 125／1267／38 及每引擎 648 组原生／字面对照通过，具体验证与限制见当前计划。
 
 ## 当前阶段
 
-owner 已决定有限 MVP 结项，已批准并完成官方 create-vite React TS 外部消费、Vite 8 实验及同模板 React Router Declarative／BrowserRouter 客户端路由验收。最新基础验证为 2347 项测试通过；Browser oracle 为 125 fixtures／1267 comparisons／38 controls，Playground 同范围通过。另已按 owner 授权完成 React Router Framework Mode 的有界 request-time SSR 实验；不覆盖历史 Firefox 失败或通用／完整 SSR。
+owner 已决定有限 MVP 结项，已批准并完成官方 create-vite React TS 外部消费、Vite 8 实验及同模板 React Router Declarative／BrowserRouter 客户端路由验收。最新基础验证为 2400 项测试通过；Browser oracle 为 125 fixtures／1267 comparisons／38 controls，Playground 同范围通过。另已按 owner 授权完成 React Router Framework Mode 的有界 request-time SSR 实验；不覆盖历史 Firefox 失败或通用／完整 SSR。
 
 owner 已要求按整体规划推进核心架构与排序目标，确认更强 GSS 语义优先、同高度逻辑先／物理后；[架构方向](ARCHITECTURE-DIRECTION.md) 和 [属性排序设计](PROPERTY-ORDER-DESIGN.md) 区分目标与当前行为。会话提交／失效、贡献准备与快照汇总已分离；产品包已迁至 `compiler/`、`adapters/react/`、`integrations/vite/` 和 `types/`，测试基础设施已迁至 `tests/`，示例职责尚待整理。可原子化的 pure ownership 规则内及跨规则累积的已登记逻辑／物理 longhand 对已准入。preserved 模式、shorthand 及其他上下文仍可能报告 GSS1206，同属性 rank／输出位置已分离，完整安全展开仍未完成。无法安全展开的既有输入暂时沿用当前 shorthand 处理和 fallback，不额外拒绝。
 

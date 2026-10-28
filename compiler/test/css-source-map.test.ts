@@ -333,3 +333,18 @@ it.each(['margin', 'padding', 'inset', 'scroll-margin', 'scroll-padding'])('maps
     expect(originalPositionFor(map, generatedPosition(snapshot.css, `${property}-start: 9px;`))).toMatchObject({ source: 'box.gss', line: 1, column: source.indexOf(`${property}-start:`) });
   }
 });
+
+
+it.each(['margin', 'padding', 'inset', 'scroll-padding'])('maps percentage %s shorthand and longhand to their own sources', (family) => {
+  for (const axis of ['', '-inline', '-block']) {
+    const shorthand = `${family}${axis}`;
+    const side = axis ? `${shorthand}-start` : family === 'inset' ? 'left' : `${family}-left`;
+    const source = `.a{${shorthand}:1% 2px}.b{${side}:9%}`;
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    expect(session.replaceStylesheet({ id: '/project/box.gss', source }).committed).toBe(true);
+    const snapshot = session.finalize();
+    const map = new TraceMap(snapshot.sourceMap);
+    expect(originalPositionFor(map, generatedPosition(snapshot.css, `${side}:`, 0))).toMatchObject({ source: 'box.gss', line: 1, column: source.indexOf(`${shorthand}:`) });
+    expect(originalPositionFor(map, generatedPosition(snapshot.css, `${side}:`, 1))).toMatchObject({ source: 'box.gss', line: 1, column: source.indexOf(`${side}:`) });
+  }
+});

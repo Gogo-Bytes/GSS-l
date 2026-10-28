@@ -52,15 +52,19 @@ GSS 将样式编译为可复用的 atom class，并允许同一模块的多个 s
 
 新两族仍要求模块全部为已登记属性、普通 ownership 且没有 compatibility 变换；同规则存在对应物理 longhand 竞争时展开，跨规则则要求所有规则无条件／未分层／单节点且全部竞争值可安全处理。额外保守边界是：**模块出现与该族潜在重叠的其他属性（如逻辑方向 longhand／axis shorthand）时，该 scroll 族整体不展开，即使物理 shorthand 和 longhand 写在同一规则中**。这保留现有逻辑／物理输出证明，而不从四方向数值展开推导更宽的别名能力；原 margin／padding／inset 的既有展开条件不变。
 
-`auto`、百分比、其他单位、`var()`、`calc()`、CSS-wide 关键字、无法识别的 token／值数量、负号形式的 scroll-padding（包括合法但本切片不展开的 `-0`）、不安全的竞争 longhand、无竞争 shorthand 及原 preserved／compatibility 路径保留既有处理。不把拒绝展开当作“声明无效”，不新增诊断，也不把原 padding 的负值过滤扩大到 scroll-padding。展开保留原声明的 importance 和来源；selector-list 分支共享展开声明对象，两个方向分别存活时仍保留相应来源和 scope membership。
+`auto`、其他未支持单位、`var()`、`calc()`、CSS-wide 关键字、无法识别的 token／值数量、负号形式的 scroll-padding（包括合法但本切片不展开的 `-0`）、不安全的竞争 longhand、无竞争 shorthand 及原 preserved／compatibility 路径保留既有处理。不把拒绝展开当作“声明无效”，不新增诊断，也不把原 padding 的负值过滤扩大到 scroll-padding。展开保留原声明的 importance 和来源；selector-list 分支共享展开声明对象，两个方向分别存活时仍保留相应来源和 scope membership。
 
 回归以原生 CSS 和字面四方向预期核对正反源码顺序、重要性、独立／组合 scope、负 scroll-margin、未展开变量，并检查 selector-list、source map 与失败更新／恢复。该切片验证的是声明展开和计算样式等价，不新增通用滚动吸附交互承诺；运行证据见 [当前计划](NEXT-STAGE.md)。
 
 逻辑轴切片进一步复用上述五族的静态展开：`margin-inline/block`、`padding-inline/block`、`inset-inline/block`、`scroll-margin-inline/block`、`scroll-padding-inline/block`。根据 [CSS Logical Properties](https://www.w3.org/TR/css-logical-1/#box) 与 [CSS Scroll Snap](https://www.w3.org/TR/css-scroll-snap-1/#margin-shorthand-logical)，1 个值复制到 start/end，2 个值分别写入 start/end；生成的仍是逻辑 longhand，**编译器不把 start/end 映射成 left/right/top/bottom**。方向与书写模式继续由浏览器处理。两个轴的 effect 不重叠，可分别展开；不增加 registry、公开语法或配置。
 
-这十个 shorthand 仅接受静态 `px`／无单位零；padding 两族要求无负号，其余允许负值。沿用普通 ownership、已登记属性、无 compatibility 的入口，以及同规则存在对应 longhand／受限跨单节点 scope 竞争的条件。逻辑轴额外要求整个模块不存在其自身及两个 longhand 以外的潜在重叠属性；出现物理别名或物理 shorthand 时保留该轴的原路径。比如 `.a { margin-inline: 1px 2px; margin-inline-start: 9px } .b { margin-left: 3px }` 不从本次展开推导新的 alias 组合证明。原有物理展开与 `GSS1206` 准入不改，冲突和重复声明仍在展开前检查。
+这十个 shorthand 原先仅接受静态 `px`／无单位零，后续百分比扩展见下；padding 两族要求无负号，其余允许负值。沿用普通 ownership、已登记属性、无 compatibility 的入口，以及同规则存在对应 longhand／受限跨单节点 scope 竞争的条件。逻辑轴额外要求整个模块不存在其自身及两个 longhand 以外的潜在重叠属性；出现物理别名或物理 shorthand 时保留该轴的原路径。比如 `.a { margin-inline: 1px 2px; margin-inline-start: 9px } .b { margin-left: 3px }` 不从本次展开推导新的 alias 组合证明。原有物理展开与 `GSS1206` 准入不改，冲突和重复声明仍在展开前检查。
 
-同规则 `.a { margin-inline-start: 9px; margin-inline: 1px 2px }` 展开后 start 为 `1px`；交换声明顺序后 start 为 `9px`，end 始终为 `2px`，importance 优先。跨 scope 则保留各自完整声明及 membership，再以同属性 rank 和既有输出位置表达组合顺序。展开缓存继续以原声明对象为键，selector-list 分支共享替换身份，source map 指回原 shorthand；失败更新不得污染旧快照。`var()`、`auto`、百分比、复杂值、超过两个值、无竞争 shorthand、非 pure／compatibility／preserved 输入保持原路径；负值过滤仍仅限已批准的普通 padding，不能因拒绝展开而丢弃 scroll-padding 或合法 `-0`。这些约束是有界优化，不是通用 shorthand 解析器；回归与当前浏览器证据见 [当前计划](NEXT-STAGE.md)。
+同规则 `.a { margin-inline-start: 9px; margin-inline: 1px 2px }` 展开后 start 为 `1px`；交换声明顺序后 start 为 `9px`，end 始终为 `2px`，importance 优先。跨 scope 则保留各自完整声明及 membership，再以同属性 rank 和既有输出位置表达组合顺序。展开缓存继续以原声明对象为键，selector-list 分支共享替换身份，source map 指回原 shorthand；失败更新不得污染旧快照。`var()`、`auto`、未支持百分比及复杂值、超过两个值、无竞争 shorthand、非 pure／compatibility／preserved 输入保持原路径；负值过滤仍仅限已批准的普通 padding，不能因拒绝展开而丢弃 scroll-padding 或合法 `-0`。这些约束是有界优化，不是通用 shorthand 解析器；回归与当前浏览器证据见 [当前计划](NEXT-STAGE.md)。
+
+静态百分比切片：在上述入口和竞争条件内，`margin`／`padding`／`inset`／`scroll-padding` 的物理及逻辑轴 shorthand 可以将简单数字百分比与静态 px／零混合展开，原字符串直接分配给各 longhand，由浏览器按各属性和书写模式计算；不自行计算百分比。`margin`／`inset` 接受带负号的百分比；padding 两族仅接受无负号形式。依据 [CSS Box](https://www.w3.org/TR/css-box-3/)、[CSS Position](https://www.w3.org/TR/css-position-3/) 和 [CSS Scroll Snap](https://www.w3.org/TR/css-scroll-snap-1/)，`scroll-margin` 仅接受长度，百分比仍不展开。其他未识别数字形式、`var()`、`calc()`、无竞争声明、潜在别名屏障和 compatibility／preserved 路径保持原处理。
+
+不要把拒绝展开的负百分比当成编译期可丢弃声明：此前批准的 padding 无效值过滤只覆盖确定无效的静态负 px；例如 `.a { padding-left: 9px; padding: -1% }` 仍沿用原路径，不能声称此类无效值行为已修复。百分比展开只在证明全部分量合法后进行，保留 importance、源码顺序、selector-list／scope membership 和 source map；跨 scope 长手值也必须可安全识别，避免混淆不同 scope 的声明身份。当前验证与剩余边界见 [当前计划](NEXT-STAGE.md)。
 
 无效值决策：owner 已批准修复已复现的静态负 `px` padding 误剪枝。对于无需 compatibility、属性均已登记且没有 external target／condition 的模块，原子规划前忽略可确定无效的物理／逻辑 padding shorthand 和 longhand；重复声明和逻辑／物理冲突检查使用过滤后、尚未展开的规则，避免确定无效的声明触发误报；有效重复声明仍沿用既有诊断。`-0` 是合法零值，不忽略。仅当各组成值都是已识别的静态 `px`／无单位零且含真正负 `px` 时判无效；其他单位、复杂值和 `var()` 沿用原路径。compatibility 和整模块 preserved fallback 保留原声明及既有行为，除移除无效声明造成的冲突外，既有有效输入准入边界保持不变。重现与验证见 [当前计划](NEXT-STAGE.md)。
 

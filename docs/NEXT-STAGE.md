@@ -6,6 +6,12 @@ owner 已要求开始推进核心架构与属性排序目标；[架构方向](AR
 
 已确认原生强度／上下文和已证明的所有权／结构语义优先，同语义高度时逻辑属性先、物理属性后；同属性 rank 已与跨属性输出位置分开；shorthand 完整展开及更宽复用仍需设计。不能安全展开的既有输入暂时沿用原 shorthand 处理和 fallback，不额外拒绝。owner 仍要求**不自行新增框架或验收场景**；保留独立 oracle、历史失败及现有验证边界。
 
+静态百分比展开切片：`margin`／`padding`／`inset`／`scroll-padding` 的物理和逻辑轴 shorthand，在既有安全竞争边界内支持简单数字百分比与静态 px／零混合；百分比原样分配给 longhand，由浏览器计算。`scroll-margin` 不接受百分比；padding 两族不展开负号形式，既有无效 padding 过滤仍只处理已批准的静态负 px。`var()`／复杂值、别名屏障、compatibility 和 preserved 路径不变。设计、规范及反例见属性排序文档。
+
+`verify` **2400** 项（Compiler 1855／React 49／Vite 162／Testing 334）及 lint／build／types 通过。新增有界回归覆盖物理与逻辑轴分配、正反顺序／importance、跨 scope／selector-list、source map、失败更新／恢复、负数与原 fallback；开发期 52 项 red 保存在 `artifacts/safe-percentage-expansion/red.log`。每引擎 648 组 scope 结果在横排 LTR／RTL 和竖排与独立 authored-native CSS 的逻辑／物理值一致，未竞争侧另有字面 `2px` 断言，见 `browser-regression.mjs`／`.log`。初始浏览器检查中 WebKit 普通块布局的 margin 受布局约束，原生和生成结果一致但字面 `2px` 断言不成立；保留 `browser-regression-initial-failure.log`，改为 inline-block 消除该约束后重验全部三引擎。旧排序产物及 browser-reference 已备份在同目录；不声称负百分比 padding 的旧误剪枝问题已修复，也不新增滚动吸附交互或复杂值语法支持。
+
+原 atom-ranks 默认 Chromium／Firefox／WebKit 入口通过（`rank-browser.log`）：每引擎固定排序 50 fixtures／182 comparisons／91 exact image pairs，逻辑／物理 418 simple + 59 semantic／2852 paired + 800 authored-native readings／3 image pairs，以及 96 state comparisons／32 image pairs；原负对照和 external-target 边界均通过。原 Chromium browser oracle 125 fixtures／1267 comparisons／38 controls 与 Vite host、SSG、multipage 检查通过（`browser-oracle.log`）。本次未重验外部 SPA／SSR、Article 或性能。
+
 静态逻辑轴展开切片：现有五族 `margin`／`padding`／`inset`／`scroll-margin`／`scroll-padding` 的 `inline`、`block` shorthand 复用同一流程，1–2 个静态 px／零值展开为 start/end；不在编译期映射物理方向。沿用同规则 longhand 竞争与受限跨单节点 scope 入口；该轴遇其他潜在重叠属性时保留原路径。双轴互不重叠，可独立展开；importance、来源、selector-list、scope membership、rank／输出位置和 fallback 契约不变，负值过滤仍只限已批准的普通 padding。完整规则、反例和规范依据见属性排序文档。
 
 该切片 `verify` **2347** 项（Compiler 1802／React 49／Vite 162／Testing 334）及 lint／build／types 通过。新增 88 项回归覆盖两端分配、正反顺序和重要性、跨 scope／selector-list、来源／source map、LKG／恢复、双轴独立、end 竞争、负值和 alias／非 pure／compatibility／preserved 边界。`artifacts/safe-logical-box-expansion/` 保留最初 76 个预期失败的 `red.log`、通过的 `focused.log`、`verify.log` 及最终增加两个边界回归后的 `verify-final.log`。每引擎另有 654 组 scope 结果与独立 authored-native CSS（两逻辑侧、四物理侧）和字面逻辑侧预期一致，覆盖 LTR／RTL／vertical-rl、正反顺序、重要性、独立／组合 scope、变量和合法负值，见 `browser-regression.mjs`／`.log`。未新增框架、滚动吸附交互或通用复杂值支持。

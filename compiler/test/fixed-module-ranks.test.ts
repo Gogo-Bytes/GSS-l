@@ -515,7 +515,7 @@ for (const family of ['scroll-margin', 'scroll-padding']) {
     expect(session.finalize().sourceMap).toEqual(before.sourceMap);
   });
 
-  it.each(['var(--space)', 'calc(1px + 2px)', '1%', 'auto', '1.px', '1px 2px 3px 4px 5px'])(`keeps unsupported ${family} %s on its existing shorthand path`, (value) => {
+  it.each(['var(--space)', 'calc(1px + 2px)', ...(family === 'scroll-margin' ? ['1%'] : []), 'auto', '1.px', '1px 2px 3px 4px 5px'])(`keeps unsupported ${family} %s on its existing shorthand path`, (value) => {
     expect(rulesFor(compile(`.a{${family}:${value};${family}-left:9px}`), ['a']).map(({ property }) => property))
       .toEqual([family, `${family}-left`]);
   });
@@ -594,7 +594,7 @@ for (const family of ['margin', 'padding', 'inset', 'scroll-margin', 'scroll-pad
   });
 
   it(`keeps unsafe ${shorthand} values and contexts on the existing path`, () => {
-    for (const value of ['var(--space)', 'calc(1px + 2px)', 'auto', '1%', '1px 2px 3px', 'inherit']) {
+    for (const value of ['var(--space)', 'calc(1px + 2px)', 'auto', ...(family === 'scroll-margin' ? ['1%'] : []), '1px 2px 3px', 'inherit']) {
       expect(compile(`.a{${shorthand}:${value};${shorthand}-start:9px}`).finalize().manifest.rules.some(({ property }) => property === shorthand)).toBe(true);
     }
     for (const source of [
@@ -641,4 +641,69 @@ it('keeps same-rule scroll logical/physical alias competition on the original sh
     const session = compile(`.a{${shorthand}:1px 2px;${shorthand}-start:9px;${family}-left:3px}`);
     expect(session.finalize().manifest.rules.some(({ property }) => property === shorthand)).toBe(true);
   }
+});
+
+for (const family of ['margin', 'padding', 'inset', 'scroll-padding']) for (const axis of ['', 'inline', 'block']) {
+  const shorthand = axis ? `${family}-${axis}` : family;
+  const side = axis ? `${shorthand}-start` : family === 'inset' ? 'left' : `${family}-left`;
+  const other = axis ? `${shorthand}-end` : family === 'inset' ? 'right' : `${family}-right`;
+  it.each([false, true])(`expands percentage ${shorthand} with source order and importance (%s)`, (reverse) => {
+    for (const important of ['none', 'short', 'long']) {
+      const declarations = [`${shorthand}:1% 2px${important === 'short' ? '!important' : ''}`, `${side}:9%${important === 'long' ? '!important' : ''}`];
+      const source = `.a{${(reverse ? declarations.reverse() : declarations).join(';')}}`;
+      const rules = rulesFor(compile(source), ['a']);
+      const shortWins = important === 'short' || (important === 'none' && reverse);
+      expect(rules.find(({ property }) => property === side)).toMatchObject({ value: shortWins ? (axis ? '1%' : '2px') : '9%', important: important !== 'none' });
+      expect(rules.find(({ property }) => property === other)?.value).toBe('2px');
+      expect(rules.find(({ property }) => property === other)?.origins[0]?.range.start).toBe(source.indexOf(`${shorthand}:`));
+    }
+  });
+  it.each([false, true])(`keeps ${shorthand} percentages across scopes and selector branches (%s)`, (reverse) => {
+    const authored = [`.a,.b{${shorthand}:1% 2px}`, `.c{${side}:9%}`];
+    const source = (reverse ? authored.reverse() : authored).join('');
+    const session = compile(source);
+    expect(rulesFor(session, ['a'])).toHaveLength(axis ? 2 : 4);
+    expect(rulesFor(session, ['b'])).toEqual(rulesFor(session, ['a']));
+    expect(session.finalize().manifest.rules.filter(({ property }) => property === side).map(({ value }) => value)).toEqual(reverse ? ['9%', axis ? '1%' : '2px'] : [axis ? '1%' : '2px', '9%']);
+    const before = session.finalize();
+    expect(session.replaceStylesheet({ id: '/project/Fixed.gss', source: `.a{${shorthand}:1%;${shorthand}:2%}` })).toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1204' }] });
+    expect(session.finalize()).toEqual(before);
+    expect(session.replaceStylesheet({ id: '/project/Fixed.gss', source }).committed).toBe(true);
+    expect(session.finalize().css).toBe(before.css);
+    expect(session.finalize().sourceMap).toEqual(before.sourceMap);
+  });
+}
+
+it('keeps unsupported percentage forms and padding negative filtering unchanged', () => {
+  for (const property of ['scroll-margin', 'scroll-margin-inline', 'scroll-margin-block']) {
+    const side = property === 'scroll-margin' ? 'scroll-margin-left' : `${property}-start`;
+    expect(compile(`.a{${property}:1%;${side}:9px}`).finalize().manifest.rules.some((rule) => rule.property === property)).toBe(true);
+  }
+  for (const family of ['padding', 'scroll-padding']) for (const axis of ['', '-inline', '-block']) {
+    const property = `${family}${axis}`;
+    const side = axis ? `${property}-start` : `${family}-left`;
+    for (const value of ['-1%', '-0%', '1.%', 'calc(1% + 1px)', 'var(--space)']) {
+      expect(compile(`.a{${property}:${value};${side}:9px}`).finalize().manifest.rules.some((rule) => rule.property === property)).toBe(true);
+    }
+  }
+});
+
+it('expands signed margin and inset percentages while retaining existing guarded paths', () => {
+  for (const family of ['margin', 'inset']) {
+    const side = family === 'inset' ? 'left' : 'margin-left';
+    const other = family === 'inset' ? 'right' : 'margin-right';
+    expect(rulesFor(compile(`.a{${family}:-1% +.5%;${side}:9px}`), ['a']).find(({ property }) => property === other)?.value).toBe('+.5%');
+  }
+  for (const family of ['margin', 'padding', 'inset', 'scroll-padding']) {
+    const side = family === 'inset' ? 'left' : `${family}-left`;
+    const source = `.a{${family}:1%;${side}:9px}`;
+    const compatibility = createGssCompilerSession({ projectRoot: '/project', compatibilityTargetStages: [{ chrome: '120.0' }] });
+    expect(compatibility.replaceStylesheet({ id: '/project/Fixed.gss', source }).committed).toBe(true);
+    expect(compatibility.finalize().manifest.rules.some(({ property }) => property === family)).toBe(true);
+    const preserved = createGssCompilerSession({ projectRoot: '/project' });
+    expect(preserved.replaceStylesheet({ id: '/project/Fixed.gss', source: `${source}.unknown{future-paint:1}` })).toMatchObject({ committed: true, module: { compilationMode: 'preserved' } });
+    expect(preserved.finalize().css).toContain(`${family}: 1%;`);
+    expect(compile(`.a{${family}:1%}.b{${side}:var(--space)}`).finalize().manifest.rules.some(({ property }) => property === family)).toBe(true);
+  }
+  expect(compile('.a{padding-left:9px;padding:-1%}').finalize().manifest.rules.some(({ property }) => property === 'padding')).toBe(true);
 });
