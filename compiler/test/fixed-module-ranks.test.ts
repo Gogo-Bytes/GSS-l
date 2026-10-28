@@ -445,3 +445,22 @@ it.each([false,true])('preserves ancestor predicate branch bindings (%s)', (reve
   const session = compile(source);
   expect(rulesFor(session,['root','a']).filter((rule) => !rule.selector.includes(':focus')).map((rule) => rule.value)).toEqual(['red','blue']);
 });
+
+it('numbers each property independently while emitting all equal-height logical writes before physical writes', () => {
+  const session = compile('.a{margin-inline-start:1px}.b{margin-inline-start:2px}.c{margin-left:3px}');
+  const rules = session.finalize().manifest.rules;
+  expect(rules.map(({ property, value }) => [property, value])).toEqual([
+    ['margin-inline-start', '1px'], ['margin-inline-start', '2px'], ['margin-left', '3px']
+  ]);
+  expect(rules.map(({ className }) => className.match(/--rank_([0-9]+)/)?.[1])).toEqual(['1', '2', '1']);
+  expect(rules.map(({ className }) => className.match(/--order_([0-9]+)/)?.[1])).toEqual(['1', '2', '3']);
+});
+
+it.each([false, true])('keeps unresolved shorthand order separate from per-property ranks (%s)', (reverse) => {
+  const sources = ['.a{margin:var(--space)}', '.b{margin-left:9px}'];
+  const session = compile((reverse ? sources.reverse() : sources).join(''));
+  const rules = session.finalize().manifest.rules;
+  expect(rules.map(({ property }) => property)).toEqual(reverse ? ['margin-left', 'margin'] : ['margin', 'margin-left']);
+  expect(rules.map(({ className }) => className.match(/--rank_([0-9]+)/)?.[1])).toEqual(['1', '1']);
+  expect(rules.map(({ className }) => className.match(/--order_([0-9]+)/)?.[1])).toEqual(['1', '2']);
+});

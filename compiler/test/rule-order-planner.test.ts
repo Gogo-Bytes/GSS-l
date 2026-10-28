@@ -65,3 +65,14 @@ describe('RuleOrderPlanner', () => {
     )).toBeGreaterThan(0);
   });
 });
+
+
+it('uses the cross-property slot rather than comparing property-local rank numbers', () => {
+  const logical = { className: 'logical', identity: { property: 'margin-inline-start', atomRank: 2, orderSlot: 2 } };
+  const physical = { className: 'physical', identity: { property: 'margin-left', atomRank: 1, orderSlot: 3 } };
+  expect(compareRuleOrder(logical, physical, {})).toBeLessThan(0);
+  const strongerLogical = { ...logical, identity: { ...logical.identity, orderSlot: 4 } };
+  expect(compareRuleOrder(strongerLogical, physical, {})).toBeGreaterThan(0);
+  const shorthand = { className: 'shorthand', identity: { property: 'margin', atomRank: 1, orderSlot: 4 } };
+  expect(compareRuleOrder(physical, shorthand, {})).toBeLessThan(0);
+});

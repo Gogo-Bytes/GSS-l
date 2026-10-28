@@ -14,7 +14,7 @@ import type { NameAllocatorPort } from './name-allocator.js';
 import { classifyPropertyEffect, isRegisteredPropertyEffect } from '../domain/property-effects.js';
 import { planDescendantConditions } from '../domain/plan-descendant-conditions.js';
 import { supportsCurrentBackgroundRanks } from '../domain/module-local-atom-ranks.js';
-import { planFixedModuleRanks } from '../domain/fixed-module-ranks.js';
+import { planFixedModuleOrder } from '../domain/fixed-module-ranks.js';
 import type { OrderBinding } from '../domain/order-occurrences.js';
 import { discardInvalidStaticPadding, expandSafeBoxRules } from '../domain/expand-safe-box.js';
 import { planStructuralRelations } from '../domain/plan-structural-relations.js';
@@ -51,6 +51,7 @@ type ContextualDeclarationIdentity = ContextualRelationIdentity & {
   assetValue?: true;
   important: boolean;
   atomRank?: number;
+  orderSlot?: number;
 };
 
 type ObservedDeclarationIdentity = ObservedRelationIdentity & {
@@ -59,6 +60,7 @@ type ObservedDeclarationIdentity = ObservedRelationIdentity & {
   assetValue?: true;
   important: boolean;
   atomRank?: number;
+  orderSlot?: number;
 };
 
 export type PlannedDeclaration = {
@@ -503,7 +505,7 @@ export function prepareContribution(
     });
   }
 
-  const moduleRanks = planFixedModuleRanks(semanticRules, [
+  const moduleOrder = planFixedModuleOrder(semanticRules, [
     ...(plannedDescendants ?? planDescendantConditions(descendantRules, declaredPaths)).candidates,
     ...plannedStructural.instances,
     ...plannedPseudos.candidates,
@@ -516,9 +518,8 @@ export function prepareContribution(
       relationRank: 0, declarations: rule.declarations
     })))
   ]);
-  const rankIdentity = (declaration: ParsedDeclaration, binding: OrderBinding) => {
-    const atomRank = moduleRanks.get(declaration, binding);
-    return atomRank === undefined ? {} : { atomRank };
+  const orderIdentity = (declaration: ParsedDeclaration, binding: OrderBinding) => {
+    return moduleOrder.get(declaration, binding) ?? {};
   };
 
   if (plannedDescendants) {
@@ -548,14 +549,14 @@ export function prepareContribution(
         const selector = `.${sourceMarker}${suffix} ${`.${targetMarker}`.repeat(rule.path.length - 1)}`;
         for (const declaration of instance.declarations) rules.push({
           kind: 'contextual-atom', className: targetMarker, selector, wrappers, layer, relationRank,
-          source: declaration.source, identity: { ...relationIdentity, ...rankIdentity(declaration, instance), property: declaration.property,
+          source: declaration.source, identity: { ...relationIdentity, ...orderIdentity(declaration, instance), property: declaration.property,
             ...identifyAssetValue(declaration.value, bindings), important: declaration.important }
         });
       } else {
         for (const declaration of instance.declarations) {
           const identity: PureDeclarationIdentity = {
             layer, condition, state: attribute ? canonicalAttributeCondition(attribute) : states.join(':') || 'self',
-            ...rankIdentity(declaration, instance),
+            ...orderIdentity(declaration, instance),
             property: declaration.property, ...identifyAssetValue(declaration.value, bindings), important: declaration.important,
             ...(rule.path.length > 1 ? { ownership: { moduleId, path: targetPath, specificity: rule.path.length } } : {})
           };
@@ -586,7 +587,7 @@ export function prepareContribution(
           layer,
           condition,
           state: 'self',
-          ...rankIdentity(declaration, { rule, targetPath: target.path }),
+          ...orderIdentity(declaration, { rule, targetPath: target.path }),
           property: declaration.property,
           ...identifyAssetValue(declaration.value, bindings),
           important: declaration.important
@@ -621,7 +622,7 @@ export function prepareContribution(
     for (const declaration of declarations) {
       const identity: PureDeclarationIdentity = {
         layer, condition, state, pseudoElement,
-        ...rankIdentity(declaration, instance),
+        ...orderIdentity(declaration, instance),
         property: declaration.property,
         ...identifyAssetValue(declaration.value, bindings),
         important: declaration.important,
@@ -693,7 +694,7 @@ export function prepareContribution(
       for (const declaration of rule.declarations) {
         const identity: ObservedDeclarationIdentity = {
           ...relationIdentity,
-          ...rankIdentity(declaration, { rule, targetPath: rule.path, observation }),
+          ...orderIdentity(declaration, { rule, targetPath: rule.path, observation }),
           property: declaration.property,
           ...identifyAssetValue(declaration.value, bindings),
           important: declaration.important
@@ -763,7 +764,7 @@ export function prepareContribution(
     for (const declaration of declarations) {
       const identity: ContextualDeclarationIdentity = {
         ...relationIdentity,
-        ...rankIdentity(declaration, instance),
+        ...orderIdentity(declaration, instance),
         property: declaration.property,
         ...identifyAssetValue(declaration.value, bindings),
         important: declaration.important
@@ -803,7 +804,7 @@ export function prepareContribution(
       const identity: PureDeclarationIdentity = {
         layer: rule.layer, condition: canonicalCondition(rule.conditions),
         state: `external-condition:${rule.externalCondition!}`,
-        ...rankIdentity(declaration, { rule, targetPath: rule.path }),
+        ...orderIdentity(declaration, { rule, targetPath: rule.path }),
         ownership: { moduleId, path: rule.path, specificity: rule.path.length },
         property: declaration.property,
         ...identifyAssetValue(declaration.value, bindings),
@@ -845,7 +846,7 @@ export function prepareContribution(
       const identity: PureDeclarationIdentity = {
         layer: rule.layer, condition: canonicalCondition(rule.conditions),
         state: `external:${rule.externalTarget!}`,
-        ...rankIdentity(declaration, { rule, targetPath: rule.path }),
+        ...orderIdentity(declaration, { rule, targetPath: rule.path }),
         ownership: { moduleId, path: rule.path, specificity: rule.path.length },
         property: declaration.property,
         ...identifyAssetValue(declaration.value, bindings),

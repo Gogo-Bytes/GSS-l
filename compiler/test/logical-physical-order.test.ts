@@ -93,7 +93,7 @@ it('orders admitted singleton exports by fixed logical-first physical-last polic
   expect(rules[1]!.className).toBe(schema.exports.b!.selfClassName);
   expect(rules[0]!.className).toBe(schema.exports.c!.selfClassName);
   expect(rules.map(({ className }) => className)).toEqual([
-    expect.stringContaining('--rank_1'), expect.stringContaining('--rank_2')
+    expect.stringContaining('--rank_1--order_1'), expect.stringContaining('--rank_1--order_2')
   ]);
 });
 

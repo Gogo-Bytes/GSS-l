@@ -168,6 +168,8 @@ function indentCss(css: string): string {
 }
 
 function serializeIdentity(identity: PlannedDeclaration['identity']): string {
+  // Equal property-local ranks can occupy different output slots in different
+  // modules. Keep the slot in identity as well as order; merging loses precedence.
   if (identity.assetValue) {
     const plain = { ...identity };
     delete plain.assetValue;
@@ -187,7 +189,8 @@ function serializeIdentity(identity: PlannedDeclaration['identity']): string {
       identity.property,
       identity.value,
       identity.important,
-      ...(identity.atomRank === undefined ? [] : [identity.atomRank])
+      ...(identity.atomRank === undefined ? [] : [identity.atomRank]),
+      ...(identity.orderSlot === undefined ? [] : ['order', identity.orderSlot])
     ]);
   }
   if ('relations' in identity) {
@@ -205,7 +208,8 @@ function serializeIdentity(identity: PlannedDeclaration['identity']): string {
       identity.property,
       identity.value,
       identity.important,
-      ...(identity.atomRank === undefined ? [] : [identity.atomRank])
+      ...(identity.atomRank === undefined ? [] : [identity.atomRank]),
+      ...(identity.orderSlot === undefined ? [] : ['order', identity.orderSlot])
     ]);
   }
   return JSON.stringify([
@@ -218,6 +222,7 @@ function serializeIdentity(identity: PlannedDeclaration['identity']): string {
     identity.property,
     identity.value,
     identity.important,
-    ...(identity.atomRank === undefined ? [] : [identity.atomRank])
+    ...(identity.atomRank === undefined ? [] : [identity.atomRank]),
+    ...(identity.orderSlot === undefined ? [] : ['order', identity.orderSlot])
   ]);
 }

@@ -12,6 +12,10 @@ import {
 
 it.each([
   {
+    layer: 'unlayered', condition: 'base', state: 'self', property: 'margin-left', value: '1px',
+    important: false, atomRank: 1, orderSlot: 4
+  },
+  {
     layer: 'framework.base', condition: 'media:(min-width: 40rem)', state: 'hover',
     pseudoElement: 'before', property: 'background-image', value: 'url(é.svg)', assetValue: true,
     important: true
@@ -47,6 +51,8 @@ it('keeps every canonical identity field collision-free', () => {
     { ...base, state: 'hover-x' }, { ...base, pseudoElement: 'after' },
     { ...base, property: 'background-color' }, { ...base, value: 'red-x' },
     { ...base, important: true },
+    { ...base, atomRank: 1, orderSlot: 1 }, { ...base, atomRank: 1, orderSlot: 2 },
+    { ...base, atomRank: 2, orderSlot: 2 },
     { ...base, ownership: { ...base.ownership!, moduleId: 'module-x.gss' } },
     { ...base, ownership: { ...base.ownership!, path: ['card-x', 'icon'] } },
     { ...base, ownership: { ...base.ownership!, specificity: 3 } }
@@ -232,4 +238,11 @@ it.each([
   'gss-a--layer_unlayered--condition_base--state_self--property_color--value_red--importance_normal--value_red'
 ])('rejects malformed atomic identity name: %s', (name) => {
   expect(decodeReadableAtomicName(name)).toBeUndefined();
+});
+
+
+it.each(['0', '-1', '1.5', '01', '9007199254740992'])('rejects invalid output slot %s in atomic names', (order) => {
+  const canonical = createReadableAtomicName({ layer: 'base', condition: 'base', state: 'self',
+    property: 'margin-left', value: '1px', important: false, atomRank: 1, orderSlot: 2 });
+  expect(decodeReadableAtomicName(canonical.replace('--order_2', `--order_${order}`))).toBeUndefined();
 });

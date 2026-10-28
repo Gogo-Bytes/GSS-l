@@ -1,6 +1,6 @@
 # 属性展开、原子排序与复用：设计结论
 
-> 状态：2026-10-27 讨论形成的目标设计；同规则 longhand 有界准入及受限静态 margin／padding／inset 展开已开始，其余目标未完成。当前实现与验证以 [STATUS.md](STATUS.md) 和 [NEXT-STAGE.md](NEXT-STAGE.md) 为准；本文不宣称现有代码已具备全部下述行为。
+> 状态：2026-10-27 讨论形成的目标设计；同规则 longhand 有界准入、受限静态 margin／padding／inset 展开及同属性 rank／输出位置分离已有实现；完整展开与更宽复用仍未完成。当前实现与验证以 [STATUS.md](STATUS.md) 和 [NEXT-STAGE.md](NEXT-STAGE.md) 为准；本文不宣称现有代码已具备全部下述行为。
 
 > 后续确认：在原生强度及可比较上下文相同时，已证明的 GSS 所有权／结构语义优先；语义高度相同时逻辑属性先、物理属性后。更强的逻辑属性不会因物理属性固定顺序而让位。无法证明安全展开的既有输入暂时沿用当前 shorthand 处理和 fallback，不额外拒绝。核心工作流、进度与剩余设计问题见 [架构方向](ARCHITECTURE-DIRECTION.md)。
 
@@ -46,7 +46,7 @@ GSS 将样式编译为可复用的 atom class，并允许同一模块的多个 s
 
 判定可移除声明时，必须证明它的**全部** effect 都被覆盖；只覆盖 `margin` 的左侧时仍要保留其余三个方向。不能把运行时才可能相同的逻辑／物理 effect 当成确定相同后剪枝，也不能因为一个值相同就跨越竞争声明复用 atom。涉及 `var()`、CSS-wide 关键字、隐含 reset、资源及复杂值时，只有能证明完整原生语义和来源得到保留才展开；否则执行已批准的现有处理及 fallback。每扩展一个属性族，应在现有测试载体中验证正反顺序、部分覆盖、重要性、不同 scope、来源／source map 和不安全值，并使用独立原生或明确的 GSS 预期。
 
-当前已实现有界的静态 `margin`／`padding`／`inset` 展开：在无需 compatibility 变换、所有属性已登记且全部为普通 ownership 规则的模块中，同一规则包含 shorthand 和对应的物理 longhand 时，或无条件／未分层的单节点 scope 之间存在物理 longhand 竞争时，可将 1–4 个静态 `px` 值或无单位零组成的 shorthand 展开；`padding` 只处理无负号的值，`margin` 和 `inset` 允许负值；`inset` 对应的物理属性是 `top`／`right`／`bottom`／`left`。跨 scope 切片要求所有相关 shorthand／longhand 值均可安全处理，且模块不含其他可能重叠的属性；同一规则切片继续沿用自己的准入条件。展开保留原始声明的位置，selector-list 分支共享声明身份；覆盖仍遵循重要性及相应语义和源码顺序。单独且无竞争的 shorthand、其他值／选择器、兼容性和整模块 fallback 暂沿用原路径。独立同属性 rank、跨规则普遍展开和其他 shorthand 未完成。
+当前已实现有界的静态 `margin`／`padding`／`inset` 展开：在无需 compatibility 变换、所有属性已登记且全部为普通 ownership 规则的模块中，同一规则包含 shorthand 和对应的物理 longhand 时，或无条件／未分层的单节点 scope 之间存在物理 longhand 竞争时，可将 1–4 个静态 `px` 值或无单位零组成的 shorthand 展开；`padding` 只处理无负号的值，`margin` 和 `inset` 允许负值；`inset` 对应的物理属性是 `top`／`right`／`bottom`／`left`。跨 scope 切片要求所有相关 shorthand／longhand 值均可安全处理，且模块不含其他可能重叠的属性；同一规则切片继续沿用自己的准入条件。展开保留原始声明的位置，selector-list 分支共享声明身份；覆盖仍遵循重要性及相应语义和源码顺序。单独且无竞争的 shorthand、其他值／选择器、兼容性和整模块 fallback 暂沿用原路径。跨规则普遍展开和其他 shorthand 未完成；同属性 rank 与输出位置已按下述保守模型分离。
 
 无效值决策：owner 已批准修复已复现的静态负 `px` padding 误剪枝。对于无需 compatibility、属性均已登记且没有 external target／condition 的模块，原子规划前忽略可确定无效的物理／逻辑 padding shorthand 和 longhand；重复声明和逻辑／物理冲突检查使用过滤后、尚未展开的规则，避免确定无效的声明触发误报；有效重复声明仍沿用既有诊断。`-0` 是合法零值，不忽略。仅当各组成值都是已识别的静态 `px`／无单位零且含真正负 `px` 时判无效；其他单位、复杂值和 `var()` 沿用原路径。compatibility 和整模块 preserved fallback 保留原声明及既有行为，除移除无效声明造成的冲突外，既有有效输入准入边界保持不变。重现与验证见 [当前计划](NEXT-STAGE.md)。
 
@@ -101,28 +101,28 @@ rank 数字与生成的 class 名在本文中仅是示意；当前实现有无 r
 }
 ```
 
-可原子化的 pure ownership 规则内及跨规则累积的已登记逻辑／物理 longhand 对已不再仅因潜在重叠而被 `GSS1206` 拒绝；shorthand 和其他上下文仍保留现有准入保护。会进入 preserved 模式的模块仍保留原冲突拒绝：该模式按 authored 顺序输出，尚不能保证固定属性顺序。语义强于固定属性顺序已确认；独立同属性 rank、条件和原生强度如何具体参与排序仍需进一步设计。未来官方文档应向用户解释固定顺序和覆盖行为。
+可原子化的 pure ownership 规则内及跨规则累积的已登记逻辑／物理 longhand 对已不再仅因潜在重叠而被 `GSS1206` 拒绝；shorthand 和其他上下文仍保留现有准入保护。会进入 preserved 模式的模块仍保留原冲突拒绝：该模式按 authored 顺序输出，尚不能保证固定属性顺序。语义强于固定属性顺序已确认；当前保留既有上下文划分和语义高度，把同属性编号与跨属性输出位置分开，具体模型见下文。未来官方文档应向用户解释固定顺序和覆盖行为。
 
 Tailwind 参考：[margin utilities](https://tailwindcss.com/docs/margin)、[冲突 utility 的处理](https://tailwindcss.com/docs/styling-with-utility-classes#conflicting-utility-classes)。这是对处理思路的参考，不意味着 GSS 完全复制 Tailwind 的语义。
 
 ## 与当前实现的差异
 
-- 当前 atom rank 会将可能 effect 重叠的不同属性纳入竞争族；目标设计将同属性 rank 和不同属性固定顺序分开。
+- 当前 `atomRank` 已在同属性内独立编号；effect 竞争族仍负责跨属性语义与输出位置 `orderSlot`，并保留未展开 shorthand 的原有顺序。更宽的跨位置复用尚无证明。
 - 当前 `GSS1206` 仍对部分 shorthand 和非 pure ownership 上下文的逻辑／物理组合予以拒绝；目标方向的完整准入范围待设计。
 - 当前实现通过 effect registry 处理 shorthand 和部分胜出，并不等同于本文提出的“安全展开后再处理 atom”的完整流程。
-- 现有 ownership／结构语义及其与排序的关系需要单独核对。本文未决定删除相关语义，也未证明同属性 rank 与固定属性顺序的所有组合都能无损表达它们。
+- 现有 ownership／结构证明、effect 竞争族及其输出投影保持不变。本次分离不建立新 selector 语义，也不证明移除竞争族或跨输出位置复用安全。
 
 ## 后续设计和验证问题
 
 1. 定义每类 shorthand 的安全展开条件、完整 reset effects，以及不能展开时的行为。
-2. 明确同属性 rank 如何与已证明的 ownership／结构关系、声明顺序和 scope 组合配合；区分 `atomRank` 与现有 `relationRank`。
-3. 定义固定属性顺序与 rank 的比较关系，尤其是不同属性各有多档 rank 时，避免出现循环或违反目标优先级。
+2. 同属性 rank／输出位置的分离已落地；后续若改变语义高度或复用范围，必须重新证明其与 ownership／结构关系、声明顺序和 scope 组合一致。
+3. 保持输出比较器只比较 `orderSlot`，不比较不同属性的 `atomRank`；未来若替换投影，需证明其仍无环且保留未展开 shorthand 的顺序。
 4. 核对 `!important`、layer、条件、伪元素、selector-list 分支、source map 和资源身份；不丢失来源或 scope membership。
 5. 设计与现有行为的迁移和独立预期，覆盖正反声明顺序、LTR／RTL、不同 writing-mode、scope 组合、shorthand 部分覆盖和失败恢复；不把现有测试改成自我对照。
 
 这些是待设计和验证的问题，不代表已经发现具体实现缺陷，也不自动授权扩大其他 CSS 语法或改变公共 API。
 
-## 排序约束：待验证的内部模型
+## 排序约束与当前内部模型
 
 ### 已实现的 occurrence 身份边界
 
@@ -135,11 +135,11 @@ Tailwind 参考：[margin utilities](https://tailwindcss.com/docs/margin)、[冲
 - 收集读取 `instance.rule.declarations` 及其下标，保持候选竞争范围；不能改成已经剪枝的 `instance.declarations`，否则竞争者可能丢失、声明顺序位置可能移动。这里的下标属于展开后的语义规则，不是 parser 源码偏移。相同完整身份继续沿用原 Map 去重行为。
 - occurrence 分离不禁止最终 atom 复用；复用仍由现有完整连续桶、安全条件和来源汇总决定。`.early{color:red}.middle{color:blue}.late{color:red}` 仍不能将两个红色跨竞争者合并。
 
-这是行为保持式重构；parser 的平行数组、各关系 planner 的专用模型、effect 竞争族编号及最终输出策略保持现状，不代表全链路绑定模型或独立同属性 rank 已完成。验证使用既有排序／复用／来源／收敛测试，并将 534 个既有排序 fixtures 的完整 replacement 与 finalize 输出和重构前基线逐字段比较；证据见 [当前计划](NEXT-STAGE.md)。
+该身份收集切片是行为保持式重构；当时未改变 effect 竞争族编号及最终输出策略。随后完成的 rank 分离见下文；parser 平行数组和各关系 planner 的专用模型仍未整体统一。验证使用既有排序／复用／来源／收敛测试，并将 534 个既有排序 fixtures 的完整 replacement 与 finalize 输出和重构前基线逐字段比较；证据见 [当前计划](NEXT-STAGE.md)。
 
-### 尚未实施的排序投影
+### 持续适用的排序约束
 
-以下是下一步的设计候选，不是已证明可直接替换现有 planner 的算法。先保留每个 selector 分支、声明位置和 target／source／observation 绑定为独立 occurrence；按 layer、条件、伪元素主体和 importance 等现有上下文规则处理，不把原生 specificity 简化为可跨上下文比较的一个分数。生成规则时继续由浏览器处理原生强度。
+先保留每个 selector 分支、声明位置和 target／source／observation 绑定为独立 occurrence；按 layer、条件、伪元素主体和 importance 等现有上下文规则处理，不把原生 specificity 简化为可跨上下文比较的一个分数。生成规则时继续由浏览器处理原生强度。
 
 对于可证明会竞争且处于可比较上下文的 occurrence：
 
@@ -148,9 +148,9 @@ Tailwind 参考：[margin utilities](https://tailwindcss.com/docs/margin)、[冲
 3. **同属性约束**：语义高度相同且属性相同的竞争声明按 authored rule／声明位置决定先后；不同属性的本地 rank 数值没有可比较意义。
 4. **复用**：只有合并后仍能满足所有相关约束、scope membership、来源与原生强度时才能共享 identity。图中两点合并可能引入环，即便合并前两点之间没有直接边，因此连续相同值本身不是完整证明。
 
-如果语义高度能在完整竞争范围内一致计算，所有严格语义边都使高度增加，固定属性与同属性边只在同高度内比较，则可以用高度、固定属性键和同属性顺序构造候选顺序；但现有高度来自具体竞争族，作用于不同 target、属性与共享 atom 时是否存在一致且不循环的投影尚未证明。不能以本段替代这个证明，也不能仅把 `atomRank` 改为 per-property 后继续将其数字作为全局比较键。
+现有高度来自具体竞争族。本次沿用该竞争族与输出投影，只把属性内编号从中分离；没有直接采用 `(高度, 属性名, atomRank)` 作为新的全局排序键。移除竞争族或跨位置合并共享 atom 仍需新的证明。
 
-验证候选设计至少使用以下独立预期，并覆盖相反 authored 顺序：
+验证本次分离及后续设计使用以下独立预期，并覆盖相反 authored 顺序：
 
 - `.a{margin-inline-start:1px;margin-left:2px}`：两个声明保留，同语义高度物理后发；横排 LTR 左侧 2px，RTL 左侧 2px、右侧 1px。
 - `.a{margin-inline-start:1px}.b{margin-inline-start:2px}.c{margin-left:3px}`：同高度时两个逻辑声明都在物理声明之前，`a+b` 保留同属性后写胜出；`b+c` 重叠时物理后发。物理属性的本地 rank 不得与逻辑 rank 直接比较。
@@ -159,3 +159,20 @@ Tailwind 参考：[margin utilities](https://tailwindcss.com/docs/margin)、[冲
 - `margin` 与 `margin-left` 的两种 authored 顺序：安全展开后分别得到左侧 2px 和 1px；同一属性的 `!important`、各 scope 的部分胜出、原始来源与 map 均需保留。
 
 这些用例需要由既有 compiler、独立浏览器／literal oracle 和会话恢复载体验证；不以当前实现的输出作为新策略的唯一预期。`var()` 等无法安全展开的已支持输入暂时沿用当前处理和 fallback。
+
+
+### 已实现：属性内编号与跨属性输出位置
+
+`fixed-module-ranks.ts` 对需要排序的 occurrence 返回 `{ atomRank, orderSlot }`，无竞争族版本的 occurrence 仍不附加二者。两个数都在现有 layer／condition／pseudo subject／importance 上下文内规划；原生 specificity 和 importance 仍由生成的 selector／声明交给浏览器处理。
+
+1. **输出位置 `orderSlot`**：保留原 effect 竞争族及 `semanticOrderHeights` 证明，按语义高度 → 固定逻辑／物理 priority → authored rule ordinal／声明下标排列，相等元组共享一个位置。此数是输出投影，不是 CSS 属性的等级；同 priority 的未展开 shorthand／longhand 仍按源码顺序排列。最终比较器依次比较 layer、conditions、`orderSlot`、既有 `relationRank`、属性 render key 和 class 名。
+2. **同属性版本 `atomRank`**：遍历上述序列时，每个属性有自己的计数器，只有该属性的语义／声明顺序元组改变才递增；遇到其他属性不会递增。相同 tuple 的 selector-list 分支保持同版本。编号在复用前分配，复用后不重编号其他声明。`relationRank` 仍是既有结构输出的补充顺序，不是这个属性内版本。
+3. **复用和生成身份**：沿用原完整连续桶的证明，只有整个桶满足原安全条件时一起复用最早的 `atomRank` 与 `orderSlot`。纯 atom class 编码两者；contextual／observed 声明的汇总 key 也保留两者。最终比较器不读取 `atomRank`，不同属性局部数值不发生比较。
+
+例如 `.a{margin-inline-start:1px}.b{margin-inline-start:2px}.c{margin-left:3px}` 的 `(atomRank, orderSlot)` 分别为 `(1,1)`、`(2,2)`、`(1,3)`。物理属性的局部 rank 1 不会让它跑到第二条逻辑属性前；更强语义仍先在输出投影中得到较后位置。对于 `.a{margin:var(--space)}.b{margin-left:9px}`，两属性各为 rank 1、输出位置依次为 1 和 2；交换源码时输出位置交换，不强制 longhand 胜出。
+
+**为何输出位置必须进入身份**：模块 A 中 `margin-left:1px` 可能在输出位置 2，模块 B 的相同属性／值／rank 1 却需要在三条逻辑声明之后、处于位置 4。若只按属性／值／局部 rank 复用 class，汇总时保留 A 的较早位置会破坏 B 自己的 scope 组合；这里并没有在同一节点混用两个模块。保留输出位置避免这种新合并，仍允许满足原条件且位置相同的共享。生成 class 因增加 `--order_` 片段而改变；公共配置、manifest 字段和作者写法不变。class 字符串应由当前 schema／导出取得。
+
+**保持语义的依据**：`orderSlot` 在复用前等于旧跨属性 rank；连续桶收缩沿用原准入并同时搬移两个数，故收缩后的输出位置也保持原投影。新身份保留全部旧身份字段和旧位置，并额外区分属性内版本，不会将原本不同的输出位置合并。同属性计数器只是既有有序序列的单调投影，不新增排序边；最终比较器仍是总键，故本次分离不引入新的环。额外身份维度可能保守地拆分旧共享，不宣称复用率提升或跨模块同节点优先级。
+
+验证包括独立编号、多档逻辑／单档物理、未展开 `var()` 正反顺序、不同模块不同输出位置的复用隔离、失败更新／恢复／插入顺序收敛，以及名称编解码。既有 534 个排序 fixtures 在把新名称映射回旧输出位置编码后，replacement 和 finalize 输出一致；source map 的列编码因名称长度改变而不作字节比较，来源及 sources 仍比较，map 由现有 source-map 回归检查。三引擎／原生证据与最终检查结果见 [当前计划](NEXT-STAGE.md)。本次未扩大 shorthand 展开、准入、compatibility 或 preserved fallback 范围。

@@ -154,3 +154,35 @@ it('shares identical important writes within their band without crossing a norma
   expect(classes(session, 'a')).toContain('--rank_1');
   expect(session.finalize().manifest.rules.map(({ value, important }) => [value, important])).toEqual([['blue', false], ['red', true]]);
 });
+
+it('keeps equal property ranks at different output slots distinct across modules and converges after replacement', () => {
+  const sources = [
+    '.a{margin-left:1px}.x{margin-inline-start:2px}',
+    '.b{margin-left:1px}.x{margin-inline-start:2px}.y{margin-inline-start:3px}.z{margin-inline-start:4px}'
+  ];
+  const session = createGssCompilerSession({ projectRoot: '/project' });
+  const replace = (index: number, source: string) => {
+    expect(session.replaceStylesheet({ id: `/project/${index}.gss`, source }).committed).toBe(true);
+  };
+  sources.forEach((source, index) => replace(index, source));
+  const a = session.getScopeSchema('/project/0.gss')!.exports.a!.selfClassName;
+  const b = session.getScopeSchema('/project/1.gss')!.exports.b!.selfClassName;
+  expect(a).toContain('--rank_1--order_2');
+  expect(b).toContain('--rank_1--order_4');
+  expect(a).not.toBe(b);
+  const rules = session.finalize().manifest.rules;
+  const lastLogical = rules.findIndex(({ property, value }) => property === 'margin-inline-start' && value === '4px');
+  expect(rules.findIndex(({ className }) => className === b)).toBeGreaterThan(lastLogical);
+  const { generation: _generation, ...before } = session.finalize(); void _generation;
+  expect(session.replaceStylesheet({ id: '/project/1.gss', source: '.b{margin:1px;margin-inline-start:2px}' }).committed).toBe(false);
+  const { generation: _failedGeneration, ...failed } = session.finalize(); void _failedGeneration;
+  expect(failed).toEqual(before);
+  replace(1, sources[0]!);
+  replace(1, sources[1]!);
+  const clean = createGssCompilerSession({ projectRoot: '/project' });
+  for (const index of [1, 0]) expect(clean.replaceStylesheet({ id: `/project/${index}.gss`, source: sources[index]! }).committed).toBe(true);
+  const { generation: _liveGeneration, ...live } = session.finalize(); void _liveGeneration;
+  const { generation: _cleanGeneration, ...fresh } = clean.finalize(); void _cleanGeneration;
+  expect(live).toEqual(fresh);
+  expect(session.getScopeSchema('/project/1.gss')).toEqual(clean.getScopeSchema('/project/1.gss'));
+});

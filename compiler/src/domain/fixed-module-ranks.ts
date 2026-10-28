@@ -3,13 +3,15 @@ import { collectOrderOccurrences, type OrderBinding, type OrderInstance, type Or
 import { semanticOrderHeights } from './semantic-order-heights.js';
 import { propertiesMayOverlapForModuleOrder, propertyOrderPriority, isPropertyOrderReuseBarrier } from './module-order-policy.js';
 
-/** Module-local effect-family order: semantic dependency height, fixed property priority, then original
- * authored occurrence. Source order is never a semantic edge. Contexts remain
- * distinct until their complete (height, occurrence) tuple proves shareable. */
-export function planFixedModuleRanks(rules: readonly ParsedStyleRule[], instances: readonly OrderInstance[]) {
+type DeclarationOrder = { atomRank: number; orderSlot: number };
+
+/** Project semantic height, fixed property priority and authored occurrence into
+ * output slots, then number versions independently per property. Source order is
+ * never a semantic edge. Reuse must preserve both version and output position. */
+export function planFixedModuleOrder(rules: readonly ParsedStyleRule[], instances: readonly OrderInstance[]) {
   const { occurrences, key } = collectOrderOccurrences(rules, instances);
   const pending = new Set(occurrences);
-  const ranks = new Map<string, number>();
+  const orders = new Map<string, DeclarationOrder>();
   const overlap = (a: Occurrence, b: Occurrence) =>
     propertiesMayOverlapForModuleOrder(a.declaration.property, b.declaration.property);
   for (const first of occurrences) {
@@ -32,15 +34,22 @@ export function planFixedModuleRanks(rules: readonly ParsedStyleRule[], instance
       propertyOrderPriority(a.declaration.property) - propertyOrderPriority(b.declaration.property) ||
       a.instance.rule.sourceOrdinal - b.instance.rule.sourceOrdinal || a.index - b.index;
     family.sort(compare);
-    let rank = 0;
+    // Keep the established cross-property projection, including unresolved
+    // shorthand source order. A property-local version is never a global sort key.
+    let orderSlot = 0;
+    const previousByProperty = new Map<string, { occurrence: Occurrence; atomRank: number }>();
     family.forEach((occurrence, index) => {
-      if (index === 0 || compare(family[index - 1]!, occurrence) !== 0) rank++;
-      ranks.set(occurrence.key, rank);
+      if (index === 0 || compare(family[index - 1]!, occurrence) !== 0) orderSlot++;
+      const property = occurrence.declaration.property;
+      const previous = previousByProperty.get(property);
+      const atomRank = previous === undefined ? 1 : previous.atomRank + Number(compare(previous.occurrence, occurrence) !== 0);
+      previousByProperty.set(property, { occurrence, atomRank });
+      orders.set(occurrence.key, { atomRank, orderSlot });
     });
-    reuseContiguousPureRanks(family, heights, ranks);
+    reuseContiguousPureOrders(family, heights, orders);
   }
-  return { get(declaration: ParsedDeclaration, binding: OrderBinding): number | undefined {
-    return ranks.get(key(declaration, binding));
+  return { get(declaration: ParsedDeclaration, binding: OrderBinding): DeclarationOrder | undefined {
+    return orders.get(key(declaration, binding));
   } };
 }
 
@@ -62,17 +71,17 @@ function reusablePureOccurrence({ instance, declaration }: Occurrence): boolean 
  * Exact value spelling is conservative: asset bindings are stylesheet-wide and
  * emitted identities still retain typed asset, layer, condition and importance.
  */
-function reuseContiguousPureRanks(family: readonly Occurrence[], heights: ReadonlyMap<Occurrence, number>, ranks: Map<string, number>) {
+function reuseContiguousPureOrders(family: readonly Occurrence[], heights: ReadonlyMap<Occurrence, number>, orders: Map<string, DeclarationOrder>) {
   const buckets = new Map<number, Occurrence[]>();
   for (const occurrence of family) {
-    const rank = ranks.get(occurrence.key)!;
-    const bucket = buckets.get(rank) ?? [];
+    const orderSlot = orders.get(occurrence.key)!.orderSlot;
+    const bucket = buckets.get(orderSlot) ?? [];
     bucket.push(occurrence);
-    buckets.set(rank, bucket);
+    buckets.set(orderSlot, bucket);
   }
-  let previous: { semantic: string; rank: number } | undefined;
+  let previous: { semantic: string; order: DeclarationOrder } | undefined;
   const semantic = ({ declaration }: Occurrence) => JSON.stringify([declaration.property, declaration.value, declaration.important]);
-  for (const [rank, bucket] of buckets) {
+  for (const bucket of buckets.values()) {
     const value = semantic(bucket[0]!);
     // Selector-list branches share tuples, not necessarily eligibility. Never
     // allow a pure branch to license movement of an ineligible sibling.
@@ -80,8 +89,8 @@ function reuseContiguousPureRanks(family: readonly Occurrence[], heights: Readon
       previous = undefined;
       continue;
     }
-    const representative = previous?.semantic === value ? previous.rank : rank;
-    for (const occurrence of bucket) ranks.set(occurrence.key, representative);
-    previous = { semantic: value, rank: representative };
+    const representative = previous?.semantic === value ? previous.order : orders.get(bucket[0]!.key)!;
+    for (const occurrence of bucket) orders.set(occurrence.key, representative);
+    previous = { semantic: value, order: representative };
   }
 }

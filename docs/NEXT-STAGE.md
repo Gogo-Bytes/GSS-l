@@ -2,13 +2,17 @@
 
 ## 当前方向
 
-owner 已要求开始推进核心架构与属性排序目标；[架构方向](ARCHITECTURE-DIRECTION.md) 记录当前实现、优先级、阶段状态和验证要求，[属性排序设计](PROPERTY-ORDER-DESIGN.md) 记录排序目标。会话提交／失效已从贡献准备与快照汇总中拆出，保持公共接口及行为。可原子化的 pure ownership 规则内及跨规则累积的已登记逻辑／物理 longhand 对已准入；preserved 模式、shorthand 和其他上下文仍可能报 `GSS1206`，独立同属性 rank 与安全展开的完整目标尚未实施。
+owner 已要求开始推进核心架构与属性排序目标；[架构方向](ARCHITECTURE-DIRECTION.md) 记录当前实现、优先级、阶段状态和验证要求，[属性排序设计](PROPERTY-ORDER-DESIGN.md) 记录排序目标。会话提交／失效已从贡献准备与快照汇总中拆出，保持公共接口及行为。可原子化的 pure ownership 规则内及跨规则累积的已登记逻辑／物理 longhand 对已准入；preserved 模式、shorthand 和其他上下文仍可能报 `GSS1206`，同属性 rank 与跨属性输出位置已分离，完整安全展开及更宽复用仍未完成。
 
-已确认原生强度／上下文和已证明的所有权／结构语义优先，同语义高度时逻辑属性先、物理属性后；同属性 rank、shorthand 安全展开及跨属性排序与复用的完整算法尚需设计。不能安全展开的既有输入暂时沿用原 shorthand 处理和 fallback，不额外拒绝。owner 仍要求**不自行新增框架或验收场景**；保留独立 oracle、历史失败及现有验证边界。
+已确认原生强度／上下文和已证明的所有权／结构语义优先，同语义高度时逻辑属性先、物理属性后；同属性 rank 已与跨属性输出位置分开；shorthand 完整展开及更宽复用仍需设计。不能安全展开的既有输入暂时沿用原 shorthand 处理和 fallback，不额外拒绝。owner 仍要求**不自行新增框架或验收场景**；保留独立 oracle、历史失败及现有验证边界。
 
 排序 occurrence 建模切片：新增 `order-occurrences.ts`，集中声明、selector 分支与 target／source／observation 的身份收集；语义高度与 rank 使用同一具体模型，生成阶段以具名绑定查询 rank，已有 planner instance 直接传递。声明候选和原始下标、Map 去重、effect 竞争族、rank 数字、class 身份及复用规则均保持现状。parser 平行数组与各关系 planner 尚未整体统一。重构前后既有 363 项排序／复用／来源／收敛定向测试通过，最终 `verify` 2211 项及 lint／build／types 通过；534 个既有 rank fixtures 的完整 replacement（含导出代码、类型声明、schema、诊断）和 finalize（CSS／map／manifest／report／generation）与 `e9b42bc` 基线完全一致。日志、比较脚本及基线在 `artifacts/order-occurrences/`；没有改动测试 oracle，也未新增浏览器运行证据。
 
-下一步聚焦同属性独立 rank 与跨属性输出顺序的数据契约：在完整 occurrence 和现有语义高度上验证投影，特别保留未展开 shorthand 的 source-order 竞争与共享 atom 的约束。须同时解释“同属性多档 rank 不能压过同高度物理属性后发”和“强语义逻辑属性仍胜出”；证明成立前保持现有 rank 编号及输出比较器。具体反例和约束见属性排序文档，不能把本次身份收集拆分视为该算法已完成。
+同属性 rank／跨属性输出分离：`atomRank` 按属性独立编号，`orderSlot` 保留原 effect 竞争族在语义高度 → 固定属性 priority → authored tie 上的输出投影。生成／汇总身份保留两个数，最终比较器只读取输出位置；连续安全桶复用时同时复用二者，不重编号后续声明。原生强度、`relationRank`、准入、静态展开及不安全 shorthand／compatibility／preserved 路径保持原契约。生成的 ranked class 增加 `--order_` 编码，仍从 schema／导出取得，不增加公共配置或 manifest 字段。完整证明、反例及当前保守复用边界见属性排序文档。
+
+本项 `verify` **2222** 项（Compiler 1677／React 49／Vite 162／Testing 334）及 lint／build／types 通过。新增回归验证独立编号、未展开 shorthand 正反顺序、不同输出位置的跨模块复用隔离、名称编解码及 LKG／恢复／插入顺序收敛；最初 4 个 red 与旧 class 编码断言的调整过程保留。534 个既有排序 fixtures 在把新名称映射回旧输出位置编码后，完整 replacement 与 finalize 投影一致（排除随名称长度变化的 source-map mappings，保留 sources／内容／来源比较，map 另由既有回归验证）。证据 `artifacts/property-rank-separation/`：`red.log`、`focused.log` 保留开发期失败，`verify-final.log` 与 `projection-final.log` 为最终结果。原 atom-ranks 默认三引擎入口通过：每引擎固定排序 50 fixtures／182 comparisons／91 exact image pairs，逻辑／物理 418 simple + 59 semantic／2852 paired + 800 authored-native readings／3 image pairs，另有 96 state comparisons／32 image pairs；原负对照和 external-target 边界检查均通过，见 `rank-browser.log`。每引擎另通过 12 项独立 native／literal 对照，覆盖模块插入顺序、不同位置同 rank 的复用隔离、LTR／RTL、未展开 `var()` 及计算时无效值，见 `browser-regression.mjs`／`.log`。原 Chromium browser oracle 125 fixtures／1267 comparisons／38 controls 与 Vite host、SSG、multipage 检查通过，见 `browser-oracle.log`。先前浏览器产物已在同目录备份；外部 SPA／SSR、Article 和性能未新增执行证据。
+
+后续仍需逐项证明完整 shorthand 展开与更宽复用，不从本次分离推导通用 CSS 支持。现有输出位置屏障和语义高度保持有效；删除竞争族、跨输出位置复用或扩大 fallback 均不能当作机械清理。
 
 静态 inset 展开切片：复用四方向展开，`inset` 对应 `top`／`right`／`bottom`／`left`，支持静态 px（包括负值）及无单位零。适用既有同规则和无条件、未分层单节点跨 scope 的安全边界；`auto`、`var()`、逻辑方向别名、compatibility 和 preserved fallback 沿用既有路径。独立同属性 rank、其他 shorthand 和复杂值仍未完成。 最终 `verify` 2211 项及 lint／build／types 通过；原 atom-ranks 三引擎入口与 Chromium browser oracle 125／1267／38 通过，每引擎另有 7 组、21 个原生 CSS 与 literal scope 对照。原始产物备份、red 与验证日志见 `artifacts/safe-inset-expansion/`。
 

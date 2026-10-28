@@ -1,6 +1,8 @@
 export type PureDeclarationIdentity = {
-  /** Module-local tie version; absent identities retain their historical spelling. */
+  /** Same-property version within a module/context; never compared across properties. */
   atomRank?: number;
+  /** Cross-property emission position; retained in identity to prevent unsafe reuse. */
+  orderSlot?: number;
   layer: string;
   condition: string;
   state: string;
@@ -64,6 +66,7 @@ export function createReadableAtomicName(identity: PureDeclarationIdentity): str
     `${identity.assetValue ? 'asset-value' : 'value'}_${encodeNamePart(identity.value)}`,
     `importance_${identity.important ? 'important' : 'normal'}`,
     identity.atomRank === undefined ? undefined : `rank_${identity.atomRank}`,
+    identity.orderSlot === undefined ? undefined : `order_${identity.orderSlot}`,
     ...(identity.ownership ? [
       `module_${encodeNamePart(identity.ownership.moduleId)}`,
       `target_${encodePath(identity.ownership.path)}`,
@@ -410,7 +413,7 @@ export function decodeReadableAtomicName(name: string): PureDeclarationIdentity 
   const fields = new Map<string, string>();
   const allowed = new Set([
     'layer', 'condition', 'state', 'pseudo', 'property', 'value', 'asset-value',
-    'importance', 'rank', 'module', 'target', 'specificity'
+    'importance', 'rank', 'order', 'module', 'target', 'specificity'
   ]);
   for (const part of parts) {
     const separator = part.indexOf('_');
@@ -431,6 +434,8 @@ export function decodeReadableAtomicName(name: string): PureDeclarationIdentity 
   if (importance !== 'normal' && importance !== 'important') return undefined;
   const atomRank = fields.get('rank');
   if (atomRank !== undefined && (!/^[1-9][0-9]*$/.test(atomRank) || !Number.isSafeInteger(Number(atomRank)))) return undefined;
+  const orderSlot = fields.get('order');
+  if (orderSlot !== undefined && (!/^[1-9][0-9]*$/.test(orderSlot) || !Number.isSafeInteger(Number(orderSlot)))) return undefined;
   const ownershipKeys = ['module', 'target', 'specificity'];
   const ownershipCount = ownershipKeys.filter((key) => fields.has(key)).length;
   if (ownershipCount !== 0 && ownershipCount !== ownershipKeys.length) return undefined;
@@ -447,6 +452,7 @@ export function decodeReadableAtomicName(name: string): PureDeclarationIdentity 
     value: (hasAssetValue ? fields.get('asset-value') : fields.get('value'))!,
     important: importance === 'important',
     ...(atomRank === undefined ? {} : { atomRank: Number(atomRank) }),
+    ...(orderSlot === undefined ? {} : { orderSlot: Number(orderSlot) }),
     ...(fields.has('pseudo') ? { pseudoElement: fields.get('pseudo')! } : {}),
     ...(hasAssetValue ? { assetValue: true as const } : {}),
     ...(ownershipCount === ownershipKeys.length ? {

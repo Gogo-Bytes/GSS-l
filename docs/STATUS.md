@@ -5,17 +5,17 @@
 有限 MVP 的逐项目标进度及后续 `2f115b1` 基线上的基础验证、演示生产构建结果见 [MVP 进度](MVP-PROGRESS.md)。该核对未新增浏览器验收，也不将历史开放项改判为全部完成。
 
 
-目录迁移现状：产品代码位于 `compiler/`、`adapters/react/`、`integrations/vite/`、`types/`；测试基础设施位于 `tests/`，Playground 暂仍在其中。最新迁移验证和外部证据见 [当前计划](NEXT-STAGE.md)。同属性独立 rank 与完整安全 shorthand 展开仍未完成；静态 margin／padding／inset 同规则与跨单节点 scope 展开已有有界切片，范围见当前计划。
+目录迁移现状：产品代码位于 `compiler/`、`adapters/react/`、`integrations/vite/`、`types/`；测试基础设施位于 `tests/`，Playground 暂仍在其中。最新迁移验证和外部证据见 [当前计划](NEXT-STAGE.md)。同属性独立 rank 已与跨属性输出位置分离，完整安全 shorthand 展开仍未完成；静态 margin／padding／inset 同规则与跨单节点 scope 展开已有有界切片，范围见当前计划。
 
 静态负 px padding 误剪枝已在 owner 确认后按受限范围修复；原始三引擎反例、适用范围及 compatibility 等未改变路径见 [当前计划](NEXT-STAGE.md)。
 
-最新排序输入重构已集中 occurrence 身份并采用具名绑定查询 rank；534 个既有排序 fixtures 的完整公开输出与 `e9b42bc` 基线一致，`verify` 2211 项通过。当前仍按 effect 竞争族编号，独立同属性 rank 尚未实施；本次未重跑浏览器 gate，已有浏览器记录属于先前实现的验证。细节与后续有界目标见当前计划及属性排序文档。
+最新实现将同属性版本 `atomRank` 与跨属性输出位置 `orderSlot` 分离；仍由原 effect 竞争族和语义高度规划输出，身份保留位置以限制复用，未展开 shorthand 及 fallback 不变。`verify` 2222 项通过；534 个既有排序 fixtures 去除新身份编码差异后的输出投影与基线一致，source-map 列编码由既有映射测试验证。此前 occurrence 收集重构的完整字节等价证据保留在当前计划。本项原 atom-ranks 三引擎、Chromium browser oracle 125／1267／38 及每引擎 12 项独立原生对照通过，原始日志与边界见当前计划。
 
 ## 当前阶段
 
-owner 已决定有限 MVP 结项，已批准并完成官方 create-vite React TS 外部消费、Vite 8 实验及同模板 React Router Declarative／BrowserRouter 客户端路由验收。最新基础验证为 2211 项测试通过；Browser oracle 为 125 fixtures／1267 comparisons／38 controls，Playground 同范围通过。另已按 owner 授权完成 React Router Framework Mode 的有界 request-time SSR 实验；不覆盖历史 Firefox 失败或通用／完整 SSR。
+owner 已决定有限 MVP 结项，已批准并完成官方 create-vite React TS 外部消费、Vite 8 实验及同模板 React Router Declarative／BrowserRouter 客户端路由验收。最新基础验证为 2222 项测试通过；Browser oracle 为 125 fixtures／1267 comparisons／38 controls，Playground 同范围通过。另已按 owner 授权完成 React Router Framework Mode 的有界 request-time SSR 实验；不覆盖历史 Firefox 失败或通用／完整 SSR。
 
-owner 已要求按整体规划推进核心架构与排序目标，确认更强 GSS 语义优先、同高度逻辑先／物理后；[架构方向](ARCHITECTURE-DIRECTION.md) 和 [属性排序设计](PROPERTY-ORDER-DESIGN.md) 区分目标与当前行为。会话提交／失效、贡献准备与快照汇总已分离；产品包已迁至 `compiler/`、`adapters/react/`、`integrations/vite/` 和 `types/`，测试基础设施已迁至 `tests/`，示例职责尚待整理。可原子化的 pure ownership 规则内及跨规则累积的已登记逻辑／物理 longhand 对已准入。preserved 模式、shorthand 及其他上下文仍可能报告 GSS1206，独立同属性 rank 与安全展开目标尚未完成。无法安全展开的既有输入暂时沿用当前 shorthand 处理和 fallback，不额外拒绝。
+owner 已要求按整体规划推进核心架构与排序目标，确认更强 GSS 语义优先、同高度逻辑先／物理后；[架构方向](ARCHITECTURE-DIRECTION.md) 和 [属性排序设计](PROPERTY-ORDER-DESIGN.md) 区分目标与当前行为。会话提交／失效、贡献准备与快照汇总已分离；产品包已迁至 `compiler/`、`adapters/react/`、`integrations/vite/` 和 `types/`，测试基础设施已迁至 `tests/`，示例职责尚待整理。可原子化的 pure ownership 规则内及跨规则累积的已登记逻辑／物理 longhand 对已准入。preserved 模式、shorthand 及其他上下文仍可能报告 GSS1206，同属性 rank／输出位置已分离，完整安全展开仍未完成。无法安全展开的既有输入暂时沿用当前 shorthand 处理和 fallback，不额外拒绝。
 
 owner 仍要求**不自行新增框架或验收场景**。隐式 className 类型、native marker 策略和公共 stylesheet URL／插件数组返回值均已决策；不重复要求重选。property effects、selector marker、统一排序及会话事务／资源生命周期的有界核查已交付；遗留问题和授权边界见 [当前计划](NEXT-STAGE.md)。
 
@@ -72,12 +72,12 @@ owner 已确认统一固定策略：原生 strength／layer／condition／pseudo
 
 ## 必须保留的语义契约
 
-1. **模块内排序**：先使用已证明的所有权／结构关系形成语义依赖高度，再按固定属性优先级（逻辑先、物理后），最后按原始规则 source ordinal 和声明位置排序。source order 不是与语义边同等强度的图边，也不存在通用 selector 等级。
+1. **模块内排序**：先使用已证明的所有权／结构关系形成语义依赖高度，再按固定属性优先级（逻辑先、物理后），最后按原始规则 source ordinal 和声明位置规划 `orderSlot`。`atomRank` 只在同属性内计数，不作为跨属性排序键；source order 不是与语义边同等强度的图边，也不存在通用 selector 等级。
 2. **原生层叠强度**：rank 不覆盖原生 importance／specificity。layer、条件和伪元素主体等上下文必须保持区分。
 3. **来源身份**：共享声明对象不能替代 selector-list 分支身份；保留原始规则、分支、目标／来源／观察绑定，避免错误剪枝或覆盖。部分 shorthand 胜出及 scope membership 也不能丢失。
 4. **不透明关系**：owner 已接受 equal-native-strength 的 `:global()`／`:has()` 竞争在缺少既定语义关系时按 source order 决胜；这不是扩大语法准入。
 5. **逻辑／物理别名（统一固定策略替代旧 Policy B 的 source-order tie）**：潜在重叠用于排序，不代表确定相同 effect；同语义高度物理后发，不扩大 definite 删除、属性准入或运行时映射。浏览器仍负责 direction／writing-mode 映射。
-6. **安全复用**：仅限语义高度为 0、无条件、简单单节点 pure occurrence，完整连续桶的 property／精确 value／importance 相同；保留最早正 rank，不跨越竞争者，不重排后续 rank。所有已建模方向 effects（含 shorthand）统一作为保守复用屏障；不再维护分散的五族正则。
+6. **安全复用**：仅限语义高度为 0、无条件、简单单节点 pure occurrence，完整连续桶的 property／精确 value／importance 相同；同时保留最早的同属性 rank 和输出位置，不跨越竞争者，不重排后续编号；生成身份和汇总 key 均保留输出位置，不能仅按属性／值／局部 rank 合并。所有已建模方向 effects（含 shorthand）统一作为保守复用屏障；不再维护分散的五族正则。
 7. **模块边界**：同模块多 scope 组合是支持能力；跨模块同节点优先级仍不支持。`GSS2107` 是保守、非阻塞诊断，不能通过禁用同模块组合来回避排序缺陷。
 8. **准入与 fallback**：既有 external-target 保护及 last-known-good 行为保持不变。新语法、API、配置、fallback 或范围取舍需 owner 明确决定。
 
