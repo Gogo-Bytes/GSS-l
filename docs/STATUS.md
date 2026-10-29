@@ -65,6 +65,8 @@
 
 最新架构切片将节点条件视图用于语义高度与 ownership 输出，证明和缺失值行为不变；`verify` 2455 项、722 项定向测试及 545 个样本与歧义／fallback 序列等价通过，未重跑浏览器 gate。
 
+已三引擎复现负百分比／em／rem padding 导致先前有效声明被误删；合法负零仍有效。原授权仅覆盖负 px，是否扩大过滤待 owner 决策，反例及证据见当前计划。
+
 ## 当前阶段
 
 owner 已决定有限 MVP 结项，已批准并完成官方 create-vite React TS 外部消费、Vite 8 实验及同模板 React Router Declarative／BrowserRouter 客户端路由验收。最新基础验证为 2455 项测试通过；Browser oracle 为 125 fixtures／1267 comparisons／38 controls，Playground 同范围通过。另已按 owner 授权完成 React Router Framework Mode 的有界 request-time SSR 实验；不覆盖历史 Firefox 失败或通用／完整 SSR。

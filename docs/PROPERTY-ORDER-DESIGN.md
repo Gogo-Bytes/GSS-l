@@ -68,7 +68,7 @@ GSS 将样式编译为可复用的 atom class，并允许同一模块的多个 s
 
 padding／scroll-padding 仍不展开任何带负号形式，包括合法的 `-0em`；不能把 `padding: -1em` 作为获准的静态负 px 过滤范围。其他单位、函数、变量、别名竞争及 fallback 仍走原处理。声明来源、importance、跨 scope 排序与 selector-list 约束沿用前述证明；验证及未覆盖范围见 [当前计划](NEXT-STAGE.md)。
 
-不要把拒绝展开的负百分比当成编译期可丢弃声明：此前批准的 padding 无效值过滤只覆盖确定无效的静态负 px；例如 `.a { padding-left: 9px; padding: -1% }` 仍沿用原路径，不能声称此类无效值行为已修复。百分比展开只在证明全部分量合法后进行，保留 importance、源码顺序、selector-list／scope membership 和 source map；跨 scope 长手值也必须可安全识别，避免混淆不同 scope 的声明身份。当前验证与剩余边界见 [当前计划](NEXT-STAGE.md)。
+不要把拒绝展开的负百分比当成编译期可丢弃声明：此前批准的 padding 无效值过滤只覆盖确定无效的静态负 px；例如 `.a { padding-left: 9px; padding: -1% }` 仍沿用原路径，不能声称此类无效值行为已修复。 已在 Chromium／Firefox／WebKit 复现：该例以及 `-1em`、`-1rem`、逻辑轴 `padding-inline: -1%` 原生保留 9px，而当前 GSS 为 0px；合法 `-0%`／`-0em` 两者均为 0px。扩大过滤范围需要 owner 决定，证据见 [当前计划](NEXT-STAGE.md)。百分比展开只在证明全部分量合法后进行，保留 importance、源码顺序、selector-list／scope membership 和 source map；跨 scope 长手值也必须可安全识别，避免混淆不同 scope 的声明身份。当前验证与剩余边界见 [当前计划](NEXT-STAGE.md)。
 
 无效值决策：owner 已批准修复已复现的静态负 `px` padding 误剪枝。对于无需 compatibility、属性均已登记且没有 external target／condition 的模块，原子规划前忽略可确定无效的物理／逻辑 padding shorthand 和 longhand；重复声明和逻辑／物理冲突检查使用过滤后、尚未展开的规则，避免确定无效的声明触发误报；有效重复声明仍沿用既有诊断。`-0` 是合法零值，不忽略。仅当各组成值都是已识别的静态 `px`／无单位零且含真正负 `px` 时判无效；其他单位、复杂值和 `var()` 沿用原路径。compatibility 和整模块 preserved fallback 保留原声明及既有行为，除移除无效声明造成的冲突外，既有有效输入准入边界保持不变。重现与验证见 [当前计划](NEXT-STAGE.md)。
 
