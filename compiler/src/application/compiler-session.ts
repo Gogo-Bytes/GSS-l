@@ -2,7 +2,8 @@ import type { CompatibilityTransformer } from '../infrastructure/lightning-compa
 import type { GssCompilerConfig, GssCompilerSession } from '../public-types.js';
 import type { CssParserPort } from './css-parser-port.js';
 import { createDefaultNameAllocator, type NameAllocatorPort } from './name-allocator.js';
-import { prepareContribution, findConflictingResource, type ModuleContribution } from './module-contribution.js';
+import { prepareContribution, type ModuleContribution } from './module-contribution.js';
+import { findConflictingResource } from './resource-planning.js';
 import { finalizeSnapshot } from './finalize-snapshot.js';
 
 export function createCompilerSession(

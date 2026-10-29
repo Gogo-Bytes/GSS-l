@@ -195,3 +195,26 @@ function resourceAssetsPreserved(authored: string, physical: string): boolean {
 export function indentCss(css: string): string {
   return css.split('\n').map((line) => `  ${line}`).join('\n');
 }
+
+export function findConflictingResource(
+  modules: ReadonlyMap<string, { readonly resources: readonly PlannedResource[] }>,
+  replacingId: string,
+  incoming: readonly PlannedResource[]
+): string | undefined {
+  const incomingByName = new Map<string, string>();
+  for (const resource of incoming) {
+    if (!resource.conflictKey) continue;
+    const previous = incomingByName.get(resource.conflictKey);
+    if (previous && previous !== resource.identity) return resource.name;
+    incomingByName.set(resource.conflictKey, resource.identity);
+    for (const [moduleId, contribution] of modules) {
+      if (moduleId === replacingId) continue;
+      const conflict = contribution.resources.find((registered) =>
+        registered.conflictKey === resource.conflictKey &&
+        registered.identity !== resource.identity
+      );
+      if (conflict) return resource.name;
+    }
+  }
+  return undefined;
+}

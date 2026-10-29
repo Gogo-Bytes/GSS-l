@@ -6,6 +6,10 @@ owner 已要求开始推进核心架构与属性排序目标；[架构方向](AR
 
 已确认原生强度／上下文和已证明的所有权／结构语义优先，同语义高度时逻辑属性先、物理属性后；同属性 rank 已与跨属性输出位置分开；shorthand 完整展开及更宽复用仍需设计。不能安全展开的既有输入暂时沿用原 shorthand 处理和 fallback，不额外拒绝。owner 仍要求**不自行新增框架或验收场景**；保留独立 oracle、历史失败及现有验证边界。
 
+资源冲突职责切片：把提交前的资源冲突检查从贡献构建器移入资源规划模块，会话只传入已有贡献的资源集合、替换 id 和候选资源；保持先检查同次输入及其他模块、跳过被替换模块的原行为，以及 `GSS1301`、事务提交和 LKG 规则。
+
+资源／会话／收敛定向 **280** 项及完整 `verify` **2453** 项（Compiler 1908／React 49／Vite 162／Testing 334）、lint／build／types 通过。539 个样本 parser／replacement／finalize 完整输出前后逐字段一致；另对相同注册、冲突失败保持快照、恢复提交的事务序列做前后完整比较。脚本与日志见 `artifacts/resource-conflicts-boundary/`；行为保持式移动未重跑浏览器 gate，不改变资源 identity 或 fallback。
+
 Parser selector 片段切片：PostCSS adapter 在单分支构建时以片段关联 class、状态、属性、observation 和 pseudo，再投影为原 `ParsedStyleRule` 平行数组；关系、parser port、planner、语法准入、排序及 fallback 不变。普通完整路径状态去重／排序与 external 提前返回保留原状态的差异均保留，后者已有针对性回归。边界及剩余工作见 [架构方向](ARCHITECTURE-DIRECTION.md#parser-内部-selector-片段)。
 
 parser／port／准入／external／会话定向 **281** 项及完整 `verify` **2453** 项（Compiler 1908／React 49／Vite 162／Testing 334）、lint／build／types 通过。539 个样本的 parser 原始结果、replacement 与 finalize 前后逐字段一致；脚本、基线和日志见 `artifacts/parser-segment-boundary/`。本次保留外部 port 和输出，未重跑浏览器 gate；不据此宣称 planner 平行数组或 selector 支持已全面重构。

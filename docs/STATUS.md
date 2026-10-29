@@ -31,6 +31,8 @@
 
 最新 parser 切片将 selector 构建改为节点片段，保留原 parser port 输出和 external 状态处理；`verify` 2453 项、281 项定向测试及 539 个样本 parser／编译输出前后等价通过，未重跑浏览器 gate。
 
+最新架构切片将资源冲突检查移至资源模块，会话仍在提交前调用；`verify` 2453 项、280 项定向测试及 539 个样本与资源冲突／恢复序列前后等价通过，未重跑浏览器 gate。
+
 ## 当前阶段
 
 owner 已决定有限 MVP 结项，已批准并完成官方 create-vite React TS 外部消费、Vite 8 实验及同模板 React Router Declarative／BrowserRouter 客户端路由验收。最新基础验证为 2453 项测试通过；Browser oracle 为 125 fixtures／1267 comparisons／38 controls，Playground 同范围通过。另已按 owner 授权完成 React Router Framework Mode 的有界 request-time SSR 实验；不覆盖历史 Firefox 失败或通用／完整 SSR。
