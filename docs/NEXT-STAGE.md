@@ -24,6 +24,8 @@ Selector 节点位置迁移：准入、关系规划、声明胜出、排序与�
 
 Selector 类型收敛：parser 与规划规则共用节点分支契约，声明／来源属于 source rule，ownership 名称路径仅为规划扩展；仅调整内部类型，完整 `verify` **2456** 项通过，日志见 `artifacts/selector-node-contract/`；未重跑浏览器 gate。
 
+冲突分组键收敛：从逐节点的状态／属性／observation／pseudo 元组形成上下文键，不再重建四组临时平行数组；路径、external、layer、条件和关系仍分别参与分组。穷举 **74529** 对 0–2 节点的条件组合确认新旧键的相等关系一致；完整 `verify` **2456** 项及 545 样本、歧义／诊断／fallback 序列对照通过，见 `artifacts/selector-node-conflict-key/`；未重跑浏览器 gate。
+
 节点不可变约束：类型层面将节点名称与条件、分支节点／关系及规划路径标为只读，降低节点和派生路径失配风险；不增加运行时冻结，也不改变 parser 构建过程。完整 `verify` **2456** 项通过，见 `artifacts/selector-node-readonly/`；未重跑浏览器 gate。
 
 直接节点读取：关系 planner、语义高度与 marker 输出直接读取绑定节点，移除仅转发节点状态／属性的过渡视图；空 source、缺失位置、descendant／结构证明与 specificity 保持原行为。完整 `verify` **2456** 项、545 样本及歧义／诊断／fallback 对照见 `artifacts/selector-direct-node/`；未重跑浏览器 gate。

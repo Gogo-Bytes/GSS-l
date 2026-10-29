@@ -59,10 +59,7 @@ export function validateLogicalPhysicalConflicts(
       rule.layer,
       rule.conditions,
       rule.relations,
-      rule.nodes.map((node) => node.states),
-      rule.nodes.map((node) => node.attributes),
-      rule.nodes.map((node) => node.observations),
-      rule.nodes.map((node) => node.pseudoElement)
+      rule.nodes.map((node) => [node.states, node.attributes, node.observations, node.pseudoElement])
     ]);
     add(key, rule);
   }
