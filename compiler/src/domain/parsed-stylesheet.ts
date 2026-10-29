@@ -39,28 +39,6 @@ export type ParsedCondition = {
   query: string;
 };
 
-/** One normalized selector branch. Path describes GSS ownership and does not
- * assert browser ancestry; node conditions remain bound to the same positions. */
-export type ParsedSelector = {
-  selector: string;
-  /** A browser-matched external descendant; path remains the GSS-owned anchor. */
-  externalTarget?: string;
-  /** An externally supplied class condition on the owned declaration target. */
-  externalCondition?: string;
-  path: readonly string[];
-  relations: readonly SelectorRelation[];
-};
-
-export type ParsedStyleRule = ParsedSelector & {
-  /** Canonical parser nodes; path is a temporary planning projection. */
-  nodes: readonly ParsedSelectorNode[];
-  source: SourceSpan;
-  conditions: readonly ParsedCondition[];
-  layer: string;
-  declarations: readonly ParsedDeclaration[];
-  sourceOrdinal: number;
-};
-
 /** A parser node binds all conditions to one ownership name. Relations stay
  * between adjacent nodes; neither implies a DOM ancestor without a proof. */
 export type ParsedSelectorNode = {
@@ -71,12 +49,28 @@ export type ParsedSelectorNode = {
   pseudoElement: string | null;
 };
 
-export type ParsedSourceRule = Omit<ParsedStyleRule, keyof ParsedSelector> & {
+/** One normalized selector branch, shared by parser and planning rules. */
+export type ParsedSelector = {
   selector: string;
+  /** A browser-matched external descendant; nodes remain the GSS-owned anchor. */
   externalTarget?: string;
+  /** An externally supplied class condition on the owned declaration target. */
   externalCondition?: string;
   nodes: readonly ParsedSelectorNode[];
   relations: readonly SelectorRelation[];
+};
+
+export type ParsedSourceRule = ParsedSelector & {
+  source: SourceSpan;
+  conditions: readonly ParsedCondition[];
+  layer: string;
+  declarations: readonly ParsedDeclaration[];
+  sourceOrdinal: number;
+};
+
+export type ParsedStyleRule = ParsedSourceRule & {
+  /** Temporary ownership path projection; it does not prove DOM ancestry. */
+  path: readonly string[];
 };
 
 export type ParsedPropertyRegistration = {

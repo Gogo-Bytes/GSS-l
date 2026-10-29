@@ -71,6 +71,8 @@
 
 准入、规划与输出中 authored selector 的节点数量和位置已改由节点读取；实际 ownership 目标／来源绑定仍保留独立路径，验证见当前计划。
 
+Parser 与规划规则现共用节点分支类型；规划扩展仅保留过渡 ownership 路径，验证见当前计划。
+
 `:has()` 关系候选、结构规划、语义高度和 atom／preserved 输出已改读节点 observation，相关平行数组已移除，验证见当前计划。
 
 Pseudo 规划／输出、固定排序上下文及复用判断已改读节点，原 pseudo 主体、specificity 和排序屏障不变，验证见当前计划。
