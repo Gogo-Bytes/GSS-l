@@ -3,7 +3,6 @@ import type { ParsedStyleRule } from '../domain/parsed-stylesheet.js';
 import type { ContextualRelationIdentity, PureDeclarationIdentity } from '../domain/readable-name.js';
 import type { planModuleRelations } from '../domain/plan-module-relations.js';
 import { resolveTargetDeclarations } from '../domain/resolve-target-declarations.js';
-import { selectorPredicateAt } from '../domain/selector-predicate.js';
 import { identifyAssetValue } from './asset-values.js';
 import { canonicalCondition, groupRulesByCondition } from './condition-context.js';
 import { canonicalAttributeCondition, renderAttributeCondition, renderStateSuffix } from './selector-rendering.js';
@@ -25,7 +24,7 @@ export function emitOwnershipRules(input: AtomicEmissionContext & {
       const wrappers = rule.conditions;
       const condition = canonicalCondition(wrappers);
       const layer = rule.layer;
-      const predicate = sourceIndex < 0 ? undefined : selectorPredicateAt(rule, sourceIndex);
+      const predicate = sourceIndex < 0 ? undefined : rule.nodes[sourceIndex];
       const states = sourceIndex < 0 ? [] : predicate!.states!;
       const attribute = sourceIndex < 0 ? undefined : predicate!.attributes![0];
       const suffix = attribute ? renderAttributeCondition(attribute) : renderStateSuffix(states, moduleId, nameAllocator, roots);

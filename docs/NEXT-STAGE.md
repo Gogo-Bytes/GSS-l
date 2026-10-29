@@ -26,6 +26,8 @@ Selector 类型收敛：parser 与规划规则共用节点分支契约，声明�
 
 节点不可变约束：类型层面将节点名称与条件、分支节点／关系及规划路径标为只读，降低节点和派生路径失配风险；不增加运行时冻结，也不改变 parser 构建过程。完整 `verify` **2456** 项通过，见 `artifacts/selector-node-readonly/`；未重跑浏览器 gate。
 
+直接节点读取：关系 planner、语义高度与 marker 输出直接读取绑定节点，移除仅转发节点状态／属性的过渡视图；空 source、缺失位置、descendant／结构证明与 specificity 保持原行为。完整 `verify` **2456** 项、545 样本及歧义／诊断／fallback 对照见 `artifacts/selector-direct-node/`；未重跑浏览器 gate。
+
 Parser selector 契约切片：当时抽出领域 `ParsedSelector` 类型供规则与 parser 中间路径共用，消除重复字段声明；保留分支、声明来源与共享身份，当时平行数组和 parser port 输出不变。后续 parser port 已按上述节点迁移。完整 `verify`、545 样本完整输出及歧义／fallback／诊断优先级对照见 `artifacts/selector-contract-boundary/`；未重跑浏览器 gate。
 
 Descendant planner 的路径、状态和属性类型从同一 `ParsedSelector` 派生，条件／声明范围与关系证明仍属 planner；运行时算法、准入与输出不变。完整 `verify`、545 样本及歧义／fallback 对照见 `artifacts/descendant-selector-contract/`；未重跑浏览器 gate。
@@ -64,7 +66,7 @@ Adapter 诊断位置契约：owner 确认在公开 `SourceAdapterDiagnostic` 加
 
 新增公开类型约束及真实 Vite transform 回归；变更前 TypeScript 因 `range` 未声明报 TS2353，变更后 Vite 诊断相关 **51** 项、完整 `verify` **2455** 项（Compiler 1909／React 49／Vite 163／Testing 334）及 lint／build／types 通过。Vite 诊断模块经 TypeScript 类型擦除的运行时 JS 前后完全相同，证据及最初类型失败见 `artifacts/adapter-diagnostic-range/`。未重跑浏览器或外部框架 gate，不声称 Vue／Svelte 支持。
 
-Selector 节点条件视图切片：descendant 与结构 planner 通过 [selector-predicate.ts](../compiler/src/domain/selector-predicate.ts) 读取同一 authored path 位置的状态／属性，保留 parser 平行数组及缺失位置语义。两种 planner 的 predicate 编码、ownership／runtime witness 证明、互斥、specificity 和歧义规则继续独立；详见 [架构方向](ARCHITECTURE-DIRECTION.md#selector-节点条件视图)。
+Selector 节点条件视图切片：当时 descendant 与结构 planner 通过过渡视图读取同一 authored path 位置的状态／属性，保留 parser 平行数组及缺失位置语义；后续已迁至节点并移除视图。两种 planner 的 predicate 编码、ownership／runtime witness 证明、互斥、specificity 和歧义规则继续独立；详见 [架构方向](ARCHITECTURE-DIRECTION.md#selector-节点条件视图)。
 
 关系／排序／复用／`:has()`／external 定向 **513** 项及完整 `verify` **2454** 项（Compiler 1909／React 49／Vite 162／Testing 334）、lint／build／types 通过；545 个样本 parser／replacement／finalize 逐字段一致，四个歧义及两种 compatibility fallback／失败／恢复序列一致。脚本与日志见 `artifacts/selector-predicate-boundary/`；行为保持式重构未重跑浏览器 gate，不宣称 planner 平行数组或证明已完全统一。
 

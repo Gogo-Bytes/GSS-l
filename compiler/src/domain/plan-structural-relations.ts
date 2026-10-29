@@ -1,5 +1,4 @@
 import { effectsOfProperty } from './property-effects.js';
-import { selectorPredicateAt } from './selector-predicate.js';
 import type { DescendantInstance } from './plan-descendant-conditions.js';
 import type { ParsedHasCondition, ParsedStyleRule, SelectorRelation } from './parsed-stylesheet.js';
 
@@ -20,7 +19,7 @@ function samePath(a: readonly string[] | undefined, b: readonly string[] | undef
 }
 function predicates(rule: ParsedStyleRule, index: number): string[] {
   if (index < 0) return [];
-  const { states, attributes } = selectorPredicateAt(rule, index);
+  const { states, attributes } = rule.nodes[index]!;
   return [
     ...states!.map((state) => `:${state}`),
     ...attributes!.map((attribute) => JSON.stringify(attribute))
@@ -78,8 +77,8 @@ function exclusive(a: Candidate, b: Candidate): boolean {
   const left = a.constraint.predicates;
   const right = b.constraint.predicates;
   if (left.some((part) => right.includes(`:not(${part})`)) || right.some((part) => left.includes(`:not(${part})`))) return true;
-  const aa = selectorPredicateAt(a.instance.rule, a.instance.sourceIndex).attributes?.[0];
-  const ba = selectorPredicateAt(b.instance.rule, b.instance.sourceIndex).attributes?.[0];
+  const aa = a.instance.rule.nodes[a.instance.sourceIndex]?.attributes[0];
+  const ba = b.instance.rule.nodes[b.instance.sourceIndex]?.attributes[0];
   return aa !== undefined && ba !== undefined && aa.attribute === ba.attribute && aa.value !== ba.value;
 }
 function resolveEquivalentGroups(candidates: readonly Candidate[]): void {
@@ -150,7 +149,7 @@ export function planStructuralRelations(
     const sourcePath = rule.path.slice(0, sourceIndex + 1);
     // The session admits one or more trailing descendant ownership edges;
     // they remain in the emitted selector but are not runtime implication edges.
-    const { states, attributes } = selectorPredicateAt(rule, sourceIndex);
+    const { states, attributes } = rule.nodes[sourceIndex]!;
     const instance: StructuralInstance = { rule, targetPath: rule.path, sourcePath, sourceIndex,
       specificity: rule.nodes.length + states!.filter((state) => !state.startsWith('where(')).length + attributes!.length,
       relationRank: 0, declarations: rule.declarations };

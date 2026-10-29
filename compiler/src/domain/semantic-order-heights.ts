@@ -3,14 +3,13 @@ import type { OrderOccurrence } from './order-occurrences.js';
 import { strictlyRefines } from './plan-structural-relations.js';
 import { matchesOwnedTarget } from './ownership-path.js';
 import { propertiesMayOverlapForModuleOrder } from './module-order-policy.js';
-import { selectorPredicateAt } from './selector-predicate.js';
 
 const context = (target: readonly string[], source?: readonly string[]) => JSON.stringify([target, source]);
 const sameSourcePredicate = (a: OrderOccurrence, b: OrderOccurrence) => {
-  const left = selectorPredicateAt(a.instance.rule, a.instance.sourceIndex);
-  const right = selectorPredicateAt(b.instance.rule, b.instance.sourceIndex);
-  return JSON.stringify(left.states ?? []) === JSON.stringify(right.states ?? []) &&
-    JSON.stringify(left.attributes ?? []) === JSON.stringify(right.attributes ?? []);
+  const left = a.instance.rule.nodes[a.instance.sourceIndex];
+  const right = b.instance.rule.nodes[b.instance.sourceIndex];
+  return JSON.stringify(left?.states ?? []) === JSON.stringify(right?.states ?? []) &&
+    JSON.stringify(left?.attributes ?? []) === JSON.stringify(right?.attributes ?? []);
 };
 
 /** Only proven ownership/structural relations form semantic edges; authored order is not an edge. */

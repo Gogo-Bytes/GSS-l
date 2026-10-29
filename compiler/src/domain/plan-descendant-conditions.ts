@@ -1,5 +1,4 @@
 import { effectsOfProperty } from './property-effects.js';
-import { selectorPredicateAt } from './selector-predicate.js';
 import { isSubsequence, matchesOwnedTarget } from './ownership-path.js';
 import { isStructuralPseudoState } from './pseudo-state-capabilities.js';
 import type { ParsedStyleRule } from './parsed-stylesheet.js';
@@ -36,7 +35,7 @@ function conditionSourcePositions(path: readonly string[], target: readonly stri
 
 function predicate<R extends DescendantRule>(instance: DescendantInstance<R>): string[] {
   if (instance.sourceIndex < 0) return [];
-  const { states, attributes } = selectorPredicateAt(instance.rule, instance.sourceIndex);
+  const { states, attributes } = instance.rule.nodes[instance.sourceIndex]!;
   return [
     ...states!,
     ...attributes!.map((attribute) => JSON.stringify(attribute))
@@ -54,8 +53,8 @@ function exclusive<R extends DescendantRule>(a: DescendantInstance<R>, b: Descen
   const left = predicate(a);
   const right = predicate(b);
   if (left.some((part) => right.includes(`not(:${part})`)) || right.some((part) => left.includes(`not(:${part})`))) return true;
-  const aa = selectorPredicateAt(a.rule, a.sourceIndex).attributes?.[0];
-  const ba = selectorPredicateAt(b.rule, b.sourceIndex).attributes?.[0];
+  const aa = a.rule.nodes[a.sourceIndex]?.attributes[0];
+  const ba = b.rule.nodes[b.sourceIndex]?.attributes[0];
   return aa !== undefined && ba !== undefined && aa.attribute === ba.attribute && aa.value !== ba.value;
 }
 
@@ -71,13 +70,10 @@ export function planDescendantConditions<R extends DescendantRule>(
   for (const targetPath of paths.values()) {
     const candidates: DescendantInstance<R>[] = [];
     for (const rule of rules) {
-      const sourceIndex = rule.nodes.findIndex((_, index) => {
-        const { states, attributes } = selectorPredicateAt(rule, index);
-        return states!.length > 0 || attributes!.length > 0;
-      });
+      const sourceIndex = rule.nodes.findIndex(({ states, attributes }) => states.length > 0 || attributes.length > 0);
       for (const position of conditionSourcePositions(rule.path, targetPath, sourceIndex)) {
         const sourcePath = sourceIndex < 0 ? undefined : targetPath.slice(0, position + 1);
-        const predicate = sourceIndex < 0 ? undefined : selectorPredicateAt(rule, sourceIndex);
+        const predicate = sourceIndex < 0 ? undefined : rule.nodes[sourceIndex];
         const states = sourceIndex < 0 ? [] : predicate!.states!;
         const attributes = sourceIndex < 0 ? [] : predicate!.attributes!;
         candidates.push({ rule, targetPath, ...(sourcePath ? { sourcePath } : {}), sourceIndex,
