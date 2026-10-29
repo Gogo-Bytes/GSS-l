@@ -12,7 +12,7 @@ owner 已要求开始推进核心架构与属性排序目标；[架构方向](AR
 
 Compatibility 分析集中物理声明身份的写入与查找，属性、已识别值、asset 标记、importance 的既有键不变；贡献准备不再重复编码。完整 `verify`、545 样本和两种 compatibility 的 preserved／atomic／失败／恢复对照见 `artifacts/compatibility-identity-boundary/`；未重跑浏览器 gate。
 
-将已有 compatibility transformer 类型契约从 Lightning CSS 实现移至应用层，具体实现反向依赖契约；构造、配置、转换顺序、诊断与 fallback 不变。完整 `verify`、545 样本与两种 compatibility 下 preserved／atomic／失败／恢复对照见 `artifacts/compatibility-port-boundary/`；未重跑浏览器 gate。
+将已有 compatibility transformer 类型契约从 Lightning CSS 实现移至应用层，具体实现反向依赖契约；构造、配置、转换顺序、诊断与 fallback 不变。完整 `verify`、545 样本与两种 compatibility 下 preserved／atomic／失败／恢复对照通过；7 个既有模块类型擦除后的 JavaScript 完全相同。日志见 `artifacts/compatibility-port-boundary/`；未重跑浏览器 gate。
 
 已移除未被引用且未公开导出的旧状态歧义检查器，避免与实际关系 planner 的歧义规则混淆。现有诊断、排序与 fallback 路径不变；完整 `verify` 及 lint／build／types 的日志见 `artifacts/remove-unused-state-validator/verify.log`。此项未改变浏览器输出，未重跑浏览器 gate。
 
