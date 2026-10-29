@@ -1,6 +1,7 @@
 import type { GssDiagnostic } from '../public-types.js';
 import { classifyPropertyEffect } from './property-effects.js';
 import { isPureOwnershipRule } from './rule-classification.js';
+import { matchesOwnedTarget } from './ownership-path.js';
 
 const conflictingPhysicalProperties: Readonly<Record<string, readonly string[]>> = {
   'margin-inline': ['margin', 'margin-left', 'margin-right'],
@@ -77,7 +78,7 @@ export function validateLogicalPhysicalConflicts(
   }
   for (const targetPath of targetPaths.values()) {
     for (const candidate of ownershipRules) {
-      if (!isMatchingGeneralPath(candidate.path, targetPath)) continue;
+      if (!matchesOwnedTarget(candidate.path, targetPath)) continue;
       const key = JSON.stringify([
         'accumulated',
         targetPath,
@@ -118,17 +119,4 @@ export function validateLogicalPhysicalConflicts(
 
 function isLocalPureOwnershipRule(rule: RuleCandidate): boolean {
   return rule.externalTarget === undefined && rule.externalCondition === undefined && isPureOwnershipRule(rule);
-}
-
-function isMatchingGeneralPath(
-  candidatePath: readonly string[],
-  targetPath: readonly string[]
-): boolean {
-  if (candidatePath.length > targetPath.length) return false;
-  if (candidatePath.at(-1) !== targetPath.at(-1)) return false;
-  let candidateIndex = 0;
-  for (const targetName of targetPath) {
-    if (targetName === candidatePath[candidateIndex]) candidateIndex += 1;
-  }
-  return candidateIndex === candidatePath.length;
 }
