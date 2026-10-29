@@ -16,6 +16,8 @@ Observation 消费迁移：关系候选、结构 planner、语义高度、`:has(
 
 Pseudo／排序消费迁移：pseudo planner／输出、固定排序竞争上下文与复用准入、descendant 结构状态判断改读节点；不同 pseudo 主体、空 scope、specificity 和 rank／orderSlot 屏障保持原样。完整 `verify` **2456** 项、545 样本及歧义／诊断／fallback 序列对照通过，见 `artifacts/selector-node-pseudo-order/`；准入和部分消费者仍使用过渡数组，未重跑浏览器 gate。
 
+规则分类／background 准入迁移：纯 ownership、状态、属性、pseudo、observation、结构形态与 background 特例均直接读取节点；逻辑／物理冲突仍另行排除 external，其上下文分组暂保留投影数组。完整 `verify` **2456** 项及 545 样本、歧义／诊断／fallback 对照通过，见 `artifacts/selector-node-classification/`；未重跑浏览器 gate。
+
 Parser selector 契约切片：当时抽出领域 `ParsedSelector` 类型供规则与 parser 中间路径共用，消除重复字段声明；保留分支、声明来源与共享身份，当时平行数组和 parser port 输出不变。后续 parser port 已按上述节点迁移。完整 `verify`、545 样本完整输出及歧义／fallback／诊断优先级对照见 `artifacts/selector-contract-boundary/`；未重跑浏览器 gate。
 
 Descendant planner 的路径、状态和属性类型从同一 `ParsedSelector` 派生，条件／声明范围与关系证明仍属 planner；运行时算法、准入与输出不变。完整 `verify`、545 样本及歧义／fallback 对照见 `artifacts/descendant-selector-contract/`；未重跑浏览器 gate。

@@ -26,6 +26,8 @@ const conflictingPhysicalProperties: Readonly<Record<string, readonly string[]>>
 
 type RuleCandidate = {
   path: readonly string[];
+  nodes: readonly { states: readonly unknown[]; attributes: readonly unknown[];
+    observations: readonly unknown[]; pseudoElement: string | null }[];
   externalTarget?: string;
   externalCondition?: string;
   layer: string;

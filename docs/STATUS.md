@@ -73,6 +73,8 @@
 
 Pseudo 规划／输出、固定排序上下文及复用判断已改读节点，原 pseudo 主体、specificity 和排序屏障不变，验证见当前计划。
 
+规则分类与 background 特例已改读节点，逻辑／物理冲突的 external 限制及上下文分组保持原样，验证见当前计划。
+
 既有 Playground 已迁至 `examples/playground/`；独立浏览器参考和验收留在 `tests/`，根命令不变。冻结安装、完整 `verify`、原 Chromium Playground 与独立 browser oracle 已验证；旧产物备份和范围见当前计划。
 
 Playground 的运行、构建和类型检查归示例包，原 testing 脚本保留转发；根与旧入口验证见当前计划。

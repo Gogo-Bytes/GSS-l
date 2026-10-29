@@ -15,12 +15,12 @@ export function supportsCurrentBackgroundRanks(rules: readonly ParsedStyleRule[]
     return rule.layer === 'unlayered' && rule.conditions.length === 0 &&
       !rule.externalTarget && !rule.externalCondition &&
       rule.relations.every((relation) => relation === 'descendant') &&
-      rule.observations.every((observations) => observations.length === 0) &&
-      rule.pseudoElements.every((pseudo) => pseudo === null) &&
+      rule.nodes.every((node) => node.observations.length === 0) &&
+      rule.nodes.every((node) => node.pseudoElement === null) &&
       competing.every((declaration) => declaration.property === 'background-color') &&
-      rule.states.every((states, index) => states.length === 0 ||
+      rule.nodes.every(({ states }, index) => states.length === 0 ||
         (index === rule.path.length - 1 && states.length === 1 && (states[0] === 'hover' || states[0] === 'focus'))) &&
-      rule.attributes.every((attributes, index) => attributes.length === 0 ||
+      rule.nodes.every(({ attributes }, index) => attributes.length === 0 ||
         (index === rule.path.length - 1 && attributes.length === 1));
   });
 }
