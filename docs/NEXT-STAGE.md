@@ -24,6 +24,8 @@ Selector 节点位置迁移：准入、关系规划、声明胜出、排序与�
 
 Selector 类型收敛：parser 与规划规则共用节点分支契约，声明／来源属于 source rule，ownership 名称路径仅为规划扩展；仅调整内部类型，完整 `verify` **2456** 项通过，日志见 `artifacts/selector-node-contract/`；未重跑浏览器 gate。
 
+节点不可变约束：类型层面将节点名称与条件、分支节点／关系及规划路径标为只读，降低节点和派生路径失配风险；不增加运行时冻结，也不改变 parser 构建过程。完整 `verify` **2456** 项通过，见 `artifacts/selector-node-readonly/`；未重跑浏览器 gate。
+
 Parser selector 契约切片：当时抽出领域 `ParsedSelector` 类型供规则与 parser 中间路径共用，消除重复字段声明；保留分支、声明来源与共享身份，当时平行数组和 parser port 输出不变。后续 parser port 已按上述节点迁移。完整 `verify`、545 样本完整输出及歧义／fallback／诊断优先级对照见 `artifacts/selector-contract-boundary/`；未重跑浏览器 gate。
 
 Descendant planner 的路径、状态和属性类型从同一 `ParsedSelector` 派生，条件／声明范围与关系证明仍属 planner；运行时算法、准入与输出不变。完整 `verify`、545 样本及歧义／fallback 对照见 `artifacts/descendant-selector-contract/`；未重跑浏览器 gate。

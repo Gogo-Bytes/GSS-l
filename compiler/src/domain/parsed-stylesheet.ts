@@ -42,11 +42,11 @@ export type ParsedCondition = {
 /** A parser node binds all conditions to one ownership name. Relations stay
  * between adjacent nodes; neither implies a DOM ancestor without a proof. */
 export type ParsedSelectorNode = {
-  name: string;
-  states: readonly string[];
-  attributes: readonly ParsedAttributeCondition[];
-  observations: readonly ParsedHasCondition[];
-  pseudoElement: string | null;
+  readonly name: string;
+  readonly states: readonly string[];
+  readonly attributes: readonly ParsedAttributeCondition[];
+  readonly observations: readonly ParsedHasCondition[];
+  readonly pseudoElement: string | null;
 };
 
 /** One normalized selector branch, shared by parser and planning rules. */
@@ -56,8 +56,8 @@ export type ParsedSelector = {
   externalTarget?: string;
   /** An externally supplied class condition on the owned declaration target. */
   externalCondition?: string;
-  nodes: readonly ParsedSelectorNode[];
-  relations: readonly SelectorRelation[];
+  readonly nodes: readonly ParsedSelectorNode[];
+  readonly relations: readonly SelectorRelation[];
 };
 
 export type ParsedSourceRule = ParsedSelector & {
@@ -70,7 +70,7 @@ export type ParsedSourceRule = ParsedSelector & {
 
 export type ParsedStyleRule = ParsedSourceRule & {
   /** Temporary ownership path projection; it does not prove DOM ancestry. */
-  path: readonly string[];
+  readonly path: readonly string[];
 };
 
 export type ParsedPropertyRegistration = {

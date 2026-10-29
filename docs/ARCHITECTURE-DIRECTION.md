@@ -59,6 +59,8 @@ PostCSS parser 在解析单个 selector 分支时，将每个局部 class 的名
 
 `ParsedSelector` 是 parser 和规划规则共同使用的节点分支契约；`ParsedSourceRule` 加入声明与来源，`ParsedStyleRule` 仅在其上补充临时 ownership 路径。这样两个阶段不再重复定义 selector 字段，也不把规划阶段派生的 target／source 绑定混入 parser。
 
+节点名称及其条件数组、分支节点／关系数组和规划路径在类型层面均为只读，避免规划期间修改节点名称导致已派生的路径失配；这是 TypeScript 编译约束，不是运行时冻结。parser 构建片段仍可变，返回后调用方不得修改节点或过渡路径；实际 target／source 绑定仍是另外的路径值。
+
 需要判断 authored selector 节点数、来源位置及 specificity 的准入、规划和输出分支已直接使用节点数量；scope 组合后的 targetPath／sourcePath 仍是独立绑定，不能以原 selector 节点数或路径替换。例如 `.root .item` 可绑定到包含额外 ownership scope 的 target。名称列表仍供现有 ownership 匹配、marker 身份和路径切片使用，因此尚未删除路径投影。
 
 分支身份、源码跨度、嵌套展开、selector-list 声明共享与诊断不得因此变化。普通完整路径继续去重／排序状态；既有 external target／condition 的提前返回保留原始状态顺序和重复项，不能在行为保持式重构中悄然归一化。外部目标对应的末尾 descendant 关系仍按旧规则去除。此切片不扩大 selector 准入、不改变 marker、排序或 fallback；验证见 [当前计划](NEXT-STAGE.md)。
