@@ -39,8 +39,8 @@ export type ParsedCondition = {
   query: string;
 };
 
-/** One normalized selector branch. Path positions bind all parallel conditions;
- * these describe GSS ownership and do not assert browser ancestry. */
+/** One normalized selector branch. Path describes GSS ownership and does not
+ * assert browser ancestry; node conditions remain bound to the same positions. */
 export type ParsedSelector = {
   selector: string;
   /** A browser-matched external descendant; path remains the GSS-owned anchor. */
@@ -49,14 +49,10 @@ export type ParsedSelector = {
   externalCondition?: string;
   path: readonly string[];
   relations: readonly SelectorRelation[];
-  states: readonly (readonly string[])[];
-  attributes: readonly (readonly ParsedAttributeCondition[])[];
-  observations: readonly (readonly ParsedHasCondition[])[];
-  pseudoElements: readonly (string | null)[];
 };
 
 export type ParsedStyleRule = ParsedSelector & {
-  /** Canonical parser nodes; parallel fields are a temporary planning view. */
+  /** Canonical parser nodes; path is a temporary planning projection. */
   nodes: readonly ParsedSelectorNode[];
   source: SourceSpan;
   conditions: readonly ParsedCondition[];

@@ -7,19 +7,15 @@ export type ParsedStylesheet = {
   diagnostics: readonly GssDiagnostic[];
 };
 
-/** Temporary planning projection. Retains rule/branch order and declaration
- * object identity while existing planners migrate away from parallel arrays. */
+/** Temporary path projection. Retains rule/branch order and declaration object
+ * identity while existing planners migrate away from the separate path array. */
 export type PlanningStylesheet = Omit<ParsedStylesheet, 'rules'> & { rules: readonly ParsedStyleRule[] };
 
 export function projectForPlanning(parsed: ParsedStylesheet): PlanningStylesheet {
   return { ...parsed, rules: parsed.rules.map(({ nodes, ...rule }) => ({
     ...rule,
     nodes,
-    path: nodes.map(({ name }) => name),
-    states: nodes.map(({ states }) => states),
-    attributes: nodes.map(({ attributes }) => attributes),
-    observations: nodes.map(({ observations }) => observations),
-    pseudoElements: nodes.map(({ pseudoElement }) => pseudoElement)
+    path: nodes.map(({ name }) => name)
   })) };
 }
 

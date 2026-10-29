@@ -23,7 +23,7 @@ GSS 以 CSS 为输入，生成可组合的 scope 引用、原子 CSS 与必要�
 
 该边界保留既有行为：路径节点与目标按原插入顺序建立，schema 中同一节点的 class 按现有规则排序并去重，代码输出的字段按既有规则排序；selector-list、状态来源和 `:has()` 观察目标的 membership 由调用方按原规则添加。`__proto__`、保留字及生成变量名冲突需要保持可用的自有属性和合法导出；空路径仍是内部不变量错误。移动实现不改变 atom／marker 名称、identity、rank／orderSlot、资源、source map、诊断或 preserved 内容。
 
-此切片只将 scope 输出从 `module-contribution.ts` 提取为内部模块，尚未统一不同关系 planner 的证明或消除 parser 平行数组，也不提供新的框架适配接口。完整输出比较和测试证据见 [当前计划](NEXT-STAGE.md)。
+此切片只将 scope 输出从 `module-contribution.ts` 提取为内部模块，尚未统一不同关系 planner 的证明，也不提供新的框架适配接口。后续 selector 节点迁移及验证见 [当前计划](NEXT-STAGE.md)。
 
 ### 全局资源规划的职责边界
 
@@ -43,7 +43,7 @@ GSS 以 CSS 为输入，生成可组合的 scope 引用、原子 CSS 与必要�
 
 普通 ownership 的共享形态要求全部关系为 descendant，且无状态、属性、observation 或 pseudo；这一形态本身不检查 external target／condition。逻辑／物理冲突验证的本地准入还必须排除两种 external 上下文，不能因为共享函数而误放宽 `GSS1206`。安全 shorthand 展开的其他条件、已证明的结构优先级、marker 规划和 fallback 均不由该判断单独决定。原有 predicate 条件和调用顺序保持不变；尚未移除所有规划投影，不同 planner 的证明仍独立。验证范围见 [当前计划](NEXT-STAGE.md)。
 
-规则形态判断及 background 特例准入现直接遍历节点条件，节点顺序仍是 authored path 顺序；形态判断保留原先可重叠的语义，不能将节点模型当作额外的 DOM 或能力证明。逻辑／物理冲突检查仍单独排除 external，并暂以投影数组形成上下文分组键，未扩大准入。
+规则形态判断及 background 特例准入现直接遍历节点条件，节点顺序仍是 authored path 顺序；形态判断保留原先可重叠的语义，不能将节点模型当作额外的 DOM 或能力证明。逻辑／物理冲突检查仍单独排除 external，并从节点生成与旧格式相同的上下文分组键，未扩大准入。
 
 ### 条件与 layer 上下文边界
 
@@ -53,9 +53,9 @@ GSS 以 CSS 为输入，生成可组合的 scope 引用、原子 CSS 与必要�
 
 ### Parser 内部 selector 片段
 
-PostCSS parser 在解析单个 selector 分支时，将每个局部 class 的名称、状态、属性、observation 和 pseudo 保存在同一个 `ParsedSelectorNode` 中；`CssParserPort` 现直接返回节点数组及节点间关系。贡献准备在 parser 无错误后通过 `projectForPlanning` 投影为现有 planner 的平行数组；资源发现只读取声明和资源，不需要该投影。这样 parser 端口不再要求调用方维护五个同步数组，但 planner 的平行数组和整体规则绑定模型仍待后续迁移。
+PostCSS parser 在解析单个 selector 分支时，将每个局部 class 的名称、状态、属性、observation 和 pseudo 保存在同一个 `ParsedSelectorNode` 中；`CssParserPort` 直接返回节点数组及节点间关系。贡献准备在 parser 无错误后通过 `projectForPlanning` 暂时生成现有 planner 需要的 ownership 路径数组；资源发现只读取声明和资源，不需要该投影。状态、属性、observation 和 pseudo 的平行数组已移除，路径投影和整体规则绑定模型仍待后续迁移。
 
-规划规则保留 parser 节点，过渡投影同时提供旧的平行数组；状态、属性和 observation 的内层数组与节点共享，不复制声明数组或声明对象。selector-list 的每个分支仍独立、共享的声明保持共享；来源、sourceOrdinal 和条件／layer 保留。投影只在贡献准备时单向构造，不能作为可独立修改的第二套事实。此迁移改变内部 parser port 形状，但不改变公共 Adapter、准入、生成输出或 fallback。后续迁移消费方后应移除投影，而不是让节点和平行数组长期并存。
+规划规则保留 parser 节点，并暂时投影 ownership 路径；不复制声明数组或声明对象。selector-list 的每个分支仍独立、共享的声明保持共享；来源、sourceOrdinal 和条件／layer 保留。路径只在贡献准备时单向构造，不能作为可独立修改的第二套事实。此迁移改变内部 parser port 形状，但不改变公共 Adapter、准入、生成输出或 fallback。后续迁移消费方后应移除路径投影。
 
 分支身份、源码跨度、嵌套展开、selector-list 声明共享与诊断不得因此变化。普通完整路径继续去重／排序状态；既有 external target／condition 的提前返回保留原始状态顺序和重复项，不能在行为保持式重构中悄然归一化。外部目标对应的末尾 descendant 关系仍按旧规则去除。此切片不扩大 selector 准入、不改变 marker、排序或 fallback；验证见 [当前计划](NEXT-STAGE.md)。
 
@@ -103,7 +103,7 @@ Vite 当前将 transform 的原始 `id` 与源码交给 adapter；对发现的 s
 
 其中 [observed-emission.ts](../compiler/src/application/observed-emission.ts) 专门生成已规划的 `:has()` 分支，[planned-declaration.ts](../compiler/src/application/planned-declaration.ts) 保存各原子输出共享的内部声明身份类型。每个 observation 仍独立绑定排序查询；本地观察 class 的 marker 必须添加到对应 scope。复杂 list 保留原生 `:has(list)` specificity，多个分支时保留零强度 witness；简单 list 延续既有 scalar 处理。该拆分不扩大 `:has()` 语法，不合并分支或改变 class／marker 身份。
 
-关系候选收集、结构 planner 的观察约束、语义高度的不透明判断和 `:has()` 输出从对应 selector 节点读取 observation；preserved 输出仍按节点顺序处理所有 observation 并登记本地 marker。观察项的来源节点和分支身份不可因同名 class 或相同 selector 文本合并。准入、规则分类及部分排序逻辑尚使用过渡数组，待迁移完成后才能删除 observation 投影。
+关系候选收集、结构 planner 的观察约束、语义高度的不透明判断和 `:has()` 输出从对应 selector 节点读取 observation；preserved 输出仍按节点顺序处理所有 observation 并登记本地 marker。观察项的来源节点和分支身份不可因同名 class 或相同 selector 文本合并。准入、规则分类和排序已迁移，observation 平行数组已删除。
 
 [structural-emission.ts](../compiler/src/application/structural-emission.ts) 负责已规划结构实例的 source／中间／target marker、组合符和 selector 输出，保留来源路径、状态／属性条件、specificity 与关系 rank。它不验证或发明 DOM 关系，也不替代结构 planner 的歧义证明；例如 `.input:checked > .middle ~ .label` 需要分别将 marker 放入各自 scope，并在浏览器中匹配 `>` 与 `~`，不能把整条 ownership 路径当成一个目标 atom。逐 declaration 的排序绑定和来源不变。
 
@@ -113,7 +113,7 @@ Vite 当前将 transform 的原始 `id` 与源码交给 adapter；对发现的 s
 
 [pseudo-emission.ts](../compiler/src/application/pseudo-emission.ts) 对已规划的 pseudo-element subject 生成输出；即使声明没有存活，其已声明路径仍需保留为公开 scope，生成 selector 仍保留作者路径的 specificity。[atomic-emission-context.ts](../compiler/src/application/atomic-emission-context.ts) 仅为各输出分支共享已确定的规则数组、scope 树、资源绑定、命名器和排序查询；它不统一各关系的准入或证明，也不授权跨分支复用。
 
-Pseudo planner 和输出从末尾节点读取主体与状态，固定排序从节点读取 pseudo 上下文及复用条件；不同 pseudo 主体不能进入同一竞争上下文。descendant planner 的节点条件不再依赖状态／属性平行数组。原 scope membership、native specificity、局部 rank／输出位置与复用屏障均不变；准入与部分其他消费者仍使用过渡数组。
+Pseudo planner 和输出从末尾节点读取主体与状态，固定排序从节点读取 pseudo 上下文及复用条件；不同 pseudo 主体不能进入同一竞争上下文。descendant planner 的节点条件不再依赖状态／属性平行数组。原 scope membership、native specificity、局部 rank／输出位置与复用屏障均不变；准入也已迁至节点。
 
 不同输出分支不能简单合并：普通 ownership 可以累积目标路径；结构／祖先状态需要 source、target 和中间 marker；`:has()` 按 observation 保留主体／观察身份和 native specificity；external target 不导出为 scope，重叠 effect 仍按既有规则拒绝。规则来源、`!important`、条件／layer、scope 中未存活 pseudo 路径以及 asset 身份都必须保留。输出过程中遇到的 external 歧义依旧返回 `GSS1205`，且失败贡献不会提交；preserved 仍有独立输出路径。本次只移动阶段边界，分支内部的语义、执行顺序、identity 和 fallback 未改变；planner 内部模型及更宽复用仍未完成。验证见 [当前计划](NEXT-STAGE.md)。
 
@@ -127,7 +127,7 @@ Pseudo planner 和输出从末尾节点读取主体与状态，固定排序从�
 
 ### Selector 节点条件视图
 
-[selector-predicate.ts](../compiler/src/domain/selector-predicate.ts) 为 descendant、结构 planner、语义高度比较与 ownership／结构输出按同一 authored path 位置直接读取节点的 state／attribute 条件；缺失位置仍保留缺失，不在此处补默认值或做条件推理。结构输出使用该节点的状态生成 marker 身份及 selector，并使用首个属性条件；缺失状态仍仅在渲染时按原规则视为空数组。planner instance 的 `sourceIndex`／路径绑定保持不变；其他消费者仍可能读取过渡投影。
+[selector-predicate.ts](../compiler/src/domain/selector-predicate.ts) 为 descendant、结构 planner、语义高度比较与 ownership／结构输出按同一 authored path 位置直接读取节点的 state／attribute 条件；缺失位置仍保留缺失，不在此处补默认值或做条件推理。结构输出使用该节点的状态生成 marker 身份及 selector，并使用首个属性条件；缺失状态仍仅在渲染时按原规则视为空数组。planner instance 的 `sourceIndex`／路径绑定保持不变；ownership 路径仍为过渡投影。
 
 两个 planner 的证明不能因为读取入口相同就合并：descendant 的状态 predicate 使用原状态字符串，结构 planner 使用带 `:` 的形式；前者按 ownership 路径和 source 绑定证明，后者还要证明 runtime witness、组合符和 sibling 约束。它们各自的互斥／蕴含判断、specificity 与 ambiguity 规则均未改变。此视图不是 DOM 节点或完整 selector 语义模型；更完整的规则绑定仍需设计。验证见 [当前计划](NEXT-STAGE.md)。
 
@@ -147,7 +147,7 @@ Pseudo planner 和输出从末尾节点读取主体与状态，固定排序从�
 
 | 优先级 | 目标 | 当前证据与待设计 |
 | --- | --- | --- |
-| 1 | 统一规则绑定、occurrence 和身份 | 排序入口已通过 `order-occurrences.ts` 集中声明／分支／绑定身份，生成阶段按具名绑定查询 rank；parser 构建阶段已使用局部片段，但输出平行数组与其他 planner 的专用模型尚未统一。保留 selector 分支、局部绑定和全部来源，具体契约见属性排序文档。 |
+| 1 | 统一规则绑定、occurrence 和身份 | 排序入口已通过 `order-occurrences.ts` 集中声明／分支／绑定身份；parser、准入、planner 和输出已直接读取条件节点，四组条件平行数组已移除；ownership 路径投影与其他 planner 的专用绑定模型尚待处理。保留 selector 分支、局部绑定和全部来源，具体契约见属性排序文档。 |
 | 2 | 理清贡献构建、会话提交和快照 | 已分离会话提交／失效、贡献准备与快照汇总；scope 导出、资源规划、selector 准入、关系规划编排、compatibility／preserved 分析与 atom／marker 输出已提取内部模块。贡献准备仍负责阶段顺序、诊断优先级和 fallback 选择。 |
 | 3 | 分离语义证明、同属性 rank、固定属性顺序及最终输出 | 已分离语义高度、属性内版本与输出位置；保留既有竞争族投影、未展开 shorthand 顺序和输出位置复用屏障，未放宽 `GSS1206`。 |
 | 4 | 集中关系计划、marker 和 scope membership | scope 树／导出、关系 selector 渲染、关系规划编排及 atom／marker 输出已有内部模块；各 planner 和输出分支仍保留专用证明；不可假设 ownership 等价于 DOM 祖先。 |

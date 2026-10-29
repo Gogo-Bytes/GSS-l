@@ -12,11 +12,13 @@ Selector 节点迁移第一步：内部 CSS parser port 直接返回包含名称
 
 节点消费迁移：规划规则保留 parser 原节点，descendant／结构 planner、语义高度以及 ownership／结构输出通过 selector 条件视图直接读取节点状态／属性。过渡平行数组单向投影并共享节点内层条件数组，不能独立修改；其他消费方和路径数组仍待迁移。完整 `verify` **2456** 项、545 样本及歧义／诊断／fallback 序列对照通过，见 `artifacts/selector-node-predicate/`；比较规划投影时去除了新增的内部节点字段，生成结果逐字段比较，未重跑浏览器 gate。
 
-Observation 消费迁移：关系候选、结构 planner、语义高度、`:has()` atom 和 preserved marker 输出改为读取节点 observation；保留每个分支、native specificity 和节点顺序。准入及部分排序仍读取过渡数组。完整 `verify` **2456** 项、545 样本及歧义／诊断／compatibility fallback 对照通过，见 `artifacts/selector-node-observation/`；比较规划投影时去除新增内部节点字段，生成结果逐字段比较，未重跑浏览器 gate。
+Observation 消费迁移：关系候选、结构 planner、语义高度、`:has()` atom 和 preserved marker 输出改为读取节点 observation；保留每个分支、native specificity 和节点顺序。当时准入及部分排序仍读取过渡数组，后续已迁移。完整 `verify` **2456** 项、545 样本及歧义／诊断／compatibility fallback 对照通过，见 `artifacts/selector-node-observation/`；比较规划投影时去除新增内部节点字段，生成结果逐字段比较，未重跑浏览器 gate。
 
-Pseudo／排序消费迁移：pseudo planner／输出、固定排序竞争上下文与复用准入、descendant 结构状态判断改读节点；不同 pseudo 主体、空 scope、specificity 和 rank／orderSlot 屏障保持原样。完整 `verify` **2456** 项、545 样本及歧义／诊断／fallback 序列对照通过，见 `artifacts/selector-node-pseudo-order/`；准入和部分消费者仍使用过渡数组，未重跑浏览器 gate。
+Pseudo／排序消费迁移：pseudo planner／输出、固定排序竞争上下文与复用准入、descendant 结构状态判断改读节点；不同 pseudo 主体、空 scope、specificity 和 rank／orderSlot 屏障保持原样。完整 `verify` **2456** 项、545 样本及歧义／诊断／fallback 序列对照通过，见 `artifacts/selector-node-pseudo-order/`；当时准入和部分消费者仍使用过渡数组，后续已迁移；未重跑浏览器 gate。
 
-规则分类／background 准入迁移：纯 ownership、状态、属性、pseudo、observation、结构形态与 background 特例均直接读取节点；逻辑／物理冲突仍另行排除 external，其上下文分组暂保留投影数组。完整 `verify` **2456** 项及 545 样本、歧义／诊断／fallback 对照通过，见 `artifacts/selector-node-classification/`；未重跑浏览器 gate。
+规则分类／background 准入迁移：纯 ownership、状态、属性、pseudo、observation、结构形态与 background 特例均直接读取节点；逻辑／物理冲突仍另行排除 external，其上下文分组当时保留投影数组，后续已迁移。完整 `verify` **2456** 项及 545 样本、歧义／诊断／fallback 对照通过，见 `artifacts/selector-node-classification/`；未重跑浏览器 gate。
+
+Selector 准入与冲突分组迁移：external、pseudo、observation、属性、状态形态校验改读节点；逻辑／物理冲突上下文从节点构造与旧格式等价的分组键。已删除规划规则中的状态／属性／observation／pseudo 四组平行数组；ownership 路径仍保留为过渡投影。完整 `verify` **2456** 项、545 样本及歧义／诊断优先级／fallback 序列对照通过，见 `artifacts/selector-node-admission/`；为比较迁移前规划结构，对照脚本从节点重建旧数组，生成输出逐字段比较；未重跑浏览器 gate。
 
 Parser selector 契约切片：当时抽出领域 `ParsedSelector` 类型供规则与 parser 中间路径共用，消除重复字段声明；保留分支、声明来源与共享身份，当时平行数组和 parser port 输出不变。后续 parser port 已按上述节点迁移。完整 `verify`、545 样本完整输出及歧义／fallback／诊断优先级对照见 `artifacts/selector-contract-boundary/`；未重跑浏览器 gate。
 

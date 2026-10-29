@@ -33,10 +33,6 @@ type RuleCandidate = {
   layer: string;
   conditions: readonly unknown[];
   relations: readonly string[];
-  states: readonly (readonly string[])[];
-  attributes: readonly (readonly unknown[])[];
-  observations: readonly (readonly unknown[])[];
-  pseudoElements: readonly (string | null)[];
   declarations: readonly { property: string }[];
 };
 
@@ -63,10 +59,10 @@ export function validateLogicalPhysicalConflicts(
       rule.layer,
       rule.conditions,
       rule.relations,
-      rule.states,
-      rule.attributes,
-      rule.observations,
-      rule.pseudoElements
+      rule.nodes.map((node) => node.states),
+      rule.nodes.map((node) => node.attributes),
+      rule.nodes.map((node) => node.observations),
+      rule.nodes.map((node) => node.pseudoElement)
     ]);
     add(key, rule);
   }

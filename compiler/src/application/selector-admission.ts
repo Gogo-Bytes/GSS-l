@@ -24,10 +24,10 @@ export function prepareSelectorContexts(id: string, semanticRules: readonly Pars
   // External descendants require a pure owned path of descendant relations;
   // other placements/compositions remain fail-closed.
   if (externalRules.some((rule) => rule.relations.some((relation) => relation !== 'descendant') ||
-    rule.states.some((states) => states.length > 0) ||
-    rule.attributes.some((attributes) => attributes.length > 0) ||
-    rule.observations.some((observations) => observations.length > 0) ||
-    rule.pseudoElements.some((pseudo) => pseudo !== null))) {
+    rule.nodes.some((node) => node.states.length > 0) ||
+    rule.nodes.some((node) => node.attributes.length > 0) ||
+    rule.nodes.some((node) => node.observations.length > 0) ||
+    rule.nodes.some((node) => node.pseudoElement !== null))) {
     return { diagnostics: [{
       code: 'GSS1101', severity: 'error', phase: 'validate', id,
       reason: 'capability-not-registered',
@@ -51,10 +51,10 @@ export function prepareSelectorContexts(id: string, semanticRules: readonly Pars
     (semanticRules.length !== 1 && !simpleBaseRefinement) ||
     sameNode!.conditions.length > 0 || sameNode!.layer !== 'unlayered' ||
     sameNode!.relations.some((relation) => relation !== 'descendant') ||
-    sameNode!.states.some((states) => states.length > 0) ||
-    sameNode!.attributes.some((attributes) => attributes.length > 0) ||
-    sameNode!.observations.some((observations) => observations.length > 0) ||
-    sameNode!.pseudoElements.some((pseudo) => pseudo !== null))) {
+    sameNode!.nodes.some((node) => node.states.length > 0) ||
+    sameNode!.nodes.some((node) => node.attributes.length > 0) ||
+    sameNode!.nodes.some((node) => node.observations.length > 0) ||
+    sameNode!.nodes.some((node) => node.pseudoElement !== null))) {
     return { diagnostics: [{
       code: 'GSS1101', severity: 'error', phase: 'validate', id,
       reason: 'capability-not-registered',
@@ -99,21 +99,18 @@ export function validateSelectorShapes(id: string, rules: readonly ParsedStyleRu
   const unsupportedPseudoElement = rules.find(({
     path,
     relations,
-    states,
-    attributes,
-    observations,
-    pseudoElements
+    nodes
   }) => {
-    const pseudoElementIndexes = pseudoElements.flatMap((pseudoElement, index) =>
-      pseudoElement ? [index] : []
+    const pseudoElementIndexes = nodes.flatMap((node, index) =>
+      node.pseudoElement ? [index] : []
     );
     return pseudoElementIndexes.length > 0 && (
       pseudoElementIndexes.length !== 1 ||
       pseudoElementIndexes[0] !== path.length - 1 ||
       relations.some((relation) => relation !== 'descendant') ||
-      states.slice(0, -1).some((state) => state.length > 0) ||
-      attributes.some((conditions) => conditions.length > 0) ||
-      observations.some((conditions) => conditions.length > 0)
+      nodes.slice(0, -1).some((node) => node.states.length > 0) ||
+      nodes.some((node) => node.attributes.length > 0) ||
+      nodes.some((node) => node.observations.length > 0)
     );
   });
   if (unsupportedPseudoElement) {
@@ -132,19 +129,17 @@ export function validateSelectorShapes(id: string, rules: readonly ParsedStyleRu
   const unsupportedObservation = rules.find(({
     path,
     relations,
-    states,
-    attributes,
-    observations
+    nodes
   }) => {
-    const observationIndexes = observations.flatMap((conditions, index) =>
-      conditions.length > 0 ? [index] : []
+    const observationIndexes = nodes.flatMap((node, index) =>
+      node.observations.length > 0 ? [index] : []
     );
     return observationIndexes.length > 0 && (
       observationIndexes.length !== 1 ||
       observationIndexes[0] !== path.length - 1 ||
       relations.some((relation) => relation !== 'descendant') ||
-      states.some((state) => state.length > 0) ||
-      attributes.some((conditions) => conditions.length > 0)
+      nodes.some((node) => node.states.length > 0) ||
+      nodes.some((node) => node.attributes.length > 0)
     );
   });
   if (unsupportedObservation) {
@@ -160,17 +155,17 @@ export function validateSelectorShapes(id: string, rules: readonly ParsedStyleRu
     };
   }
 
-  const unsupportedAttribute = rules.find(({ path, relations, states, attributes }) => {
-    const attributeIndexes = attributes.flatMap((conditions, index) =>
-      conditions.length > 0 ? [index] : []
+  const unsupportedAttribute = rules.find(({ path, relations, nodes }) => {
+    const attributeIndexes = nodes.flatMap((node, index) =>
+      node.attributes.length > 0 ? [index] : []
     );
     const firstRuntimeRelation = relations.findIndex((relation) => relation !== 'descendant');
     return attributeIndexes.length > 0 && (
       attributeIndexes.length !== 1 ||
-      attributes[attributeIndexes[0]!]!.length !== 1 ||
+      nodes[attributeIndexes[0]!]!.attributes.length !== 1 ||
       path.length === 0 ||
       (firstRuntimeRelation >= 0 && attributeIndexes[0] !== firstRuntimeRelation) ||
-      states.some((state) => state.length > 0)
+      nodes.some((node) => node.states.length > 0)
     );
   });
   if (unsupportedAttribute) {
@@ -186,8 +181,8 @@ export function validateSelectorShapes(id: string, rules: readonly ParsedStyleRu
     };
   }
 
-  const unsupportedState = rules.find(({ path, relations, states }) => {
-    const stateIndexes = states.flatMap((state, index) => state.length > 0 ? [index] : []);
+  const unsupportedState = rules.find(({ path, relations, nodes }) => {
+    const stateIndexes = nodes.flatMap((node, index) => node.states.length > 0 ? [index] : []);
     const firstRuntimeRelation = relations.findIndex((relation) => relation !== 'descendant');
     return stateIndexes.length > 0 && (
       stateIndexes.length !== 1 ||
