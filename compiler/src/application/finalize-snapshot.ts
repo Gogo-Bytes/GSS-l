@@ -3,7 +3,8 @@ import { compareRuleOrder } from '../domain/rule-order-planner.js';
 import type { FinalizedGssSnapshot, FinalizeGssOptions, GssCompilerConfig } from '../public-types.js';
 import { renderAssetValue, type AssetUrlResolver } from './asset-values.js';
 import { renderCssWithSourceMap, type CssMapBlock } from './css-source-map.js';
-import type { ModuleContribution, PlannedDeclaration } from './module-contribution.js';
+import type { ModuleContribution } from './module-contribution.js';
+import type { PlannedDeclaration } from './atomic-emission.js';
 import type { PlannedResource } from './resource-planning.js';
 
 export function finalizeSnapshot(
