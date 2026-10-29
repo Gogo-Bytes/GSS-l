@@ -10,6 +10,8 @@ owner 已要求开始推进核心架构与属性排序目标；[架构方向](AR
 
 逻辑／物理冲突校验复用相同的 ownership 路径匹配，移除原本与声明胜出相同的第三份实现；上下文分组、纯 ownership 准入、`GSS1206` 及 preserved fallback 不变。完整 `verify`、545 样本和歧义／fallback／诊断优先级对照见 `artifacts/ownership-conflict-path/`；未重跑浏览器 gate。
 
+Compatibility 分析集中物理声明身份的写入与查找，属性、已识别值、asset 标记、importance 的既有键不变；贡献准备不再重复编码。完整 `verify`、545 样本和两种 compatibility 的 preserved／atomic／失败／恢复对照见 `artifacts/compatibility-identity-boundary/`；未重跑浏览器 gate。
+
 已移除未被引用且未公开导出的旧状态歧义检查器，避免与实际关系 planner 的歧义规则混淆。现有诊断、排序与 fallback 路径不变；完整 `verify` 及 lint／build／types 的日志见 `artifacts/remove-unused-state-validator/verify.log`。此项未改变浏览器输出，未重跑浏览器 gate。
 
 已梳理当前节点 `background-color` 特例的冲突种子、全模块竞争闭包与排序边界，明确它不能直接泛化为任意属性或 selector；详见 [架构方向](ARCHITECTURE-DIRECTION.md#当前节点-background-排序准入)。既有 rank 与 descendant 回归 **73** 项通过，日志见 `artifacts/background-rank-contract/focused.log`。此项仅更新设计说明，不改变准入、fallback 或代码。

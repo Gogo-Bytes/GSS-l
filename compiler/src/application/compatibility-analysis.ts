@@ -3,6 +3,12 @@ import type { CompatibilityTransformer, PhysicalDeclaration } from '../infrastru
 import { identifyAssetValue, type AssetBindings } from './asset-values.js';
 import { assetOccurrences } from './stylesheet-assets.js';
 
+type DeclarationIdentity = { property: string; value: string; assetValue?: true; important: boolean };
+
+function declarationKey({ property, value, assetValue, important }: DeclarationIdentity): string {
+  return JSON.stringify([property, value, assetValue === true, important]);
+}
+
 /** Analyze physical declarations without deciding the module's fallback. Shape
  * and asset loss precede importance checks; the caller retains diagnostic and
  * logical/physical conflict precedence. */
@@ -19,13 +25,14 @@ export function analyzeCompatibility(
   const physicalByDeclaration = new Map(physicalDeclarations.filter(({ physical }) => physical !== undefined)
     .map(({ declaration, physical }) => {
       const identified = identifyAssetValue(declaration.value, bindings);
-      return [JSON.stringify([declaration.property, identified.value, identified.assetValue === true, declaration.important]),
+      return [declarationKey({ ...declaration, ...identified }),
         physical!.map((entry) => ({ ...entry, ...identifyAssetValue(entry.value, bindings) }))] as const;
     }));
   const compatibilityFallback = [...new Set(physicalDeclarations.filter(({ declaration, physical }) =>
     physical?.some((entry) => entry.property !== declaration.property))
     .map(({ declaration }) => declaration.property))].sort();
-  return { physicalByDeclaration, compatibilityFallback };
+  return { getPhysicalDeclarations: (identity: DeclarationIdentity) => physicalByDeclaration.get(declarationKey(identity)),
+    compatibilityFallback };
 }
 
 function physicalAssetsPreserved(authored: string, physical: readonly PhysicalDeclaration[]): boolean {

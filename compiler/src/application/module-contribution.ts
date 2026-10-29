@@ -171,7 +171,7 @@ export function prepareContribution(
         ? 'Compatibility transformation cannot preserve this declaration shape.'
         : 'Compatibility transformation changed declaration importance.' }] };
   }
-  const { physicalByDeclaration, compatibilityFallback } = compatibilityAnalysis;
+  const { getPhysicalDeclarations, compatibilityFallback } = compatibilityAnalysis;
   if (compatibilityFallback.length > 0) {
     // Preserved CSS keeps authored order, so it cannot implement the new fixed
     // logical/physical order. Retain the old conflict guard for this path.
@@ -244,8 +244,7 @@ export function prepareContribution(
   return {
     artifact,
     rules: compatibility ? rules.map((rule) => ({ ...rule,
-      physicalDeclarations: physicalByDeclaration.get(JSON.stringify([rule.identity.property,
-        rule.identity.value, rule.identity.assetValue === true, rule.identity.important]))! })) : rules,
+      physicalDeclarations: getPhysicalDeclarations(rule.identity)! })) : rules,
     preservedBlocks: [],
     resources,
     diagnostics: conditionDiagnostics,
