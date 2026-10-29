@@ -56,6 +56,8 @@ export type ParsedSelector = {
 };
 
 export type ParsedStyleRule = ParsedSelector & {
+  /** Canonical parser nodes; parallel fields are a temporary planning view. */
+  nodes: readonly ParsedSelectorNode[];
   source: SourceSpan;
   conditions: readonly ParsedCondition[];
   layer: string;

@@ -53,7 +53,7 @@ GSS 以 CSS 为输入，生成可组合的 scope 引用、原子 CSS 与必要�
 
 PostCSS parser 在解析单个 selector 分支时，将每个局部 class 的名称、状态、属性、observation 和 pseudo 保存在同一个 `ParsedSelectorNode` 中；`CssParserPort` 现直接返回节点数组及节点间关系。贡献准备在 parser 无错误后通过 `projectForPlanning` 投影为现有 planner 的平行数组；资源发现只读取声明和资源，不需要该投影。这样 parser 端口不再要求调用方维护五个同步数组，但 planner 的平行数组和整体规则绑定模型仍待后续迁移。
 
-规划阶段的分支结构由领域类型 `ParsedSelector` 与 `ParsedStyleRule` 共用；descendant planner 所需的路径、状态和属性类型从该分支结构派生。节点到平行数组的过渡投影不复制声明数组或声明对象，selector-list 的每个分支仍独立、共享的声明保持共享；来源、sourceOrdinal 和条件／layer 保留。此迁移改变内部 parser port 形状，但不改变公共 Adapter、准入、生成输出或 fallback。后续迁移消费方后应移除投影，而不是让节点和可变平行数组长期并存。
+规划规则保留 parser 节点，过渡投影同时提供旧的平行数组；状态、属性和 observation 的内层数组与节点共享，不复制声明数组或声明对象。selector-list 的每个分支仍独立、共享的声明保持共享；来源、sourceOrdinal 和条件／layer 保留。投影只在贡献准备时单向构造，不能作为可独立修改的第二套事实。此迁移改变内部 parser port 形状，但不改变公共 Adapter、准入、生成输出或 fallback。后续迁移消费方后应移除投影，而不是让节点和平行数组长期并存。
 
 分支身份、源码跨度、嵌套展开、selector-list 声明共享与诊断不得因此变化。普通完整路径继续去重／排序状态；既有 external target／condition 的提前返回保留原始状态顺序和重复项，不能在行为保持式重构中悄然归一化。外部目标对应的末尾 descendant 关系仍按旧规则去除。此切片不扩大 selector 准入、不改变 marker、排序或 fallback；验证见 [当前计划](NEXT-STAGE.md)。
 
@@ -121,7 +121,7 @@ Vite 当前将 transform 的原始 `id` 与源码交给 adapter；对发现的 s
 
 ### Selector 节点条件视图
 
-[selector-predicate.ts](../compiler/src/domain/selector-predicate.ts) 为 descendant、结构 planner、语义高度比较与 ownership／结构输出按同一个 authored path 位置读取 state／attribute 条件，作为当前规划投影中平行数组的只读视图；缺失位置仍保留缺失，不在此处补默认值或做条件推理。结构输出使用该节点的状态生成 marker 身份及 selector，并使用首个属性条件；缺失状态仍仅在渲染时按原规则视为空数组。planner instance 的 `sourceIndex`／路径绑定保持不变。
+[selector-predicate.ts](../compiler/src/domain/selector-predicate.ts) 为 descendant、结构 planner、语义高度比较与 ownership／结构输出按同一 authored path 位置直接读取节点的 state／attribute 条件；缺失位置仍保留缺失，不在此处补默认值或做条件推理。结构输出使用该节点的状态生成 marker 身份及 selector，并使用首个属性条件；缺失状态仍仅在渲染时按原规则视为空数组。planner instance 的 `sourceIndex`／路径绑定保持不变；其他消费者仍可能读取过渡投影。
 
 两个 planner 的证明不能因为读取入口相同就合并：descendant 的状态 predicate 使用原状态字符串，结构 planner 使用带 `:` 的形式；前者按 ownership 路径和 source 绑定证明，后者还要证明 runtime witness、组合符和 sibling 约束。它们各自的互斥／蕴含判断、specificity 与 ambiguity 规则均未改变。此视图不是 DOM 节点或完整 selector 语义模型；更完整的规则绑定仍需设计。验证见 [当前计划](NEXT-STAGE.md)。
 

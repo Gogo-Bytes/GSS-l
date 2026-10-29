@@ -14,6 +14,7 @@ export type PlanningStylesheet = Omit<ParsedStylesheet, 'rules'> & { rules: read
 export function projectForPlanning(parsed: ParsedStylesheet): PlanningStylesheet {
   return { ...parsed, rules: parsed.rules.map(({ nodes, ...rule }) => ({
     ...rule,
+    nodes,
     path: nodes.map(({ name }) => name),
     states: nodes.map(({ states }) => states),
     attributes: nodes.map(({ attributes }) => attributes),

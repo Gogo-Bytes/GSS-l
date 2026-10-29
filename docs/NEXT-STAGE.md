@@ -10,6 +10,8 @@ owner 已要求开始推进核心架构与属性排序目标；[架构方向](AR
 
 Selector 节点迁移第一步：内部 CSS parser port 直接返回包含名称、状态、属性、observation、pseudo 的节点数组及相邻关系；贡献准备暂时投影为旧 planner 的平行数组，投影不复制共享声明或改变来源、分支、external 早返回状态顺序。公共 Adapter 与 fallback 不变。新增 parser／投影绑定回归；完整 `verify` **2456** 项（Compiler 1910／React 49／Vite 163／Testing 334）通过。545 个样本以投影后 parser 输出及完整 replacement／finalize 对照旧基线一致，四个歧义、七个诊断优先级／LKG 和两种 compatibility fallback／恢复序列一致，见 `artifacts/selector-node-parser-port/`。内部结构迁移未重跑浏览器 gate；planner 仍依赖投影，后续需要逐步移除平行数组。
 
+节点消费迁移：规划规则保留 parser 原节点，descendant／结构 planner、语义高度以及 ownership／结构输出通过 selector 条件视图直接读取节点状态／属性。过渡平行数组单向投影并共享节点内层条件数组，不能独立修改；其他消费方和路径数组仍待迁移。完整 `verify` **2456** 项、545 样本及歧义／诊断／fallback 序列对照通过，见 `artifacts/selector-node-predicate/`；比较规划投影时去除了新增的内部节点字段，生成结果逐字段比较，未重跑浏览器 gate。
+
 Parser selector 契约切片：当时抽出领域 `ParsedSelector` 类型供规则与 parser 中间路径共用，消除重复字段声明；保留分支、声明来源与共享身份，当时平行数组和 parser port 输出不变。后续 parser port 已按上述节点迁移。完整 `verify`、545 样本完整输出及歧义／fallback／诊断优先级对照见 `artifacts/selector-contract-boundary/`；未重跑浏览器 gate。
 
 Descendant planner 的路径、状态和属性类型从同一 `ParsedSelector` 派生，条件／声明范围与关系证明仍属 planner；运行时算法、准入与输出不变。完整 `verify`、545 样本及歧义／fallback 对照见 `artifacts/descendant-selector-contract/`；未重跑浏览器 gate。

@@ -67,7 +67,7 @@
 
 已三引擎复现负百分比／em／rem padding 导致先前有效声明被误删；合法负零仍有效。owner 决定无效 CSS 由作者负责，不扩大过滤；既有负 px 处理保留，反例及证据见当前计划。
 
-内部 CSS parser port 已改为节点绑定，贡献准备暂时投影到 planner 的平行数组；公共编译输出不变，完整绑定模型及投影移除仍未完成。`verify` 2456 项和对照验证见当前计划。
+内部 CSS parser port 已改为节点绑定，部分关系规划、排序与输出直接读取节点，其他消费者暂时使用共享条件数据的平行数组投影；公共编译输出不变，完整绑定模型及投影移除仍未完成。`verify` 2456 项和对照验证见当前计划。
 
 既有 Playground 已迁至 `examples/playground/`；独立浏览器参考和验收留在 `tests/`，根命令不变。冻结安装、完整 `verify`、原 Chromium Playground 与独立 browser oracle 已验证；旧产物备份和范围见当前计划。
 

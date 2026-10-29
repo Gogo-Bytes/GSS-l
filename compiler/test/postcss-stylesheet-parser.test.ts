@@ -141,6 +141,9 @@ it('binds selector conditions to nodes while preserving shared declarations thro
   ]);
   expect(parsed.rules[0]!.declarations).toBe(parsed.rules[1]!.declarations);
   const projected = projectForPlanning(parsed);
+  expect(projected.rules[0]!.nodes).toBe(parsed.rules[0]!.nodes);
+  expect(projected.rules[0]!.states[0]).toBe(parsed.rules[0]!.nodes[0]!.states);
+  expect(projected.rules[0]!.attributes[1]).toBe(parsed.rules[0]!.nodes[1]!.attributes);
   expect(projected.rules[0]).toMatchObject({ path: ['a', 'b'], states: [['hover'], []],
     attributes: [[], [{ attribute: 'role', operator: '=', value: 'x' }]], relations: ['descendant'] });
   expect(projected.rules[0]!.declarations).toBe(parsed.rules[0]!.declarations);

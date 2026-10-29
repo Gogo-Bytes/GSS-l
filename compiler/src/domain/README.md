@@ -7,7 +7,7 @@
 | 解析后的 selector 分支 | [parsed-stylesheet.ts](parsed-stylesheet.ts) | parser 端口用 `ParsedSelectorNode` 绑定名称和条件；规划阶段暂通过投影消费 `ParsedSelector` 平行数组。分支与声明来源、ownership 与 DOM 关系不能混同。 |
 | 规则形态判断 | [rule-classification.ts](rule-classification.ts) | 谓词可重叠，不等同准入或 DOM 匹配；冲突检查还需单独排除 external target／condition。 |
 | Ownership 路径 | [ownership-path.ts](ownership-path.ts) | 目标末节点相同，前缀按有序子序列匹配；声明胜出、关系规划、语义高度、背景准入和逻辑／物理冲突校验使用同一规则。这是 scope 组合关系，不证明 DOM 祖先或结构 selector。 |
-| 节点条件视图 | [selector-predicate.ts](selector-predicate.ts) | 只关联同一 authored 位置的状态与属性；用于 planner、语义高度与 ownership／结构输出，不合并 descendant 和结构 planner 的蕴含／互斥证明。 |
+| 节点条件视图 | [selector-predicate.ts](selector-predicate.ts) | 从同一 authored 节点读取状态与属性；用于 planner、语义高度与 ownership／结构输出，不合并 descendant 和结构 planner 的蕴含／互斥证明。 |
 | 关系规划编排 | [plan-module-relations.ts](plan-module-relations.ts) | descendant、结构和 pseudo 按既有顺序规划与报告歧义；排序候选按原路径收集，candidate 与存活 instance 不能混用。 |
 | 排序 occurrence 身份 | [order-occurrences.ts](order-occurrences.ts) | 声明对象、selector 分支和 target／source／observation 绑定共同标识 occurrence；它不是可复用 atom 的身份。收集保留剪枝前的声明及位置。 |
 | 属性写入与重置 | [property-effects.ts](property-effects.ts)、[expand-safe-box.ts](expand-safe-box.ts) | shorthand 与 longhand 对同一 effect 的竞争按原生强度和声明顺序处理；安全展开与保留原声明各有边界；scroll 物理两族与五族逻辑轴展开均要求无其他潜在别名竞争；逻辑轴只写 start/end，方向映射交给浏览器。静态 em／rem 可用于五族；静态百分比仅对 margin／padding／inset／scroll-padding 安全展开，负值过滤仍只针对已批准的 padding 路径。 |

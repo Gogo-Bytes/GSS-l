@@ -2,9 +2,9 @@ import { effectsOfProperty } from './property-effects.js';
 import { selectorPredicateAt } from './selector-predicate.js';
 import { isSubsequence, matchesOwnedTarget } from './ownership-path.js';
 import { isStructuralPseudoState } from './pseudo-state-capabilities.js';
-import type { ParsedSelector } from './parsed-stylesheet.js';
+import type { ParsedSelector, ParsedStyleRule } from './parsed-stylesheet.js';
 
-export type DescendantRule = Pick<ParsedSelector, 'path' | 'states' | 'attributes'> & {
+export type DescendantRule = Pick<ParsedSelector, 'path' | 'states' | 'attributes'> & Pick<ParsedStyleRule, 'nodes'> & {
   conditions: readonly { kind: string; query: string }[];
   layer: string;
   sourceOrdinal: number;
