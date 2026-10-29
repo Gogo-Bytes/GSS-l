@@ -1,7 +1,7 @@
 import type { ParsedStyleRule } from './parsed-stylesheet.js';
 import type { OrderOccurrence } from './order-occurrences.js';
 import { strictlyRefines } from './plan-structural-relations.js';
-import { matchesOwnedTarget } from './module-local-atom-ranks.js';
+import { matchesOwnedTarget } from './ownership-path.js';
 import { propertiesMayOverlapForModuleOrder } from './module-order-policy.js';
 import { selectorPredicateAt } from './selector-predicate.js';
 

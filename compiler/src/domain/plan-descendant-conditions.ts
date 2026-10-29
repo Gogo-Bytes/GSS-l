@@ -1,6 +1,6 @@
 import { effectsOfProperty } from './property-effects.js';
 import { selectorPredicateAt } from './selector-predicate.js';
-import { isSubsequence, matchesOwnedTarget } from './module-local-atom-ranks.js';
+import { isSubsequence, matchesOwnedTarget } from './ownership-path.js';
 import { isStructuralPseudoState } from './pseudo-state-capabilities.js';
 
 export type DescendantRule = {

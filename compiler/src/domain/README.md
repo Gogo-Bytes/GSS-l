@@ -5,6 +5,7 @@
 | 工作 | 现有入口 | 必须区分的语义 |
 | --- | --- | --- |
 | 规则形态判断 | [rule-classification.ts](rule-classification.ts) | 谓词可重叠，不等同准入或 DOM 匹配；冲突检查还需单独排除 external target／condition。 |
+| Ownership 路径 | [ownership-path.ts](ownership-path.ts) | 目标末节点相同，前缀按有序子序列匹配；这是 scope 组合关系，不证明 DOM 祖先或结构 selector。 |
 | 节点条件视图 | [selector-predicate.ts](selector-predicate.ts) | 只关联同一 authored 位置的状态与属性；用于 planner、语义高度与 ownership 输出，不合并 descendant 和结构 planner 的蕴含／互斥证明。 |
 | 关系规划编排 | [plan-module-relations.ts](plan-module-relations.ts) | descendant、结构和 pseudo 按既有顺序规划与报告歧义；排序候选按原路径收集，candidate 与存活 instance 不能混用。 |
 | 排序 occurrence 身份 | [order-occurrences.ts](order-occurrences.ts) | 声明对象、selector 分支和 target／source／observation 绑定共同标识 occurrence；它不是可复用 atom 的身份。收集保留剪枝前的声明及位置。 |
