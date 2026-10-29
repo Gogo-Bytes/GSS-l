@@ -10,6 +10,8 @@ owner 已要求开始推进核心架构与属性排序目标；[架构方向](AR
 
 结构关系规划与语义高度的严格细化证明复用同一实例约束构造；runtime edges、source predicate、descendant 和 observation 的原边界不变。完整 `verify`、545 样本与歧义／fallback 对照见 `artifacts/structural-constraint-boundary/`；未重跑浏览器 gate。
 
+结构约束删除从未读取的重复 runtime sourcePath；predicate／唯一 witness 仍使用外层 sourcePath，runtime 推理仍使用 edges。完整 `verify` 和输出、歧义／fallback 对照见 `artifacts/structural-runtime-constraint/`；未重跑浏览器 gate。
+
 逻辑／物理冲突校验复用相同的 ownership 路径匹配，移除原本与声明胜出相同的第三份实现；上下文分组、纯 ownership 准入、`GSS1206` 及 preserved fallback 不变。完整 `verify`、545 样本和歧义／fallback／诊断优先级对照见 `artifacts/ownership-conflict-path/`；未重跑浏览器 gate。
 
 Compatibility 分析集中物理声明身份的写入与查找，属性、已识别值、asset 标记、importance 的既有键不变；贡献准备不再重复编码。完整 `verify`、545 样本和两种 compatibility 的 preserved／atomic／失败／恢复对照见 `artifacts/compatibility-identity-boundary/`；未重跑浏览器 gate。

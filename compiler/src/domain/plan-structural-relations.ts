@@ -9,7 +9,7 @@ type Constraint = {
   targetPath: readonly string[];
   sourcePath?: readonly string[];
   predicates: readonly string[];
-  runtime?: { sourcePath: readonly string[]; edges: readonly SelectorRelation[] };
+  runtime?: { edges: readonly SelectorRelation[] };
   observation?: ParsedHasCondition;
 };
 export type StructuralInstance = DescendantInstance<ParsedStyleRule>;
@@ -48,7 +48,6 @@ function constraintForInstance(instance: StructuralInstance): Constraint {
     ...(instance.sourcePath ? { sourcePath: instance.sourcePath } : {}),
     predicates: predicates(instance.rule, instance.sourceIndex),
     ...(firstRuntime >= 0 ? { runtime: {
-      sourcePath: instance.rule.path.slice(0, firstRuntime + 1),
       edges: instance.rule.relations.slice(firstRuntime).filter((relation) => relation !== 'descendant')
     } } : {}) };
 }
