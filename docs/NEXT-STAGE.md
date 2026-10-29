@@ -6,6 +6,10 @@ owner 已要求开始推进核心架构与属性排序目标；[架构方向](AR
 
 已确认原生强度／上下文和已证明的所有权／结构语义优先，同语义高度时逻辑属性先、物理属性后；同属性 rank 已与跨属性输出位置分开；shorthand 完整展开及更宽复用仍需设计。不能安全展开的既有输入暂时沿用原 shorthand 处理和 fallback，不额外拒绝。owner 仍要求**不自行新增框架或验收场景**；保留独立 oracle、历史失败及现有验证边界。
 
+`:has()` 输出边界切片：将 atomic 输出中的 observation 生成移至 [observed-emission.ts](../compiler/src/application/observed-emission.ts)，共享声明身份类型移至 [planned-declaration.ts](../compiler/src/application/planned-declaration.ts)。逐 observation 排序绑定、本地 marker membership、复杂 list 的 native specificity 与多分支 witness 保持原逻辑；不改变准入、planner、排序或 fallback。
+
+`:has()`／关系／排序／会话／source map 定向 **654** 项和完整 `verify` **2454** 项（Compiler 1909／React 49／Vite 162／Testing 334）、lint／build／types 通过；540 个样本（包括复杂 `:has(button, .error)`）的 parser／replacement／finalize 逐字段一致，四个歧义及两种 compatibility fallback／失败／恢复序列一致。脚本与日志见 `artifacts/observed-emission-boundary/`；行为保持式移动未重跑浏览器 gate，不扩大 `:has()` 能力。
+
 Selector 形态准入切片：将 condition 组合及 pseudo／observation／属性／状态位置的既有检查集中到 selector-admission，保留两个调用点：条件形态在声明和逻辑／物理冲突前，其余形态在后。仍使用原 parser 规则判断 selector 形态、既有 atomicRules 判断声明；诊断优先级、语法准入与 fallback 不变，详见 [架构方向](ARCHITECTURE-DIRECTION.md#external-selector-上下文准入)。
 
 selector／external／关系／会话／排序定向 **650** 项和完整 `verify` **2454** 项（Compiler 1909／React 49／Vite 162／Testing 334）、lint／build／types 通过；539 个样本 parser／replacement／finalize 逐字段一致，另有 7 个 selector／声明冲突优先级及 LKG 场景前后对照。脚本与日志见 `artifacts/selector-shape-admission-boundary/`；内部行为保持式移动未重跑浏览器 gate。

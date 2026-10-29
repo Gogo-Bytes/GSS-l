@@ -1,6 +1,5 @@
-import type { PhysicalDeclaration } from '../infrastructure/lightning-compatibility-transformer.js';
-import type { ParsedCondition, ParsedDeclaration, ParsedHasCondition, ParsedStyleRule, SourceSpan } from '../domain/parsed-stylesheet.js';
-import type { ContextualRelationIdentity, ObservedRelationIdentity, PureDeclarationIdentity } from '../domain/readable-name.js';
+import type { ParsedDeclaration, ParsedStyleRule } from '../domain/parsed-stylesheet.js';
+import type { ContextualRelationIdentity, PureDeclarationIdentity } from '../domain/readable-name.js';
 import type { GssDiagnostic } from '../public-types.js';
 import type { OrderBinding } from '../domain/order-occurrences.js';
 import { planFixedModuleOrder } from '../domain/fixed-module-ranks.js';
@@ -10,39 +9,11 @@ import { classifyPropertyEffect } from '../domain/property-effects.js';
 import { isPseudoElementRule } from '../domain/rule-classification.js';
 import { identifyAssetValue, type AssetBindings } from './asset-values.js';
 import { canonicalCondition, groupRulesByCondition } from './condition-context.js';
-import { renderObservedCombinator, canonicalAttributeCondition, renderAttributeCondition, renderStateSuffix, renderNativeSelector, renderRelationCombinator } from './selector-rendering.js';
+import { canonicalAttributeCondition, renderAttributeCondition, renderStateSuffix, renderRelationCombinator } from './selector-rendering.js';
 import { ensureScopePath, type MutableScopeNode } from './scope-exports.js';
 import type { NameAllocatorPort } from './name-allocator.js';
-
-type ContextualDeclarationIdentity = ContextualRelationIdentity & {
-  property: string;
-  value: string;
-  assetValue?: true;
-  important: boolean;
-  atomRank?: number;
-  orderSlot?: number;
-};
-
-type ObservedDeclarationIdentity = ObservedRelationIdentity & {
-  property: string;
-  value: string;
-  assetValue?: true;
-  important: boolean;
-  atomRank?: number;
-  orderSlot?: number;
-};
-
-export type PlannedDeclaration = {
-  kind: 'pure-atom' | 'contextual-atom';
-  identity: PureDeclarationIdentity | ContextualDeclarationIdentity | ObservedDeclarationIdentity;
-  className: string;
-  selector: string;
-  wrappers?: readonly ParsedCondition[];
-  layer?: string;
-  relationRank?: number;
-  physicalDeclarations?: readonly PhysicalDeclaration[];
-  source: SourceSpan;
-};
+import type { ContextualDeclarationIdentity, PlannedDeclaration } from './planned-declaration.js';
+import { emitObservedRules } from './observed-emission.js';
 
 /** Emit already-admitted atomic rules. Callers select fallback and perform
  * compatibility checks before entering; relation proofs remain in planners. */
@@ -185,77 +156,7 @@ export function emitAtomicRules(input: {
     }
   }
 
-  for (const rule of hasRules) {
-    const wrappers = rule.conditions;
-    const condition = canonicalCondition(wrappers);
-    const layer = rule.layer;
-    const observations = rule.observations.at(-1)!;
-    const nativeSpecificity = observations.some((observation) => observation.nativeSpecificity);
-    const observedSpecificity = (observation: ParsedHasCondition) => observation.observedClass
-      ? 1 + Number(Boolean(observation.observedState))
-      : observation.observedResidualClassCount ??
-        (observation.observedResidual?.startsWith(':') || observation.observedResidual?.startsWith('[') ? 1 : 0);
-    const selectorListSpecificity = observations.length > 1
-      ? Math.max(...observations.map(observedSpecificity))
-      : undefined;
-    const branches = observations.map((observation) => {
-      const relationIdentity: ObservedRelationIdentity = {
-        moduleId,
-        layer,
-        condition,
-        subjectPath: rule.path,
-        relation: observation.relation,
-        ...(observation.observedClass ? { observedClass: observation.observedClass } : {}),
-        ...(observation.observedState ? { observedState: observation.observedState } : {}),
-        ...(observation.observedResidual
-          ? { observedResidual: observation.observedResidual }
-          : {})
-      };
-      const subjectMarker = nameAllocator.createHasSubjectMarker(relationIdentity);
-      ensureScopePath(roots, rule.path).classNames.add(subjectMarker);
-      const observedSelector = observation.observedClass
-        ? (() => {
-          const observedMarker = nameAllocator.createObservedMarker(relationIdentity);
-          ensureScopePath(roots, [observation.observedClass]).classNames.add(observedMarker);
-          return `.${observedMarker}${observation.observedState ? `:${observation.observedState}` : ''}`;
-        })()
-        : renderNativeSelector(observation.observedResidual!, moduleId, nameAllocator, roots);
-      const observedCombinator = renderObservedCombinator(observation.relation);
-      return { observation, relationIdentity, subjectMarker, observedSelector, observedCombinator };
-    });
-    const nativeList = branches.map(({ observedCombinator, observedSelector }) => `${observedCombinator}${observedSelector}`).join(',');
-    for (const { observation, relationIdentity, subjectMarker, observedSelector, observedCombinator } of branches) {
-      const normalizedObservedSelector = selectorListSpecificity !== undefined && selectorListSpecificity > 0
-        ? `:where(${observedSelector})`
-        : observedSelector;
-      const subjectSpecificity = rule.path.length + (selectorListSpecificity ?? 0);
-      // A native complex list supplies its own maximum; zero-strength witnesses retain branch identity.
-      // Simple lists keep the existing target-qualified scalar lowering.
-      const selector = nativeSpecificity
-        ? `${`.${subjectMarker}`.repeat(rule.path.length)}:has(${nativeList})${observations.length > 1
-          ? `:where(:has(${observedCombinator}${observedSelector}))` : ''}`
-        : `${`.${subjectMarker}`.repeat(subjectSpecificity)}:has(${observedCombinator}${normalizedObservedSelector})`;
-
-      for (const declaration of rule.declarations) {
-        const identity: ObservedDeclarationIdentity = {
-          ...relationIdentity,
-          ...orderIdentity(declaration, { rule, targetPath: rule.path, observation }),
-          property: declaration.property,
-          ...identifyAssetValue(declaration.value, bindings),
-          important: declaration.important
-        };
-        rules.push({
-          kind: 'contextual-atom',
-          identity,
-          className: subjectMarker,
-          selector,
-          wrappers,
-          layer,
-          source: declaration.source
-        });
-      }
-    }
-  }
+  emitObservedRules({ rules, hasRules, moduleId, bindings, nameAllocator, roots, moduleOrder });
 
   for (const instance of plannedStructural.instances) {
     const { rule, declarations, relationRank } = instance;
