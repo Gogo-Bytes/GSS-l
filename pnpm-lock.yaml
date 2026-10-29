@@ -77,6 +77,37 @@ importers:
         specifier: ^0.3.31
         version: 0.3.31
 
+  examples/playground:
+    dependencies:
+      '@gss-l/compiler':
+        specifier: workspace:*
+        version: link:../../compiler
+      '@gss-l/react':
+        specifier: workspace:^
+        version: link:../../adapters/react
+      '@gss-l/vite':
+        specifier: workspace:^
+        version: link:../../integrations/vite
+      react:
+        specifier: ^19.2.0
+        version: 19.3.0
+      react-dom:
+        specifier: ^19.2.0
+        version: 19.3.0(react@19.3.0)
+    devDependencies:
+      '@types/node':
+        specifier: ^22.20.4
+        version: 22.20.4
+      '@types/react':
+        specifier: ^19.2.0
+        version: 19.3.0
+      '@types/react-dom':
+        specifier: ^19.2.0
+        version: 19.3.0(@types/react@19.3.0)
+      vite:
+        specifier: ^7.3.6
+        version: 7.3.6(@types/node@22.20.4)(lightningcss@1.33.0)
+
   integrations/vite:
     dependencies:
       '@gss-l/compiler':
@@ -2104,12 +2135,10 @@ packages:
     dependencies:
       react: 19.3.0
       scheduler: 0.28.0
-    dev: true
 
   /react@19.3.0:
     resolution: {integrity: sha512-E8LUcbtBWt20bbl2YoHfx4ZDBdxVTfOKtCZn9cDSJ4l6/nuoApcpIBcj47t2wZoVX8g2ZHuMHbiShgCR1T5Sog==}
     engines: {node: '>=0.10.0'}
-    dev: true
 
   /resolve-from@4.0.0:
     resolution: {integrity: sha512-pb/MYmXstAkysRFx8piNI1tGFNQIFA3vkE3Gq4EuA1dF6gHp/+vgZqsCGJapvy8N3Q+4o7FwvquPJcnZ7RYy4g==}
@@ -2164,7 +2193,6 @@ packages:
 
   /scheduler@0.28.0:
     resolution: {integrity: sha512-juorfCmIkIw8tT+p5BXSm6PJjQF/ycEYmKyzURCIt/RaZIhL+PulbQ9Yu2z1HdOJDdqDTlxA1+xKBmHXJsczAw==}
-    dev: true
 
   /semver@7.8.5:
     resolution: {integrity: sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA==}

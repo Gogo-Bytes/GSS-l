@@ -67,6 +67,8 @@
 
 已三引擎复现负百分比／em／rem padding 导致先前有效声明被误删；合法负零仍有效。owner 决定无效 CSS 由作者负责，不扩大过滤；既有负 px 处理保留，反例及证据见当前计划。
 
+既有 Playground 已迁至 `examples/playground/`；独立浏览器参考和验收留在 `tests/`，根命令不变。冻结安装、完整 `verify`、原 Chromium Playground 与独立 browser oracle 已验证；旧产物备份和范围见当前计划。
+
 结构关系规划与排序中的严格细化证明共用实例约束构造，runtime／ownership 和 observation 的证明边界不变；验证见当前计划。
 
 结构约束中的未使用重复路径已清理，实际 source 绑定与 runtime edges 保持不变，验证见当前计划。

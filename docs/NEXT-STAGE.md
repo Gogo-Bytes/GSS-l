@@ -8,6 +8,8 @@ owner 已要求开始推进核心架构与属性排序目标；[架构方向](AR
 
 无效 CSS 由作者负责，GSS 不承诺通用识别或修复，owner 决定不扩大负 padding 值过滤；既有静态负 px 处理保留，fallback 不变。已知反例：在 Chromium／Firefox／WebKit，`padding-left:9px;padding:-1%`、`-1em`、`-1rem` 与逻辑轴 `padding-inline-start:9px;padding-inline:-1%` 的原生左侧均为 9px，而当前 GSS 为 0px；合法 `-0%`／`-0em` 原生和 GSS 均为 0px。独立 authored-native、字面预期、脚本及逐引擎输出见 `artifacts/invalid-padding-units-probe/`。
 
+Playground 目录迁移：既有示例源码及配置位于 `examples/playground/`，以私有 workspace 包声明依赖；独立参考实现、fixture 与临时副本验收脚本保留在 `tests/`。根 `playground`／`playground:build`／`playground:preview`／`playground:check` 命令不变，验收仍只在副本中写入 HMR 探针。冻结 lockfile 离线安装、完整 `verify` 2455 项、构建和 dev／preview 命令检查、原 Chromium Playground dev／preview 各 125 fixture／1267 对照及独立 browser oracle 通过；日志和旧 Playground／browser 产物、旧 dist 备份见 `artifacts/playground-migration/`。其他验收应用未迁移。
+
 结构关系规划与语义高度的严格细化证明复用同一实例约束构造；runtime edges、source predicate、descendant 和 observation 的原边界不变。完整 `verify`、545 样本与歧义／fallback 对照见 `artifacts/structural-constraint-boundary/`；未重跑浏览器 gate。
 
 结构约束删除从未读取的重复 runtime sourcePath；predicate／唯一 witness 仍使用外层 sourcePath，runtime 推理仍使用 edges。完整 `verify` 和输出、歧义／fallback 对照见 `artifacts/structural-runtime-constraint/`；未重跑浏览器 gate。
@@ -172,7 +174,7 @@ Scope 输出边界切片：从 `module-contribution.ts` 提取 [scope-exports.ts
 
 Adapter／集成／类型目录迁移：React 移至 `adapters/react/`，Vite 移至 `integrations/vite/`，共享类型移至 `types/`；保留现有包名和公共导出，更新 workspace、lockfile、类型配置、文档链接和两个外部打包入口。冻结 lockfile 离线安装、`verify`（2139 项及 lint／build／types）、原 `vite-template:check` 和 `framework-ssr:check` 通过；证据在 `artifacts/vite-template/2026-10-27T09-27-06.889Z/` 与 `artifacts/framework-ssr/2026-10-27T09-27-51.059Z/`。
 
-测试基础设施目录迁移：原 `packages/testing/` 已迁至顶层 `tests/`，包名与现有验收入口不变，Playground 仍位于 `tests/playground/`，示例职责尚待整理。冻结 lockfile 离线安装、`verify`（2139 项及 lint／build／types）、Chromium 独立 browser oracle（125 fixtures／1267 comparisons／38 controls）、Playground dev／preview、外部 Vite 模板与 Framework SSR 通过；外部证据分别在 `artifacts/vite-template/2026-10-27T09-31-40.733Z/` 和 `artifacts/framework-ssr/2026-10-27T09-32-01.152Z/`，原 browser 和 Playground 产物备份在 `artifacts/testing-layout/previous/`。本次未重跑 atom-ranks、Task-board 或 Article 浏览器 gate。
+测试基础设施目录迁移：原 `packages/testing/` 已迁至顶层 `tests/`，包名与现有验收入口不变，当时 Playground 仍位于 `tests/playground/`，后续已迁至 `examples/playground/`。冻结 lockfile 离线安装、`verify`（2139 项及 lint／build／types）、Chromium 独立 browser oracle（125 fixtures／1267 comparisons／38 controls）、Playground dev／preview、外部 Vite 模板与 Framework SSR 通过；外部证据分别在 `artifacts/vite-template/2026-10-27T09-31-40.733Z/` 和 `artifacts/framework-ssr/2026-10-27T09-32-01.152Z/`，原 browser 和 Playground 产物备份在 `artifacts/testing-layout/previous/`。本次未重跑 atom-ranks、Task-board 或 Article 浏览器 gate。
 
 同规则 longhand 切片：先确认 `margin`／`padding`／`inset` 的 longhand 正反顺序由 `GSS1206` 拒绝，再在现有 rank 规划下仅放开同一 pure ownership 规则、同一来源的 longhand 对；preserved／兼容性失败路径保留旧冲突诊断与 LKG。现有 Playground 示例同步为 atomic，Vite 生产构建有回归。最终 `corepack pnpm verify`：Compiler 1588、React 49、Vite 162、Testing 334，共 2133 项及 lint／build／types 通过。原 atom-ranks 三引擎入口通过，每引擎保留 418 simple／55 semantic、2772 paired／800 authored-native readings 和负对照，另测 60 条同规则方向读取。该 gate 开始后补了 preserved／兼容性失败保护，随后对最终 build 的三引擎各复核 60 次计算样式及 preserved fallback／LKG；日志见 `artifacts/same-rule-logical-physical/`，原 rank 产物备份于该目录的 `browser-before/`。独立同属性 rank、安全 shorthand 展开及其他上下文仍未完成。
 

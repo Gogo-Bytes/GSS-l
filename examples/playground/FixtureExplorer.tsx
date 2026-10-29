@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import payload from 'virtual:reference-fixtures';
-import type { CompiledReferenceFixture } from '../browser/fixtures.js';
-import { readDocument, type Reading } from '../browser/read-fixture.js';
+import type { CompiledReferenceFixture } from '../../tests/browser/fixtures.js';
+import { readDocument, type Reading } from '../../tests/browser/read-fixture.js';
 import { familyLabel, fixtureTitle } from './presentation.js';
 // The host compiles and typechecks this exact serialized payload.
 const fixtures = payload as readonly (CompiledReferenceFixture & { family: string; referenceKind: string })[];

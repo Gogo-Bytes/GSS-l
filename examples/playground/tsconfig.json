@@ -1,7 +1,7 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": "..",
+    "rootDir": "../..",
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "jsx": "react-jsx",
@@ -11,5 +11,5 @@
     "types": ["vite/client", "node"],
     "noUncheckedIndexedAccess": false
   },
-  "include": ["**/*.ts", "**/*.tsx", "**/*.jsx", "../browser/**/*.ts", "../src/**/*.ts"]
+  "include": ["**/*.ts", "**/*.tsx", "**/*.jsx", "../../tests/browser/**/*.ts", "../../tests/src/**/*.ts"]
 }

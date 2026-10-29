@@ -3,5 +3,6 @@ packages:
   - types
   - adapters/*
   - integrations/*
+  - examples/*
   - tests
   - integrations/vite/test/consumer

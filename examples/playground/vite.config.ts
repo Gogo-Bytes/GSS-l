@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig, mergeConfig } from 'vite';
 import { gss } from '@gss-l/vite';
 import { react } from '@gss-l/react';
-import referenceConfig from '../browser/vite.config.js';
+import referenceConfig from '../../tests/browser/vite.config.js';
 import { compilePlaygroundCases } from './compiler-cases.js';
 import { transformPlaygroundCases } from './adapter-cases.js';
 

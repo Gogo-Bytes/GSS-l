@@ -35,7 +35,7 @@ corepack pnpm article
 | [adapters/react/src](adapters/react/src) | React／JSX 分析和转换，包括跨模块组合诊断 |
 | [integrations/vite/src](integrations/vite/src) | 开发更新、生产汇总、资源与宿主集成 |
 | [types/src](types/src) | 作用域类型辅助 |
-| [tests/playground](tests/playground) | 中文编译器、适配器及生命周期演示 |
+| [examples/playground](examples/playground) | 中文编译器、适配器及生命周期演示；沿用 `tests/` 中的独立参考及验收 |
 | [tests/acceptance](tests/acceptance) | task-board、article 和排序验收 |
 | [tests/browser](tests/browser) | 原生 CSS 对照及 Vite 宿主浏览器验证 |
 

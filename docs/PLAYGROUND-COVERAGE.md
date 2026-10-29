@@ -6,7 +6,7 @@ Playground 是交互式能力演示／调试台，也是一个有真实 React/Vi
 
 本轮在 `677cc18` 代码基线上核对案例目录、实际断言，并首次运行 `corepack pnpm playground:check` 通过。**按现有演示台定位，主要范围已有覆盖，未发现本轮必须修复的缺口。** 不因此引入 router 或扩大产品语义。
 
-入口：`tests/playground/check.mjs`。默认仅 **Chromium**，先在临时副本运行 dev，再 build/preview；HMR 探针不修改作者源码。此轮此前没有 `artifacts/playground/` 旧目录，未覆盖旧产物。
+当前入口：`tests/playground/check.mjs`（根命令 `corepack pnpm playground:check`），示例源码位于 `examples/playground/`。默认仅 **Chromium**，先在临时副本运行 dev，再 build/preview；HMR 探针不修改作者源码。以下历史验收当时没有 `artifacts/playground/` 旧目录，未覆盖旧产物；本次目录迁移的验证和旧产物备份见 [当前计划](NEXT-STAGE.md)。
 
 ## 实际覆盖
 

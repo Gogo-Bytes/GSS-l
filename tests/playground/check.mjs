@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { build, createServer, preview } from 'vite';
 import { chromium } from 'playwright';
 
-const sourceRoot = fileURLToPath(new URL('.', import.meta.url));
+const sourceRoot = fileURLToPath(new URL('../../examples/playground/', import.meta.url));
 const artifacts = fileURLToPath(new URL('../../artifacts/playground/', import.meta.url));
 let sandbox;
 const report = { expectedDevErrors: [], pageErrors: [] };
@@ -189,13 +189,15 @@ try {
   await mkdir(artifacts, { recursive: true });
   // HMR/error probes only mutate a disposable copy, never an author's files.
   sandbox = await mkdtemp(join(artifacts, 'run-'));
-  const root = join(sandbox, 'playground');
-  await cp(sourceRoot, root, { recursive: true, filter: (source) => source !== join(sourceRoot, 'dist') });
+  const root = join(sandbox, 'examples', 'playground');
+  await mkdir(join(sandbox, 'examples'), { recursive: true });
+  await cp(sourceRoot, root, { recursive: true, filter: (source) =>
+    source !== join(sourceRoot, 'dist') && source !== join(sourceRoot, 'node_modules') });
   const tsconfig = JSON.parse(await readFile(join(root, 'tsconfig.json'), 'utf8'));
   await writeFile(join(root, 'tsconfig.json'), JSON.stringify({ ...tsconfig,
     extends: fileURLToPath(new URL('../../tsconfig.base.json', import.meta.url)) }));
-  await symlink(fileURLToPath(new URL('../browser/', import.meta.url)), join(sandbox, 'browser'), 'dir');
-  await symlink(fileURLToPath(new URL('../node_modules/', import.meta.url)), join(sandbox, 'node_modules'), 'dir');
+  await symlink(fileURLToPath(new URL('../', import.meta.url)), join(sandbox, 'tests'), 'dir');
+  await symlink(join(sourceRoot, 'node_modules'), join(sandbox, 'node_modules'), 'dir');
   const configFile = join(root, 'vite.config.ts');
   const sourcePath = join(root, 'Live.gss');
   const original = await readFile(sourcePath, 'utf8');

@@ -1,12 +1,12 @@
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'vite';
 import { describe, expect, it } from 'vitest';
-import { adapterTitles, compilerTitle, fixtureTitle } from '../playground/presentation.js';
+import { adapterTitles, compilerTitle, fixtureTitle } from '../../examples/playground/presentation.js';
 
 describe('MVP playground catalog', () => {
   it('serves existing native fixtures and explicitly separate Compiler-only cases through Vite', async () => {
     const server = await createServer({
-      configFile: fileURLToPath(new URL('../playground/vite.config.ts', import.meta.url)),
+      configFile: fileURLToPath(new URL('../../examples/playground/vite.config.ts', import.meta.url)),
       logLevel: 'silent', server: { middlewareMode: true }
     });
     try {
