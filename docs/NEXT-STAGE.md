@@ -6,6 +6,10 @@ owner 已要求开始推进核心架构与属性排序目标；[架构方向](AR
 
 已确认原生强度／上下文和已证明的所有权／结构语义优先，同语义高度时逻辑属性先、物理属性后；同属性 rank 已与跨属性输出位置分开；shorthand 完整展开及更宽复用仍需设计。不能安全展开的既有输入暂时沿用原 shorthand 处理和 fallback，不额外拒绝。owner 仍要求**不自行新增框架或验收场景**；保留独立 oracle、历史失败及现有验证边界。
 
+关系 selector 渲染边界切片：将组合符、属性条件、状态后缀和原生 selector 渲染集中到 [selector-rendering.ts](../compiler/src/application/selector-rendering.ts)；原生片段内局部 class 仍通过 scope 树登记 marker，`:global()` 不产生局部 membership。关系规划、`:has()` specificity／witness、marker 身份、preserved selector、排序及 fallback 均保留原路径；职责和反例见 [架构方向](ARCHITECTURE-DIRECTION.md#关系-selector-与局部-marker-渲染边界)。
+
+关系／`:has()`、会话收敛和 source map 定向 **362** 项及完整 `verify` **2452** 项（Compiler 1907／React 49／Vite 162／Testing 334）、lint／build／types 通过。原 534 个排序样本及 4 个 scope／preserved／shorthand／资源样本，共 **538** 个样本完整 replacement 和 finalize 前后逐字段一致，包含 CSS／map／manifest／schema／代码／诊断／generation；其他 selector 形态由现有定向测试覆盖。脚本、基线及日志见 `artifacts/selector-rendering-boundary/`。本次为行为保持式移动，未重跑浏览器 gate；不从输出等价推导支持更多 selector 或跨关系复用。
+
 资源规划边界切片：提取 [resource-planning.ts](../compiler/src/application/resource-planning.ts)，集中 keyframes 引用检查／重写、全局资源输出、身份、asset 绑定、兼容性转换及来源信息；`PlannedResource` 也随职责移动。资源冲突检查仍在提交前执行，失败不污染已提交贡献；排序、marker、fallback、资源准入和公共接口保持原流程。契约和反例见 [架构方向](ARCHITECTURE-DIRECTION.md#全局资源规划的职责边界)。
 
 资源、兼容性、source map、会话和收敛定向 **329** 项，以及完整 `verify` **2452** 项（Compiler 1907／React 49／Vite 162／Testing 334）、lint／build／types 通过。原有 534 个排序样本与 4 个特殊 scope／preserved／shorthand／全局资源样本，共 **538** 个样本的完整 replacement 和 finalize 前后逐字段一致，包括 CSS、map、manifest、schema、代码、诊断与 generation；asset 引用及兼容路径另由已有定向测试覆盖。比较脚本、基线、定向与全量日志保存在 `artifacts/resource-planning-boundary/`。本次为行为保持式内部移动，未重跑浏览器 gate；跨模块资源事务和其他未测输入不因比较结果扩大保证。

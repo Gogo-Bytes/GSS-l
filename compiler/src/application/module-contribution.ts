@@ -3,6 +3,7 @@ import type { CompatibilityTransformer, PhysicalDeclaration } from '../infrastru
 import { bindCssAssets, identifyAssetValue, type AssetUrlResolver } from './asset-values.js';
 import { assetOccurrences, collectAssetDependencies } from './stylesheet-assets.js';
 import { toLogicalModuleId } from './module-identity.js';
+import { renderObservedCombinator, canonicalAttributeCondition, renderAttributeCondition, renderStateSuffix, renderNativeSelector, renderRelationCombinator } from './selector-rendering.js';
 import { findAmbiguousKeyframeInShorthand, rewriteKeyframeReferences, planResource, indentCss, type PlannedResource } from './resource-planning.js';
 import { ensureScopePath, toScopeSchema, renderModuleCode, renderDeclarationCode, type MutableScopeNode } from './scope-exports.js';
 import {
@@ -25,7 +26,6 @@ import { validateDeclarationSequences } from '../domain/validate-declarations.js
 import { validateLogicalPhysicalConflicts } from '../domain/validate-logical-physical-conflicts.js';
 import { planPseudoElementConditions } from '../domain/plan-pseudo-element-conditions.js';
 import type {
-  ParsedAttributeCondition,
   ParsedCondition,
   ParsedDeclaration,
   ParsedGlobalResource,
@@ -1131,74 +1131,6 @@ function canonicalCondition(conditions: readonly ParsedCondition[]): string {
   return conditions.length === 0
     ? 'base'
     : conditions.map(({ kind, query }) => `${kind}:${query}`).join('&&');
-}
-
-function renderObservedCombinator(
-  relation: ObservedRelationIdentity['relation']
-): '' | '> ' | '+ ' | '~ ' {
-  if (relation === 'child') return '> ';
-  if (relation === 'adjacent') return '+ ';
-  if (relation === 'general-sibling') return '~ ';
-  return '';
-}
-
-function canonicalAttributeCondition(condition: ParsedAttributeCondition): string {
-  return `attribute:${condition.attribute}=${condition.value}`;
-}
-
-function renderAttributeCondition(condition: ParsedAttributeCondition): string {
-  const attribute = selectorParser.attribute({ attribute: condition.attribute, operator: condition.operator,
-    value: condition.value, quoteMark: '"', raws: {} });
-  attribute.setValue(condition.value, { quoteMark: '"' });
-  return attribute.toString();
-}
-
-function renderStateSuffix(
-  states: readonly string[],
-  moduleId: string,
-  nameAllocator: NameAllocatorPort,
-  roots: Map<string, MutableScopeNode>
-): string {
-  return states.map((state) => state === 'self' ? '' :
-    renderNativeSelector(`:${state}`, moduleId, nameAllocator, roots)).join('');
-}
-
-function renderNativeSelector(
-  source: string,
-  moduleId: string,
-  nameAllocator: NameAllocatorPort,
-  roots: Map<string, MutableScopeNode>
-): string {
-  const root = selectorParser().astSync(source);
-  const rewrite = (nodes: readonly selectorParser.Node[], global: boolean): void => {
-    for (const node of [...nodes]) {
-      if (node.type === 'class' && !global) {
-        const marker = nameAllocator.createScopeMarker(moduleId, [node.value]);
-        ensureScopePath(roots, [node.value]).classNames.add(marker);
-        node.value = marker;
-        continue;
-      }
-      if (node.type !== 'pseudo' || !node.nodes) continue;
-      if (node.value === ':global' && node.nodes.length === 1) {
-        const selector = node.nodes[0]!;
-        rewrite(selector.nodes, true);
-        node.replaceWith(...[...selector.nodes]);
-        continue;
-      }
-      for (const child of node.nodes) rewrite(child.nodes, global || node.value === ':global');
-    }
-  };
-  for (const branch of root.nodes) rewrite(branch.nodes, false);
-  return root.toString();
-}
-
-function renderRelationCombinator(
-  relation: ContextualRelationIdentity['relations'][number]
-): '>' | '+' | '~' | '' {
-  if (relation === 'child') return '>';
-  if (relation === 'adjacent') return '+';
-  if (relation === 'general-sibling') return '~';
-  return '';
 }
 
 function physicalAssetsPreserved(
