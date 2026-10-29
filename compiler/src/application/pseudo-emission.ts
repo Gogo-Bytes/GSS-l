@@ -34,7 +34,7 @@ export function emitPseudoRules(input: AtomicEmissionContext & {
         property: declaration.property,
         ...identifyAssetValue(declaration.value, bindings),
         important: declaration.important,
-        ...(rule.path.length > 1 ? { ownership: { moduleId, path: targetPath, specificity: rule.path.length } } : {})
+        ...(rule.nodes.length > 1 ? { ownership: { moduleId, path: targetPath, specificity: rule.nodes.length } } : {})
       };
       const className = nameAllocator.createAtomicName(identity);
       scope.classNames.add(className);
@@ -42,7 +42,7 @@ export function emitPseudoRules(input: AtomicEmissionContext & {
         kind: state === 'self' ? 'pure-atom' : 'contextual-atom',
         identity, className,
         // Keep authored class specificity on this target-qualified atom, not a shared weaker atom.
-        selector: `${`.${className}`.repeat(rule.path.length)}${renderStateSuffix([state], moduleId, nameAllocator, roots)}::${pseudoElement}`,
+        selector: `${`.${className}`.repeat(rule.nodes.length)}${renderStateSuffix([state], moduleId, nameAllocator, roots)}::${pseudoElement}`,
         wrappers, layer, relationRank, source: declaration.source
       });
     }

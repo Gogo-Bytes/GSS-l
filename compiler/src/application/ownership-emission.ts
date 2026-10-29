@@ -43,7 +43,7 @@ export function emitOwnershipRules(input: AtomicEmissionContext & {
         ensureScopePath(roots, sourcePath).classNames.add(sourceMarker);
         scope.classNames.add(targetMarker);
         // Repeat an existing marker, rather than inventing ancestors, to retain authored specificity.
-        const selector = `.${sourceMarker}${suffix} ${`.${targetMarker}`.repeat(rule.path.length - 1)}`;
+        const selector = `.${sourceMarker}${suffix} ${`.${targetMarker}`.repeat(rule.nodes.length - 1)}`;
         for (const declaration of instance.declarations) rules.push({
           kind: 'contextual-atom', className: targetMarker, selector, wrappers, layer, relationRank,
           source: declaration.source, identity: { ...relationIdentity, ...(moduleOrder.get(declaration, instance) ?? {}), property: declaration.property,
@@ -55,12 +55,12 @@ export function emitOwnershipRules(input: AtomicEmissionContext & {
             layer, condition, state: attribute ? canonicalAttributeCondition(attribute) : states.join(':') || 'self',
             ...(moduleOrder.get(declaration, instance) ?? {}),
             property: declaration.property, ...identifyAssetValue(declaration.value, bindings), important: declaration.important,
-            ...(rule.path.length > 1 ? { ownership: { moduleId, path: targetPath, specificity: rule.path.length } } : {})
+            ...(rule.nodes.length > 1 ? { ownership: { moduleId, path: targetPath, specificity: rule.nodes.length } } : {})
           };
           const className = nameAllocator.createAtomicName(identity);
           scope.classNames.add(className);
           rules.push({ kind: sourceIndex < 0 ? 'pure-atom' : 'contextual-atom', identity, className,
-            selector: `${`.${className}`.repeat(rule.path.length)}${suffix}`, wrappers, layer, relationRank,
+            selector: `${`.${className}`.repeat(rule.nodes.length)}${suffix}`, wrappers, layer, relationRank,
             source: declaration.source });
         }
       }

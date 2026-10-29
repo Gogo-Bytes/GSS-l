@@ -31,7 +31,7 @@ export function planPseudoElementConditions<R extends PseudoRule>(
       });
     }
     for (const { path, ownership } of targets.values()) {
-      const applicable = ownership ? groupedRules : groupedRules.filter((rule) => rule.path.length === 1);
+      const applicable = ownership ? groupedRules : groupedRules.filter((rule) => rule.nodes.length === 1);
       const planned = planDescendantConditions(applicable, [path]);
       if (planned.ambiguity) return { instances: [], candidates: [], ambiguity: `${planned.ambiguity} Subject ::${first.nodes.at(-1)?.pseudoElement}.` };
       instances.push(...planned.instances);

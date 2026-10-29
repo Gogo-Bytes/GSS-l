@@ -41,7 +41,7 @@ export function prepareSelectorContexts(id: string, semanticRules: readonly Pars
   const base = localRules[0];
   const simpleBaseRefinement = sameNode !== undefined && base !== undefined &&
     semanticRules.length === 2 && localRules.length === 1 && externalRules.length === 0 &&
-    sameNode.path.length === 1 && base.path.length === 1 && base.path[0] === sameNode.path[0] &&
+    sameNode.nodes.length === 1 && base.nodes.length === 1 && base.nodes[0]!.name === sameNode.nodes[0]!.name &&
     isPureOwnershipRule(base) && base.conditions.length === 0 && base.layer === 'unlayered' &&
     base.declarations.length === 1 && sameNode.declarations.length === 1 &&
     base.declarations[0]!.property === sameNode.declarations[0]!.property &&
@@ -97,7 +97,6 @@ export function validateConditionalSelectorShapes(id: string, rules: readonly Pa
 export function validateSelectorShapes(id: string, rules: readonly ParsedStyleRule[]):
   { diagnostics: readonly GssDiagnostic[] } | undefined {
   const unsupportedPseudoElement = rules.find(({
-    path,
     relations,
     nodes
   }) => {
@@ -106,7 +105,7 @@ export function validateSelectorShapes(id: string, rules: readonly ParsedStyleRu
     );
     return pseudoElementIndexes.length > 0 && (
       pseudoElementIndexes.length !== 1 ||
-      pseudoElementIndexes[0] !== path.length - 1 ||
+      pseudoElementIndexes[0] !== nodes.length - 1 ||
       relations.some((relation) => relation !== 'descendant') ||
       nodes.slice(0, -1).some((node) => node.states.length > 0) ||
       nodes.some((node) => node.attributes.length > 0) ||
@@ -127,7 +126,6 @@ export function validateSelectorShapes(id: string, rules: readonly ParsedStyleRu
   }
 
   const unsupportedObservation = rules.find(({
-    path,
     relations,
     nodes
   }) => {
@@ -136,7 +134,7 @@ export function validateSelectorShapes(id: string, rules: readonly ParsedStyleRu
     );
     return observationIndexes.length > 0 && (
       observationIndexes.length !== 1 ||
-      observationIndexes[0] !== path.length - 1 ||
+      observationIndexes[0] !== nodes.length - 1 ||
       relations.some((relation) => relation !== 'descendant') ||
       nodes.some((node) => node.states.length > 0) ||
       nodes.some((node) => node.attributes.length > 0)
@@ -155,7 +153,7 @@ export function validateSelectorShapes(id: string, rules: readonly ParsedStyleRu
     };
   }
 
-  const unsupportedAttribute = rules.find(({ path, relations, nodes }) => {
+  const unsupportedAttribute = rules.find(({ relations, nodes }) => {
     const attributeIndexes = nodes.flatMap((node, index) =>
       node.attributes.length > 0 ? [index] : []
     );
@@ -163,7 +161,7 @@ export function validateSelectorShapes(id: string, rules: readonly ParsedStyleRu
     return attributeIndexes.length > 0 && (
       attributeIndexes.length !== 1 ||
       nodes[attributeIndexes[0]!]!.attributes.length !== 1 ||
-      path.length === 0 ||
+      nodes.length === 0 ||
       (firstRuntimeRelation >= 0 && attributeIndexes[0] !== firstRuntimeRelation) ||
       nodes.some((node) => node.states.length > 0)
     );
@@ -181,12 +179,12 @@ export function validateSelectorShapes(id: string, rules: readonly ParsedStyleRu
     };
   }
 
-  const unsupportedState = rules.find(({ path, relations, nodes }) => {
+  const unsupportedState = rules.find(({ relations, nodes }) => {
     const stateIndexes = nodes.flatMap((node, index) => node.states.length > 0 ? [index] : []);
     const firstRuntimeRelation = relations.findIndex((relation) => relation !== 'descendant');
     return stateIndexes.length > 0 && (
       stateIndexes.length !== 1 ||
-      path.length === 0 ||
+      nodes.length === 0 ||
       (firstRuntimeRelation >= 0 && stateIndexes[0] !== firstRuntimeRelation)
     );
   });

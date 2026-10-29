@@ -71,7 +71,7 @@ export function planDescendantConditions<R extends DescendantRule>(
   for (const targetPath of paths.values()) {
     const candidates: DescendantInstance<R>[] = [];
     for (const rule of rules) {
-      const sourceIndex = rule.path.findIndex((_, index) => {
+      const sourceIndex = rule.nodes.findIndex((_, index) => {
         const { states, attributes } = selectorPredicateAt(rule, index);
         return states!.length > 0 || attributes!.length > 0;
       });
@@ -81,7 +81,7 @@ export function planDescendantConditions<R extends DescendantRule>(
         const states = sourceIndex < 0 ? [] : predicate!.states!;
         const attributes = sourceIndex < 0 ? [] : predicate!.attributes!;
         candidates.push({ rule, targetPath, ...(sourcePath ? { sourcePath } : {}), sourceIndex,
-          specificity: rule.path.length + states.filter((state) => !state.startsWith('where(')).length + attributes.length,
+          specificity: rule.nodes.length + states.filter((state) => !state.startsWith('where(')).length + attributes.length,
           relationRank: states.length + attributes.length, declarations: rule.declarations });
       }
     }

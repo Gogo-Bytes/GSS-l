@@ -38,7 +38,7 @@ export function emitExternalRules(input: AtomicEmissionContext & {
         layer: rule.layer, condition: canonicalCondition(rule.conditions),
         state: `external-condition:${rule.externalCondition!}`,
         ...(moduleOrder.get(declaration, { rule, targetPath: rule.path }) ?? {}),
-        ownership: { moduleId, path: rule.path, specificity: rule.path.length },
+        ownership: { moduleId, path: rule.path, specificity: rule.nodes.length },
         property: declaration.property,
         ...identifyAssetValue(declaration.value, bindings),
         important: declaration.important
@@ -80,7 +80,7 @@ export function emitExternalRules(input: AtomicEmissionContext & {
         layer: rule.layer, condition: canonicalCondition(rule.conditions),
         state: `external:${rule.externalTarget!}`,
         ...(moduleOrder.get(declaration, { rule, targetPath: rule.path }) ?? {}),
-        ownership: { moduleId, path: rule.path, specificity: rule.path.length },
+        ownership: { moduleId, path: rule.path, specificity: rule.nodes.length },
         property: declaration.property,
         ...identifyAssetValue(declaration.value, bindings),
         important: declaration.important

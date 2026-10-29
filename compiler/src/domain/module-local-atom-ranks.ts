@@ -19,8 +19,8 @@ export function supportsCurrentBackgroundRanks(rules: readonly ParsedStyleRule[]
       rule.nodes.every((node) => node.pseudoElement === null) &&
       competing.every((declaration) => declaration.property === 'background-color') &&
       rule.nodes.every(({ states }, index) => states.length === 0 ||
-        (index === rule.path.length - 1 && states.length === 1 && (states[0] === 'hover' || states[0] === 'focus'))) &&
+        (index === rule.nodes.length - 1 && states.length === 1 && (states[0] === 'hover' || states[0] === 'focus'))) &&
       rule.nodes.every(({ attributes }, index) => attributes.length === 0 ||
-        (index === rule.path.length - 1 && attributes.length === 1));
+        (index === rule.nodes.length - 1 && attributes.length === 1));
   });
 }

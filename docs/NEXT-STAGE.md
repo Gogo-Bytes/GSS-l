@@ -20,6 +20,8 @@ Pseudo／排序消费迁移：pseudo planner／输出、固定排序竞争上下
 
 Selector 准入与冲突分组迁移：external、pseudo、observation、属性、状态形态校验改读节点；逻辑／物理冲突上下文从节点构造与旧格式等价的分组键。已删除规划规则中的状态／属性／observation／pseudo 四组平行数组；ownership 路径仍保留为过渡投影。完整 `verify` **2456** 项、545 样本及歧义／诊断优先级／fallback 序列对照通过，见 `artifacts/selector-node-admission/`；为比较迁移前规划结构，对照脚本从节点重建旧数组，生成输出逐字段比较；未重跑浏览器 gate。
 
+Selector 节点位置迁移：准入、关系规划、声明胜出、排序与输出中表示 authored selector 节点数量和 source 位置的读取改用节点；绑定后的 target／source 路径仍独立。完整 `verify` **2456** 项、545 样本及歧义／诊断／fallback 对照通过，见 `artifacts/selector-node-length/`；仍保留用于 ownership 匹配及 marker 身份的名称路径投影，未重跑浏览器 gate。
+
 Parser selector 契约切片：当时抽出领域 `ParsedSelector` 类型供规则与 parser 中间路径共用，消除重复字段声明；保留分支、声明来源与共享身份，当时平行数组和 parser port 输出不变。后续 parser port 已按上述节点迁移。完整 `verify`、545 样本完整输出及歧义／fallback／诊断优先级对照见 `artifacts/selector-contract-boundary/`；未重跑浏览器 gate。
 
 Descendant planner 的路径、状态和属性类型从同一 `ParsedSelector` 派生，条件／声明范围与关系证明仍属 planner；运行时算法、准入与输出不变。完整 `verify`、545 样本及歧义／fallback 对照见 `artifacts/descendant-selector-contract/`；未重跑浏览器 gate。

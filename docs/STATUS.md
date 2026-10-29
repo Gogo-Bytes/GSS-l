@@ -69,6 +69,8 @@
 
 内部 CSS parser port、准入、关系规划、排序和输出已改为节点绑定，状态／属性／observation／pseudo 平行数组已移除；ownership 路径仍为过渡投影。公共编译输出不变，完整绑定模型仍未完成。`verify` 2456 项和对照验证见当前计划。
 
+准入、规划与输出中 authored selector 的节点数量和位置已改由节点读取；实际 ownership 目标／来源绑定仍保留独立路径，验证见当前计划。
+
 `:has()` 关系候选、结构规划、语义高度和 atom／preserved 输出已改读节点 observation，相关平行数组已移除，验证见当前计划。
 
 Pseudo 规划／输出、固定排序上下文及复用判断已改读节点，原 pseudo 主体、specificity 和排序屏障不变，验证见当前计划。

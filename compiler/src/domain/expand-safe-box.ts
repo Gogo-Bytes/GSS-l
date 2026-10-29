@@ -54,7 +54,7 @@ function expandFamily(rules: readonly ParsedStyleRule[], family: typeof boxShort
     property !== shorthand && !isSide(property) && propertiesMayOverlapForModuleOrder(property, shorthand))) return rules;
   // Cross-scope ranks preserve authored order only with proven static competing
   // values and no other participating alias.
-  const crossScopeSafe = rules.every((rule) => rule.path.length === 1 && rule.layer === 'unlayered' && rule.conditions.length === 0) &&
+  const crossScopeSafe = rules.every((rule) => rule.nodes.length === 1 && rule.layer === 'unlayered' && rule.conditions.length === 0) &&
     declarations.some(({ property }) => isSide(property)) && declarations.every(({ property, value }) => {
       if (property === shorthand) {
         const values = value.trim().split(/\s+/);

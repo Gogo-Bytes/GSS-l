@@ -56,11 +56,11 @@ export function emitObservedRules(input: AtomicEmissionContext & {
       const normalizedObservedSelector = selectorListSpecificity !== undefined && selectorListSpecificity > 0
         ? `:where(${observedSelector})`
         : observedSelector;
-      const subjectSpecificity = rule.path.length + (selectorListSpecificity ?? 0);
+      const subjectSpecificity = rule.nodes.length + (selectorListSpecificity ?? 0);
       // A native complex list supplies its own maximum; zero-strength witnesses retain branch identity.
       // Simple lists keep the existing target-qualified scalar lowering.
       const selector = nativeSpecificity
-        ? `${`.${subjectMarker}`.repeat(rule.path.length)}:has(${nativeList})${observations.length > 1
+        ? `${`.${subjectMarker}`.repeat(rule.nodes.length)}:has(${nativeList})${observations.length > 1
           ? `:where(:has(${observedCombinator}${observedSelector}))` : ''}`
         : `${`.${subjectMarker}`.repeat(subjectSpecificity)}:has(${observedCombinator}${normalizedObservedSelector})`;
 

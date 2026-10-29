@@ -152,7 +152,7 @@ export function planStructuralRelations(
     // they remain in the emitted selector but are not runtime implication edges.
     const { states, attributes } = selectorPredicateAt(rule, sourceIndex);
     const instance: StructuralInstance = { rule, targetPath: rule.path, sourcePath, sourceIndex,
-      specificity: rule.path.length + states!.filter((state) => !state.startsWith('where(')).length + attributes!.length,
+      specificity: rule.nodes.length + states!.filter((state) => !state.startsWith('where(')).length + attributes!.length,
       relationRank: 0, declarations: rule.declarations };
     return {
       instance,
@@ -176,7 +176,7 @@ export function planStructuralRelations(
     const argumentClasses = observation.observedClass ? 1 + Number(Boolean(observation.observedState))
       : observation.observedResidualClassCount ?? Number(!isTag);
     return {
-      instance: { rule, targetPath: rule.path, sourceIndex: -1, specificity: rule.path.length + argumentClasses,
+      instance: { rule, targetPath: rule.path, sourceIndex: -1, specificity: rule.nodes.length + argumentClasses,
         relationRank: 0, declarations: rule.declarations },
       constraint: { targetPath: rule.path, predicates: [], observation },
       typeSpecificity: Number(isTag)

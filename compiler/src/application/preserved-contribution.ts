@@ -26,7 +26,7 @@ export function preparePreservedContribution(input: {
 }): ModuleContribution {
   const roots = new Map<string, MutableScopeNode>();
   for (const rule of input.rules) {
-    for (let index = 0; index < rule.path.length; index += 1) {
+    for (let index = 0; index < rule.nodes.length; index += 1) {
       const path = rule.path.slice(0, index + 1);
       ensureScopePath(roots, path).classNames.add(input.nameAllocator.createScopeMarker(input.moduleId, path));
     }

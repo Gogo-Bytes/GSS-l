@@ -43,11 +43,11 @@ export function collectModuleOrderCandidates(
     ...plannedStructural.instances,
     ...plannedPseudos.candidates,
     ...[...sameNodeRules, ...externalRules].map((rule) => ({
-      rule, targetPath: rule.path, sourceIndex: -1, specificity: rule.path.length,
+      rule, targetPath: rule.path, sourceIndex: -1, specificity: rule.nodes.length,
       relationRank: 0, declarations: rule.declarations
     })),
     ...hasRules.flatMap((rule) => rule.nodes.at(-1)!.observations.map((observation) => ({
-      rule, observation, targetPath: rule.path, sourceIndex: -1, specificity: rule.path.length,
+      rule, observation, targetPath: rule.path, sourceIndex: -1, specificity: rule.nodes.length,
       relationRank: 0, declarations: rule.declarations
     })))
   ];

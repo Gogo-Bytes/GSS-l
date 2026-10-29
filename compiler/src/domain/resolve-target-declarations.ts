@@ -12,6 +12,7 @@ type DeclarationCandidate = {
 
 type RuleCandidate = {
   path: readonly string[];
+  nodes: readonly unknown[];
   declarations: readonly DeclarationCandidate[];
   sourceOrdinal: number;
 };
@@ -56,7 +57,7 @@ function resolveOneTarget<R extends RuleCandidate>(
       const candidate: RankedDeclaration<R> = {
         rule,
         declaration,
-        specificity: rule.path.length,
+        specificity: rule.nodes.length,
         sourceOrdinal: rule.sourceOrdinal,
         declarationOrdinal
       };
