@@ -18,6 +18,8 @@ Ownership 路径匹配从 background 特例模块移至独立领域模块，供�
 
 已核对属性 effect 登记与安全展开的职责：前者不提供通用分量分配或隐含 reset 的值，不能直接用作通用展开器；维持现有有界展开与 fallback。属性效果、逻辑／物理排序、rank 和 source map 既有回归 **486** 项通过，见 `artifacts/property-effects-boundary/focused.log`；此项只补充 [设计约束](PROPERTY-ORDER-DESIGN.md#对其他复合属性应用同一决策)。
 
+结构关系输出通过节点条件视图读取同一 source 的状态和属性，用于 marker 身份与 selector 渲染；首属性、缺失状态、runtime 来源位置及匹配语义保持原行为。完整 `verify`、545 样本完整输出和歧义／fallback 序列对照见 `artifacts/structural-predicate-consumer/`；未重跑浏览器 gate。
+
 节点条件视图消费方切片：语义高度对相同 source predicate 的比较与 ownership 输出中的状态／属性读取也复用 selector-predicate 视图；缺失值处理、sourceIndex、语义证明和 selector 生成保持原行为。
 
 关系／排序／复用／会话／来源定向 **722** 项和完整 `verify` **2455** 项（Compiler 1909／React 49／Vite 163／Testing 334）、lint／build／types 通过；545 个样本 parser／replacement／finalize 逐字段一致，四个歧义和两种 compatibility fallback／失败／恢复序列一致。脚本与日志见 `artifacts/predicate-consumers-boundary/`；行为保持式重构未重跑浏览器 gate，不把视图视为完整关系模型。

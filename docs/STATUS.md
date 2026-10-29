@@ -77,6 +77,8 @@ Ownership 路径匹配已从 background 特例中移出，关系规划与语义�
 
 已明确 property effect 登记与安全展开分别负责写入／重置和语法／值分配；不从登记表推导通用 shorthand 展开，验证见当前计划。
 
+结构关系输出也使用共享节点条件视图读取 source 状态／属性，marker 和 selector 的来源位置不变，验证见当前计划。
+
 ## 当前阶段
 
 owner 已决定有限 MVP 结项，已批准并完成官方 create-vite React TS 外部消费、Vite 8 实验及同模板 React Router Declarative／BrowserRouter 客户端路由验收。最新基础验证为 2455 项测试通过；Browser oracle 为 125 fixtures／1267 comparisons／38 controls，Playground 同范围通过。另已按 owner 授权完成 React Router Framework Mode 的有界 request-time SSR 实验；不覆盖历史 Firefox 失败或通用／完整 SSR。

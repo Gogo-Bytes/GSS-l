@@ -1,6 +1,7 @@
 import type { AtomicEmissionContext } from './atomic-emission-context.js';
 import type { ContextualRelationIdentity } from '../domain/readable-name.js';
 import type { StructuralInstance } from '../domain/plan-structural-relations.js';
+import { selectorPredicateAt } from '../domain/selector-predicate.js';
 import { identifyAssetValue } from './asset-values.js';
 import { canonicalCondition } from './condition-context.js';
 import { canonicalAttributeCondition, renderAttributeCondition, renderStateSuffix, renderRelationCombinator } from './selector-rendering.js';
@@ -24,8 +25,9 @@ export function emitStructuralRules(input: AtomicEmissionContext & {
     const runtimeRelations = rule.relations.slice(firstRuntimeRelation);
     const sourcePath = rule.path.slice(0, firstRuntimeRelation + 1);
     const runtimePaths = rule.path.slice(firstRuntimeRelation);
-    const sourceState = rule.states[firstRuntimeRelation]?.join(':') || undefined;
-    const sourceAttributeCondition = rule.attributes[firstRuntimeRelation]?.[0];
+    const predicate = selectorPredicateAt(rule, firstRuntimeRelation);
+    const sourceState = predicate.states?.join(':') || undefined;
+    const sourceAttributeCondition = predicate.attributes?.[0];
     const sourceAttribute = sourceAttributeCondition
       ? canonicalAttributeCondition(sourceAttributeCondition)
       : undefined;
@@ -54,7 +56,7 @@ export function emitStructuralRules(input: AtomicEmissionContext & {
     const selector = markers.map((marker, index) => {
       if (index === 0) {
         // The source marker represents the whole ownership prefix, not one authored class.
-        return `${`.${marker}`.repeat(sourcePath.length)}${renderStateSuffix(rule.states[firstRuntimeRelation] ?? [], moduleId, nameAllocator, roots)}${
+        return `${`.${marker}`.repeat(sourcePath.length)}${renderStateSuffix(predicate.states ?? [], moduleId, nameAllocator, roots)}${
           sourceAttributeCondition ? renderAttributeCondition(sourceAttributeCondition) : ''
         }`;
       }

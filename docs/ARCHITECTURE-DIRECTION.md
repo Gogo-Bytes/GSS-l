@@ -117,7 +117,7 @@ Vite 当前将 transform 的原始 `id` 与源码交给 adapter；对发现的 s
 
 ### Selector 节点条件视图
 
-[selector-predicate.ts](../compiler/src/domain/selector-predicate.ts) 为 descendant、结构 planner、语义高度比较与 ownership 输出按同一个 authored path 位置读取 state／attribute 条件，作为当前 parser 平行数组的只读视图；缺失位置仍保留缺失，不在此处补默认值或做条件推理。现有 parser port 和 planner instance 的 `sourceIndex`／路径绑定保持不变。
+[selector-predicate.ts](../compiler/src/domain/selector-predicate.ts) 为 descendant、结构 planner、语义高度比较与 ownership／结构输出按同一个 authored path 位置读取 state／attribute 条件，作为当前 parser 平行数组的只读视图；缺失位置仍保留缺失，不在此处补默认值或做条件推理。结构输出使用该节点的状态生成 marker 身份及 selector，并使用首个属性条件；缺失状态仍仅在渲染时按原规则视为空数组。现有 parser port 和 planner instance 的 `sourceIndex`／路径绑定保持不变。
 
 两个 planner 的证明不能因为读取入口相同就合并：descendant 的状态 predicate 使用原状态字符串，结构 planner 使用带 `:` 的形式；前者按 ownership 路径和 source 绑定证明，后者还要证明 runtime witness、组合符和 sibling 约束。它们各自的互斥／蕴含判断、specificity 与 ambiguity 规则均未改变。此视图不是 DOM 节点或完整 selector 语义模型；更完整的规则绑定仍需设计。验证见 [当前计划](NEXT-STAGE.md)。
 
