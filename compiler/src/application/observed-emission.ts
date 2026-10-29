@@ -17,7 +17,7 @@ export function emitObservedRules(input: AtomicEmissionContext & {
     const wrappers = rule.conditions;
     const condition = canonicalCondition(wrappers);
     const layer = rule.layer;
-    const observations = rule.observations.at(-1)!;
+    const observations = rule.nodes.at(-1)!.observations;
     const nativeSpecificity = observations.some((observation) => observation.nativeSpecificity);
     const observedSpecificity = (observation: ParsedHasCondition) => observation.observedClass
       ? 1 + Number(Boolean(observation.observedState))

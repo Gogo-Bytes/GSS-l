@@ -69,6 +69,8 @@
 
 内部 CSS parser port 已改为节点绑定，部分关系规划、排序与输出直接读取节点，其他消费者暂时使用共享条件数据的平行数组投影；公共编译输出不变，完整绑定模型及投影移除仍未完成。`verify` 2456 项和对照验证见当前计划。
 
+`:has()` 关系候选、结构规划、语义高度和 atom／preserved 输出已改读节点 observation；准入和部分排序仍在过渡，验证见当前计划。
+
 既有 Playground 已迁至 `examples/playground/`；独立浏览器参考和验收留在 `tests/`，根命令不变。冻结安装、完整 `verify`、原 Chromium Playground 与独立 browser oracle 已验证；旧产物备份和范围见当前计划。
 
 Playground 的运行、构建和类型检查归示例包，原 testing 脚本保留转发；根与旧入口验证见当前计划。

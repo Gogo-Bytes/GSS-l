@@ -10,7 +10,7 @@ import { isPureOwnershipRule, isCurrentStateRule, isCurrentAttributeRule, isAnce
  * individual planners still own their relation and specificity semantics. */
 export function planModuleRelations(localRules: readonly ParsedStyleRule[], semanticRules: readonly ParsedStyleRule[]) {
   const ownershipRules = localRules.filter(isPureOwnershipRule);
-  const hasRules = localRules.filter(({ observations }) => observations.at(-1)?.length);
+  const hasRules = localRules.filter(({ nodes }) => nodes.at(-1)?.observations.length);
   const contextualRules = localRules.filter(({ relations }) => relations.some((relation) => relation !== 'descendant'));
   const descendantRules = localRules.filter((rule) =>
     isPureOwnershipRule(rule) || isCurrentStateRule(rule) || isCurrentAttributeRule(rule) ||
@@ -46,7 +46,7 @@ export function collectModuleOrderCandidates(
       rule, targetPath: rule.path, sourceIndex: -1, specificity: rule.path.length,
       relationRank: 0, declarations: rule.declarations
     })),
-    ...hasRules.flatMap((rule) => rule.observations.at(-1)!.map((observation) => ({
+    ...hasRules.flatMap((rule) => rule.nodes.at(-1)!.observations.map((observation) => ({
       rule, observation, targetPath: rule.path, sourceIndex: -1, specificity: rule.path.length,
       relationRank: 0, declarations: rule.declarations
     })))

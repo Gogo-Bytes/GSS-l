@@ -15,7 +15,7 @@ const sameSourcePredicate = (a: OrderOccurrence, b: OrderOccurrence) => {
 
 /** Only proven ownership/structural relations form semantic edges; authored order is not an edge. */
 export function semanticOrderHeights(family: readonly OrderOccurrence[]): ReadonlyMap<OrderOccurrence, number> {
-  const opaque = (rule: ParsedStyleRule) => Boolean(rule.externalTarget || rule.externalCondition || rule.observations.some((parts) => parts.length));
+  const opaque = (rule: ParsedStyleRule) => Boolean(rule.externalTarget || rule.externalCondition || rule.nodes.some((node) => node.observations.length));
   const precedes = (a: OrderOccurrence, b: OrderOccurrence) => {
     if (opaque(a.instance.rule) || opaque(b.instance.rule) ||
       !propertiesMayOverlapForModuleOrder(a.declaration.property, b.declaration.property) ||
