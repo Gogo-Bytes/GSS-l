@@ -64,6 +64,10 @@ GSS 将样式编译为可复用的 atom class，并允许同一模块的多个 s
 
 静态百分比切片：在上述入口和竞争条件内，`margin`／`padding`／`inset`／`scroll-padding` 的物理及逻辑轴 shorthand 可以将简单数字百分比与静态 px／零混合展开，原字符串直接分配给各 longhand，由浏览器按各属性和书写模式计算；不自行计算百分比。`margin`／`inset` 接受带负号的百分比；padding 两族仅接受无负号形式。依据 [CSS Box](https://www.w3.org/TR/css-box-3/)、[CSS Position](https://www.w3.org/TR/css-position-3/) 和 [CSS Scroll Snap](https://www.w3.org/TR/css-scroll-snap-1/)，`scroll-margin` 仅接受长度，百分比仍不展开。其他未识别数字形式、`var()`、`calc()`、无竞争声明、潜在别名屏障和 compatibility／preserved 路径保持原处理。
 
+字体相对长度切片：在相同入口及竞争条件内，五族物理和逻辑轴 shorthand 也可展开简单数字 `em`／`rem`，并与已安全支持的 px、零和合法百分比混合。保留单位原文，不在编译器中计算；浏览器依据元素或根元素字号计算（[CSS Values](https://www.w3.org/TR/css-values-4/#font-relative-lengths)）。例如 `margin: 1em 2rem; margin-left: 3em` 仍按声明顺序解决左侧，其余方向保留完整 effect，`scroll-margin` 也接受长度但仍不接受百分比。
+
+padding／scroll-padding 仍不展开任何带负号形式，包括合法的 `-0em`；不能把 `padding: -1em` 作为获准的静态负 px 过滤范围。其他单位、函数、变量、别名竞争及 fallback 仍走原处理。声明来源、importance、跨 scope 排序与 selector-list 约束沿用前述证明；验证及未覆盖范围见 [当前计划](NEXT-STAGE.md)。
+
 不要把拒绝展开的负百分比当成编译期可丢弃声明：此前批准的 padding 无效值过滤只覆盖确定无效的静态负 px；例如 `.a { padding-left: 9px; padding: -1% }` 仍沿用原路径，不能声称此类无效值行为已修复。百分比展开只在证明全部分量合法后进行，保留 importance、源码顺序、selector-list／scope membership 和 source map；跨 scope 长手值也必须可安全识别，避免混淆不同 scope 的声明身份。当前验证与剩余边界见 [当前计划](NEXT-STAGE.md)。
 
 无效值决策：owner 已批准修复已复现的静态负 `px` padding 误剪枝。对于无需 compatibility、属性均已登记且没有 external target／condition 的模块，原子规划前忽略可确定无效的物理／逻辑 padding shorthand 和 longhand；重复声明和逻辑／物理冲突检查使用过滤后、尚未展开的规则，避免确定无效的声明触发误报；有效重复声明仍沿用既有诊断。`-0` 是合法零值，不忽略。仅当各组成值都是已识别的静态 `px`／无单位零且含真正负 `px` 时判无效；其他单位、复杂值和 `var()` 沿用原路径。compatibility 和整模块 preserved fallback 保留原声明及既有行为，除移除无效声明造成的冲突外，既有有效输入准入边界保持不变。重现与验证见 [当前计划](NEXT-STAGE.md)。

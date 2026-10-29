@@ -7,6 +7,7 @@ const boxShorthands = ['margin', 'padding', 'inset', 'scroll-margin', 'scroll-pa
 // value evaluation. Unknown syntax and var() remain on the existing path.
 const length = /^(?:[+-]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)px|[+-]?0(?:\.0+)?)$/i;
 const percentage = /^[+-]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)%$/;
+const fontLength = /^[+-]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:em|rem)$/i;
 
 /** Discard only padding declarations proven invalid at parse time. A var()
  * declaration is not invalid until computed-value time and must remain. */
@@ -44,7 +45,7 @@ function expandFamily(rules: readonly ParsedStyleRule[], family: typeof boxShort
   const nonnegative = family === 'padding' || family === 'scroll-padding';
   // Percentages remain unevaluated for the browser; scroll-margin only accepts lengths.
   const safeLength = (value: string) =>
-    (length.test(value) || (family !== 'scroll-margin' && percentage.test(value))) &&
+    (length.test(value) || fontLength.test(value) || (family !== 'scroll-margin' && percentage.test(value))) &&
     (!nonnegative || !value.startsWith('-'));
   // Scroll boxes and logical axes require isolation from potential aliases even
   // within one rule. Logical expansion writes start/end, never mapped physical

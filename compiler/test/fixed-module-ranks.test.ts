@@ -707,3 +707,47 @@ it('expands signed margin and inset percentages while retaining existing guarded
   }
   expect(compile('.a{padding-left:9px;padding:-1%}').finalize().manifest.rules.some(({ property }) => property === 'padding')).toBe(true);
 });
+
+for (const family of ['margin', 'padding', 'inset', 'scroll-margin', 'scroll-padding']) for (const axis of ['', 'inline', 'block']) {
+  const shorthand = axis ? `${family}-${axis}` : family;
+  const side = axis ? `${shorthand}-start` : family === 'inset' ? 'left' : `${family}-left`;
+  const other = axis ? `${shorthand}-end` : family === 'inset' ? 'right' : `${family}-right`;
+  it.each([false, true])(`expands ${shorthand} font lengths while retaining scope order and source (%s)`, (reverse) => {
+    const parts = [`.a,.b{${shorthand}:1em 2rem}`, `.c{${side}:3em}`];
+    const source = (reverse ? parts.reverse() : parts).join('');
+    const session = compile(source);
+    expect(rulesFor(session, ['a'])).toHaveLength(axis ? 2 : 4);
+    expect(rulesFor(session, ['a'])).toEqual(rulesFor(session, ['b']));
+    expect(rulesFor(session, ['a']).find(({ property }) => property === other)).toMatchObject({ value: '2rem', origins: [{ range: { start: source.indexOf(`${shorthand}:`) } }] });
+    expect(session.finalize().manifest.rules.filter(({ property }) => property === side).map(({ value }) => value)).toEqual(reverse ? ['3em', axis ? '1em' : '2rem'] : [axis ? '1em' : '2rem', '3em']);
+    const before = session.finalize();
+    expect(session.replaceStylesheet({ id: '/project/Fixed.gss', source: `.a{${shorthand}:1em;${shorthand}:2em}` })).toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1204' }] });
+    expect(session.finalize()).toEqual(before);
+    expect(session.replaceStylesheet({ id: '/project/Fixed.gss', source }).committed).toBe(true);
+    expect(session.finalize().css).toBe(before.css);
+  });
+  it(`preserves ${shorthand} same-rule importance`, () => {
+    const rules = rulesFor(compile(`.a{${shorthand}:1em 2rem!important;${side}:3em}`), ['a']);
+    expect(rules.find(({ property }) => property === side)).toMatchObject({ value: axis ? '1em' : '2rem', important: true });
+  });
+}
+
+it('keeps unsupported and negative font lengths on existing paths', () => {
+  for (const family of ['padding', 'scroll-padding']) {
+    for (const value of ['-1em', '-0rem', '1ex', 'calc(1em + 1px)', 'var(--space)']) {
+      expect(compile(`.a{${family}:${value};${family}-left:9px}`).finalize().manifest.rules.some(({ property }) => property === family)).toBe(true);
+    }
+  }
+  for (const family of ['margin', 'inset', 'scroll-margin']) {
+    const side = family === 'inset' ? 'left' : `${family}-left`;
+    expect(rulesFor(compile(`.a{${family}:-1em -2rem;${side}:9px}`), ['a']).find(({ property }) => property === (family === 'inset' ? 'right' : `${family}-right`))?.value).toBe('-2rem');
+  }
+});
+
+it('distributes mixed safe font, percentage and pixel values without changing scroll-margin percentage fallback', () => {
+  const rules = rulesFor(compile('.a{margin:1em 2% 3px 4rem;margin-left:9px}'), ['a']);
+  expect(Object.fromEntries(rules.map(({ property, value }) => [property, value]))).toEqual({
+    'margin-top': '1em', 'margin-right': '2%', 'margin-bottom': '3px', 'margin-left': '9px'
+  });
+  expect(compile('.a{scroll-margin:1em 2%;scroll-margin-left:9px}').finalize().manifest.rules.some(({ property }) => property === 'scroll-margin')).toBe(true);
+});

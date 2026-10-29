@@ -348,3 +348,13 @@ it.each(['margin', 'padding', 'inset', 'scroll-padding'])('maps percentage %s sh
     expect(originalPositionFor(map, generatedPosition(snapshot.css, `${side}:`, 1))).toMatchObject({ source: 'box.gss', line: 1, column: source.indexOf(`${side}:`) });
   }
 });
+
+it.each(['margin', 'padding', 'inset', 'scroll-margin', 'scroll-padding'])('maps expanded %s font lengths to authored declarations', (family) => {
+  const source = `.a{${family}-inline:1em 2rem}.b{${family}-inline-start:3em}`;
+  const session = createGssCompilerSession({ projectRoot: '/project' });
+  expect(session.replaceStylesheet({ id: '/project/box.gss', source }).committed).toBe(true);
+  const snapshot = session.finalize();
+  const map = new TraceMap(snapshot.sourceMap);
+  expect(originalPositionFor(map, generatedPosition(snapshot.css, `${family}-inline-start:`, 0))).toMatchObject({ source: 'box.gss', line: 1, column: source.indexOf(`${family}-inline:`) });
+  expect(originalPositionFor(map, generatedPosition(snapshot.css, `${family}-inline-start:`, 1))).toMatchObject({ source: 'box.gss', line: 1, column: source.indexOf(`${family}-inline-start:`) });
+});

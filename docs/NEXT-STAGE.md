@@ -6,6 +6,12 @@ owner 已要求开始推进核心架构与属性排序目标；[架构方向](AR
 
 已确认原生强度／上下文和已证明的所有权／结构语义优先，同语义高度时逻辑属性先、物理属性后；同属性 rank 已与跨属性输出位置分开；shorthand 完整展开及更宽复用仍需设计。不能安全展开的既有输入暂时沿用原 shorthand 处理和 fallback，不额外拒绝。owner 仍要求**不自行新增框架或验收场景**；保留独立 oracle、历史失败及现有验证边界。
 
+静态字体相对长度展开切片：五族物理／逻辑轴 shorthand 在既有安全竞争边界内支持简单数字 `em`／`rem`，可与已支持值混用；原值交由浏览器计算。padding 两族仍不展开带负号形式，负 em／rem 不纳入已批准的负 px 无效值过滤；其他单位、复杂值、别名屏障和 fallback 保持原路径。设计和反例见属性排序文档。
+
+`verify` **2452** 项（Compiler 1907／React 49／Vite 162／Testing 334）及 lint／build／types 通过。回归覆盖五族、物理／逻辑轴、跨 scope 顺序、importance、selector-list、来源／source map、失败更新／恢复、负值和未支持值。每引擎 810 组 scope 与独立 authored-native CSS 的逻辑／物理值一致，未竞争侧另有字面 `32px` 断言，覆盖 LTR／RTL／vertical-rl，见 `artifacts/safe-font-length-expansion/browser-regression.mjs`／`.log`；初始 46 项 red 和既有浏览器产物备份在同目录。不声称其他长度单位、复杂表达式或负相对单位 padding 已正确处理。
+
+原 atom-ranks 默认 Chromium／Firefox／WebKit 入口通过（`rank-browser.log`）：每引擎固定排序 50 fixtures／182 comparisons／91 exact image pairs，逻辑／物理 418 simple + 59 semantic／2852 paired + 800 authored-native readings／3 image pairs，以及 96 state comparisons／32 image pairs；负对照和 external-target 边界均通过。Chromium browser oracle 125 fixtures／1267 comparisons／38 controls 与 Vite host、SSG、multipage 检查通过（`browser-oracle.log`）。最终完整检查日志为 `verify-final.log`；本次未重验外部 SPA／SSR、Article 或性能。
+
 静态百分比展开切片：`margin`／`padding`／`inset`／`scroll-padding` 的物理和逻辑轴 shorthand，在既有安全竞争边界内支持简单数字百分比与静态 px／零混合；百分比原样分配给 longhand，由浏览器计算。`scroll-margin` 不接受百分比；padding 两族不展开负号形式，既有无效 padding 过滤仍只处理已批准的静态负 px。`var()`／复杂值、别名屏障、compatibility 和 preserved 路径不变。设计、规范及反例见属性排序文档。
 
 `verify` **2400** 项（Compiler 1855／React 49／Vite 162／Testing 334）及 lint／build／types 通过。新增有界回归覆盖物理与逻辑轴分配、正反顺序／importance、跨 scope／selector-list、source map、失败更新／恢复、负数与原 fallback；开发期 52 项 red 保存在 `artifacts/safe-percentage-expansion/red.log`。每引擎 648 组 scope 结果在横排 LTR／RTL 和竖排与独立 authored-native CSS 的逻辑／物理值一致，未竞争侧另有字面 `2px` 断言，见 `browser-regression.mjs`／`.log`。初始浏览器检查中 WebKit 普通块布局的 margin 受布局约束，原生和生成结果一致但字面 `2px` 断言不成立；保留 `browser-regression-initial-failure.log`，改为 inline-block 消除该约束后重验全部三引擎。旧排序产物及 browser-reference 已备份在同目录；不声称负百分比 padding 的旧误剪枝问题已修复，也不新增滚动吸附交互或复杂值语法支持。

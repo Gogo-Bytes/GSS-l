@@ -5,7 +5,7 @@
 | 工作 | 现有入口 | 必须区分的语义 |
 | --- | --- | --- |
 | 排序 occurrence 身份 | [order-occurrences.ts](order-occurrences.ts) | 声明对象、selector 分支和 target／source／observation 绑定共同标识 occurrence；它不是可复用 atom 的身份。收集保留剪枝前的声明及位置。 |
-| 属性写入与重置 | [property-effects.ts](property-effects.ts)、[expand-safe-box.ts](expand-safe-box.ts) | shorthand 与 longhand 对同一 effect 的竞争按原生强度和声明顺序处理；安全展开与保留原声明各有边界；scroll 物理两族与五族逻辑轴展开均要求无其他潜在别名竞争；逻辑轴只写 start/end，方向映射交给浏览器。静态百分比仅对 margin／padding／inset／scroll-padding 安全展开，负值过滤仍只针对已批准的 padding 路径。 |
+| 属性写入与重置 | [property-effects.ts](property-effects.ts)、[expand-safe-box.ts](expand-safe-box.ts) | shorthand 与 longhand 对同一 effect 的竞争按原生强度和声明顺序处理；安全展开与保留原声明各有边界；scroll 物理两族与五族逻辑轴展开均要求无其他潜在别名竞争；逻辑轴只写 start/end，方向映射交给浏览器。静态 em／rem 可用于五族；静态百分比仅对 margin／padding／inset／scroll-padding 安全展开，负值过滤仍只针对已批准的 padding 路径。 |
 | 胜出和语义关系 | [resolve-target-declarations.ts](resolve-target-declarations.ts)、[semantic-order-heights.ts](semantic-order-heights.ts) | 按 effect 判断部分胜出；已证明的 ownership／结构关系与原生强度都不能被简单属性排序替代。 |
 | 模块内排序和复用 | [fixed-module-ranks.ts](fixed-module-ranks.ts)、[rule-order-planner.ts](rule-order-planner.ts) | rank 保留必要的竞争顺序和 scope membership；相同值不一定可跨竞争者复用。`atomRank` 在同属性内编号，`orderSlot` 保留潜在重叠族的输出投影；二者共同约束身份，最终排序不比较局部 rank。 |
 | 方向别名与准入 | [module-order-policy.ts](module-order-policy.ts)、[validate-logical-physical-conflicts.ts](validate-logical-physical-conflicts.ts) | 逻辑／物理潜在重叠与 shorthand 的确定包含关系不同；潜在别名不构成确定覆盖或删除证明。 |
