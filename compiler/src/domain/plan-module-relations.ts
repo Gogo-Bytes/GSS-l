@@ -1,4 +1,5 @@
 import type { ParsedStyleRule } from './parsed-stylesheet.js';
+import type { OrderInstance } from './order-occurrences.js';
 import { planDescendantConditions } from './plan-descendant-conditions.js';
 import { planStructuralRelations } from './plan-structural-relations.js';
 import { planPseudoElementConditions } from './plan-pseudo-element-conditions.js';
@@ -26,4 +27,28 @@ export function planModuleRelations(localRules: readonly ParsedStyleRule[], sema
   if (plannedPseudos.ambiguity) return { ambiguity: plannedPseudos.ambiguity };
   return { plan: { ownershipRules, hasRules, descendantRules, hasDescendantConditions, declaredPaths,
     plannedDescendants, plannedStructural, plannedPseudos } };
+}
+
+/** Preserve the planner's candidate/instance choices and their established order.
+ * In the pure path, descendant candidates are intentionally collected only when
+ * ordering is planned, after compatibility and preserved-fallback decisions. */
+export function collectModuleOrderCandidates(
+  plan: NonNullable<ReturnType<typeof planModuleRelations>['plan']>,
+  sameNodeRules: readonly ParsedStyleRule[],
+  externalRules: readonly ParsedStyleRule[]
+): OrderInstance[] {
+  const { plannedDescendants, descendantRules, declaredPaths, plannedStructural, plannedPseudos, hasRules } = plan;
+  return [
+    ...(plannedDescendants ?? planDescendantConditions(descendantRules, declaredPaths)).candidates,
+    ...plannedStructural.instances,
+    ...plannedPseudos.candidates,
+    ...[...sameNodeRules, ...externalRules].map((rule) => ({
+      rule, targetPath: rule.path, sourceIndex: -1, specificity: rule.path.length,
+      relationRank: 0, declarations: rule.declarations
+    })),
+    ...hasRules.flatMap((rule) => rule.observations.at(-1)!.map((observation) => ({
+      rule, observation, targetPath: rule.path, sourceIndex: -1, specificity: rule.path.length,
+      relationRank: 0, declarations: rule.declarations
+    })))
+  ];
 }

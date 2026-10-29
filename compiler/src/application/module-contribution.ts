@@ -14,8 +14,7 @@ import {
 } from '../domain/readable-name.js';
 import type { NameAllocatorPort } from './name-allocator.js';
 import { classifyPropertyEffect, isRegisteredPropertyEffect } from '../domain/property-effects.js';
-import { planDescendantConditions } from '../domain/plan-descendant-conditions.js';
-import { planModuleRelations } from '../domain/plan-module-relations.js';
+import { planModuleRelations, collectModuleOrderCandidates } from '../domain/plan-module-relations.js';
 import { planFixedModuleOrder } from '../domain/fixed-module-ranks.js';
 import type { OrderBinding } from '../domain/order-occurrences.js';
 import { discardInvalidStaticPadding, expandSafeBoxRules } from '../domain/expand-safe-box.js';
@@ -381,8 +380,7 @@ export function prepareContribution(
     code: 'GSS1205', severity: 'error', phase: 'resolve', id: input.id,
     reason: 'ambiguous-coactive-state-conflict', message: relationPlanning.ambiguity
   }] };
-  const { ownershipRules, hasRules, descendantRules, hasDescendantConditions, declaredPaths,
-    plannedDescendants, plannedStructural, plannedPseudos } = relationPlanning.plan;
+  const { ownershipRules, hasRules, hasDescendantConditions, plannedDescendants, plannedStructural, plannedPseudos } = relationPlanning.plan;
 
   const physicalDeclarations = semanticRules.flatMap((rule) => rule.declarations.map((declaration) => ({
     declaration, physical: compatibility?.expand(declaration)
@@ -459,19 +457,8 @@ export function prepareContribution(
     });
   }
 
-  const moduleOrder = planFixedModuleOrder(semanticRules, [
-    ...(plannedDescendants ?? planDescendantConditions(descendantRules, declaredPaths)).candidates,
-    ...plannedStructural.instances,
-    ...plannedPseudos.candidates,
-    ...[...sameNodeRules, ...externalRules].map((rule) => ({
-      rule, targetPath: rule.path, sourceIndex: -1, specificity: rule.path.length,
-      relationRank: 0, declarations: rule.declarations
-    })),
-    ...hasRules.flatMap((rule) => rule.observations.at(-1)!.map((observation) => ({
-      rule, observation, targetPath: rule.path, sourceIndex: -1, specificity: rule.path.length,
-      relationRank: 0, declarations: rule.declarations
-    })))
-  ]);
+  const moduleOrder = planFixedModuleOrder(semanticRules,
+    collectModuleOrderCandidates(relationPlanning.plan, sameNodeRules, externalRules));
   const orderIdentity = (declaration: ParsedDeclaration, binding: OrderBinding) => {
     return moduleOrder.get(declaration, binding) ?? {};
   };

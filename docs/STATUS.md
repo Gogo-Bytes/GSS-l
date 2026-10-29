@@ -35,6 +35,8 @@
 
 最新架构切片集中关系 planner 的调用与歧义顺序，各关系证明及 fallback 不变；`verify` 2453 项、654 项定向测试、539 个样本及三组歧义／旧快照前后等价通过，未重跑浏览器 gate。
 
+最新架构切片将排序候选的原有组合移入关系规划模块，保留 candidate／instance 区别及延迟时机；`verify` 2453 项、513 项定向测试及 539 个样本与三个歧义场景前后等价通过，未重跑浏览器 gate。
+
 ## 当前阶段
 
 owner 已决定有限 MVP 结项，已批准并完成官方 create-vite React TS 外部消费、Vite 8 实验及同模板 React Router Declarative／BrowserRouter 客户端路由验收。最新基础验证为 2453 项测试通过；Browser oracle 为 125 fixtures／1267 comparisons／38 controls，Playground 同范围通过。另已按 owner 授权完成 React Router Framework Mode 的有界 request-time SSR 实验；不覆盖历史 Firefox 失败或通用／完整 SSR。
