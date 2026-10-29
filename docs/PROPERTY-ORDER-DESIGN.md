@@ -44,6 +44,8 @@ GSS 将样式编译为可复用的 atom class，并允许同一模块的多个 s
 
 先查明 shorthand 实际写入或重置的所有 longhand，再判断每个 effect 的胜出声明。同一规则、同一 effect 且原生强度相同时，按声明位置决定覆盖；属性名更长、longhand 更具体或固定属性键靠后，都不构成额外优先级。较强的 `!important` 先于声明位置；涉及其他规则时还要保留原生强度、可比较上下文和已证明的 GSS 所有权／结构语义。展开后同名 effect 在不同 scope 中竞争时，排序必须保留它们之间需要的相对顺序：rank 是表达这一顺序的机制，不是让 longhand 总胜出的规则。对尚不能安全展开的 shorthand，也必须保留其与竞争声明的必要顺序和实际效果。
 
+属性 effect 登记与值展开是不同的事实：[property-effects.ts](../compiler/src/domain/property-effects.ts) 描述声明可能写入或重置哪些 effect，用于竞争和覆盖判断；[expand-safe-box.ts](../compiler/src/domain/expand-safe-box.ts) 另行限定可展开的属性、值语法、分量分配及竞争上下文。effect 列表本身不证明其顺序对应 shorthand 的值位置，也不提供隐含 reset 的值。例如 `border` 的 effect 包含 border-image 重置项，不能把其值按列表逐项分配。新增属性时先登记完整 effect，再针对具体语法证明展开；未知或不安全情况保留已确认的原路径和 fallback。
+
 判定可移除声明时，必须证明它的**全部** effect 都被覆盖；只覆盖 `margin` 的左侧时仍要保留其余三个方向。不能把运行时才可能相同的逻辑／物理 effect 当成确定相同后剪枝，也不能因为一个值相同就跨越竞争声明复用 atom。涉及 `var()`、CSS-wide 关键字、隐含 reset、资源及复杂值时，只有能证明完整原生语义和来源得到保留才展开；否则执行已批准的现有处理及 fallback。每扩展一个属性族，应在现有测试载体中验证正反顺序、部分覆盖、重要性、不同 scope、来源／source map 和不安全值，并使用独立原生或明确的 GSS 预期。
 
 当前已实现有界的静态 `margin`／`padding`／`inset` 展开：在无需 compatibility 变换、所有属性已登记且全部为普通 ownership 规则的模块中，同一规则包含 shorthand 和对应的物理 longhand 时，或无条件／未分层的单节点 scope 之间存在物理 longhand 竞争时，可将 1–4 个静态 `px` 值或无单位零组成的 shorthand 展开；`padding` 只处理无负号的值，`margin` 和 `inset` 允许负值；`inset` 对应的物理属性是 `top`／`right`／`bottom`／`left`。跨 scope 切片要求所有相关 shorthand／longhand 值均可安全处理，且模块不含其他可能重叠的属性；同一规则切片继续沿用自己的准入条件。展开保留原始声明的位置，selector-list 分支共享声明身份；覆盖仍遵循重要性及相应语义和源码顺序。单独且无竞争的 shorthand、其他值／选择器、兼容性和整模块 fallback 暂沿用原路径。跨规则普遍展开和其他 shorthand 未完成；同属性 rank 与输出位置已按下述保守模型分离。
