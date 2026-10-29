@@ -6,7 +6,7 @@ owner 已要求开始推进核心架构与属性排序目标；[架构方向](AR
 
 已确认原生强度／上下文和已证明的所有权／结构语义优先，同语义高度时逻辑属性先、物理属性后；同属性 rank 已与跨属性输出位置分开；shorthand 完整展开及更宽复用仍需设计。不能安全展开的既有输入暂时沿用原 shorthand 处理和 fallback，不额外拒绝。owner 仍要求**不自行新增框架或验收场景**；保留独立 oracle、历史失败及现有验证边界。
 
-负相对单位／百分比 padding 已复现缺陷，待 owner 决策：在 Chromium／Firefox／WebKit，`padding-left:9px;padding:-1%`、`-1em`、`-1rem` 与逻辑轴 `padding-inline-start:9px;padding-inline:-1%` 的原生左侧均为 9px，而当前 GSS 为 0px；合法 `-0%`／`-0em` 原生和 GSS 均为 0px。独立 authored-native、字面预期、脚本及逐引擎输出见 `artifacts/invalid-padding-units-probe/`。原先授权仅覆盖静态负 px；本轮只记录反例，没有扩大过滤或改变 fallback。
+无效 CSS 由作者负责，GSS 不承诺通用识别或修复，owner 决定不扩大负 padding 值过滤；既有静态负 px 处理保留，fallback 不变。已知反例：在 Chromium／Firefox／WebKit，`padding-left:9px;padding:-1%`、`-1em`、`-1rem` 与逻辑轴 `padding-inline-start:9px;padding-inline:-1%` 的原生左侧均为 9px，而当前 GSS 为 0px；合法 `-0%`／`-0em` 原生和 GSS 均为 0px。独立 authored-native、字面预期、脚本及逐引擎输出见 `artifacts/invalid-padding-units-probe/`。
 
 节点条件视图消费方切片：语义高度对相同 source predicate 的比较与 ownership 输出中的状态／属性读取也复用 selector-predicate 视图；缺失值处理、sourceIndex、语义证明和 selector 生成保持原行为。
 
