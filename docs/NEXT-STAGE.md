@@ -10,6 +10,8 @@ owner 已要求开始推进核心架构与属性排序目标；[架构方向](AR
 
 已移除未被引用且未公开导出的旧状态歧义检查器，避免与实际关系 planner 的歧义规则混淆。现有诊断、排序与 fallback 路径不变；完整 `verify` 及 lint／build／types 的日志见 `artifacts/remove-unused-state-validator/verify.log`。此项未改变浏览器输出，未重跑浏览器 gate。
 
+已梳理当前节点 `background-color` 特例的冲突种子、全模块竞争闭包与排序边界，明确它不能直接泛化为任意属性或 selector；详见 [架构方向](ARCHITECTURE-DIRECTION.md#当前节点-background-排序准入)。既有 rank 与 descendant 回归 **73** 项通过，日志见 `artifacts/background-rank-contract/focused.log`。此项仅更新设计说明，不改变准入、fallback 或代码。
+
 节点条件视图消费方切片：语义高度对相同 source predicate 的比较与 ownership 输出中的状态／属性读取也复用 selector-predicate 视图；缺失值处理、sourceIndex、语义证明和 selector 生成保持原行为。
 
 关系／排序／复用／会话／来源定向 **722** 项和完整 `verify` **2455** 项（Compiler 1909／React 49／Vite 163／Testing 334）、lint／build／types 通过；545 个样本 parser／replacement／finalize 逐字段一致，四个歧义和两种 compatibility fallback／失败／恢复序列一致。脚本与日志见 `artifacts/predicate-consumers-boundary/`；行为保持式重构未重跑浏览器 gate，不把视图视为完整关系模型。
