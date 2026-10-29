@@ -67,7 +67,7 @@
 
 已三引擎复现负百分比／em／rem padding 导致先前有效声明被误删；合法负零仍有效。owner 决定无效 CSS 由作者负责，不扩大过滤；既有负 px 处理保留，反例及证据见当前计划。
 
-Parser 与规则现共用 selector 分支类型，实际输出及平行数组未变；完整绑定模型仍未完成，验证见当前计划。
+Parser、规则和 descendant planner 共用 selector 分支的相关类型，实际输出及平行数组未变；完整绑定模型仍未完成，验证见当前计划。
 
 既有 Playground 已迁至 `examples/playground/`；独立浏览器参考和验收留在 `tests/`，根命令不变。冻结安装、完整 `verify`、原 Chromium Playground 与独立 browser oracle 已验证；旧产物备份和范围见当前计划。
 
