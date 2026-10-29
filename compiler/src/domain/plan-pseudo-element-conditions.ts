@@ -2,7 +2,6 @@ import { planDescendantConditions, type DescendantInstance, type DescendantRule 
 
 type PseudoRule = DescendantRule & {
   relations: readonly string[];
-  pseudoElements: readonly (string | null)[];
 };
 
 /** Pseudo subjects share descendant predicate resolution, but never each other's candidates.
@@ -12,7 +11,7 @@ export function planPseudoElementConditions<R extends PseudoRule>(
 ): { instances: DescendantInstance<R>[]; candidates: DescendantInstance<R>[]; ambiguity?: string } {
   const groups = new Map<string, R[]>();
   for (const rule of semanticRules) {
-    const subject = rule.pseudoElements.at(-1);
+    const subject = rule.nodes.at(-1)?.pseudoElement;
     if (!subject) continue;
     const key = JSON.stringify([rule.layer, rule.conditions, subject]);
     groups.set(key, [...(groups.get(key) ?? []), rule]);
@@ -34,7 +33,7 @@ export function planPseudoElementConditions<R extends PseudoRule>(
     for (const { path, ownership } of targets.values()) {
       const applicable = ownership ? groupedRules : groupedRules.filter((rule) => rule.path.length === 1);
       const planned = planDescendantConditions(applicable, [path]);
-      if (planned.ambiguity) return { instances: [], candidates: [], ambiguity: `${planned.ambiguity} Subject ::${first.pseudoElements.at(-1)}.` };
+      if (planned.ambiguity) return { instances: [], candidates: [], ambiguity: `${planned.ambiguity} Subject ::${first.nodes.at(-1)?.pseudoElement}.` };
       instances.push(...planned.instances);
       candidates.push(...planned.candidates);
     }

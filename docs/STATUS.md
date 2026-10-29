@@ -71,6 +71,8 @@
 
 `:has()` 关系候选、结构规划、语义高度和 atom／preserved 输出已改读节点 observation；准入和部分排序仍在过渡，验证见当前计划。
 
+Pseudo 规划／输出、固定排序上下文及复用判断已改读节点，原 pseudo 主体、specificity 和排序屏障不变，验证见当前计划。
+
 既有 Playground 已迁至 `examples/playground/`；独立浏览器参考和验收留在 `tests/`，根命令不变。冻结安装、完整 `verify`、原 Chromium Playground 与独立 browser oracle 已验证；旧产物备份和范围见当前计划。
 
 Playground 的运行、构建和类型检查归示例包，原 testing 脚本保留转发；根与旧入口验证见当前计划。

@@ -20,8 +20,9 @@ export function emitPseudoRules(input: AtomicEmissionContext & {
   }
   for (const instance of instances) {
     const { rule, targetPath, declarations, relationRank } = instance;
-    const pseudoElement = rule.pseudoElements.at(-1)!;
-    const state = rule.states.at(-1)!.join(':') || 'self';
+    const node = rule.nodes.at(-1)!;
+    const pseudoElement = node.pseudoElement!;
+    const state = node.states.join(':') || 'self';
     const wrappers = rule.conditions;
     const condition = canonicalCondition(wrappers);
     const layer = rule.layer;

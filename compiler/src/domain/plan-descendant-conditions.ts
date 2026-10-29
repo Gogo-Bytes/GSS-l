@@ -2,9 +2,9 @@ import { effectsOfProperty } from './property-effects.js';
 import { selectorPredicateAt } from './selector-predicate.js';
 import { isSubsequence, matchesOwnedTarget } from './ownership-path.js';
 import { isStructuralPseudoState } from './pseudo-state-capabilities.js';
-import type { ParsedSelector, ParsedStyleRule } from './parsed-stylesheet.js';
+import type { ParsedStyleRule } from './parsed-stylesheet.js';
 
-export type DescendantRule = Pick<ParsedSelector, 'path' | 'states' | 'attributes'> & Pick<ParsedStyleRule, 'nodes'> & {
+export type DescendantRule = Pick<ParsedStyleRule, 'path' | 'nodes'> & {
   conditions: readonly { kind: string; query: string }[];
   layer: string;
   sourceOrdinal: number;
@@ -110,8 +110,8 @@ export function planDescendantConditions<R extends DescendantRule>(
     for (let i = 0; i < retained.length; i++) {
       const left = retained[i]!;
       for (const right of retained.slice(i + 1)) {
-        if (left.rule.states.some((states) => states.some(isStructuralPseudoState)) ||
-          right.rule.states.some((states) => states.some(isStructuralPseudoState))) continue;
+        if (left.rule.nodes.some((node) => node.states.some(isStructuralPseudoState)) ||
+          right.rule.nodes.some((node) => node.states.some(isStructuralPseudoState))) continue;
         if (left.rule.layer !== right.rule.layer || JSON.stringify(left.rule.conditions) !== JSON.stringify(right.rule.conditions) ||
           left.specificity !== right.specificity || implies(left, right) || implies(right, left) || exclusive(left, right)) continue;
         for (const a of left.declarations) for (const b of right.declarations) {

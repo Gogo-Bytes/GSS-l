@@ -21,7 +21,7 @@ export function planFixedModuleOrder(rules: readonly ParsedStyleRule[], instance
       for (const other of pending) {
         if (other.instance.rule.layer !== first.instance.rule.layer ||
           JSON.stringify(other.instance.rule.conditions) !== JSON.stringify(first.instance.rule.conditions) ||
-          other.instance.rule.pseudoElements.at(-1) !== first.instance.rule.pseudoElements.at(-1) ||
+          other.instance.rule.nodes.at(-1)?.pseudoElement !== first.instance.rule.nodes.at(-1)?.pseudoElement ||
           other.declaration.important !== first.declaration.important ||
           !overlap(family[i]!, other)) continue;
         pending.delete(other);
@@ -58,8 +58,8 @@ function reusablePureOccurrence({ instance, declaration }: Occurrence): boolean 
   return rule.conditions.length === 0 && rule.path.length === 1 && instance.targetPath.length === 1 &&
     !instance.sourcePath && instance.sourceIndex === -1 && !instance.observation &&
     !rule.externalTarget && !rule.externalCondition && rule.relations.length === 0 &&
-    rule.states.every((parts) => parts.length === 0) && rule.attributes.every((parts) => parts.length === 0) &&
-    rule.observations.every((parts) => parts.length === 0) && rule.pseudoElements.every((pseudo) => pseudo === null) &&
+    rule.nodes.every((node) => node.states.length === 0) && rule.nodes.every((node) => node.attributes.length === 0) &&
+    rule.nodes.every((node) => node.observations.length === 0) && rule.nodes.every((node) => node.pseudoElement === null) &&
     !isPropertyOrderReuseBarrier(declaration.property);
 }
 
