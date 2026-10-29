@@ -1,5 +1,5 @@
 import selectorParser from 'postcss-selector-parser';
-import type { CompatibilityTransformer } from '../infrastructure/lightning-compatibility-transformer.js';
+import type { CompatibilityTransformer } from './compatibility-transformer.js';
 import type { ParsedStyleRule } from '../domain/parsed-stylesheet.js';
 import type { GssDiagnostic, ReplaceStylesheetInput, StyleModuleArtifact } from '../public-types.js';
 import type { ParsedStylesheet } from './css-parser-port.js';

@@ -1,5 +1,5 @@
 import type { ParsedStyleRule } from '../domain/parsed-stylesheet.js';
-import type { CompatibilityTransformer, PhysicalDeclaration } from '../infrastructure/lightning-compatibility-transformer.js';
+import type { CompatibilityTransformer, PhysicalDeclaration } from './compatibility-transformer.js';
 import { identifyAssetValue, type AssetBindings } from './asset-values.js';
 import { assetOccurrences } from './stylesheet-assets.js';
 

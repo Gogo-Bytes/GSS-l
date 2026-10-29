@@ -1,4 +1,4 @@
-import type { CompatibilityTransformer } from '../infrastructure/lightning-compatibility-transformer.js';
+import type { CompatibilityTransformer } from './compatibility-transformer.js';
 import type { GssCompilerConfig, GssCompilerSession } from '../public-types.js';
 import type { CssParserPort } from './css-parser-port.js';
 import { createDefaultNameAllocator, type NameAllocatorPort } from './name-allocator.js';

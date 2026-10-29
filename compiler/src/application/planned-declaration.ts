@@ -1,4 +1,4 @@
-import type { PhysicalDeclaration } from '../infrastructure/lightning-compatibility-transformer.js';
+import type { PhysicalDeclaration } from './compatibility-transformer.js';
 import type { ParsedCondition, SourceSpan } from '../domain/parsed-stylesheet.js';
 import type { ContextualRelationIdentity, ObservedRelationIdentity, PureDeclarationIdentity } from '../domain/readable-name.js';
 

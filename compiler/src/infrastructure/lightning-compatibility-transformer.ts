@@ -1,11 +1,6 @@
 import postcss from 'postcss';
 import { transform, type Targets } from 'lightningcss';
-
-export type PhysicalDeclaration = { property: string; value: string; important: boolean };
-export type CompatibilityTransformer = {
-  expand(declaration: PhysicalDeclaration): readonly PhysicalDeclaration[] | undefined;
-  expandResource(css: string, kind: 'property' | 'keyframes' | 'font-face'): string | undefined;
-};
+import type { CompatibilityTransformer, PhysicalDeclaration } from '../application/compatibility-transformer.js';
 
 const supportedBrowsers = new Set(['chrome', 'edge', 'firefox', 'safari', 'ios_saf']);
 

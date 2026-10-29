@@ -1,6 +1,6 @@
 import postcss from 'postcss';
 import valueParser from 'postcss-value-parser';
-import type { CompatibilityTransformer } from '../infrastructure/lightning-compatibility-transformer.js';
+import type { CompatibilityTransformer } from './compatibility-transformer.js';
 import type { ParsedDeclaration, ParsedFontFaceResource, ParsedGlobalResource, ParsedKeyframesRegistration, ParsedPropertyRegistration, ParsedStyleRule, SourceSpan } from '../domain/parsed-stylesheet.js';
 import { bindCssAssets, type AssetBindings, type AssetUrlResolver } from './asset-values.js';
 import { assetOccurrences } from './stylesheet-assets.js';

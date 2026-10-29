@@ -1,4 +1,4 @@
-import type { CompatibilityTransformer } from '../infrastructure/lightning-compatibility-transformer.js';
+import type { CompatibilityTransformer } from './compatibility-transformer.js';
 import { type AssetUrlResolver } from './asset-values.js';
 import { collectAssetDependencies } from './stylesheet-assets.js';
 import { toLogicalModuleId } from './module-identity.js';

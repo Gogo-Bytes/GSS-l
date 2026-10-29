@@ -71,6 +71,8 @@
 
 Compatibility 物理声明身份的写入与查询已集中，资源标记、importance 与 fallback 行为不变，验证见当前计划。
 
+已有 compatibility transformer 契约归应用层，Lightning CSS 实现通过该契约注入，运行行为不变，验证见当前计划。
+
 已清理未使用的旧状态歧义检查器；实际歧义判断仍由关系 planner 负责，验证见当前计划。
 
 已记录当前节点 background 特例的准入与竞争闭包，未扩大属性或 selector 支持，验证见当前计划。
