@@ -105,6 +105,12 @@ Vite 当前将 transform 的原始 `id` 与源码交给 adapter；对发现的 s
 
 该阶段只移动原检查，不扩大 selector 语法或改变诊断；原有 condition／声明检查的先后次序、关系歧义、marker 生成、排序与 preserved fallback 的 `:global()` 防线保持原样。后续若扩展混合 external 组合，必须另行证明覆盖与强度，而不能仅靠更宽的分类。验证范围见 [当前计划](NEXT-STAGE.md)。
 
+### Selector 节点条件视图
+
+[selector-predicate.ts](../compiler/src/domain/selector-predicate.ts) 为 descendant 与结构 planner 按同一个 authored path 位置读取 state／attribute 条件，作为当前 parser 平行数组的只读视图；缺失位置仍保留缺失，不在此处补默认值或做条件推理。现有 parser port 和 planner instance 的 `sourceIndex`／路径绑定保持不变。
+
+两个 planner 的证明不能因为读取入口相同就合并：descendant 的状态 predicate 使用原状态字符串，结构 planner 使用带 `:` 的形式；前者按 ownership 路径和 source 绑定证明，后者还要证明 runtime witness、组合符和 sibling 约束。它们各自的互斥／蕴含判断、specificity 与 ambiguity 规则均未改变。此视图不是 DOM 节点或完整 selector 语义模型；更完整的规则绑定仍需设计。验证见 [当前计划](NEXT-STAGE.md)。
+
 ## 排序：已确认的目标
 
 目标设计详见 [属性展开、原子排序与复用](PROPERTY-ORDER-DESIGN.md)。owner 已确认：在原生强度及可比较上下文相同的条件下，**已证明的所有权／结构语义优先；语义高度相同才按逻辑属性先、物理属性后**。浏览器决定方向映射。更强语义属于逻辑属性时也不能让物理属性固定顺序覆盖它；这一决定不再重问。

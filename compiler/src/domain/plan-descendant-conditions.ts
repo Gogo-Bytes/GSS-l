@@ -1,4 +1,5 @@
 import { effectsOfProperty } from './property-effects.js';
+import { selectorPredicateAt } from './selector-predicate.js';
 import { isSubsequence, matchesOwnedTarget } from './module-local-atom-ranks.js';
 import { isStructuralPseudoState } from './pseudo-state-capabilities.js';
 
@@ -37,10 +38,10 @@ function conditionSourcePositions(path: readonly string[], target: readonly stri
 
 function predicate<R extends DescendantRule>(instance: DescendantInstance<R>): string[] {
   if (instance.sourceIndex < 0) return [];
-  const rule = instance.rule;
+  const { states, attributes } = selectorPredicateAt(instance.rule, instance.sourceIndex);
   return [
-    ...rule.states[instance.sourceIndex]!,
-    ...rule.attributes[instance.sourceIndex]!.map((attribute) => JSON.stringify(attribute))
+    ...states!,
+    ...attributes!.map((attribute) => JSON.stringify(attribute))
   ];
 }
 function sameNode<R extends DescendantRule>(a: DescendantInstance<R>, b: DescendantInstance<R>) {
@@ -55,8 +56,8 @@ function exclusive<R extends DescendantRule>(a: DescendantInstance<R>, b: Descen
   const left = predicate(a);
   const right = predicate(b);
   if (left.some((part) => right.includes(`not(:${part})`)) || right.some((part) => left.includes(`not(:${part})`))) return true;
-  const aa = a.rule.attributes[a.sourceIndex]?.[0];
-  const ba = b.rule.attributes[b.sourceIndex]?.[0];
+  const aa = selectorPredicateAt(a.rule, a.sourceIndex).attributes?.[0];
+  const ba = selectorPredicateAt(b.rule, b.sourceIndex).attributes?.[0];
   return aa !== undefined && ba !== undefined && aa.attribute === ba.attribute && aa.value !== ba.value;
 }
 
@@ -72,11 +73,15 @@ export function planDescendantConditions<R extends DescendantRule>(
   for (const targetPath of paths.values()) {
     const candidates: DescendantInstance<R>[] = [];
     for (const rule of rules) {
-      const sourceIndex = rule.path.findIndex((_, index) => rule.states[index]!.length > 0 || rule.attributes[index]!.length > 0);
+      const sourceIndex = rule.path.findIndex((_, index) => {
+        const { states, attributes } = selectorPredicateAt(rule, index);
+        return states!.length > 0 || attributes!.length > 0;
+      });
       for (const position of conditionSourcePositions(rule.path, targetPath, sourceIndex)) {
         const sourcePath = sourceIndex < 0 ? undefined : targetPath.slice(0, position + 1);
-        const states = sourceIndex < 0 ? [] : rule.states[sourceIndex]!;
-        const attributes = sourceIndex < 0 ? [] : rule.attributes[sourceIndex]!;
+        const predicate = sourceIndex < 0 ? undefined : selectorPredicateAt(rule, sourceIndex);
+        const states = sourceIndex < 0 ? [] : predicate!.states!;
+        const attributes = sourceIndex < 0 ? [] : predicate!.attributes!;
         candidates.push({ rule, targetPath, ...(sourcePath ? { sourcePath } : {}), sourceIndex,
           specificity: rule.path.length + states.filter((state) => !state.startsWith('where(')).length + attributes.length,
           relationRank: states.length + attributes.length, declarations: rule.declarations });

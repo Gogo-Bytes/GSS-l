@@ -6,6 +6,10 @@ owner 已要求开始推进核心架构与属性排序目标；[架构方向](AR
 
 已确认原生强度／上下文和已证明的所有权／结构语义优先，同语义高度时逻辑属性先、物理属性后；同属性 rank 已与跨属性输出位置分开；shorthand 完整展开及更宽复用仍需设计。不能安全展开的既有输入暂时沿用原 shorthand 处理和 fallback，不额外拒绝。owner 仍要求**不自行新增框架或验收场景**；保留独立 oracle、历史失败及现有验证边界。
 
+Selector 节点条件视图切片：descendant 与结构 planner 通过 [selector-predicate.ts](../compiler/src/domain/selector-predicate.ts) 读取同一 authored path 位置的状态／属性，保留 parser 平行数组及缺失位置语义。两种 planner 的 predicate 编码、ownership／runtime witness 证明、互斥、specificity 和歧义规则继续独立；详见 [架构方向](ARCHITECTURE-DIRECTION.md#selector-节点条件视图)。
+
+关系／排序／复用／`:has()`／external 定向 **513** 项及完整 `verify` **2454** 项（Compiler 1909／React 49／Vite 162／Testing 334）、lint／build／types 通过；545 个样本 parser／replacement／finalize 逐字段一致，四个歧义及两种 compatibility fallback／失败／恢复序列一致。脚本与日志见 `artifacts/selector-predicate-boundary/`；行为保持式重构未重跑浏览器 gate，不宣称 planner 平行数组或证明已完全统一。
+
 Pseudo 输出与共享上下文切片：将已规划 pseudo-element 输出移至 [pseudo-emission.ts](../compiler/src/application/pseudo-emission.ts)，用 [atomic-emission-context.ts](../compiler/src/application/atomic-emission-context.ts) 表达输出分支共享的 scope 树、命名、资源绑定和排序查询。已声明但无存活声明的 pseudo 路径仍保留 scope，原 specificity、marker、identity、准入与 fallback 不变，见 [架构方向](ARCHITECTURE-DIRECTION.md#原子与关系-marker-输出边界)。
 
 pseudo／`:has()`／结构／external／排序／会话／source map 定向 **658** 项和完整 `verify` **2454** 项（Compiler 1909／React 49／Vite 162／Testing 334）、lint／build／types 通过；545 个样本（含 ownership 状态 pseudo）parser／replacement／finalize 逐字段一致，四个歧义和两种 compatibility fallback／失败／恢复序列一致。脚本及日志见 `artifacts/pseudo-emission-boundary/`；行为保持式重构未重跑浏览器 gate，不扩大 selector 或复用范围。
