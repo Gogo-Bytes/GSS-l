@@ -51,6 +51,8 @@
 
 最新架构切片分离 `:has()` observation 输出和共享声明类型，逐分支身份、native specificity 与 marker 保持不变；`verify` 2454 项、654 项定向测试及 540 个样本与歧义／fallback 序列等价通过，未重跑浏览器 gate。
 
+最新架构切片分离结构关系的 source／中间／target marker 输出；`verify` 2454 项、673 项定向测试、541 个样本及歧义／fallback 序列等价通过，未重跑浏览器 gate。
+
 ## 当前阶段
 
 owner 已决定有限 MVP 结项，已批准并完成官方 create-vite React TS 外部消费、Vite 8 实验及同模板 React Router Declarative／BrowserRouter 客户端路由验收。最新基础验证为 2454 项测试通过；Browser oracle 为 125 fixtures／1267 comparisons／38 controls，Playground 同范围通过。另已按 owner 授权完成 React Router Framework Mode 的有界 request-time SSR 实验；不覆盖历史 Firefox 失败或通用／完整 SSR。
