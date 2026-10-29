@@ -1,23 +1,16 @@
+import type { AtomicEmissionContext } from './atomic-emission-context.js';
 import type { ParsedStyleRule, ParsedHasCondition } from '../domain/parsed-stylesheet.js';
 import type { ObservedRelationIdentity } from '../domain/readable-name.js';
-import type { planFixedModuleOrder } from '../domain/fixed-module-ranks.js';
-import { identifyAssetValue, type AssetBindings } from './asset-values.js';
+import { identifyAssetValue } from './asset-values.js';
 import { canonicalCondition } from './condition-context.js';
 import { renderNativeSelector, renderObservedCombinator } from './selector-rendering.js';
-import { ensureScopePath, type MutableScopeNode } from './scope-exports.js';
-import type { NameAllocatorPort } from './name-allocator.js';
-import type { ObservedDeclarationIdentity, PlannedDeclaration } from './planned-declaration.js';
+import { ensureScopePath } from './scope-exports.js';
+import type { ObservedDeclarationIdentity } from './planned-declaration.js';
 
 /** Emit already-planned :has() branches; native list specificity, branch
  * witness and observed marker membership remain distinct parts of identity. */
-export function emitObservedRules(input: {
-  rules: PlannedDeclaration[];
+export function emitObservedRules(input: AtomicEmissionContext & {
   hasRules: readonly ParsedStyleRule[];
-  moduleId: string;
-  bindings: AssetBindings;
-  nameAllocator: NameAllocatorPort;
-  roots: Map<string, MutableScopeNode>;
-  moduleOrder: ReturnType<typeof planFixedModuleOrder>;
 }): void {
   const { rules, hasRules, moduleId, bindings, nameAllocator, roots, moduleOrder } = input;
   for (const rule of hasRules) {

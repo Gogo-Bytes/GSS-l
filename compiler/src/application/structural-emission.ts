@@ -1,23 +1,16 @@
+import type { AtomicEmissionContext } from './atomic-emission-context.js';
 import type { ContextualRelationIdentity } from '../domain/readable-name.js';
 import type { StructuralInstance } from '../domain/plan-structural-relations.js';
-import type { planFixedModuleOrder } from '../domain/fixed-module-ranks.js';
-import { identifyAssetValue, type AssetBindings } from './asset-values.js';
+import { identifyAssetValue } from './asset-values.js';
 import { canonicalCondition } from './condition-context.js';
 import { canonicalAttributeCondition, renderAttributeCondition, renderStateSuffix, renderRelationCombinator } from './selector-rendering.js';
-import { ensureScopePath, type MutableScopeNode } from './scope-exports.js';
-import type { NameAllocatorPort } from './name-allocator.js';
-import type { ContextualDeclarationIdentity, PlannedDeclaration } from './planned-declaration.js';
+import { ensureScopePath } from './scope-exports.js';
+import type { ContextualDeclarationIdentity } from './planned-declaration.js';
 
 /** Render already-planned runtime relations, preserving source, intermediate
  * and target marker bindings and the authored selector specificity. */
-export function emitStructuralRules(input: {
-  rules: PlannedDeclaration[];
+export function emitStructuralRules(input: AtomicEmissionContext & {
   instances: readonly StructuralInstance[];
-  moduleId: string;
-  bindings: AssetBindings;
-  nameAllocator: NameAllocatorPort;
-  roots: Map<string, MutableScopeNode>;
-  moduleOrder: ReturnType<typeof planFixedModuleOrder>;
 }): void {
   const { rules, instances, moduleId, bindings, nameAllocator, roots, moduleOrder } = input;
   for (const instance of instances) {

@@ -1,27 +1,19 @@
+import type { AtomicEmissionContext } from './atomic-emission-context.js';
 import type { ParsedStyleRule } from '../domain/parsed-stylesheet.js';
 import type { ContextualRelationIdentity, PureDeclarationIdentity } from '../domain/readable-name.js';
-import type { planFixedModuleOrder } from '../domain/fixed-module-ranks.js';
 import type { planModuleRelations } from '../domain/plan-module-relations.js';
 import { resolveTargetDeclarations } from '../domain/resolve-target-declarations.js';
-import { identifyAssetValue, type AssetBindings } from './asset-values.js';
+import { identifyAssetValue } from './asset-values.js';
 import { canonicalCondition, groupRulesByCondition } from './condition-context.js';
 import { canonicalAttributeCondition, renderAttributeCondition, renderStateSuffix } from './selector-rendering.js';
-import { ensureScopePath, type MutableScopeNode } from './scope-exports.js';
-import type { NameAllocatorPort } from './name-allocator.js';
-import type { PlannedDeclaration } from './planned-declaration.js';
+import { ensureScopePath } from './scope-exports.js';
 
 /** Emit already-planned ownership targets and ancestor predicates. Ownership
  * paths are not assumed to be DOM ancestors; only ancestor predicates need a
  * source/target relation selector. */
-export function emitOwnershipRules(input: {
-  rules: PlannedDeclaration[];
+export function emitOwnershipRules(input: AtomicEmissionContext & {
   localRules: readonly ParsedStyleRule[];
   plan: NonNullable<ReturnType<typeof planModuleRelations>['plan']>;
-  moduleId: string;
-  bindings: AssetBindings;
-  nameAllocator: NameAllocatorPort;
-  roots: Map<string, MutableScopeNode>;
-  moduleOrder: ReturnType<typeof planFixedModuleOrder>;
 }): void {
   const { rules, localRules, plan, moduleId, bindings, nameAllocator, roots, moduleOrder } = input;
   const { ownershipRules, hasDescendantConditions, plannedDescendants, plannedStructural } = plan;

@@ -1,26 +1,18 @@
+import type { AtomicEmissionContext } from './atomic-emission-context.js';
 import type { ParsedStyleRule } from '../domain/parsed-stylesheet.js';
 import type { PureDeclarationIdentity } from '../domain/readable-name.js';
 import type { GssDiagnostic } from '../public-types.js';
-import type { planFixedModuleOrder } from '../domain/fixed-module-ranks.js';
 import { classifyPropertyEffect } from '../domain/property-effects.js';
-import { identifyAssetValue, type AssetBindings } from './asset-values.js';
+import { identifyAssetValue } from './asset-values.js';
 import { canonicalCondition } from './condition-context.js';
-import { ensureScopePath, type MutableScopeNode } from './scope-exports.js';
-import type { NameAllocatorPort } from './name-allocator.js';
-import type { PlannedDeclaration } from './planned-declaration.js';
+import { ensureScopePath } from './scope-exports.js';
 
 /** Render admitted external selectors. External nodes do not become exported
  * scopes; overlap remains fail-closed until relation semantics are proved. */
-export function emitExternalRules(input: {
+export function emitExternalRules(input: AtomicEmissionContext & {
   id: string;
-  rules: PlannedDeclaration[];
   sameNodeRules: readonly ParsedStyleRule[];
   externalRules: readonly ParsedStyleRule[];
-  moduleId: string;
-  bindings: AssetBindings;
-  nameAllocator: NameAllocatorPort;
-  roots: Map<string, MutableScopeNode>;
-  moduleOrder: ReturnType<typeof planFixedModuleOrder>;
 }): { diagnostics: readonly GssDiagnostic[] } | undefined {
   const { rules, sameNodeRules, externalRules, moduleId, bindings, nameAllocator, roots, moduleOrder } = input;
   for (const rule of sameNodeRules) {
