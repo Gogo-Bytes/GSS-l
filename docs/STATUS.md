@@ -77,6 +77,8 @@ Parser 与规划规则现共用节点分支类型；规划扩展仅保留过渡 
 
 关系规划、语义高度和输出已直接读取节点条件，旧条件视图已移除，证明与缺失位置行为保持原样；验证见当前计划。
 
+Selector 节点迁移后的默认 Chromium／Firefox／WebKit 排序验收及独立 Chromium browser oracle 已通过；旧产物备份和具体覆盖见当前计划。
+
 `:has()` 关系候选、结构规划、语义高度和 atom／preserved 输出已改读节点 observation，相关平行数组已移除，验证见当前计划。
 
 Pseudo 规划／输出、固定排序上下文及复用判断已改读节点，原 pseudo 主体、specificity 和排序屏障不变，验证见当前计划。

@@ -28,6 +28,8 @@ Selector 类型收敛：parser 与规划规则共用节点分支契约，声明�
 
 直接节点读取：关系 planner、语义高度与 marker 输出直接读取绑定节点，移除仅转发节点状态／属性的过渡视图；空 source、缺失位置、descendant／结构证明与 specificity 保持原行为。完整 `verify` **2456** 项、545 样本及歧义／诊断／fallback 对照见 `artifacts/selector-direct-node/`；未重跑浏览器 gate。
 
+节点迁移完成四组条件数组删除后的浏览器复验：原 atom-ranks 默认 Chromium／Firefox／WebKit 全部通过，每引擎固定排序 50 fixtures／182 comparisons／91 精确图像对，逻辑／物理 418 simple + 59 semantic fixtures／2852 paired + 800 原生对照及 3 精确图像对，另有 96 状态对照、32 精确图像对及负对照／external 边界。独立 Chromium browser oracle **125 fixtures／1267 comparisons／38 controls** 与 Vite host、SSG、multipage 检查通过。旧 rank 和 browser 产物已备份，日志见 `artifacts/selector-node-final/`；ownership 路径投影仍在。
+
 Parser selector 契约切片：当时抽出领域 `ParsedSelector` 类型供规则与 parser 中间路径共用，消除重复字段声明；保留分支、声明来源与共享身份，当时平行数组和 parser port 输出不变。后续 parser port 已按上述节点迁移。完整 `verify`、545 样本完整输出及歧义／fallback／诊断优先级对照见 `artifacts/selector-contract-boundary/`；未重跑浏览器 gate。
 
 Descendant planner 的路径、状态和属性类型从同一 `ParsedSelector` 派生，条件／声明范围与关系证明仍属 planner；运行时算法、准入与输出不变。完整 `verify`、545 样本及歧义／fallback 对照见 `artifacts/descendant-selector-contract/`；未重跑浏览器 gate。
