@@ -14,6 +14,8 @@ owner 已要求开始推进核心架构与属性排序目标；[架构方向](AR
 
 Ownership 路径匹配从 background 特例模块移至独立领域模块，供关系规划、语义高度和特例准入共同使用；原末节点／有序子序列算法、scope 组合语义及各 planner 的 DOM／条件证明不变。完整 `verify`、输出及诊断／fallback 对照见 `artifacts/ownership-path-boundary/`；仅移动内部依赖，未重跑浏览器 gate。对照脚本第一次未传 `before` 参数而找不到基线文件，未产生比较结果；随后按正确参数生成基线再执行对照。
 
+声明胜出改为复用同一 ownership 匹配，删除重复实现。末节点相同条件下，旧完整子序列与新前缀子序列等价；穷举两种名称、长度 0–6 的 **16129** 对路径，覆盖空路径和重复名称。完整 `verify`、545 个样本及歧义／fallback 序列前后对照见 `artifacts/ownership-path-resolution/`；未重跑浏览器 gate。
+
 节点条件视图消费方切片：语义高度对相同 source predicate 的比较与 ownership 输出中的状态／属性读取也复用 selector-predicate 视图；缺失值处理、sourceIndex、语义证明和 selector 生成保持原行为。
 
 关系／排序／复用／会话／来源定向 **722** 项和完整 `verify` **2455** 项（Compiler 1909／React 49／Vite 163／Testing 334）、lint／build／types 通过；545 个样本 parser／replacement／finalize 逐字段一致，四个歧义和两种 compatibility fallback／失败／恢复序列一致。脚本与日志见 `artifacts/predicate-consumers-boundary/`；行为保持式重构未重跑浏览器 gate，不把视图视为完整关系模型。

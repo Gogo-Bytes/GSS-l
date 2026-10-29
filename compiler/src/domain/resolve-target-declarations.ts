@@ -1,5 +1,6 @@
 import { effectsOfProperty } from './property-effects.js';
 import { comparePropertyRenderOrder } from './module-order-policy.js';
+import { matchesOwnedTarget } from './ownership-path.js';
 import type { SourceSpan } from './parsed-stylesheet.js';
 
 type DeclarationCandidate = {
@@ -49,7 +50,7 @@ function resolveOneTarget<R extends RuleCandidate>(
   const winners = new Map<string, RankedDeclaration<R>>();
 
   for (const rule of rules) {
-    if (!isMatchingGeneralPath(rule.path, targetPath)) continue;
+    if (!matchesOwnedTarget(rule.path, targetPath)) continue;
 
     rule.declarations.forEach((declaration, declarationOrdinal) => {
       const candidate: RankedDeclaration<R> = {
@@ -70,20 +71,6 @@ function resolveOneTarget<R extends RuleCandidate>(
 
   return [...new Set(winners.values())]
     .sort((left, right) => comparePropertyRenderOrder(left.declaration.property, right.declaration.property));
-}
-
-function isMatchingGeneralPath(
-  candidatePath: readonly string[],
-  targetPath: readonly string[]
-): boolean {
-  if (candidatePath.length > targetPath.length) return false;
-  if (candidatePath.at(-1) !== targetPath.at(-1)) return false;
-
-  let candidateIndex = 0;
-  for (const targetName of targetPath) {
-    if (targetName === candidatePath[candidateIndex]) candidateIndex += 1;
-  }
-  return candidateIndex === candidatePath.length;
 }
 
 function comparePrecedence(left: RankedDeclaration<RuleCandidate>, right: RankedDeclaration<RuleCandidate>): number {

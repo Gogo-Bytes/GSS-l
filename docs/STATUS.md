@@ -73,6 +73,8 @@
 
 Ownership 路径匹配已从 background 特例中移出，关系规划与语义高度不再依赖该特例模块；匹配语义和准入不变，验证见当前计划。
 
+声明胜出也复用该路径匹配，删除等价的重复实现；空路径、重复名称和现有输出对照见当前计划。
+
 ## 当前阶段
 
 owner 已决定有限 MVP 结项，已批准并完成官方 create-vite React TS 外部消费、Vite 8 实验及同模板 React Router Declarative／BrowserRouter 客户端路由验收。最新基础验证为 2455 项测试通过；Browser oracle 为 125 fixtures／1267 comparisons／38 controls，Playground 同范围通过。另已按 owner 授权完成 React Router Framework Mode 的有界 request-time SSR 实验；不覆盖历史 Firefox 失败或通用／完整 SSR。
