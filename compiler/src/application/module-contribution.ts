@@ -3,6 +3,7 @@ import type { CompatibilityTransformer, PhysicalDeclaration } from '../infrastru
 import { bindCssAssets, identifyAssetValue, type AssetUrlResolver } from './asset-values.js';
 import { assetOccurrences, collectAssetDependencies } from './stylesheet-assets.js';
 import { toLogicalModuleId } from './module-identity.js';
+import { validateRegisteredConditions, groupRulesByCondition, canonicalCondition } from './condition-context.js';
 import { renderObservedCombinator, canonicalAttributeCondition, renderAttributeCondition, renderStateSuffix, renderNativeSelector, renderRelationCombinator } from './selector-rendering.js';
 import { findAmbiguousKeyframeInShorthand, rewriteKeyframeReferences, planResource, indentCss, type PlannedResource } from './resource-planning.js';
 import { ensureScopePath, toScopeSchema, renderModuleCode, renderDeclarationCode, type MutableScopeNode } from './scope-exports.js';
@@ -21,7 +22,6 @@ import { discardInvalidStaticPadding, expandSafeBoxRules } from '../domain/expan
 import { planStructuralRelations } from '../domain/plan-structural-relations.js';
 import { isAncestorStateRule, isAncestorAttributeRule, isObservedRule, isStructuralRuntimeRule, isCurrentAttributeRule, isPseudoElementRule, isCurrentStateRule, isPureOwnershipRule } from '../domain/rule-classification.js';
 import { resolveTargetDeclarations } from '../domain/resolve-target-declarations.js';
-import { compareCodeUnits } from '../domain/compare-code-units.js';
 import { disjointKeyframeWidthBounds } from '../domain/keyframe-condition-exclusivity.js';
 import { validateDeclarationSequences } from '../domain/validate-declarations.js';
 import { validateLogicalPhysicalConflicts } from '../domain/validate-logical-physical-conflicts.js';
@@ -29,7 +29,6 @@ import { planPseudoElementConditions } from '../domain/plan-pseudo-element-condi
 import type {
   ParsedCondition,
   ParsedDeclaration,
-  ParsedGlobalResource,
   ParsedHasCondition,
   ParsedKeyframesRegistration,
   ParsedStyleRule,
@@ -1003,80 +1002,6 @@ export function findConflictingResource(
     }
   }
   return undefined;
-}
-
-function validateRegisteredConditions(
-  config: GssCompilerConfig,
-  id: string,
-  rules: readonly ParsedStyleRule[],
-  resources: readonly ParsedGlobalResource[]
-): readonly GssDiagnostic[] {
-  const unregistered = new Map<string, ParsedCondition>();
-  const conditionContexts = [
-    ...rules.map(({ conditions }) => conditions),
-    ...resources.flatMap((resource) =>
-      resource.kind === 'keyframes' ? [resource.conditions] : []
-    )
-  ];
-  for (const conditions of conditionContexts) {
-    for (const condition of conditions) {
-      const registered = new Set(config.conditions?.[condition.kind] ?? []);
-      if (!registered.has(condition.query)) {
-        unregistered.set(`${condition.kind}\0${condition.query}`, condition);
-      }
-    }
-  }
-  const conditionDiagnostics: GssDiagnostic[] = [...unregistered.values()]
-    .sort((left, right) =>
-      compareCodeUnits(`${left.kind}\0${left.query}`, `${right.kind}\0${right.query}`)
-    )
-    .map(({ kind, query }) => ({
-      code: 'GSS1102',
-      severity: 'warning',
-      phase: 'validate',
-      message: `@${kind} ${query} is not registered; its relative precedence is not guaranteed.`,
-      id,
-      reason: 'condition-not-registered',
-      suggestion: `Add the exact query to compiler conditions.${kind} in project precedence order.`
-    }));
-
-  const registeredLayers = new Set(config.layers ?? []);
-  const resourceLayers = resources.flatMap((resource) =>
-    resource.kind === 'keyframes' ? [resource.layer] : []
-  );
-  const unregisteredLayers = new Set(
-    [...rules.map(({ layer }) => layer), ...resourceLayers].filter((layer) =>
-      layer !== 'unlayered' && !registeredLayers.has(layer)
-    )
-  );
-  const layerDiagnostics: GssDiagnostic[] = [...unregisteredLayers].sort().map((layer) => ({
-    code: 'GSS1103',
-    severity: 'warning',
-    phase: 'validate',
-    message: `@layer ${layer} is not registered; its relative precedence is not guaranteed.`,
-    id,
-    reason: 'layer-not-registered',
-    suggestion: 'Add the canonical layer name to compiler layers in project precedence order.'
-  }));
-
-  return [...conditionDiagnostics, ...layerDiagnostics];
-}
-
-function groupRulesByCondition(
-  rules: readonly ParsedStyleRule[]
-): ReadonlyMap<string, readonly ParsedStyleRule[]> {
-  const groups = new Map<string, ParsedStyleRule[]>();
-  for (const rule of rules) {
-    const key = `${rule.layer}\0${canonicalCondition(rule.conditions)}`;
-    groups.set(key, [...(groups.get(key) ?? []), rule]);
-  }
-  return groups;
-}
-
-function canonicalCondition(conditions: readonly ParsedCondition[]): string {
-  return conditions.length === 0
-    ? 'base'
-    : conditions.map(({ kind, query }) => `${kind}:${query}`).join('&&');
 }
 
 function physicalAssetsPreserved(
