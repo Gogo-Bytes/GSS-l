@@ -6,6 +6,10 @@ owner 已要求开始推进核心架构与属性排序目标；[架构方向](AR
 
 已确认原生强度／上下文和已证明的所有权／结构语义优先，同语义高度时逻辑属性先、物理属性后；同属性 rank 已与跨属性输出位置分开；shorthand 完整展开及更宽复用仍需设计。不能安全展开的既有输入暂时沿用原 shorthand 处理和 fallback，不额外拒绝。owner 仍要求**不自行新增框架或验收场景**；保留独立 oracle、历史失败及现有验证边界。
 
+Selector 形态准入切片：将 condition 组合及 pseudo／observation／属性／状态位置的既有检查集中到 selector-admission，保留两个调用点：条件形态在声明和逻辑／物理冲突前，其余形态在后。仍使用原 parser 规则判断 selector 形态、既有 atomicRules 判断声明；诊断优先级、语法准入与 fallback 不变，详见 [架构方向](ARCHITECTURE-DIRECTION.md#external-selector-上下文准入)。
+
+selector／external／关系／会话／排序定向 **650** 项和完整 `verify` **2454** 项（Compiler 1909／React 49／Vite 162／Testing 334）、lint／build／types 通过；539 个样本 parser／replacement／finalize 逐字段一致，另有 7 个 selector／声明冲突优先级及 LKG 场景前后对照。脚本与日志见 `artifacts/selector-shape-admission-boundary/`；内部行为保持式移动未重跑浏览器 gate。
+
 External selector 准入切片：将 local／external target／同节点 external 分类、`:global()` 检测及已有 external 限制移至 [selector-admission.ts](../compiler/src/application/selector-admission.ts)，保持其位于条件／声明与关系规划前。纯 ownership 外部路径及单 longhand base refinement 原限制、后续 marker／排序与 preserved 防线不变；见 [架构方向](ARCHITECTURE-DIRECTION.md#external-selector-上下文准入)。
 
 external／结构／状态／会话及排序定向 **641** 项和完整 `verify` **2454** 项（Compiler 1909／React 49／Vite 162／Testing 334）、lint／build／types 通过；539 个样本 parser／replacement／finalize 及四个歧义／两种兼容 fallback 序列前后逐字段一致。日志和脚本见 `artifacts/selector-admission-boundary/`；行为保持式提取未重跑浏览器 gate，不扩展 external selector 准入。

@@ -2,7 +2,7 @@ import selectorParser from 'postcss-selector-parser';
 import type { ParsedStyleRule } from '../domain/parsed-stylesheet.js';
 import type { GssDiagnostic } from '../public-types.js';
 import { classifyPropertyEffect } from '../domain/property-effects.js';
-import { isPureOwnershipRule } from '../domain/rule-classification.js';
+import { isAncestorStateRule, isAncestorAttributeRule, isObservedRule, isStructuralRuntimeRule, isCurrentAttributeRule, isPseudoElementRule, isCurrentStateRule, isPureOwnershipRule } from '../domain/rule-classification.js';
 
 /** Preserve the existing external admission checks before later condition,
  * declaration, relation and fallback validation. */
@@ -62,4 +62,151 @@ export function prepareSelectorContexts(id: string, semanticRules: readonly Pars
     }] };
   }
   return { context: { externalRules, sameNodeRules, localRules, hasExplicitGlobal } };
+}
+
+/** Kept separate because declaration and logical/physical checks run between
+ * conditional admission and the remaining selector-shape checks. */
+export function validateConditionalSelectorShapes(id: string, rules: readonly ParsedStyleRule[]):
+  { diagnostics: readonly GssDiagnostic[] } | undefined {
+  const unsupportedConditionCombination = rules.find((rule) =>
+    rule.conditions.length > 0 &&
+    !isPureOwnershipRule(rule) &&
+    !isCurrentStateRule(rule) &&
+    !isPseudoElementRule(rule) &&
+    !isCurrentAttributeRule(rule) &&
+    !isStructuralRuntimeRule(rule) &&
+    !isObservedRule(rule) &&
+    !isAncestorStateRule(rule) &&
+    !isAncestorAttributeRule(rule)
+  );
+  if (unsupportedConditionCombination) {
+    return {
+      diagnostics: [{
+        code: 'GSS1101',
+        severity: 'error',
+        phase: 'validate',
+        message: 'Conditions currently support pure ownership declarations only.',
+        id: id,
+        reason: 'capability-not-registered'
+      }]
+    };
+  }
+  return undefined;
+}
+
+export function validateSelectorShapes(id: string, rules: readonly ParsedStyleRule[]):
+  { diagnostics: readonly GssDiagnostic[] } | undefined {
+  const unsupportedPseudoElement = rules.find(({
+    path,
+    relations,
+    states,
+    attributes,
+    observations,
+    pseudoElements
+  }) => {
+    const pseudoElementIndexes = pseudoElements.flatMap((pseudoElement, index) =>
+      pseudoElement ? [index] : []
+    );
+    return pseudoElementIndexes.length > 0 && (
+      pseudoElementIndexes.length !== 1 ||
+      pseudoElementIndexes[0] !== path.length - 1 ||
+      relations.some((relation) => relation !== 'descendant') ||
+      states.slice(0, -1).some((state) => state.length > 0) ||
+      attributes.some((conditions) => conditions.length > 0) ||
+      observations.some((conditions) => conditions.length > 0)
+    );
+  });
+  if (unsupportedPseudoElement) {
+    return {
+      diagnostics: [{
+        code: 'GSS1101',
+        severity: 'error',
+        phase: 'validate',
+        message: 'A pseudo-element must terminate an ownership selector path.',
+        id: id,
+        reason: 'capability-not-registered'
+      }]
+    };
+  }
+
+  const unsupportedObservation = rules.find(({
+    path,
+    relations,
+    states,
+    attributes,
+    observations
+  }) => {
+    const observationIndexes = observations.flatMap((conditions, index) =>
+      conditions.length > 0 ? [index] : []
+    );
+    return observationIndexes.length > 0 && (
+      observationIndexes.length !== 1 ||
+      observationIndexes[0] !== path.length - 1 ||
+      relations.some((relation) => relation !== 'descendant') ||
+      states.some((state) => state.length > 0) ||
+      attributes.some((conditions) => conditions.length > 0)
+    );
+  });
+  if (unsupportedObservation) {
+    return {
+      diagnostics: [{
+        code: 'GSS1101',
+        severity: 'error',
+        phase: 'validate',
+        message: 'The initial :has() capability requires one simple observed local class.',
+        id: id,
+        reason: 'capability-not-registered'
+      }]
+    };
+  }
+
+  const unsupportedAttribute = rules.find(({ path, relations, states, attributes }) => {
+    const attributeIndexes = attributes.flatMap((conditions, index) =>
+      conditions.length > 0 ? [index] : []
+    );
+    const firstRuntimeRelation = relations.findIndex((relation) => relation !== 'descendant');
+    return attributeIndexes.length > 0 && (
+      attributeIndexes.length !== 1 ||
+      attributes[attributeIndexes[0]!]!.length !== 1 ||
+      path.length === 0 ||
+      (firstRuntimeRelation >= 0 && attributeIndexes[0] !== firstRuntimeRelation) ||
+      states.some((state) => state.length > 0)
+    );
+  });
+  if (unsupportedAttribute) {
+    return {
+      diagnostics: [{
+        code: 'GSS1101',
+        severity: 'error',
+        phase: 'validate',
+        message: 'A selector may contain one equality attribute on its current or runtime-source node.',
+        id: id,
+        reason: 'capability-not-registered'
+      }]
+    };
+  }
+
+  const unsupportedState = rules.find(({ path, relations, states }) => {
+    const stateIndexes = states.flatMap((state, index) => state.length > 0 ? [index] : []);
+    const firstRuntimeRelation = relations.findIndex((relation) => relation !== 'descendant');
+    return stateIndexes.length > 0 && (
+      stateIndexes.length !== 1 ||
+      path.length === 0 ||
+      (firstRuntimeRelation >= 0 && stateIndexes[0] !== firstRuntimeRelation)
+    );
+  });
+  if (unsupportedState) {
+    return {
+      diagnostics: [{
+        code: 'GSS1101',
+        severity: 'error',
+        phase: 'validate',
+        message: 'A runtime chain requires its single state to be on the chain source.',
+        id: id,
+        reason: 'capability-not-registered'
+      }]
+    };
+  }
+
+  return undefined;
 }

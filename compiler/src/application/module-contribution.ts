@@ -2,7 +2,7 @@ import type { CompatibilityTransformer } from '../infrastructure/lightning-compa
 import { type AssetUrlResolver } from './asset-values.js';
 import { collectAssetDependencies } from './stylesheet-assets.js';
 import { toLogicalModuleId } from './module-identity.js';
-import { prepareSelectorContexts } from './selector-admission.js';
+import { prepareSelectorContexts, validateConditionalSelectorShapes, validateSelectorShapes } from './selector-admission.js';
 import { emitAtomicRules, type PlannedDeclaration } from './atomic-emission.js';
 import { analyzeCompatibility } from './compatibility-analysis.js';
 import { preparePreservedContribution } from './preserved-contribution.js';
@@ -13,7 +13,7 @@ import type { NameAllocatorPort } from './name-allocator.js';
 import { isRegisteredPropertyEffect } from '../domain/property-effects.js';
 import { planModuleRelations } from '../domain/plan-module-relations.js';
 import { discardInvalidStaticPadding, expandSafeBoxRules } from '../domain/expand-safe-box.js';
-import { isAncestorStateRule, isAncestorAttributeRule, isObservedRule, isStructuralRuntimeRule, isCurrentAttributeRule, isPseudoElementRule, isCurrentStateRule, isPureOwnershipRule } from '../domain/rule-classification.js';
+import { isPureOwnershipRule } from '../domain/rule-classification.js';
 import { disjointKeyframeWidthBounds } from '../domain/keyframe-condition-exclusivity.js';
 import { validateDeclarationSequences } from '../domain/validate-declarations.js';
 import { validateLogicalPhysicalConflicts } from '../domain/validate-logical-physical-conflicts.js';
@@ -140,29 +140,8 @@ export function prepareContribution(
     parsed.rules,
     parsed.resources
   );
-  const unsupportedConditionCombination = parsed.rules.find((rule) =>
-    rule.conditions.length > 0 &&
-    !isPureOwnershipRule(rule) &&
-    !isCurrentStateRule(rule) &&
-    !isPseudoElementRule(rule) &&
-    !isCurrentAttributeRule(rule) &&
-    !isStructuralRuntimeRule(rule) &&
-    !isObservedRule(rule) &&
-    !isAncestorStateRule(rule) &&
-    !isAncestorAttributeRule(rule)
-  );
-  if (unsupportedConditionCombination) {
-    return {
-      diagnostics: [{
-        code: 'GSS1101',
-        severity: 'error',
-        phase: 'validate',
-        message: 'Conditions currently support pure ownership declarations only.',
-        id: input.id,
-        reason: 'capability-not-registered'
-      }]
-    };
-  }
+  const conditionalSelectorError = validateConditionalSelectorShapes(input.id, parsed.rules);
+  if (conditionalSelectorError) return conditionalSelectorError;
   const declarationDiagnostics = validateDeclarationSequences(input.id, atomicRules);
   if (declarationDiagnostics.some(({ severity }) => severity === 'error')) {
     return { diagnostics: declarationDiagnostics };
@@ -172,117 +151,8 @@ export function prepareContribution(
     return { diagnostics: logicalPhysicalDiagnostics };
   }
 
-  const unsupportedPseudoElement = parsed.rules.find(({
-    path,
-    relations,
-    states,
-    attributes,
-    observations,
-    pseudoElements
-  }) => {
-    const pseudoElementIndexes = pseudoElements.flatMap((pseudoElement, index) =>
-      pseudoElement ? [index] : []
-    );
-    return pseudoElementIndexes.length > 0 && (
-      pseudoElementIndexes.length !== 1 ||
-      pseudoElementIndexes[0] !== path.length - 1 ||
-      relations.some((relation) => relation !== 'descendant') ||
-      states.slice(0, -1).some((state) => state.length > 0) ||
-      attributes.some((conditions) => conditions.length > 0) ||
-      observations.some((conditions) => conditions.length > 0)
-    );
-  });
-  if (unsupportedPseudoElement) {
-    return {
-      diagnostics: [{
-        code: 'GSS1101',
-        severity: 'error',
-        phase: 'validate',
-        message: 'A pseudo-element must terminate an ownership selector path.',
-        id: input.id,
-        reason: 'capability-not-registered'
-      }]
-    };
-  }
-
-  const unsupportedObservation = parsed.rules.find(({
-    path,
-    relations,
-    states,
-    attributes,
-    observations
-  }) => {
-    const observationIndexes = observations.flatMap((conditions, index) =>
-      conditions.length > 0 ? [index] : []
-    );
-    return observationIndexes.length > 0 && (
-      observationIndexes.length !== 1 ||
-      observationIndexes[0] !== path.length - 1 ||
-      relations.some((relation) => relation !== 'descendant') ||
-      states.some((state) => state.length > 0) ||
-      attributes.some((conditions) => conditions.length > 0)
-    );
-  });
-  if (unsupportedObservation) {
-    return {
-      diagnostics: [{
-        code: 'GSS1101',
-        severity: 'error',
-        phase: 'validate',
-        message: 'The initial :has() capability requires one simple observed local class.',
-        id: input.id,
-        reason: 'capability-not-registered'
-      }]
-    };
-  }
-
-  const unsupportedAttribute = parsed.rules.find(({ path, relations, states, attributes }) => {
-    const attributeIndexes = attributes.flatMap((conditions, index) =>
-      conditions.length > 0 ? [index] : []
-    );
-    const firstRuntimeRelation = relations.findIndex((relation) => relation !== 'descendant');
-    return attributeIndexes.length > 0 && (
-      attributeIndexes.length !== 1 ||
-      attributes[attributeIndexes[0]!]!.length !== 1 ||
-      path.length === 0 ||
-      (firstRuntimeRelation >= 0 && attributeIndexes[0] !== firstRuntimeRelation) ||
-      states.some((state) => state.length > 0)
-    );
-  });
-  if (unsupportedAttribute) {
-    return {
-      diagnostics: [{
-        code: 'GSS1101',
-        severity: 'error',
-        phase: 'validate',
-        message: 'A selector may contain one equality attribute on its current or runtime-source node.',
-        id: input.id,
-        reason: 'capability-not-registered'
-      }]
-    };
-  }
-
-  const unsupportedState = parsed.rules.find(({ path, relations, states }) => {
-    const stateIndexes = states.flatMap((state, index) => state.length > 0 ? [index] : []);
-    const firstRuntimeRelation = relations.findIndex((relation) => relation !== 'descendant');
-    return stateIndexes.length > 0 && (
-      stateIndexes.length !== 1 ||
-      path.length === 0 ||
-      (firstRuntimeRelation >= 0 && stateIndexes[0] !== firstRuntimeRelation)
-    );
-  });
-  if (unsupportedState) {
-    return {
-      diagnostics: [{
-        code: 'GSS1101',
-        severity: 'error',
-        phase: 'validate',
-        message: 'A runtime chain requires its single state to be on the chain source.',
-        id: input.id,
-        reason: 'capability-not-registered'
-      }]
-    };
-  }
+  const selectorShapeError = validateSelectorShapes(input.id, parsed.rules);
+  if (selectorShapeError) return selectorShapeError;
 
   const roots = new Map<string, MutableScopeNode>();
   const relationPlanning = planModuleRelations(localRules, semanticRules);
