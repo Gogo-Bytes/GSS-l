@@ -6,6 +6,10 @@ owner 已要求开始推进核心架构与属性排序目标；[架构方向](AR
 
 已确认原生强度／上下文和已证明的所有权／结构语义优先，同语义高度时逻辑属性先、物理属性后；同属性 rank 已与跨属性输出位置分开；shorthand 完整展开及更宽复用仍需设计。不能安全展开的既有输入暂时沿用原 shorthand 处理和 fallback，不额外拒绝。owner 仍要求**不自行新增框架或验收场景**；保留独立 oracle、历史失败及现有验证边界。
 
+资源规划边界切片：提取 [resource-planning.ts](../compiler/src/application/resource-planning.ts)，集中 keyframes 引用检查／重写、全局资源输出、身份、asset 绑定、兼容性转换及来源信息；`PlannedResource` 也随职责移动。资源冲突检查仍在提交前执行，失败不污染已提交贡献；排序、marker、fallback、资源准入和公共接口保持原流程。契约和反例见 [架构方向](ARCHITECTURE-DIRECTION.md#全局资源规划的职责边界)。
+
+资源、兼容性、source map、会话和收敛定向 **329** 项，以及完整 `verify` **2452** 项（Compiler 1907／React 49／Vite 162／Testing 334）、lint／build／types 通过。原有 534 个排序样本与 4 个特殊 scope／preserved／shorthand／全局资源样本，共 **538** 个样本的完整 replacement 和 finalize 前后逐字段一致，包括 CSS、map、manifest、schema、代码、诊断与 generation；asset 引用及兼容路径另由已有定向测试覆盖。比较脚本、基线、定向与全量日志保存在 `artifacts/resource-planning-boundary/`。本次为行为保持式内部移动，未重跑浏览器 gate；跨模块资源事务和其他未测输入不因比较结果扩大保证。
+
 Scope 输出边界切片：从 `module-contribution.ts` 提取 [scope-exports.ts](../compiler/src/application/scope-exports.ts)，集中 scope 路径收集、schema 及 JS／类型导出生成；原子和 preserved 路径共用该内部模块。marker／atom membership 仍由原 planner 决定，排序、fallback、identity 和公共接口均未改变。路径顺序、class 去重及排序、特殊导出名称与保留属性的契约见 [架构方向](ARCHITECTURE-DIRECTION.md#scope-输出的职责边界)；关系规划本身仍未合并。
 
 会话、收敛和 source map 定向 **273** 项及完整 `verify` **2452** 项（Compiler 1907／React 49／Vite 162／Testing 334）、lint／build／types 通过。基于当前代码重建前后，原有 534 个排序 fixtures 加 3 个特殊 scope、preserved marker 和 shorthand 样本，共 **537** 个样本的完整 replacement（含导出代码、类型声明、schema、诊断）及 finalize（CSS／map／manifest／report／generation）逐字段完全一致。比较脚本、基线和日志见 `artifacts/scope-exports-boundary/`。本次纯内部移动且公共输出逐字段相同，未重跑浏览器 gate；三引擎及 oracle 仍是上一切片的验证记录。

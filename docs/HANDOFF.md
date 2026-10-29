@@ -9,7 +9,7 @@
 
 已交付宿主基线4b7a982、核心修复基线af02efe，后续统一排序已完成：有限 MVP、隐式字符串引用和有限 alias、核心 CSS registry/marker 收敛、官方 Vite React TS 外部消费、React Router Declarative 客户端路由与 Framework SSR 均已交付。历史核心修复阶段的 verify 为 2124 项测试及 lint/build/types；最新验证以 STATUS 和当前计划为准，不把历史数字当成本次 session 的新运行证据。浏览器范围与原始失败见 STATUS 及专项报告，不将 Chromium 框架实验外推为全部浏览器/框架支持。
 
-owner 已要求按整体规划实施核心架构与属性排序目标；先读 docs/ARCHITECTURE-DIRECTION.md 和 docs/PROPERTY-ORDER-DESIGN.md。会话提交／失效、贡献准备与快照汇总已分离；scope 树、schema 和导出生成已提取为独立内部模块，membership 与 marker 语义仍由贡献规划负责；产品包已迁至 compiler/、adapters/react/、integrations/vite/ 和 types/，测试基础设施已迁至 tests/；示例职责尚未整理。可原子化 pure ownership 规则内及跨规则累积的已登记逻辑／物理 longhand 对已准入，preserved 模式及其余部分组合仍可能报 GSS1206，排序目标未完成。此前核心核查和统一固定排序已交付，不把历史结果当新目标完成。Astro、Next.js、SWC、更多 Router 模式/浏览器矩阵不是自动任务，不自行新增框架或验收场景。
+owner 已要求按整体规划实施核心架构与属性排序目标；先读 docs/ARCHITECTURE-DIRECTION.md 和 docs/PROPERTY-ORDER-DESIGN.md。会话提交／失效、贡献准备与快照汇总已分离；scope 树、schema／导出生成及全局资源规划已提取为独立内部模块，membership 与 marker 语义仍由贡献规划负责；产品包已迁至 compiler/、adapters/react/、integrations/vite/ 和 types/，测试基础设施已迁至 tests/；示例职责尚未整理。可原子化 pure ownership 规则内及跨规则累积的已登记逻辑／物理 longhand 对已准入，preserved 模式及其余部分组合仍可能报 GSS1206，排序目标未完成。此前核心核查和统一固定排序已交付，不把历史结果当新目标完成。Astro、Next.js、SWC、更多 Router 模式/浏览器矩阵不是自动任务，不自行新增框架或验收场景。
 
 已确定的使用契约不要重问：静态 scope 使用编译期字符串语法糖，旧 .self 兼容；未知/动态路径保持普通 JS undefined；DOM 关系和匹配由浏览器负责，GSS 按现有准入做 marker rewrite；公共 virtual:gss.css?url 通过宿主正常 stylesheet links 使用；gss() 返回 Plugin[]，标准 plugins:[gss(...)] 不变。SSR URL 的实际有界范围见 docs/FRAMEWORK-SSR-ACCEPTANCE.md。
 
