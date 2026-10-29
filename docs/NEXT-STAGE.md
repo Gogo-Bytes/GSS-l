@@ -6,6 +6,10 @@ owner 已要求开始推进核心架构与属性排序目标；[架构方向](AR
 
 已确认原生强度／上下文和已证明的所有权／结构语义优先，同语义高度时逻辑属性先、物理属性后；同属性 rank 已与跨属性输出位置分开；shorthand 完整展开及更宽复用仍需设计。不能安全展开的既有输入暂时沿用原 shorthand 处理和 fallback，不额外拒绝。owner 仍要求**不自行新增框架或验收场景**；保留独立 oracle、历史失败及现有验证边界。
 
+节点条件视图消费方切片：语义高度对相同 source predicate 的比较与 ownership 输出中的状态／属性读取也复用 selector-predicate 视图；缺失值处理、sourceIndex、语义证明和 selector 生成保持原行为。
+
+关系／排序／复用／会话／来源定向 **722** 项和完整 `verify` **2455** 项（Compiler 1909／React 49／Vite 163／Testing 334）、lint／build／types 通过；545 个样本 parser／replacement／finalize 逐字段一致，四个歧义和两种 compatibility fallback／失败／恢复序列一致。脚本与日志见 `artifacts/predicate-consumers-boundary/`；行为保持式重构未重跑浏览器 gate，不把视图视为完整关系模型。
+
 Adapter 诊断位置契约：owner 确认在公开 `SourceAdapterDiagnostic` 加入可选 `range?: GssSourceRange`，表示 `id` 所指源码的零起始 UTF-16 半开区间。Vite 继续仅在范围有效且匹配当前源码时生成位置／代码框；未改变运行时行为或新增框架。详见 [架构方向](ARCHITECTURE-DIRECTION.md#adapter-与宿主接缝已实现和未验证部分)。
 
 新增公开类型约束及真实 Vite transform 回归；变更前 TypeScript 因 `range` 未声明报 TS2353，变更后 Vite 诊断相关 **51** 项、完整 `verify` **2455** 项（Compiler 1909／React 49／Vite 163／Testing 334）及 lint／build／types 通过。Vite 诊断模块经 TypeScript 类型擦除的运行时 JS 前后完全相同，证据及最初类型失败见 `artifacts/adapter-diagnostic-range/`。未重跑浏览器或外部框架 gate，不声称 Vue／Svelte 支持。

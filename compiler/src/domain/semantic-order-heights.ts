@@ -3,8 +3,15 @@ import type { OrderOccurrence } from './order-occurrences.js';
 import { strictlyRefines } from './plan-structural-relations.js';
 import { matchesOwnedTarget } from './module-local-atom-ranks.js';
 import { propertiesMayOverlapForModuleOrder } from './module-order-policy.js';
+import { selectorPredicateAt } from './selector-predicate.js';
 
 const context = (target: readonly string[], source?: readonly string[]) => JSON.stringify([target, source]);
+const sameSourcePredicate = (a: OrderOccurrence, b: OrderOccurrence) => {
+  const left = selectorPredicateAt(a.instance.rule, a.instance.sourceIndex);
+  const right = selectorPredicateAt(b.instance.rule, b.instance.sourceIndex);
+  return JSON.stringify(left.states ?? []) === JSON.stringify(right.states ?? []) &&
+    JSON.stringify(left.attributes ?? []) === JSON.stringify(right.attributes ?? []);
+};
 
 /** Only proven ownership/structural relations form semantic edges; authored order is not an edge. */
 export function semanticOrderHeights(family: readonly OrderOccurrence[]): ReadonlyMap<OrderOccurrence, number> {
@@ -20,8 +27,7 @@ export function semanticOrderHeights(family: readonly OrderOccurrence[]): Readon
       a.instance.rule.relations.every((relation) => relation === 'descendant') &&
       b.instance.rule.relations.every((relation) => relation === 'descendant') &&
       context(a.instance.targetPath, a.instance.sourcePath) === context(b.instance.targetPath, b.instance.sourcePath) &&
-      JSON.stringify(a.instance.rule.states[a.instance.sourceIndex] ?? []) === JSON.stringify(b.instance.rule.states[b.instance.sourceIndex] ?? []) &&
-      JSON.stringify(a.instance.rule.attributes[a.instance.sourceIndex] ?? []) === JSON.stringify(b.instance.rule.attributes[b.instance.sourceIndex] ?? []) &&
+      sameSourcePredicate(a, b) &&
       a.instance.specificity < b.instance.specificity;
   };
   const heights = new Map<OrderOccurrence, number>();
