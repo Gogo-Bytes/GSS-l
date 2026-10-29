@@ -8,6 +8,8 @@ owner 已要求开始推进核心架构与属性排序目标；[架构方向](AR
 
 无效 CSS 由作者负责，GSS 不承诺通用识别或修复，owner 决定不扩大负 padding 值过滤；既有静态负 px 处理保留，fallback 不变。已知反例：在 Chromium／Firefox／WebKit，`padding-left:9px;padding:-1%`、`-1em`、`-1rem` 与逻辑轴 `padding-inline-start:9px;padding-inline:-1%` 的原生左侧均为 9px，而当前 GSS 为 0px；合法 `-0%`／`-0em` 原生和 GSS 均为 0px。独立 authored-native、字面预期、脚本及逐引擎输出见 `artifacts/invalid-padding-units-probe/`。
 
+结构关系规划与语义高度的严格细化证明复用同一实例约束构造；runtime edges、source predicate、descendant 和 observation 的原边界不变。完整 `verify`、545 样本与歧义／fallback 对照见 `artifacts/structural-constraint-boundary/`；未重跑浏览器 gate。
+
 逻辑／物理冲突校验复用相同的 ownership 路径匹配，移除原本与声明胜出相同的第三份实现；上下文分组、纯 ownership 准入、`GSS1206` 及 preserved fallback 不变。完整 `verify`、545 样本和歧义／fallback／诊断优先级对照见 `artifacts/ownership-conflict-path/`；未重跑浏览器 gate。
 
 Compatibility 分析集中物理声明身份的写入与查找，属性、已识别值、asset 标记、importance 的既有键不变；贡献准备不再重复编码。完整 `verify`、545 样本和两种 compatibility 的 preserved／atomic／失败／恢复对照见 `artifacts/compatibility-identity-boundary/`；未重跑浏览器 gate。

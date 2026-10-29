@@ -42,20 +42,22 @@ function implies(a: Constraint, b: Constraint): boolean {
   // A sibling witness is not an ancestor, even if its exported path is a prefix.
   return Boolean(b.runtime) || !a.runtime || a.runtime.edges.every((edge) => edge === 'child');
 }
+function constraintForInstance(instance: StructuralInstance): Constraint {
+  const firstRuntime = instance.rule.relations.findIndex((relation) => relation !== 'descendant');
+  return { targetPath: instance.targetPath,
+    ...(instance.sourcePath ? { sourcePath: instance.sourcePath } : {}),
+    predicates: predicates(instance.rule, instance.sourceIndex),
+    ...(firstRuntime >= 0 ? { runtime: {
+      sourcePath: instance.rule.path.slice(0, firstRuntime + 1),
+      edges: instance.rule.relations.slice(firstRuntime).filter((relation) => relation !== 'descendant')
+    } } : {}) };
+}
+
 /** Strict implication at one emission context. Numeric relationRank is deliberately
  * not used: it is a target-local projection, not a transferable semantic proof. */
 export function strictlyRefines(a: StructuralInstance, b: StructuralInstance): boolean {
-  const constraint = (instance: StructuralInstance): Constraint => {
-    const firstRuntime = instance.rule.relations.findIndex((relation) => relation !== 'descendant');
-    return { targetPath: instance.targetPath,
-      ...(instance.sourcePath ? { sourcePath: instance.sourcePath } : {}),
-      predicates: predicates(instance.rule, instance.sourceIndex),
-      ...(firstRuntime >= 0 ? { runtime: {
-        sourcePath: instance.rule.path.slice(0, firstRuntime + 1),
-        edges: instance.rule.relations.slice(firstRuntime).filter((relation) => relation !== 'descendant')
-      } } : {}) };
-  };
-  return sameContext(a, b) && implies(constraint(a), constraint(b)) && !implies(constraint(b), constraint(a));
+  return sameContext(a, b) && implies(constraintForInstance(a), constraintForInstance(b)) &&
+    !implies(constraintForInstance(b), constraintForInstance(a));
 }
 
 function sameContext(a: StructuralInstance, b: StructuralInstance) {
@@ -147,17 +149,15 @@ export function planStructuralRelations(
   const structural: Candidate[] = rules.map((rule) => {
     const sourceIndex = rule.relations.findIndex((relation) => relation !== 'descendant');
     const sourcePath = rule.path.slice(0, sourceIndex + 1);
-    const predicate = predicates(rule, sourceIndex);
     // The session admits one or more trailing descendant ownership edges;
     // they remain in the emitted selector but are not runtime implication edges.
-    const runtimeEdges = rule.relations.slice(sourceIndex).filter((relation) => relation !== 'descendant');
     const { states, attributes } = selectorPredicateAt(rule, sourceIndex);
+    const instance: StructuralInstance = { rule, targetPath: rule.path, sourcePath, sourceIndex,
+      specificity: rule.path.length + states!.filter((state) => !state.startsWith('where(')).length + attributes!.length,
+      relationRank: 0, declarations: rule.declarations };
     return {
-      instance: { rule, targetPath: rule.path, sourcePath, sourceIndex,
-        specificity: rule.path.length + states!.filter((state) => !state.startsWith('where(')).length + attributes!.length,
-        relationRank: 0, declarations: rule.declarations },
-      constraint: { targetPath: rule.path, sourcePath, predicates: predicate,
-        runtime: { sourcePath, edges: runtimeEdges } }
+      instance,
+      constraint: constraintForInstance(instance)
     };
   });
   const inherited: Candidate[] = descendants.map((instance) => ({ instance: { ...instance }, constraint: {

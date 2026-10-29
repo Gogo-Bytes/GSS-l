@@ -67,6 +67,8 @@
 
 已三引擎复现负百分比／em／rem padding 导致先前有效声明被误删；合法负零仍有效。owner 决定无效 CSS 由作者负责，不扩大过滤；既有负 px 处理保留，反例及证据见当前计划。
 
+结构关系规划与排序中的严格细化证明共用实例约束构造，runtime／ownership 和 observation 的证明边界不变；验证见当前计划。
+
 逻辑／物理冲突校验复用统一 ownership 路径匹配，`GSS1206` 准入与 fallback 不变，验证见当前计划。
 
 Compatibility 物理声明身份的写入与查询已集中，资源标记、importance 与 fallback 行为不变，验证见当前计划。
