@@ -10,6 +10,8 @@ owner 已要求开始推进核心架构与属性排序目标；[架构方向](AR
 
 Playground 目录迁移：既有示例源码及配置位于 `examples/playground/`，以私有 workspace 包声明依赖；独立参考实现、fixture 与临时副本验收脚本保留在 `tests/`。根 `playground`／`playground:build`／`playground:preview`／`playground:check` 命令不变，验收仍只在副本中写入 HMR 探针。冻结 lockfile 离线安装、完整 `verify` 2455 项、构建和 dev／preview 命令检查、原 Chromium Playground dev／preview 各 125 fixture／1267 对照及独立 browser oracle 通过；日志和旧 Playground／browser 产物、旧 dist 备份见 `artifacts/playground-migration/`。其他验收应用未迁移。
 
+Playground 脚本职责收尾：`@gss-l/playground` 提供 dev／build:app／preview／typecheck，根命令直接调用示例包；旧 `@gss-l/testing` 的 dev／build／preview 脚本保留为转发，验收仍由 testing 包执行。常规 workspace build 不新增示例构建。完整 `verify` 2455 项、根及旧入口构建与 dev／preview HTTP 检查通过；开发和预览服务器在检查后以 SIGINT 关闭，日志中的信号退出是主动停止。旧 dist 与日志见 `artifacts/playground-script-ownership/`；本切片不修改示例源码，沿用前述 Chromium 验收。
+
 结构关系规划与语义高度的严格细化证明复用同一实例约束构造；runtime edges、source predicate、descendant 和 observation 的原边界不变。完整 `verify`、545 样本与歧义／fallback 对照见 `artifacts/structural-constraint-boundary/`；未重跑浏览器 gate。
 
 结构约束删除从未读取的重复 runtime sourcePath；predicate／唯一 witness 仍使用外层 sourcePath，runtime 推理仍使用 edges。完整 `verify` 和输出、歧义／fallback 对照见 `artifacts/structural-runtime-constraint/`；未重跑浏览器 gate。

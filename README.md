@@ -23,6 +23,8 @@ corepack pnpm task-board
 corepack pnpm article
 ```
 
+Playground 的 dev、构建、预览及类型检查由 `@gss-l/playground` 工作区负责；独立浏览器参考与验收脚本位于 `tests/`。
+
 `verify` 包括 lint、build、单元测试和类型检查，**不包括浏览器验收**。其他脚本以根目录及 `tests/package.json` 为准；运行浏览器验收前先读 [验收边界](docs/STATUS.md#验收与已知边界)。
 
 ## 代码导航
