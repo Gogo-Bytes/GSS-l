@@ -1,5 +1,6 @@
 import type { GssDiagnostic } from '../public-types.js';
 import { classifyPropertyEffect } from './property-effects.js';
+import { isPureOwnershipRule } from './rule-classification.js';
 
 const conflictingPhysicalProperties: Readonly<Record<string, readonly string[]>> = {
   'margin-inline': ['margin', 'margin-left', 'margin-right'],
@@ -67,7 +68,7 @@ export function validateLogicalPhysicalConflicts(
     add(key, rule);
   }
 
-  const ownershipRules = rules.filter(isPureOwnershipRule);
+  const ownershipRules = rules.filter(isLocalPureOwnershipRule);
   const targetPaths = new Map<string, readonly string[]>();
   for (const rule of rules) {
     if (rule.externalTarget === undefined && rule.externalCondition === undefined) {
@@ -95,7 +96,7 @@ export function validateLogicalPhysicalConflicts(
         const owners = new Set([...properties.get(logical)!, ...properties.get(property)!]);
         // The fixed module rank planner orders pure ownership longhands across
         // targets, preserving proven ownership before fixed property priority.
-        return !(allowPureLonghands && [...owners].every(isPureOwnershipRule) &&
+        return !(allowPureLonghands && [...owners].every(isLocalPureOwnershipRule) &&
           classifyPropertyEffect(logical).kind === 'longhand' &&
           classifyPropertyEffect(property).kind === 'longhand');
       });
@@ -115,12 +116,8 @@ export function validateLogicalPhysicalConflicts(
   return [];
 }
 
-function isPureOwnershipRule(rule: RuleCandidate): boolean {
-  return rule.externalTarget === undefined && rule.externalCondition === undefined && rule.relations.every((relation) => relation === 'descendant') &&
-    rule.states.every((states) => states.length === 0) &&
-    rule.attributes.every((attributes) => attributes.length === 0) &&
-    rule.observations.every((observations) => observations.length === 0) &&
-    rule.pseudoElements.every((pseudoElement) => pseudoElement === null);
+function isLocalPureOwnershipRule(rule: RuleCandidate): boolean {
+  return rule.externalTarget === undefined && rule.externalCondition === undefined && isPureOwnershipRule(rule);
 }
 
 function isMatchingGeneralPath(

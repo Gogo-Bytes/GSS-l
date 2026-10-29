@@ -25,6 +25,8 @@
 
 最新架构切片提取关系 selector 渲染并保留局部 marker 登记，规划与 preserved 路径不变。`verify` 2452 项、362 项定向测试及 538 个样本完整输出前后等价通过；行为保持式移动未重跑浏览器 gate，详见当前计划。
 
+最新架构切片集中规则形态判断，冲突检查仍对 external 上下文保留额外约束；`verify` 2452 项、722 项定向测试及 538 个样本完整输出前后等价通过，未重跑浏览器 gate，详见当前计划。
+
 ## 当前阶段
 
 owner 已决定有限 MVP 结项，已批准并完成官方 create-vite React TS 外部消费、Vite 8 实验及同模板 React Router Declarative／BrowserRouter 客户端路由验收。最新基础验证为 2452 项测试通过；Browser oracle 为 125 fixtures／1267 comparisons／38 controls，Playground 同范围通过。另已按 owner 授权完成 React Router Framework Mode 的有界 request-time SSR 实验；不覆盖历史 Firefox 失败或通用／完整 SSR。

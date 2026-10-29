@@ -19,6 +19,7 @@ import { planFixedModuleOrder } from '../domain/fixed-module-ranks.js';
 import type { OrderBinding } from '../domain/order-occurrences.js';
 import { discardInvalidStaticPadding, expandSafeBoxRules } from '../domain/expand-safe-box.js';
 import { planStructuralRelations } from '../domain/plan-structural-relations.js';
+import { isAncestorStateRule, isAncestorAttributeRule, isObservedRule, isStructuralRuntimeRule, isCurrentAttributeRule, isPseudoElementRule, isCurrentStateRule, isPureOwnershipRule } from '../domain/rule-classification.js';
 import { resolveTargetDeclarations } from '../domain/resolve-target-declarations.js';
 import { compareCodeUnits } from '../domain/compare-code-units.js';
 import { disjointKeyframeWidthBounds } from '../domain/keyframe-condition-exclusivity.js';
@@ -1002,61 +1003,6 @@ export function findConflictingResource(
     }
   }
   return undefined;
-}
-
-function isAncestorStateRule(rule: ParsedStyleRule): boolean {
-  return rule.relations.every((relation) => relation === 'descendant') &&
-    rule.states.slice(0, -1).some((state) => state.length > 0);
-}
-
-function isAncestorAttributeRule(rule: ParsedStyleRule): boolean {
-  return rule.relations.every((relation) => relation === 'descendant') &&
-    rule.attributes.slice(0, -1).some((conditions) => conditions.length > 0);
-}
-
-function isObservedRule(rule: ParsedStyleRule): boolean {
-  return rule.observations.at(-1)!.length > 0;
-}
-
-function isStructuralRuntimeRule(rule: ParsedStyleRule): boolean {
-  return rule.relations.some((relation) => relation !== 'descendant') &&
-    rule.observations.every((conditions) => conditions.length === 0) &&
-    rule.pseudoElements.every((pseudoElement) => pseudoElement === null);
-}
-
-function isCurrentAttributeRule(rule: ParsedStyleRule): boolean {
-  return rule.relations.every((relation) => relation === 'descendant') &&
-    rule.attributes.at(-1)!.length === 1 &&
-    rule.attributes.slice(0, -1).every((conditions) => conditions.length === 0) &&
-    rule.states.every((state) => state.length === 0) &&
-    rule.observations.every((conditions) => conditions.length === 0) &&
-    rule.pseudoElements.every((pseudoElement) => pseudoElement === null);
-}
-
-function isPseudoElementRule(rule: ParsedStyleRule): boolean {
-  return rule.relations.every((relation) => relation === 'descendant') &&
-    Boolean(rule.pseudoElements.at(-1)) &&
-    rule.pseudoElements.slice(0, -1).every((pseudoElement) => pseudoElement === null) &&
-    rule.states.slice(0, -1).every((state) => state.length === 0) &&
-    rule.attributes.every((conditions) => conditions.length === 0) &&
-    rule.observations.every((conditions) => conditions.length === 0);
-}
-
-function isCurrentStateRule(rule: ParsedStyleRule): boolean {
-  return rule.relations.every((relation) => relation === 'descendant') &&
-    rule.states.at(-1)!.length > 0 &&
-    rule.states.slice(0, -1).every((state) => state.length === 0) &&
-    rule.attributes.every((conditions) => conditions.length === 0) &&
-    rule.observations.every((conditions) => conditions.length === 0) &&
-    rule.pseudoElements.every((pseudoElement) => pseudoElement === null);
-}
-
-function isPureOwnershipRule(rule: ParsedStyleRule): boolean {
-  return rule.relations.every((relation) => relation === 'descendant') &&
-    rule.states.every((state) => state.length === 0) &&
-    rule.attributes.every((conditions) => conditions.length === 0) &&
-    rule.observations.every((conditions) => conditions.length === 0) &&
-    rule.pseudoElements.every((pseudoElement) => pseudoElement === null);
 }
 
 function validateRegisteredConditions(

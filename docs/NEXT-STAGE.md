@@ -6,6 +6,10 @@ owner 已要求开始推进核心架构与属性排序目标；[架构方向](AR
 
 已确认原生强度／上下文和已证明的所有权／结构语义优先，同语义高度时逻辑属性先、物理属性后；同属性 rank 已与跨属性输出位置分开；shorthand 完整展开及更宽复用仍需设计。不能安全展开的既有输入暂时沿用原 shorthand 处理和 fallback，不额外拒绝。owner 仍要求**不自行新增框架或验收场景**；保留独立 oracle、历史失败及现有验证边界。
 
+规则形态边界切片：将贡献准备中 ownership、状态、属性、结构、pseudo、observation 的既有判断集中到 domain [rule-classification.ts](../compiler/src/domain/rule-classification.ts)，逻辑／物理冲突检查复用共享 ownership 形态，但继续单独排除 external target／condition。谓词并非互斥分类或 DOM 证明；调用方的准入、planner 路由、排序、fallback 和规则顺序未改变，详见 [架构方向](ARCHITECTURE-DIRECTION.md#规则形态判断与上下文准入)。
+
+相关排序／external／结构／会话 **722** 项和完整 `verify` **2452** 项（Compiler 1907／React 49／Vite 162／Testing 334）、lint／build／types 通过；538 个既有样本的完整 replacement 与 finalize 前后逐字段一致。基线、脚本和日志在 `artifacts/rule-classification-boundary/`；本项仅为行为保持式内部重构，未重跑浏览器 gate，不将既有 external、parser 和 planner 边界视为完成。
+
 关系 selector 渲染边界切片：将组合符、属性条件、状态后缀和原生 selector 渲染集中到 [selector-rendering.ts](../compiler/src/application/selector-rendering.ts)；原生片段内局部 class 仍通过 scope 树登记 marker，`:global()` 不产生局部 membership。关系规划、`:has()` specificity／witness、marker 身份、preserved selector、排序及 fallback 均保留原路径；职责和反例见 [架构方向](ARCHITECTURE-DIRECTION.md#关系-selector-与局部-marker-渲染边界)。
 
 关系／`:has()`、会话收敛和 source map 定向 **362** 项及完整 `verify` **2452** 项（Compiler 1907／React 49／Vite 162／Testing 334）、lint／build／types 通过。原 534 个排序样本及 4 个 scope／preserved／shorthand／资源样本，共 **538** 个样本完整 replacement 和 finalize 前后逐字段一致，包含 CSS／map／manifest／schema／代码／诊断／generation；其他 selector 形态由现有定向测试覆盖。脚本、基线及日志见 `artifacts/selector-rendering-boundary/`。本次为行为保持式移动，未重跑浏览器 gate；不从输出等价推导支持更多 selector 或跨关系复用。
