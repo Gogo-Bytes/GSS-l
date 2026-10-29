@@ -15,7 +15,7 @@ import type { GssDiagnostic, GssSourceRange } from '../public-types.js';
 
 import type {
   ParsedDeclaration, SelectorRelation, ParsedAttributeCondition, ParsedHasCondition,
-  ParsedCondition, ParsedStyleRule, ParsedPropertyRegistration, ParsedKeyframesRegistration,
+  ParsedCondition, ParsedSelector, ParsedStyleRule, ParsedPropertyRegistration, ParsedKeyframesRegistration,
   ParsedFontFaceResource, ParsedGlobalResource, SourceSpan
 } from '../domain/parsed-stylesheet.js';
 import type { ParsedStylesheet } from '../application/css-parser-port.js';
@@ -325,16 +325,7 @@ function parsePropertyRegistration(
   return { kind: 'property', name, declarations, source: spanOf(node) };
 }
 
-type ParsedSelectorPath = {
-  path: readonly string[];
-  externalTarget?: string;
-  externalCondition?: string;
-  relations: readonly SelectorRelation[];
-  states: readonly (readonly string[])[];
-  attributes: readonly (readonly ParsedAttributeCondition[])[];
-  observations: readonly (readonly ParsedHasCondition[])[];
-  pseudoElements: readonly (string | null)[];
-};
+type ParsedSelectorPath = Omit<ParsedSelector, 'selector'>;
 
 function isNamedLayer(value: string): boolean {
   return /^[-_A-Za-z][-_A-Za-z0-9]*(?:\.[-_A-Za-z][-_A-Za-z0-9]*)*$/.test(value);
@@ -348,9 +339,9 @@ function isSupportedConditionKind(
 
 function parseDescendantClassPaths(
   rule: postcss.Rule
-): readonly (ParsedSelectorPath & { selector: string })[] | undefined {
+): readonly ParsedSelector[] | undefined {
   const root = selectorParser().astSync(rule);
-  const paths: (ParsedSelectorPath & { selector: string })[] = [];
+  const paths: ParsedSelector[] = [];
   for (const branch of root.nodes) {
     const path = parseClassPath(branch.nodes);
     if (!path) return undefined;

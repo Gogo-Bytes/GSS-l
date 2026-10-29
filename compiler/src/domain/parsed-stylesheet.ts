@@ -39,8 +39,9 @@ export type ParsedCondition = {
   query: string;
 };
 
-export type ParsedStyleRule = {
-  source: SourceSpan;
+/** One normalized selector branch. Path positions bind all parallel conditions;
+ * these describe GSS ownership and do not assert browser ancestry. */
+export type ParsedSelector = {
   selector: string;
   /** A browser-matched external descendant; path remains the GSS-owned anchor. */
   externalTarget?: string;
@@ -52,6 +53,10 @@ export type ParsedStyleRule = {
   attributes: readonly (readonly ParsedAttributeCondition[])[];
   observations: readonly (readonly ParsedHasCondition[])[];
   pseudoElements: readonly (string | null)[];
+};
+
+export type ParsedStyleRule = ParsedSelector & {
+  source: SourceSpan;
   conditions: readonly ParsedCondition[];
   layer: string;
   declarations: readonly ParsedDeclaration[];

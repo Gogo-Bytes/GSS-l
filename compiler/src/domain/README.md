@@ -4,6 +4,7 @@
 
 | 工作 | 现有入口 | 必须区分的语义 |
 | --- | --- | --- |
+| 解析后的 selector 分支 | [parsed-stylesheet.ts](parsed-stylesheet.ts) | `ParsedSelector` 是 parser 与规则共享的分支结构；位置绑定仍以平行数组表达，分支与声明来源、ownership 与 DOM 关系不能混同。 |
 | 规则形态判断 | [rule-classification.ts](rule-classification.ts) | 谓词可重叠，不等同准入或 DOM 匹配；冲突检查还需单独排除 external target／condition。 |
 | Ownership 路径 | [ownership-path.ts](ownership-path.ts) | 目标末节点相同，前缀按有序子序列匹配；声明胜出、关系规划、语义高度、背景准入和逻辑／物理冲突校验使用同一规则。这是 scope 组合关系，不证明 DOM 祖先或结构 selector。 |
 | 节点条件视图 | [selector-predicate.ts](selector-predicate.ts) | 只关联同一 authored 位置的状态与属性；用于 planner、语义高度与 ownership／结构输出，不合并 descendant 和结构 planner 的蕴含／互斥证明。 |

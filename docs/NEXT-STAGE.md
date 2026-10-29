@@ -8,6 +8,8 @@ owner 已要求开始推进核心架构与属性排序目标；[架构方向](AR
 
 无效 CSS 由作者负责，GSS 不承诺通用识别或修复，owner 决定不扩大负 padding 值过滤；既有静态负 px 处理保留，fallback 不变。已知反例：在 Chromium／Firefox／WebKit，`padding-left:9px;padding:-1%`、`-1em`、`-1rem` 与逻辑轴 `padding-inline-start:9px;padding-inline:-1%` 的原生左侧均为 9px，而当前 GSS 为 0px；合法 `-0%`／`-0em` 原生和 GSS 均为 0px。独立 authored-native、字面预期、脚本及逐引擎输出见 `artifacts/invalid-padding-units-probe/`。
 
+Parser selector 契约切片：抽出领域 `ParsedSelector` 类型供规则与 parser 中间路径共用，消除重复字段声明；保留分支、声明来源与共享身份，现有平行数组和 parser port 输出不变。完整 `verify`、545 样本完整输出及歧义／fallback／诊断优先级对照见 `artifacts/selector-contract-boundary/`；未重跑浏览器 gate。
+
 Playground 目录迁移：既有示例源码及配置位于 `examples/playground/`，以私有 workspace 包声明依赖；独立参考实现、fixture 与临时副本验收脚本保留在 `tests/`。根 `playground`／`playground:build`／`playground:preview`／`playground:check` 命令不变，验收仍只在副本中写入 HMR 探针。冻结 lockfile 离线安装、完整 `verify` 2455 项、构建和 dev／preview 命令检查、原 Chromium Playground dev／preview 各 125 fixture／1267 对照及独立 browser oracle 通过；日志和旧 Playground／browser 产物、旧 dist 备份见 `artifacts/playground-migration/`。其他验收应用未迁移。
 
 Playground 脚本职责收尾：`@gss-l/playground` 提供 dev／build:app／preview／typecheck，根命令直接调用示例包；旧 `@gss-l/testing` 的 dev／build／preview 脚本保留为转发，验收仍由 testing 包执行。常规 workspace build 不新增示例构建。完整 `verify` 2455 项、根及旧入口构建与 dev／preview HTTP 检查通过；开发和预览服务器在检查后以 SIGINT 关闭，日志中的信号退出是主动停止。旧 dist 与日志见 `artifacts/playground-script-ownership/`；本切片不修改示例源码，沿用前述 Chromium 验收。

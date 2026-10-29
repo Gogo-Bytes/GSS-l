@@ -53,6 +53,8 @@ GSS 以 CSS 为输入，生成可组合的 scope 引用、原子 CSS 与必要�
 
 PostCSS parser 在解析单个 selector 分支时，将每个局部 class 的名称、状态、属性、observation 和 pseudo 保存在同一个内部片段中，再在返回 `ParsedStyleRule` 之前投影为现有平行数组。关系仍保留相邻片段之间的顺序。这样可以在构建阶段维护节点与条件的归属，但没有改变 `CssParserPort` 或 planner 消费的结构；planner 的平行数组和整体规则绑定模型仍待后续处理。
 
+解析后的分支结构由领域类型 `ParsedSelector` 与 `ParsedStyleRule` 共用；parser 的中间路径类型从该分支结构派生，不再单独重复声明字段。selector-list 的每个分支仍独立，规则来源、声明及其共享身份仍属于 `ParsedStyleRule`。这是类型层面的单一契约，不改变 parser 输出，也不意味着平行数组或完整绑定模型已经迁移。
+
 分支身份、源码跨度、嵌套展开、selector-list 声明共享与诊断不得因此变化。普通完整路径继续去重／排序状态；既有 external target／condition 的提前返回保留原始状态顺序和重复项，不能在行为保持式重构中悄然归一化。外部目标对应的末尾 descendant 关系仍按旧规则去除。此切片不扩大 selector 准入、不改变 marker、排序或 fallback；验证见 [当前计划](NEXT-STAGE.md)。
 
 ### 关系规划编排边界
