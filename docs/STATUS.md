@@ -39,6 +39,8 @@
 
 最新有界核对梳理了 Adapter／Vite 接缝：现有简单非 React 假 adapter 可传递 schema，但 Vue／Svelte 与虚拟模块等仍未验证；31 项相关现有测试通过，未修改 API 或运行浏览器验收。
 
+最新架构切片将整模块 preserved 贡献生成隔离，入口和排序／fallback 决策不变；`verify` 2453 项、329 项定向测试、539 个样本及两种兼容设置的失败／恢复序列前后等价通过，未重跑浏览器 gate。
+
 ## 当前阶段
 
 owner 已决定有限 MVP 结项，已批准并完成官方 create-vite React TS 外部消费、Vite 8 实验及同模板 React Router Declarative／BrowserRouter 客户端路由验收。最新基础验证为 2453 项测试通过；Browser oracle 为 125 fixtures／1267 comparisons／38 controls，Playground 同范围通过。另已按 owner 授权完成 React Router Framework Mode 的有界 request-time SSR 实验；不覆盖历史 Firefox 失败或通用／完整 SSR。
