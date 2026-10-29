@@ -6,6 +6,10 @@ owner 已要求开始推进核心架构与属性排序目标；[架构方向](AR
 
 已确认原生强度／上下文和已证明的所有权／结构语义优先，同语义高度时逻辑属性先、物理属性后；同属性 rank 已与跨属性输出位置分开；shorthand 完整展开及更宽复用仍需设计。不能安全展开的既有输入暂时沿用原 shorthand 处理和 fallback，不额外拒绝。owner 仍要求**不自行新增框架或验收场景**；保留独立 oracle、历史失败及现有验证边界。
 
+Adapter／宿主接缝有界核对：梳理 `GssSourceAdapter` 的同步三操作、Vite 依赖解析／编译／schema 注入／诊断流程，区分 CSS parser port；记录 React id／静态 import 限制、假 `.view` adapter 证据与 Vue／Svelte、虚拟 id、map 组合等未验证问题。公开 diagnostic 类型未声明 range，而 React 实际结果及 Vite formatter 可以携带／读取 range，不能以实现细节替代公共承诺。未改变 API、能力或框架，见 [架构方向](ARCHITECTURE-DIRECTION.md#adapter-与宿主接缝已实现和未验证部分)。
+
+相关现有 React adapter **2** 项、Vite plugin **11** 项和 CSS parser seam **18** 项通过，日志在 `artifacts/adapter-seam-audit/`。最初并行执行中目录创建与日志重定向竞争，Vite／parser 命令没有启动（当时 Vite 包名也选错）；已记录并在目录创建后以正确包名执行。此项只核对并更新文档，不新增测试或重跑浏览器／外部框架验收；结果不能证明其他框架接入成功。
+
 排序候选收集切片：将 descendant candidates、结构 instances、pseudo candidates、同节点／external 规则与逐 observation `:has()` 绑定的既有组合移入关系规划模块；顺序和纯 ownership 在 fallback 判定后的延迟候选生成保持原样。没有把剪枝后 instances 替代 candidates，也未改变 rank、语义高度、marker、准入或 fallback。
 
 关系／排序／复用／external 定向 **513** 项、完整 `verify` **2453** 项（Compiler 1908／React 49／Vite 162／Testing 334）和 lint／build／types 通过；539 个样本 parser／replacement／finalize 输出逐字段一致，三个歧义诊断和失败后快照一致。脚本与日志见 `artifacts/order-candidates-boundary/`；行为保持式移动未重跑浏览器 gate。
