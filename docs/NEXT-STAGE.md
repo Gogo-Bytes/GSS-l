@@ -6,6 +6,10 @@ owner 已要求开始推进核心架构与属性排序目标；[架构方向](AR
 
 已确认原生强度／上下文和已证明的所有权／结构语义优先，同语义高度时逻辑属性先、物理属性后；同属性 rank 已与跨属性输出位置分开；shorthand 完整展开及更宽复用仍需设计。不能安全展开的既有输入暂时沿用原 shorthand 处理和 fallback，不额外拒绝。owner 仍要求**不自行新增框架或验收场景**；保留独立 oracle、历史失败及现有验证边界。
 
+External 输出边界切片：将已准入的同节点 external condition／external descendant 输出移至 [external-emission.ts](../compiler/src/application/external-emission.ts)，保留 owned selector、外部节点不导出 scope、逐声明排序身份及各自的重叠 effect 拒绝。selector 准入、marker／specificity、fallback 与诊断顺序保持原流程；详见 [架构方向](ARCHITECTURE-DIRECTION.md#原子与关系-marker-输出边界)。
+
+external／结构／排序／会话／source map 定向 **645** 项和完整 `verify` **2454** 项（Compiler 1909／React 49／Vite 162／Testing 334）、lint／build／types 通过；544 个样本（含两类 external 输出）parser／replacement／finalize 逐字段一致，四个歧义及两种 compatibility fallback／失败／恢复序列一致。脚本和日志见 `artifacts/external-emission-boundary/`；行为保持式提取未重跑浏览器 gate，不扩大 external 准入。
+
 Ownership 输出边界切片：将普通 ownership 目标及 descendant／ancestor predicate 的既有输出移至 [ownership-emission.ts](../compiler/src/application/ownership-emission.ts)。无条件 ownership 不推导 DOM 祖先；已规划祖先条件继续使用 source／target marker、原 specificity 和排序绑定。目标声明解析、条件分组、规划顺序、fallback 与 scope membership 不变，见 [架构方向](ARCHITECTURE-DIRECTION.md#原子与关系-marker-输出边界)。
 
 ownership／descendant／结构／排序／会话／source map 定向 **722** 项和完整 `verify` **2454** 项（Compiler 1909／React 49／Vite 162／Testing 334）、lint／build／types 通过；542 个样本（含祖先状态／ownership）parser／replacement／finalize 逐字段一致，四个歧义及两种 compatibility fallback／失败／恢复序列一致。脚本与日志见 `artifacts/ownership-emission-boundary/`；行为保持式提取未重跑浏览器 gate，不扩大关系证明或复用范围。
