@@ -6,6 +6,10 @@ owner 已要求开始推进核心架构与属性排序目标；[架构方向](AR
 
 已确认原生强度／上下文和已证明的所有权／结构语义优先，同语义高度时逻辑属性先、物理属性后；同属性 rank 已与跨属性输出位置分开；shorthand 完整展开及更宽复用仍需设计。不能安全展开的既有输入暂时沿用原 shorthand 处理和 fallback，不额外拒绝。owner 仍要求**不自行新增框架或验收场景**；保留独立 oracle、历史失败及现有验证边界。
 
+Adapter 诊断位置契约：owner 确认在公开 `SourceAdapterDiagnostic` 加入可选 `range?: GssSourceRange`，表示 `id` 所指源码的零起始 UTF-16 半开区间。Vite 继续仅在范围有效且匹配当前源码时生成位置／代码框；未改变运行时行为或新增框架。详见 [架构方向](ARCHITECTURE-DIRECTION.md#adapter-与宿主接缝已实现和未验证部分)。
+
+新增公开类型约束及真实 Vite transform 回归；变更前 TypeScript 因 `range` 未声明报 TS2353，变更后 Vite 诊断相关 **51** 项、完整 `verify` **2455** 项（Compiler 1909／React 49／Vite 163／Testing 334）及 lint／build／types 通过。Vite 诊断模块经 TypeScript 类型擦除的运行时 JS 前后完全相同，证据及最初类型失败见 `artifacts/adapter-diagnostic-range/`。未重跑浏览器或外部框架 gate，不声称 Vue／Svelte 支持。
+
 Selector 节点条件视图切片：descendant 与结构 planner 通过 [selector-predicate.ts](../compiler/src/domain/selector-predicate.ts) 读取同一 authored path 位置的状态／属性，保留 parser 平行数组及缺失位置语义。两种 planner 的 predicate 编码、ownership／runtime witness 证明、互斥、specificity 和歧义规则继续独立；详见 [架构方向](ARCHITECTURE-DIRECTION.md#selector-节点条件视图)。
 
 关系／排序／复用／`:has()`／external 定向 **513** 项及完整 `verify` **2454** 项（Compiler 1909／React 49／Vite 162／Testing 334）、lint／build／types 通过；545 个样本 parser／replacement／finalize 逐字段一致，四个歧义及两种 compatibility fallback／失败／恢复序列一致。脚本与日志见 `artifacts/selector-predicate-boundary/`；行为保持式重构未重跑浏览器 gate，不宣称 planner 平行数组或证明已完全统一。
@@ -50,7 +54,7 @@ Preserved 贡献边界切片：将已选择的整模块 fallback 生成移入 [p
 
 资源／compatibility／source map／会话定向 **329** 项及完整 `verify` **2453** 项（Compiler 1908／React 49／Vite 162／Testing 334）、lint／build／types 通过；539 个样本 parser／replacement／finalize 逐字段一致，另比较两种 compatibility 设置下 preserved→atomic→非法更新→恢复的完整输出和 schema。首次 verify 因遗留未使用类型导入在 lint 失败，失败日志和当时尚未重新 build 的比较输出保留；去除导入后重新 build，`verify-final.log`、`output-after.log` 与 `fallback-after.log` 才是最终证据，见 `artifacts/preserved-contribution-boundary/`。行为保持式移动未重跑浏览器 gate，不扩大 fallback 范围。
 
-Adapter／宿主接缝有界核对：梳理 `GssSourceAdapter` 的同步三操作、Vite 依赖解析／编译／schema 注入／诊断流程，区分 CSS parser port；记录 React id／静态 import 限制、假 `.view` adapter 证据与 Vue／Svelte、虚拟 id、map 组合等未验证问题。公开 diagnostic 类型未声明 range，而 React 实际结果及 Vite formatter 可以携带／读取 range，不能以实现细节替代公共承诺。未改变 API、能力或框架，见 [架构方向](ARCHITECTURE-DIRECTION.md#adapter-与宿主接缝已实现和未验证部分)。
+Adapter／宿主接缝有界核对：梳理 `GssSourceAdapter` 的同步三操作、Vite 依赖解析／编译／schema 注入／诊断流程，区分 CSS parser port；记录 React id／静态 import 限制、假 `.view` adapter 证据与 Vue／Svelte、虚拟 id、map 组合等未验证问题。当时公开 diagnostic 类型未声明 range，而 React 实际结果及 Vite formatter 可以携带／读取 range；后续已按 owner 决策加入公开可选字段。未改变 API、能力或框架，见 [架构方向](ARCHITECTURE-DIRECTION.md#adapter-与宿主接缝已实现和未验证部分)。
 
 相关现有 React adapter **2** 项、Vite plugin **11** 项和 CSS parser seam **18** 项通过，日志在 `artifacts/adapter-seam-audit/`。最初并行执行中目录创建与日志重定向竞争，Vite／parser 命令没有启动（当时 Vite 包名也选错）；已记录并在目录创建后以正确包名执行。此项只核对并更新文档，不新增测试或重跑浏览器／外部框架验收；结果不能证明其他框架接入成功。
 

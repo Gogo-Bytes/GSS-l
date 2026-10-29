@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterEach, expect, it } from 'vitest';
 import { build, createLogger, createServer, normalizePath, type ViteDevServer } from 'vite';
 import { react } from '@gss-l/react';
-import { createGssCompilerSession, type GssSourceAdapter } from '@gss-l/compiler';
+import { createGssCompilerSession, type GssSourceAdapter, type SourceAdapterDiagnostic } from '@gss-l/compiler';
 import { gss } from '../src/index.js';
 
 const servers: ViteDevServer[] = [];
@@ -203,4 +203,26 @@ it('compiles root-external imports, aliases and symlinks with one relative logic
     'const card = { self: "gss-s--module__2e__2e__2f_shared_2f_Card_2e_gss--path_card" };\n' +
     'export default { card };\n'
   );
+});
+
+
+it('accepts typed Adapter diagnostic ranges and reports the original source location', async () => {
+  const adapter: GssSourceAdapter = {
+    supports: (id) => id.endsWith('.view'),
+    discoverImports: () => ['./Card.gss'],
+    transform({ id, source }) {
+      const diagnostic: SourceAdapterDiagnostic = {
+        id, code: 'VIEW001', severity: 'error', phase: 'transform', message: 'Invalid view expression.',
+        range: { start: source.indexOf('bad'), end: source.indexOf('bad') + 3 }
+      };
+      return { code: source, diagnostics: [diagnostic] };
+    }
+  };
+  const { root, server } = await fixture(undefined, adapter);
+  await writeFile(join(root, 'Card.view'), 'first\nbad here');
+  await expect(server.transformRequest('/Card.view')).rejects.toMatchObject({
+    message: expect.stringContaining('[VIEW001]'),
+    loc: { file: `${root}/Card.view`, line: 2, column: 0 },
+    frame: expect.stringContaining('2 | bad here\n  | ^^^')
+  });
 });

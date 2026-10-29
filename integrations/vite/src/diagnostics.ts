@@ -1,10 +1,10 @@
-import type { GssSourceRange, SourceAdapterDiagnostic } from '@gss-l/compiler';
+import type { SourceAdapterDiagnostic } from '@gss-l/compiler';
 import type { Rollup } from 'vite';
 
 type SourceSnapshot = { id: string; source: string };
 
 /** Native host locations are one-based lines and zero-based UTF-16 columns. */
-function location(diagnostic: SourceAdapterDiagnostic & { range?: GssSourceRange }, snapshot: SourceSnapshot): Pick<Rollup.RollupLog, 'loc' | 'frame'> {
+function location(diagnostic: SourceAdapterDiagnostic, snapshot: SourceSnapshot): Pick<Rollup.RollupLog, 'loc' | 'frame'> {
   const range = diagnostic.range;
   if (diagnostic.id !== snapshot.id || !range) return {};
   const { source } = snapshot;
@@ -51,7 +51,7 @@ function location(diagnostic: SourceAdapterDiagnostic & { range?: GssSourceRange
 
 export function reportDiagnostics(
   context: Rollup.MinimalPluginContext,
-  diagnostics: readonly (SourceAdapterDiagnostic & { range?: GssSourceRange })[],
+  diagnostics: readonly SourceAdapterDiagnostic[],
   snapshot?: SourceSnapshot
 ): void {
   for (const diagnostic of diagnostics) {

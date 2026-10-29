@@ -1,4 +1,4 @@
-import type { ScopeSchema } from '../public-types.js';
+import type { GssSourceRange, ScopeSchema } from '../public-types.js';
 
 /** Source map v3 data, without a dependency on a particular source editor. */
 export type SourceMapArtifact = {
@@ -17,6 +17,8 @@ export type SourceAdapterDiagnostic = {
   phase: string;
   message: string;
   id: string;
+  /** Zero-based UTF-16 offsets in the source identified by id, [start, end). */
+  range?: GssSourceRange;
   reason?: string;
   suggestion?: string;
 };
