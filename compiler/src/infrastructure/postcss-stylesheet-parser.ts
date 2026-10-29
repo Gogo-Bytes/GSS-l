@@ -360,68 +360,69 @@ function parseDescendantClassPaths(
 }
 
 function parseClassPath(nodes: readonly Node[]): ParsedSelectorPath | undefined {
-  const path: string[] = [];
+  const segments: { name: string; states: string[]; attributes: ParsedAttributeCondition[];
+    observations: ParsedHasCondition[]; pseudoElement: string | null }[] = [];
   const relations: SelectorRelation[] = [];
-  const states: string[][] = [];
-  const attributes: ParsedAttributeCondition[][] = [];
-  const observations: ParsedHasCondition[][] = [];
-  const pseudoElements: (string | null)[] = [];
+  // External early returns historically retain raw state order and duplicates;
+  // only complete local paths perform the established state normalization.
+  const result = (normalizeStates: boolean): ParsedSelectorPath => ({
+    path: segments.map(({ name }) => name),
+    relations,
+    states: segments.map(({ states }) => normalizeStates ? [...new Set(states)].sort() : states),
+    attributes: segments.map(({ attributes }) => attributes),
+    observations: segments.map(({ observations }) => observations),
+    pseudoElements: segments.map(({ pseudoElement }) => pseudoElement)
+  });
   let expectClass = true;
   for (const [index, node] of nodes.entries()) {
-    if (expectClass && path.length > 0 && index === nodes.length - 1 &&
+    if (expectClass && segments.length > 0 && index === nodes.length - 1 &&
       relations.at(-1) === 'descendant' && node.type === 'pseudo' && node.value === ':global') {
       const externalTarget = parseExternalDeclarationTarget(node as Pseudo);
       if (externalTarget !== undefined) return {
-        path, relations: relations.slice(0, -1), states, attributes, observations, pseudoElements,
-        externalTarget
+        ...result(false), relations: relations.slice(0, -1), externalTarget
       };
     }
     if (!expectClass && index === nodes.length - 1 && node.type === 'pseudo' && node.value === ':global' &&
       node.nodes.length === 1 && node.nodes[0]!.nodes.length > 0 &&
       node.nodes[0]!.nodes.every((part) => part.type === 'class')) {
       return {
-        path, relations, states, attributes, observations, pseudoElements,
-        externalCondition: node.nodes[0]!.toString()
+        ...result(false), externalCondition: node.nodes[0]!.toString()
       };
     }
     if (expectClass && node.type === 'class') {
-      path.push((node as ClassName).value);
-      states.push([]);
-      attributes.push([]);
-      observations.push([]);
-      pseudoElements.push(null);
+      segments.push({ name: (node as ClassName).value, states: [], attributes: [], observations: [], pseudoElement: null });
       expectClass = false;
       continue;
     }
     if (!expectClass && node.type === 'pseudo' && node.nodes.length === 0) {
       if (node.value.startsWith('::')) {
         const pseudoElement = node.value.slice(2);
-        if (!isSupportedPseudoElement(pseudoElement) || pseudoElements.at(-1)) return undefined;
-        pseudoElements[pseudoElements.length - 1] = pseudoElement;
+        if (!isSupportedPseudoElement(pseudoElement) || segments.at(-1)?.pseudoElement) return undefined;
+        segments.at(-1)!.pseudoElement = pseudoElement;
         continue;
       }
-      if (pseudoElements.at(-1)) return undefined;
+      if (segments.at(-1)?.pseudoElement) return undefined;
       const state = node.value.slice(1);
       if (!isSupportedPseudoState(state)) return undefined;
-      states.at(-1)?.push(state);
+      segments.at(-1)?.states.push(state);
       continue;
     }
     if (!expectClass && node.type === 'pseudo' && node.value === ':has') {
       const parsedObservations = parseHasConditions(node as Pseudo);
       if (!parsedObservations) return undefined;
-      observations.at(-1)?.push(...parsedObservations);
+      segments.at(-1)?.observations.push(...parsedObservations);
       continue;
     }
     if (!expectClass && node.type === 'pseudo' && node.nodes.length > 0) {
       const condition = parseFunctionalState(node as Pseudo);
       if (!condition) return undefined;
-      states.at(-1)?.push(condition);
+      segments.at(-1)?.states.push(condition);
       continue;
     }
     if (!expectClass && node.type === 'attribute') {
       const condition = parseAttributeCondition(node as Attribute);
       if (!condition) return undefined;
-      attributes.at(-1)?.push(condition);
+      segments.at(-1)?.attributes.push(condition);
       continue;
     }
     if (!expectClass && node.type === 'combinator') {
@@ -442,16 +443,7 @@ function parseClassPath(nodes: readonly Node[]): ParsedSelectorPath | undefined 
     return undefined;
   }
 
-  return path.length > 0 && !expectClass
-    ? {
-      path,
-      relations,
-      states: states.map((state) => [...new Set(state)].sort()),
-      attributes,
-      observations,
-      pseudoElements
-    }
-    : undefined;
+  return segments.length > 0 && !expectClass ? result(true) : undefined;
 }
 
 function parseExternalDeclarationTarget(pseudo: Pseudo): string | undefined {

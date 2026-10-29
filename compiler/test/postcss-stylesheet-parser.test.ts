@@ -116,3 +116,12 @@ it.each(['\uFEFF', '\uFFFE'])('preserves %j-prefixed descendant/list clones and 
   const declaration = frame.declarations[0]!;
   expect(source.slice(declaration.source.start, declaration.source.end)).toBe('width:1px');
 });
+
+it('preserves each selector segment and the established external early-return state handling', () => {
+  const parsed = parseStylesheet(id, '.a:hover:hover .b:focus{color:red}.a:hover:hover :global(.external){color:blue}');
+  expect(parsed.diagnostics).toEqual([]);
+  expect(parsed.rules.map(({ path, relations, states, externalTarget }) => ({ path, relations, states, externalTarget }))).toEqual([
+    { path: ['a', 'b'], relations: ['descendant'], states: [['hover'], ['focus']], externalTarget: undefined },
+    { path: ['a'], relations: [], states: [['hover', 'hover']], externalTarget: '.external' }
+  ]);
+});

@@ -49,6 +49,12 @@ GSS 以 CSS 为输入，生成可组合的 scope 引用、原子 CSS 与必要�
 
 该模块不负责条件求值、浏览器匹配、semantic height、最终输出排序或 fallback；那些职责仍由各自 planner 和浏览器处理。现有键格式、wrapper 顺序与冲突边界未变，复杂条件推理和通用归一化不属于本切片。验证见 [当前计划](NEXT-STAGE.md)。
 
+### Parser 内部 selector 片段
+
+PostCSS parser 在解析单个 selector 分支时，将每个局部 class 的名称、状态、属性、observation 和 pseudo 保存在同一个内部片段中，再在返回 `ParsedStyleRule` 之前投影为现有平行数组。关系仍保留相邻片段之间的顺序。这样可以在构建阶段维护节点与条件的归属，但没有改变 `CssParserPort` 或 planner 消费的结构；planner 的平行数组和整体规则绑定模型仍待后续处理。
+
+分支身份、源码跨度、嵌套展开、selector-list 声明共享与诊断不得因此变化。普通完整路径继续去重／排序状态；既有 external target／condition 的提前返回保留原始状态顺序和重复项，不能在行为保持式重构中悄然归一化。外部目标对应的末尾 descendant 关系仍按旧规则去除。此切片不扩大 selector 准入、不改变 marker、排序或 fallback；验证见 [当前计划](NEXT-STAGE.md)。
+
 ## 排序：已确认的目标
 
 目标设计详见 [属性展开、原子排序与复用](PROPERTY-ORDER-DESIGN.md)。owner 已确认：在原生强度及可比较上下文相同的条件下，**已证明的所有权／结构语义优先；语义高度相同才按逻辑属性先、物理属性后**。浏览器决定方向映射。更强语义属于逻辑属性时也不能让物理属性固定顺序覆盖它；这一决定不再重问。
@@ -63,7 +69,7 @@ GSS 以 CSS 为输入，生成可组合的 scope 引用、原子 CSS 与必要�
 
 | 优先级 | 目标 | 当前证据与待设计 |
 | --- | --- | --- |
-| 1 | 统一规则绑定、occurrence 和身份 | 排序入口已通过 `order-occurrences.ts` 集中声明／分支／绑定身份，生成阶段按具名绑定查询 rank；parser 平行数组与其他 planner 的专用模型尚未统一。保留 selector 分支、局部绑定和全部来源，具体契约见属性排序文档。 |
+| 1 | 统一规则绑定、occurrence 和身份 | 排序入口已通过 `order-occurrences.ts` 集中声明／分支／绑定身份，生成阶段按具名绑定查询 rank；parser 构建阶段已使用局部片段，但输出平行数组与其他 planner 的专用模型尚未统一。保留 selector 分支、局部绑定和全部来源，具体契约见属性排序文档。 |
 | 2 | 理清贡献构建、会话提交和快照 | 已分离会话提交／失效、贡献准备与快照汇总，并提取 scope 树／导出生成和全局资源规划；`module-contribution.ts` 内的准入、关系 planner 和 atom／marker 生成仍需进一步划分。 |
 | 3 | 分离语义证明、同属性 rank、固定属性顺序及最终输出 | 已分离语义高度、属性内版本与输出位置；保留既有竞争族投影、未展开 shorthand 顺序和输出位置复用屏障，未放宽 `GSS1206`。 |
 | 4 | 集中关系计划、marker 和 scope membership | scope 树／导出和关系 selector 渲染已有内部模块；关系 planner 和 marker 生成仍分散，需要保留各自专用证明；不可假设 ownership 等价于 DOM 祖先。 |

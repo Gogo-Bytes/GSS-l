@@ -6,6 +6,10 @@ owner 已要求开始推进核心架构与属性排序目标；[架构方向](AR
 
 已确认原生强度／上下文和已证明的所有权／结构语义优先，同语义高度时逻辑属性先、物理属性后；同属性 rank 已与跨属性输出位置分开；shorthand 完整展开及更宽复用仍需设计。不能安全展开的既有输入暂时沿用原 shorthand 处理和 fallback，不额外拒绝。owner 仍要求**不自行新增框架或验收场景**；保留独立 oracle、历史失败及现有验证边界。
 
+Parser selector 片段切片：PostCSS adapter 在单分支构建时以片段关联 class、状态、属性、observation 和 pseudo，再投影为原 `ParsedStyleRule` 平行数组；关系、parser port、planner、语法准入、排序及 fallback 不变。普通完整路径状态去重／排序与 external 提前返回保留原状态的差异均保留，后者已有针对性回归。边界及剩余工作见 [架构方向](ARCHITECTURE-DIRECTION.md#parser-内部-selector-片段)。
+
+parser／port／准入／external／会话定向 **281** 项及完整 `verify` **2453** 项（Compiler 1908／React 49／Vite 162／Testing 334）、lint／build／types 通过。539 个样本的 parser 原始结果、replacement 与 finalize 前后逐字段一致；脚本、基线和日志见 `artifacts/parser-segment-boundary/`。本次保留外部 port 和输出，未重跑浏览器 gate；不据此宣称 planner 平行数组或 selector 支持已全面重构。
+
 条件上下文边界切片：将未注册条件／layer 诊断、按上下文分组及既有条件身份编码集中到 [condition-context.ts](../compiler/src/application/condition-context.ts)。保留 wrapper 顺序、layer 分区和 warning 策略，不把身份编码视为条件等价／互斥证明，不改变排序或 fallback；契约见 [架构方向](ARCHITECTURE-DIRECTION.md#条件与-layer-上下文边界)。
 
 条件／layer／keyframes／会话及来源定向 **375** 项和完整 `verify` **2452** 项（Compiler 1907／React 49／Vite 162／Testing 334）、lint／build／types 通过；539 个样本完整 replacement 与 finalize 前后逐字段一致（含附加条件、layer 和 keyframes 场景）。脚本、基线与日志见 `artifacts/condition-context-boundary/`。本次行为保持式内部重构未重跑浏览器 gate，未扩大条件推理和既有能力。
