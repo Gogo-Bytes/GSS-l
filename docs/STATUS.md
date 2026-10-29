@@ -5,7 +5,7 @@
 有限 MVP 的逐项目标进度及后续 `2f115b1` 基线上的基础验证、演示生产构建结果见 [MVP 进度](MVP-PROGRESS.md)。该核对未新增浏览器验收，也不将历史开放项改判为全部完成。
 
 
-目录迁移现状：产品代码位于 `compiler/`、`adapters/react/`、`integrations/vite/`、`types/`；测试基础设施位于 `tests/`，Playground 暂仍在其中。最新迁移验证和外部证据见 [当前计划](NEXT-STAGE.md)。同属性独立 rank 已与跨属性输出位置分离，完整安全 shorthand 展开仍未完成；静态 margin／padding／inset／scroll-margin／scroll-padding 同规则与跨单节点 scope 展开已有有界切片，五族逻辑轴 inline/block 的静态双向展开也已加入，范围见当前计划。
+目录迁移现状：产品代码位于 `compiler/`、`adapters/react/`、`integrations/vite/`、`types/`；测试基础设施位于 `tests/`，Playground 已迁至 `examples/playground/`，其他验收应用仍在 `tests/acceptance/`。最新迁移验证和外部证据见 [当前计划](NEXT-STAGE.md)。同属性独立 rank 已与跨属性输出位置分离，完整安全 shorthand 展开仍未完成；静态 margin／padding／inset／scroll-margin／scroll-padding 同规则与跨单节点 scope 展开已有有界切片，五族逻辑轴 inline/block 的静态双向展开也已加入，范围见当前计划。
 
 静态负 px padding 误剪枝已在 owner 确认后按受限范围修复；原始三引擎反例、适用范围及 compatibility 等未改变路径见 [当前计划](NEXT-STAGE.md)。
 
@@ -97,7 +97,7 @@ Ownership 路径匹配已从 background 特例中移出，关系规划与语义�
 
 owner 已决定有限 MVP 结项，已批准并完成官方 create-vite React TS 外部消费、Vite 8 实验及同模板 React Router Declarative／BrowserRouter 客户端路由验收。最新基础验证为 2455 项测试通过；Browser oracle 为 125 fixtures／1267 comparisons／38 controls，Playground 同范围通过。另已按 owner 授权完成 React Router Framework Mode 的有界 request-time SSR 实验；不覆盖历史 Firefox 失败或通用／完整 SSR。
 
-owner 已要求按整体规划推进核心架构与排序目标，确认更强 GSS 语义优先、同高度逻辑先／物理后；[架构方向](ARCHITECTURE-DIRECTION.md) 和 [属性排序设计](PROPERTY-ORDER-DESIGN.md) 区分目标与当前行为。会话提交／失效、贡献准备与快照汇总已分离；产品包已迁至 `compiler/`、`adapters/react/`、`integrations/vite/` 和 `types/`，测试基础设施已迁至 `tests/`，示例职责尚待整理。可原子化的 pure ownership 规则内及跨规则累积的已登记逻辑／物理 longhand 对已准入。preserved 模式、shorthand 及其他上下文仍可能报告 GSS1206，同属性 rank／输出位置已分离，完整安全展开仍未完成。无法安全展开的既有输入暂时沿用当前 shorthand 处理和 fallback，不额外拒绝。
+owner 已要求按整体规划推进核心架构与排序目标，确认更强 GSS 语义优先、同高度逻辑先／物理后；[架构方向](ARCHITECTURE-DIRECTION.md) 和 [属性排序设计](PROPERTY-ORDER-DESIGN.md) 区分目标与当前行为。会话提交／失效、贡献准备与快照汇总已分离；产品包、测试基础设施和 Playground 已按上述职责迁移，其他验收应用仍在 `tests/acceptance/`。可原子化的 pure ownership 规则内及跨规则累积的已登记逻辑／物理 longhand 对已准入。preserved 模式、shorthand 及其他上下文仍可能报告 GSS1206，同属性 rank／输出位置已分离，完整安全展开仍未完成。无法安全展开的既有输入暂时沿用当前 shorthand 处理和 fallback，不额外拒绝。
 
 owner 仍要求**不自行新增框架或验收场景**。隐式 className 类型、native marker 策略和公共 stylesheet URL／插件数组返回值均已决策；不重复要求重选。property effects、selector marker、统一排序及会话事务／资源生命周期的有界核查已交付；遗留问题和授权边界见 [当前计划](NEXT-STAGE.md)。
 
