@@ -1,8 +1,8 @@
-import selectorParser from 'postcss-selector-parser';
 import type { CompatibilityTransformer } from '../infrastructure/lightning-compatibility-transformer.js';
 import { type AssetUrlResolver } from './asset-values.js';
 import { collectAssetDependencies } from './stylesheet-assets.js';
 import { toLogicalModuleId } from './module-identity.js';
+import { prepareSelectorContexts } from './selector-admission.js';
 import { emitAtomicRules, type PlannedDeclaration } from './atomic-emission.js';
 import { analyzeCompatibility } from './compatibility-analysis.js';
 import { preparePreservedContribution } from './preserved-contribution.js';
@@ -10,7 +10,7 @@ import { validateRegisteredConditions } from './condition-context.js';
 import { findAmbiguousKeyframeInShorthand, rewriteKeyframeReferences, planResource, type PlannedResource } from './resource-planning.js';
 import { toScopeSchema, renderModuleCode, renderDeclarationCode, type MutableScopeNode } from './scope-exports.js';
 import type { NameAllocatorPort } from './name-allocator.js';
-import { classifyPropertyEffect, isRegisteredPropertyEffect } from '../domain/property-effects.js';
+import { isRegisteredPropertyEffect } from '../domain/property-effects.js';
 import { planModuleRelations } from '../domain/plan-module-relations.js';
 import { discardInvalidStaticPadding, expandSafeBoxRules } from '../domain/expand-safe-box.js';
 import { isAncestorStateRule, isAncestorAttributeRule, isObservedRule, isStructuralRuntimeRule, isCurrentAttributeRule, isPseudoElementRule, isCurrentStateRule, isPureOwnershipRule } from '../domain/rule-classification.js';
@@ -131,58 +131,9 @@ export function prepareContribution(
     previous.push({ identity, resource });
     keyframeRegistrations.set(resource.name, previous);
   }
-  const externalRules = semanticRules.filter((rule) => rule.externalTarget !== undefined);
-  const sameNodeRules = semanticRules.filter((rule) => rule.externalCondition !== undefined);
-  const hasExplicitGlobal = semanticRules.some((rule) => {
-    let found = false;
-    selectorParser((root) => root.walkPseudos((pseudo) => {
-      if (pseudo.value === ':global') found = true;
-    })).processSync(rule.selector);
-    return found;
-  });
-  const localRules = semanticRules.filter((rule) =>
-    rule.externalTarget === undefined && rule.externalCondition === undefined
-  );
-  // External descendants require a pure owned path of descendant relations;
-  // other placements/compositions remain fail-closed.
-  if (externalRules.some((rule) => rule.relations.some((relation) => relation !== 'descendant') ||
-    rule.states.some((states) => states.length > 0) ||
-    rule.attributes.some((attributes) => attributes.length > 0) ||
-    rule.observations.some((observations) => observations.length > 0) ||
-    rule.pseudoElements.some((pseudo) => pseudo !== null))) {
-    return { diagnostics: [{
-      code: 'GSS1101', severity: 'error', phase: 'validate', id: input.id,
-      reason: 'capability-not-registered',
-      message: 'External targets currently require a pure owned descendant path and an external class descendant.'
-    }] };
-  }
-  // A same-node external class is a condition on the owned target, not a
-  // separate ownership path. Mixed declarations need a proof of precedence
-  // against that target before admission; reject the whole replacement on failure.
-  const sameNode = sameNodeRules[0];
-  const base = localRules[0];
-  const simpleBaseRefinement = sameNode !== undefined && base !== undefined &&
-    semanticRules.length === 2 && localRules.length === 1 && externalRules.length === 0 &&
-    sameNode.path.length === 1 && base.path.length === 1 && base.path[0] === sameNode.path[0] &&
-    isPureOwnershipRule(base) && base.conditions.length === 0 && base.layer === 'unlayered' &&
-    base.declarations.length === 1 && sameNode.declarations.length === 1 &&
-    base.declarations[0]!.property === sameNode.declarations[0]!.property &&
-    classifyPropertyEffect(base.declarations[0]!.property).kind === 'longhand' &&
-    !base.declarations[0]!.important && !sameNode.declarations[0]!.important;
-  if (sameNodeRules.length > 0 && (sameNodeRules.length !== 1 ||
-    (semanticRules.length !== 1 && !simpleBaseRefinement) ||
-    sameNode!.conditions.length > 0 || sameNode!.layer !== 'unlayered' ||
-    sameNode!.relations.some((relation) => relation !== 'descendant') ||
-    sameNode!.states.some((states) => states.length > 0) ||
-    sameNode!.attributes.some((attributes) => attributes.length > 0) ||
-    sameNode!.observations.some((observations) => observations.length > 0) ||
-    sameNode!.pseudoElements.some((pseudo) => pseudo !== null))) {
-    return { diagnostics: [{
-      code: 'GSS1101', severity: 'error', phase: 'validate', id: input.id,
-      reason: 'capability-not-registered',
-      message: 'A same-node external condition requires one pure owned rule or a proven single-property base refinement.'
-    }] };
-  }
+  const selectorContexts = prepareSelectorContexts(input.id, semanticRules);
+  if ('diagnostics' in selectorContexts) return selectorContexts;
+  const { externalRules, sameNodeRules, localRules, hasExplicitGlobal } = selectorContexts.context;
   const conditionDiagnostics = validateRegisteredConditions(
     config,
     input.id,

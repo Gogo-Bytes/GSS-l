@@ -6,6 +6,10 @@ owner 已要求开始推进核心架构与属性排序目标；[架构方向](AR
 
 已确认原生强度／上下文和已证明的所有权／结构语义优先，同语义高度时逻辑属性先、物理属性后；同属性 rank 已与跨属性输出位置分开；shorthand 完整展开及更宽复用仍需设计。不能安全展开的既有输入暂时沿用原 shorthand 处理和 fallback，不额外拒绝。owner 仍要求**不自行新增框架或验收场景**；保留独立 oracle、历史失败及现有验证边界。
 
+External selector 准入切片：将 local／external target／同节点 external 分类、`:global()` 检测及已有 external 限制移至 [selector-admission.ts](../compiler/src/application/selector-admission.ts)，保持其位于条件／声明与关系规划前。纯 ownership 外部路径及单 longhand base refinement 原限制、后续 marker／排序与 preserved 防线不变；见 [架构方向](ARCHITECTURE-DIRECTION.md#external-selector-上下文准入)。
+
+external／结构／状态／会话及排序定向 **641** 项和完整 `verify` **2454** 项（Compiler 1909／React 49／Vite 162／Testing 334）、lint／build／types 通过；539 个样本 parser／replacement／finalize 及四个歧义／两种兼容 fallback 序列前后逐字段一致。日志和脚本见 `artifacts/selector-admission-boundary/`；行为保持式提取未重跑浏览器 gate，不扩展 external selector 准入。
+
 原子／marker 输出边界切片：将贡献准备中已准入规则的 ownership、状态、pseudo、`:has()`、结构与 external 输出移至 [atomic-emission.ts](../compiler/src/application/atomic-emission.ts)，集中产出 atom、关系 marker、selector 和 scope membership。关系证明、排序规划、fallback 选择和 session 提交保持原阶段；每种输出分支、source、asset、条件和 external 拒绝仍沿用原规则。具体职责与反例见 [架构方向](ARCHITECTURE-DIRECTION.md#原子与关系-marker-输出边界)。
 
 关系／排序／复用／external／会话定向 **735** 项和完整 `verify` **2454** 项（Compiler 1909／React 49／Vite 162／Testing 334）、lint／build／types 通过；539 个样本 parser／replacement／finalize 逐字段一致，四个关系／external 歧义诊断及两种兼容设置的 fallback／失败／恢复序列一致。初次定向运行因提取时遗漏主流程仍需要的 `classifyPropertyEffect` 导入导致 3 个 external 测试失败，已恢复导入并重验；原失败 `focused.log`、最终 `focused-final.log` 及对照证据保留在 `artifacts/atomic-emission-boundary/`。行为保持式提取未重跑浏览器 gate，不扩大 selector、fallback 或复用范围。
