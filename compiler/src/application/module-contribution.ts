@@ -1,8 +1,9 @@
 import selectorParser from 'postcss-selector-parser';
 import type { CompatibilityTransformer, PhysicalDeclaration } from '../infrastructure/lightning-compatibility-transformer.js';
 import { identifyAssetValue, type AssetUrlResolver } from './asset-values.js';
-import { assetOccurrences, collectAssetDependencies } from './stylesheet-assets.js';
+import { collectAssetDependencies } from './stylesheet-assets.js';
 import { toLogicalModuleId } from './module-identity.js';
+import { analyzeCompatibility } from './compatibility-analysis.js';
 import { preparePreservedContribution } from './preserved-contribution.js';
 import { validateRegisteredConditions, groupRulesByCondition, canonicalCondition } from './condition-context.js';
 import { renderObservedCombinator, canonicalAttributeCondition, renderAttributeCondition, renderStateSuffix, renderNativeSelector, renderRelationCombinator } from './selector-rendering.js';
@@ -382,32 +383,16 @@ export function prepareContribution(
   }] };
   const { ownershipRules, hasRules, hasDescendantConditions, plannedDescendants, plannedStructural, plannedPseudos } = relationPlanning.plan;
 
-  const physicalDeclarations = semanticRules.flatMap((rule) => rule.declarations.map((declaration) => ({
-    declaration, physical: compatibility?.expand(declaration)
-  })));
-  if (compatibility && physicalDeclarations.some(({ declaration, physical }) =>
-    physical === undefined || !physicalAssetsPreserved(declaration.value, physical))) {
+  const compatibilityAnalysis = analyzeCompatibility(semanticRules, bindings, compatibility);
+  if ('error' in compatibilityAnalysis) {
     const preservedConflicts = validateLogicalPhysicalConflicts(input.id, parsed.rules, false);
     if (preservedConflicts.length) return { diagnostics: preservedConflicts };
     return { diagnostics: [{ code: 'GSS1101', severity: 'error', phase: 'validate', id: input.id,
-      reason: 'capability-not-registered', message: 'Compatibility transformation cannot preserve this declaration shape.' }] };
+      reason: 'capability-not-registered', message: compatibilityAnalysis.error === 'shape'
+        ? 'Compatibility transformation cannot preserve this declaration shape.'
+        : 'Compatibility transformation changed declaration importance.' }] };
   }
-  if (compatibility && physicalDeclarations.some(({ declaration, physical }) =>
-    physical?.some((entry) => entry.important !== declaration.important))) {
-    const preservedConflicts = validateLogicalPhysicalConflicts(input.id, parsed.rules, false);
-    if (preservedConflicts.length) return { diagnostics: preservedConflicts };
-    return { diagnostics: [{ code: 'GSS1101', severity: 'error', phase: 'validate', id: input.id,
-      reason: 'capability-not-registered', message: 'Compatibility transformation changed declaration importance.' }] };
-  }
-  const physicalByDeclaration = new Map(physicalDeclarations.filter(({ physical }) => physical !== undefined)
-    .map(({ declaration, physical }) => {
-      const identified = identifyAssetValue(declaration.value, bindings);
-      return [JSON.stringify([declaration.property, identified.value, identified.assetValue === true, declaration.important]),
-        physical!.map((entry) => ({ ...entry, ...identifyAssetValue(entry.value, bindings) }))] as const;
-    }));
-  const compatibilityFallback = [...new Set(physicalDeclarations.filter(({ declaration, physical }) =>
-    physical?.some((entry) => entry.property !== declaration.property))
-    .map(({ declaration }) => declaration.property))].sort();
+  const { physicalByDeclaration, compatibilityFallback } = compatibilityAnalysis;
   if (compatibilityFallback.length > 0) {
     // Preserved CSS keeps authored order, so it cannot implement the new fixed
     // logical/physical order. Retain the old conflict guard for this path.
@@ -828,12 +813,4 @@ export function prepareContribution(
     diagnostics: conditionDiagnostics,
     sourceText: input.source
   };
-}
-
-function physicalAssetsPreserved(
-  authored: string, physical: readonly PhysicalDeclaration[]
-): boolean {
-  const original = new Set(assetOccurrences(authored).map(({ url }) => url));
-  const transformed = new Set(physical.flatMap(({ value }) => assetOccurrences(value).map(({ url }) => url)));
-  return original.size === transformed.size && [...original].every((url) => transformed.has(url));
 }

@@ -345,3 +345,21 @@ describe('host-resolved compatibility targets', () => {
     expect(session.finalize().css).toBe('');
   });
 });
+
+it('preserves compatibility failure precedence and committed snapshots for adapter invariants', async () => {
+  const { createCompilerSession } = await import('../src/application/compiler-session.js');
+  const { parseStylesheet } = await import('../src/infrastructure/postcss-stylesheet-parser.js');
+  for (const [source, expand, expected] of [
+    ['.a{color:red}', () => undefined, 'Compatibility transformation cannot preserve this declaration shape.'],
+    ['.a{background-image:url(a.png)}', () => [{ property: 'background-image', value: 'none', important: false }], 'Compatibility transformation cannot preserve this declaration shape.'],
+    ['.a{color:red!important}', () => [{ property: 'color', value: 'red', important: false }], 'Compatibility transformation changed declaration importance.']
+  ] as const) {
+    const session = createCompilerSession({ projectRoot: '/project' }, { parseStylesheet }, undefined, {
+      expand, expandResource: (css) => css
+    });
+    const before = session.finalize();
+    const result = session.replaceStylesheet({ id, source });
+    expect(result).toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1101', message: expected }] });
+    expect(session.finalize()).toEqual(before);
+  }
+});

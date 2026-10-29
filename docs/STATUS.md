@@ -41,9 +41,11 @@
 
 最新架构切片将整模块 preserved 贡献生成隔离，入口和排序／fallback 决策不变；`verify` 2453 项、329 项定向测试、539 个样本及两种兼容设置的失败／恢复序列前后等价通过，未重跑浏览器 gate。
 
+最新架构切片提取兼容性声明分析，冲突检查与 fallback 选择仍在原调用方；`verify` 2454 项、330 项定向测试、539 个样本及两种兼容设置的 fallback 序列前后等价通过，未重跑浏览器 gate。
+
 ## 当前阶段
 
-owner 已决定有限 MVP 结项，已批准并完成官方 create-vite React TS 外部消费、Vite 8 实验及同模板 React Router Declarative／BrowserRouter 客户端路由验收。最新基础验证为 2453 项测试通过；Browser oracle 为 125 fixtures／1267 comparisons／38 controls，Playground 同范围通过。另已按 owner 授权完成 React Router Framework Mode 的有界 request-time SSR 实验；不覆盖历史 Firefox 失败或通用／完整 SSR。
+owner 已决定有限 MVP 结项，已批准并完成官方 create-vite React TS 外部消费、Vite 8 实验及同模板 React Router Declarative／BrowserRouter 客户端路由验收。最新基础验证为 2454 项测试通过；Browser oracle 为 125 fixtures／1267 comparisons／38 controls，Playground 同范围通过。另已按 owner 授权完成 React Router Framework Mode 的有界 request-time SSR 实验；不覆盖历史 Firefox 失败或通用／完整 SSR。
 
 owner 已要求按整体规划推进核心架构与排序目标，确认更强 GSS 语义优先、同高度逻辑先／物理后；[架构方向](ARCHITECTURE-DIRECTION.md) 和 [属性排序设计](PROPERTY-ORDER-DESIGN.md) 区分目标与当前行为。会话提交／失效、贡献准备与快照汇总已分离；产品包已迁至 `compiler/`、`adapters/react/`、`integrations/vite/` 和 `types/`，测试基础设施已迁至 `tests/`，示例职责尚待整理。可原子化的 pure ownership 规则内及跨规则累积的已登记逻辑／物理 longhand 对已准入。preserved 模式、shorthand 及其他上下文仍可能报告 GSS1206，同属性 rank／输出位置已分离，完整安全展开仍未完成。无法安全展开的既有输入暂时沿用当前 shorthand 处理和 fallback，不额外拒绝。
 
