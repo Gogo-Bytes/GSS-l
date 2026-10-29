@@ -67,7 +67,7 @@
 
 已三引擎复现负百分比／em／rem padding 导致先前有效声明被误删；合法负零仍有效。owner 决定无效 CSS 由作者负责，不扩大过滤；既有负 px 处理保留，反例及证据见当前计划。
 
-Parser、规则和 descendant planner 共用 selector 分支的相关类型，实际输出及平行数组未变；完整绑定模型仍未完成，验证见当前计划。
+内部 CSS parser port 已改为节点绑定，贡献准备暂时投影到 planner 的平行数组；公共编译输出不变，完整绑定模型及投影移除仍未完成。`verify` 2456 项和对照验证见当前计划。
 
 既有 Playground 已迁至 `examples/playground/`；独立浏览器参考和验收留在 `tests/`，根命令不变。冻结安装、完整 `verify`、原 Chromium Playground 与独立 browser oracle 已验证；旧产物备份和范围见当前计划。
 
@@ -97,7 +97,7 @@ Ownership 路径匹配已从 background 特例中移出，关系规划与语义�
 
 ## 当前阶段
 
-owner 已决定有限 MVP 结项，已批准并完成官方 create-vite React TS 外部消费、Vite 8 实验及同模板 React Router Declarative／BrowserRouter 客户端路由验收。最新基础验证为 2455 项测试通过；Browser oracle 为 125 fixtures／1267 comparisons／38 controls，Playground 同范围通过。另已按 owner 授权完成 React Router Framework Mode 的有界 request-time SSR 实验；不覆盖历史 Firefox 失败或通用／完整 SSR。
+owner 已决定有限 MVP 结项，已批准并完成官方 create-vite React TS 外部消费、Vite 8 实验及同模板 React Router Declarative／BrowserRouter 客户端路由验收。最新基础验证为 2456 项测试通过；Browser oracle 为 125 fixtures／1267 comparisons／38 controls，Playground 同范围通过。另已按 owner 授权完成 React Router Framework Mode 的有界 request-time SSR 实验；不覆盖历史 Firefox 失败或通用／完整 SSR。
 
 owner 已要求按整体规划推进核心架构与排序目标，确认更强 GSS 语义优先、同高度逻辑先／物理后；[架构方向](ARCHITECTURE-DIRECTION.md) 和 [属性排序设计](PROPERTY-ORDER-DESIGN.md) 区分目标与当前行为。会话提交／失效、贡献准备与快照汇总已分离；产品包、测试基础设施和 Playground 已按上述职责迁移，其他验收应用仍在 `tests/acceptance/`。可原子化的 pure ownership 规则内及跨规则累积的已登记逻辑／物理 longhand 对已准入。preserved 模式、shorthand 及其他上下文仍可能报告 GSS1206，同属性 rank／输出位置已分离，完整安全展开仍未完成。无法安全展开的既有输入暂时沿用当前 shorthand 处理和 fallback，不额外拒绝。
 

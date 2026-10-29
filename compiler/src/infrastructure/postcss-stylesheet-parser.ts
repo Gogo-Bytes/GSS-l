@@ -15,7 +15,7 @@ import type { GssDiagnostic, GssSourceRange } from '../public-types.js';
 
 import type {
   ParsedDeclaration, SelectorRelation, ParsedAttributeCondition, ParsedHasCondition,
-  ParsedCondition, ParsedSelector, ParsedStyleRule, ParsedPropertyRegistration, ParsedKeyframesRegistration,
+  ParsedCondition, ParsedSourceRule, ParsedPropertyRegistration, ParsedKeyframesRegistration,
   ParsedFontFaceResource, ParsedGlobalResource, SourceSpan
 } from '../domain/parsed-stylesheet.js';
 import type { ParsedStylesheet } from '../application/css-parser-port.js';
@@ -150,7 +150,7 @@ function parseAndNormalizeStylesheet(id: string, source: string): ParsedStyleshe
   const root = postcss([postcssNesting()]).process(authored, { from: id }).sync().root;
 
   const diagnostics: GssDiagnostic[] = [];
-  const rules: ParsedStyleRule[] = [];
+  const rules: ParsedSourceRule[] = [];
   const resources: ParsedGlobalResource[] = [];
 
   let sourceOrdinal = 0;
@@ -325,7 +325,7 @@ function parsePropertyRegistration(
   return { kind: 'property', name, declarations, source: spanOf(node) };
 }
 
-type ParsedSelectorPath = Omit<ParsedSelector, 'selector'>;
+type ParsedSelectorPath = Pick<ParsedSourceRule, 'nodes' | 'relations' | 'externalTarget' | 'externalCondition'>;
 
 function isNamedLayer(value: string): boolean {
   return /^[-_A-Za-z][-_A-Za-z0-9]*(?:\.[-_A-Za-z][-_A-Za-z0-9]*)*$/.test(value);
@@ -339,9 +339,9 @@ function isSupportedConditionKind(
 
 function parseDescendantClassPaths(
   rule: postcss.Rule
-): readonly ParsedSelector[] | undefined {
+): readonly (ParsedSelectorPath & { selector: string })[] | undefined {
   const root = selectorParser().astSync(rule);
-  const paths: ParsedSelector[] = [];
+  const paths: (ParsedSelectorPath & { selector: string })[] = [];
   for (const branch of root.nodes) {
     const path = parseClassPath(branch.nodes);
     if (!path) return undefined;
@@ -357,12 +357,9 @@ function parseClassPath(nodes: readonly Node[]): ParsedSelectorPath | undefined 
   // External early returns historically retain raw state order and duplicates;
   // only complete local paths perform the established state normalization.
   const result = (normalizeStates: boolean): ParsedSelectorPath => ({
-    path: segments.map(({ name }) => name),
+    nodes: segments.map((segment) => ({ ...segment,
+      states: normalizeStates ? [...new Set(segment.states)].sort() : segment.states })),
     relations,
-    states: segments.map(({ states }) => normalizeStates ? [...new Set(states)].sort() : states),
-    attributes: segments.map(({ attributes }) => attributes),
-    observations: segments.map(({ observations }) => observations),
-    pseudoElements: segments.map(({ pseudoElement }) => pseudoElement)
   });
   let expectClass = true;
   for (const [index, node] of nodes.entries()) {

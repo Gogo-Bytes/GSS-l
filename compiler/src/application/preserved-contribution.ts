@@ -2,7 +2,7 @@ import selectorParser from 'postcss-selector-parser';
 import type { CompatibilityTransformer } from './compatibility-transformer.js';
 import type { ParsedStyleRule } from '../domain/parsed-stylesheet.js';
 import type { GssDiagnostic, ReplaceStylesheetInput, StyleModuleArtifact } from '../public-types.js';
-import type { ParsedStylesheet } from './css-parser-port.js';
+import type { PlanningStylesheet } from './css-parser-port.js';
 import type { NameAllocatorPort } from './name-allocator.js';
 import type { ModuleContribution } from './module-contribution.js';
 import { bindCssAssets } from './asset-values.js';
@@ -15,7 +15,7 @@ import { ensureScopePath, toScopeSchema, renderModuleCode, renderDeclarationCode
 export function preparePreservedContribution(input: {
   input: ReplaceStylesheetInput;
   moduleId: string;
-  parsed: ParsedStylesheet;
+  parsed: PlanningStylesheet;
   rules: readonly ParsedStyleRule[];
   conditionDiagnostics: readonly GssDiagnostic[];
   fallbackProperties: readonly string[];

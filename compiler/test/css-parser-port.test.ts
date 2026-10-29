@@ -9,8 +9,8 @@ describe('internal CssParserPort session seam', () => {
     const id = '/project/card.gss';
     const source = '.card { color: red; }';
     const parsed: ParsedStylesheet = {
-      rules: [{ selector: '.card', path: ['card'], relations: [], states: [[]], attributes: [[]],
-        observations: [[]], pseudoElements: [null], conditions: [], layer: 'unlayered', sourceOrdinal: 0,
+      rules: [{ selector: '.card', nodes: [{ name: 'card', states: [], attributes: [], observations: [], pseudoElement: null }],
+        relations: [], conditions: [], layer: 'unlayered', sourceOrdinal: 0,
         source: { sourceId: id, start: 0, end: 21 },
         declarations: [{ property: 'color', value: 'red', important: false,
           source: { sourceId: id, start: 8, end: 19 } }] }], resources: [], diagnostics: []

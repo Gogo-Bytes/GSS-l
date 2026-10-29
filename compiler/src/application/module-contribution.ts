@@ -22,7 +22,7 @@ import type {
   ParsedKeyframesRegistration,
   SourceSpan
 } from '../domain/parsed-stylesheet.js';
-import type { CssParserPort } from './css-parser-port.js';
+import { projectForPlanning, type CssParserPort } from './css-parser-port.js';
 import type {
   GssCompilerConfig,
   GssDiagnostic,
@@ -58,10 +58,11 @@ export function prepareContribution(
     code: 'GSS1101', severity: 'error', phase: 'validate', id: input.id,
     reason: 'invalid-compatibility-target', message: 'Host CSS compatibility targets are invalid or unsupported.'
   }] };
-  const parsed = cssParser.parseStylesheet(input.id, input.source);
-  if (parsed.diagnostics.some(({ severity }) => severity === 'error')) {
-    return { diagnostics: parsed.diagnostics };
+  const parsedSource = cssParser.parseStylesheet(input.id, input.source);
+  if (parsedSource.diagnostics.some(({ severity }) => severity === 'error')) {
+    return { diagnostics: parsedSource.diagnostics };
   }
+  const parsed = projectForPlanning(parsedSource);
   const bindings = new Map<string, string>();
   const urls = new Set(collectAssetDependencies(parsed));
   for (const { url, identity } of input.assetReferences ?? []) {

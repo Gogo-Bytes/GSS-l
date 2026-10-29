@@ -63,6 +63,24 @@ export type ParsedStyleRule = ParsedSelector & {
   sourceOrdinal: number;
 };
 
+/** A parser node binds all conditions to one ownership name. Relations stay
+ * between adjacent nodes; neither implies a DOM ancestor without a proof. */
+export type ParsedSelectorNode = {
+  name: string;
+  states: readonly string[];
+  attributes: readonly ParsedAttributeCondition[];
+  observations: readonly ParsedHasCondition[];
+  pseudoElement: string | null;
+};
+
+export type ParsedSourceRule = Omit<ParsedStyleRule, keyof ParsedSelector> & {
+  selector: string;
+  externalTarget?: string;
+  externalCondition?: string;
+  nodes: readonly ParsedSelectorNode[];
+  relations: readonly SelectorRelation[];
+};
+
 export type ParsedPropertyRegistration = {
   source: SourceSpan;
   kind: 'property';

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseStylesheet } from '../src/infrastructure/postcss-stylesheet-parser.js';
 import type { ParsedStylesheet } from '../src/application/css-parser-port.js';
+import { projectForPlanning } from '../src/application/css-parser-port.js';
 
 const id = '/project/card.gss';
 const source = '.card {\r\n color: /*😀*/ red;\r\n & .icon, & .badge { width: 1px; }\r\n height: 2px;\r\n}';
@@ -120,8 +121,28 @@ it.each(['\uFEFF', '\uFFFE'])('preserves %j-prefixed descendant/list clones and 
 it('preserves each selector segment and the established external early-return state handling', () => {
   const parsed = parseStylesheet(id, '.a:hover:hover .b:focus{color:red}.a:hover:hover :global(.external){color:blue}');
   expect(parsed.diagnostics).toEqual([]);
-  expect(parsed.rules.map(({ path, relations, states, externalTarget }) => ({ path, relations, states, externalTarget }))).toEqual([
-    { path: ['a', 'b'], relations: ['descendant'], states: [['hover'], ['focus']], externalTarget: undefined },
-    { path: ['a'], relations: [], states: [['hover', 'hover']], externalTarget: '.external' }
+  expect(parsed.rules.map(({ nodes, relations, externalTarget }) => ({
+    nodes: nodes.map(({ name, states }) => ({ name, states })), relations, externalTarget
+  }))).toEqual([
+    { nodes: [{ name: 'a', states: ['hover'] }, { name: 'b', states: ['focus'] }], relations: ['descendant'], externalTarget: undefined },
+    { nodes: [{ name: 'a', states: ['hover', 'hover'] }], relations: [], externalTarget: '.external' }
   ]);
+});
+
+it('binds selector conditions to nodes while preserving shared declarations through the planning projection', () => {
+  const parsed = parseStylesheet(id, '.a:hover .b[role="x"], .c:has(.flag) { color:red }');
+  expect(parsed.diagnostics).toEqual([]);
+  expect(parsed.rules[0]!.nodes).toMatchObject([
+    { name: 'a', states: ['hover'], attributes: [], observations: [], pseudoElement: null },
+    { name: 'b', states: [], attributes: [{ attribute: 'role', operator: '=', value: 'x' }], observations: [], pseudoElement: null }
+  ]);
+  expect(parsed.rules[1]!.nodes).toMatchObject([
+    { name: 'c', states: [], attributes: [], observations: [{ observedClass: 'flag' }], pseudoElement: null }
+  ]);
+  expect(parsed.rules[0]!.declarations).toBe(parsed.rules[1]!.declarations);
+  const projected = projectForPlanning(parsed);
+  expect(projected.rules[0]).toMatchObject({ path: ['a', 'b'], states: [['hover'], []],
+    attributes: [[], [{ attribute: 'role', operator: '=', value: 'x' }]], relations: ['descendant'] });
+  expect(projected.rules[0]!.declarations).toBe(parsed.rules[0]!.declarations);
+  expect(projected.rules[1]!.declarations).toBe(parsed.rules[1]!.declarations);
 });

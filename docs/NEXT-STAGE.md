@@ -8,7 +8,9 @@ owner 已要求开始推进核心架构与属性排序目标；[架构方向](AR
 
 无效 CSS 由作者负责，GSS 不承诺通用识别或修复，owner 决定不扩大负 padding 值过滤；既有静态负 px 处理保留，fallback 不变。已知反例：在 Chromium／Firefox／WebKit，`padding-left:9px;padding:-1%`、`-1em`、`-1rem` 与逻辑轴 `padding-inline-start:9px;padding-inline:-1%` 的原生左侧均为 9px，而当前 GSS 为 0px；合法 `-0%`／`-0em` 原生和 GSS 均为 0px。独立 authored-native、字面预期、脚本及逐引擎输出见 `artifacts/invalid-padding-units-probe/`。
 
-Parser selector 契约切片：抽出领域 `ParsedSelector` 类型供规则与 parser 中间路径共用，消除重复字段声明；保留分支、声明来源与共享身份，现有平行数组和 parser port 输出不变。完整 `verify`、545 样本完整输出及歧义／fallback／诊断优先级对照见 `artifacts/selector-contract-boundary/`；未重跑浏览器 gate。
+Selector 节点迁移第一步：内部 CSS parser port 直接返回包含名称、状态、属性、observation、pseudo 的节点数组及相邻关系；贡献准备暂时投影为旧 planner 的平行数组，投影不复制共享声明或改变来源、分支、external 早返回状态顺序。公共 Adapter 与 fallback 不变。新增 parser／投影绑定回归；完整 `verify` **2456** 项（Compiler 1910／React 49／Vite 163／Testing 334）通过。545 个样本以投影后 parser 输出及完整 replacement／finalize 对照旧基线一致，四个歧义、七个诊断优先级／LKG 和两种 compatibility fallback／恢复序列一致，见 `artifacts/selector-node-parser-port/`。内部结构迁移未重跑浏览器 gate；planner 仍依赖投影，后续需要逐步移除平行数组。
+
+Parser selector 契约切片：当时抽出领域 `ParsedSelector` 类型供规则与 parser 中间路径共用，消除重复字段声明；保留分支、声明来源与共享身份，当时平行数组和 parser port 输出不变。后续 parser port 已按上述节点迁移。完整 `verify`、545 样本完整输出及歧义／fallback／诊断优先级对照见 `artifacts/selector-contract-boundary/`；未重跑浏览器 gate。
 
 Descendant planner 的路径、状态和属性类型从同一 `ParsedSelector` 派生，条件／声明范围与关系证明仍属 planner；运行时算法、准入与输出不变。完整 `verify`、545 样本及歧义／fallback 对照见 `artifacts/descendant-selector-contract/`；未重跑浏览器 gate。
 
