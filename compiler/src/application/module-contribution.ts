@@ -15,17 +15,15 @@ import {
 import type { NameAllocatorPort } from './name-allocator.js';
 import { classifyPropertyEffect, isRegisteredPropertyEffect } from '../domain/property-effects.js';
 import { planDescendantConditions } from '../domain/plan-descendant-conditions.js';
-import { supportsCurrentBackgroundRanks } from '../domain/module-local-atom-ranks.js';
+import { planModuleRelations } from '../domain/plan-module-relations.js';
 import { planFixedModuleOrder } from '../domain/fixed-module-ranks.js';
 import type { OrderBinding } from '../domain/order-occurrences.js';
 import { discardInvalidStaticPadding, expandSafeBoxRules } from '../domain/expand-safe-box.js';
-import { planStructuralRelations } from '../domain/plan-structural-relations.js';
 import { isAncestorStateRule, isAncestorAttributeRule, isObservedRule, isStructuralRuntimeRule, isCurrentAttributeRule, isPseudoElementRule, isCurrentStateRule, isPureOwnershipRule } from '../domain/rule-classification.js';
 import { resolveTargetDeclarations } from '../domain/resolve-target-declarations.js';
 import { disjointKeyframeWidthBounds } from '../domain/keyframe-condition-exclusivity.js';
 import { validateDeclarationSequences } from '../domain/validate-declarations.js';
 import { validateLogicalPhysicalConflicts } from '../domain/validate-logical-physical-conflicts.js';
-import { planPseudoElementConditions } from '../domain/plan-pseudo-element-conditions.js';
 import type {
   ParsedCondition,
   ParsedDeclaration,
@@ -378,37 +376,13 @@ export function prepareContribution(
 
   const roots = new Map<string, MutableScopeNode>();
   const rules: PlannedDeclaration[] = [];
-  const ownershipRules = localRules.filter(isPureOwnershipRule);
-  const hasRules = localRules.filter(({ observations }) =>
-    observations.at(-1)?.length
-  );
-  const contextualRules = localRules.filter(({ relations }) =>
-    relations.some((relation) => relation !== 'descendant')
-  );
-  const descendantRules = localRules.filter((rule) =>
-    isPureOwnershipRule(rule) || isCurrentStateRule(rule) || isCurrentAttributeRule(rule) ||
-    isAncestorStateRule(rule) || isAncestorAttributeRule(rule)
-  );
-  const hasDescendantConditions = contextualRules.length > 0 || descendantRules.some((rule) => !isPureOwnershipRule(rule));
-  const declaredPaths = semanticRules.flatMap(({ path }) => path.map((_, index) => path.slice(0, index + 1)));
-  const plannedDescendants = hasDescendantConditions ? planDescendantConditions(descendantRules, declaredPaths,
-    (target) => supportsCurrentBackgroundRanks(semanticRules, target)) : undefined;
-  if (plannedDescendants?.ambiguity) return { diagnostics: [{
-      code: 'GSS1205', severity: 'error', phase: 'resolve', id: input.id,
-      reason: 'ambiguous-coactive-state-conflict', message: plannedDescendants.ambiguity
-    }] };
-
-  const plannedStructural = planStructuralRelations(contextualRules, plannedDescendants?.instances ?? [], hasRules);
-  if (plannedStructural.ambiguity) return { diagnostics: [{
+  const relationPlanning = planModuleRelations(localRules, semanticRules);
+  if ('ambiguity' in relationPlanning) return { diagnostics: [{
     code: 'GSS1205', severity: 'error', phase: 'resolve', id: input.id,
-    reason: 'ambiguous-coactive-state-conflict', message: plannedStructural.ambiguity
+    reason: 'ambiguous-coactive-state-conflict', message: relationPlanning.ambiguity
   }] };
-
-  const plannedPseudos = planPseudoElementConditions(localRules);
-  if (plannedPseudos.ambiguity) return { diagnostics: [{
-    code: 'GSS1205', severity: 'error', phase: 'resolve', id: input.id,
-    reason: 'ambiguous-coactive-state-conflict', message: plannedPseudos.ambiguity
-  }] };
+  const { ownershipRules, hasRules, descendantRules, hasDescendantConditions, declaredPaths,
+    plannedDescendants, plannedStructural, plannedPseudos } = relationPlanning.plan;
 
   const physicalDeclarations = semanticRules.flatMap((rule) => rule.declarations.map((declaration) => ({
     declaration, physical: compatibility?.expand(declaration)

@@ -6,6 +6,10 @@ owner 已要求开始推进核心架构与属性排序目标；[架构方向](AR
 
 已确认原生强度／上下文和已证明的所有权／结构语义优先，同语义高度时逻辑属性先、物理属性后；同属性 rank 已与跨属性输出位置分开；shorthand 完整展开及更宽复用仍需设计。不能安全展开的既有输入暂时沿用原 shorthand 处理和 fallback，不额外拒绝。owner 仍要求**不自行新增框架或验收场景**；保留独立 oracle、历史失败及现有验证边界。
 
+关系规划编排切片：将 ownership／descendant／结构／observation 的既有分组和 descendant、结构、pseudo planner 顺序集中到 domain [plan-module-relations.ts](../compiler/src/domain/plan-module-relations.ts)；各 planner 仍各自证明关系，保持第一个歧义先于 compatibility／preserved fallback 返回、纯 ownership 的延迟路径和排序 candidate 与存活 instance 的区别。排序、marker、identity、准入及 fallback 不变，详见 [架构方向](ARCHITECTURE-DIRECTION.md#关系规划编排边界)。
+
+关系／排序／external／会话定向 **654** 项、完整 `verify` **2453** 项（Compiler 1908／React 49／Vite 162／Testing 334）及 lint／build／types 通过。539 个样本 parser／replacement／finalize 完整输出逐字段一致；另对三个结构／状态歧义的 `GSS1205` 诊断及失败后快照做前后比较。脚本、基线及日志见 `artifacts/relation-planning-boundary/`。行为保持式内部移动未重跑浏览器 gate，不宣称关系证明或 selector 能力已全部统一。
+
 资源冲突职责切片：把提交前的资源冲突检查从贡献构建器移入资源规划模块，会话只传入已有贡献的资源集合、替换 id 和候选资源；保持先检查同次输入及其他模块、跳过被替换模块的原行为，以及 `GSS1301`、事务提交和 LKG 规则。
 
 资源／会话／收敛定向 **280** 项及完整 `verify` **2453** 项（Compiler 1908／React 49／Vite 162／Testing 334）、lint／build／types 通过。539 个样本 parser／replacement／finalize 完整输出前后逐字段一致；另对相同注册、冲突失败保持快照、恢复提交的事务序列做前后完整比较。脚本与日志见 `artifacts/resource-conflicts-boundary/`；行为保持式移动未重跑浏览器 gate，不改变资源 identity 或 fallback。
