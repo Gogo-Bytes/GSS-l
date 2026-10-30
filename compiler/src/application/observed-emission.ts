@@ -1,3 +1,4 @@
+import { getOwnershipPath } from '../domain/ownership-path.js';
 import type { AtomicEmissionContext } from './atomic-emission-context.js';
 import type { ParsedStyleRule, ParsedHasCondition } from '../domain/parsed-stylesheet.js';
 import type { ObservedRelationIdentity } from '../domain/readable-name.js';
@@ -14,6 +15,7 @@ export function emitObservedRules(input: AtomicEmissionContext & {
 }): void {
   const { rules, hasRules, moduleId, bindings, nameAllocator, roots, moduleOrder } = input;
   for (const rule of hasRules) {
+    const authoredPath = getOwnershipPath(rule.nodes);
     const wrappers = rule.conditions;
     const condition = canonicalCondition(wrappers);
     const layer = rule.layer;
@@ -31,7 +33,7 @@ export function emitObservedRules(input: AtomicEmissionContext & {
         moduleId,
         layer,
         condition,
-        subjectPath: rule.path,
+        subjectPath: authoredPath,
         relation: observation.relation,
         ...(observation.observedClass ? { observedClass: observation.observedClass } : {}),
         ...(observation.observedState ? { observedState: observation.observedState } : {}),
@@ -40,7 +42,7 @@ export function emitObservedRules(input: AtomicEmissionContext & {
           : {})
       };
       const subjectMarker = nameAllocator.createHasSubjectMarker(relationIdentity);
-      ensureScopePath(roots, rule.path).classNames.add(subjectMarker);
+      ensureScopePath(roots, authoredPath).classNames.add(subjectMarker);
       const observedSelector = observation.observedClass
         ? (() => {
           const observedMarker = nameAllocator.createObservedMarker(relationIdentity);
@@ -67,7 +69,7 @@ export function emitObservedRules(input: AtomicEmissionContext & {
       for (const declaration of rule.declarations) {
         const identity: ObservedDeclarationIdentity = {
           ...relationIdentity,
-          ...(moduleOrder.get(declaration, { rule, targetPath: rule.path, observation }) ?? {}),
+          ...(moduleOrder.get(declaration, { rule, targetPath: authoredPath, observation }) ?? {}),
           property: declaration.property,
           ...identifyAssetValue(declaration.value, bindings),
           important: declaration.important

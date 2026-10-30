@@ -1,7 +1,7 @@
 import type { GssDiagnostic } from '../public-types.js';
 import { classifyPropertyEffect } from './property-effects.js';
 import { isPureOwnershipRule } from './rule-classification.js';
-import { matchesOwnedTarget } from './ownership-path.js';
+import { getOwnershipPath, matchesOwnedTarget } from './ownership-path.js';
 
 const conflictingPhysicalProperties: Readonly<Record<string, readonly string[]>> = {
   'margin-inline': ['margin', 'margin-left', 'margin-right'],
@@ -25,8 +25,7 @@ const conflictingPhysicalProperties: Readonly<Record<string, readonly string[]>>
 };
 
 type RuleCandidate = {
-  path: readonly string[];
-  nodes: readonly { states: readonly unknown[]; attributes: readonly unknown[];
+  nodes: readonly { name: string; states: readonly unknown[]; attributes: readonly unknown[];
     observations: readonly unknown[]; pseudoElement: string | null }[];
   externalTarget?: string;
   externalCondition?: string;
@@ -53,7 +52,7 @@ export function validateLogicalPhysicalConflicts(
   }
   for (const rule of rules) {
     const key = JSON.stringify([
-      rule.path,
+      getOwnershipPath(rule.nodes),
       rule.externalTarget ?? null,
       rule.externalCondition ?? null,
       rule.layer,
@@ -68,12 +67,13 @@ export function validateLogicalPhysicalConflicts(
   const targetPaths = new Map<string, readonly string[]>();
   for (const rule of rules) {
     if (rule.externalTarget === undefined && rule.externalCondition === undefined) {
-      targetPaths.set(JSON.stringify(rule.path), rule.path);
+      const path = getOwnershipPath(rule.nodes);
+      targetPaths.set(JSON.stringify(path), path);
     }
   }
   for (const targetPath of targetPaths.values()) {
     for (const candidate of ownershipRules) {
-      if (!matchesOwnedTarget(candidate.path, targetPath)) continue;
+      if (!matchesOwnedTarget(getOwnershipPath(candidate.nodes), targetPath)) continue;
       const key = JSON.stringify([
         'accumulated',
         targetPath,

@@ -1,5 +1,6 @@
+import { getOwnershipPath } from './ownership-path.js';
 import type { GssDiagnostic } from '../public-types.js';
-import type { SourceSpan } from './parsed-stylesheet.js';
+import type { ParsedSelectorNode, SourceSpan } from './parsed-stylesheet.js';
 
 type DeclarationCandidate = {
   source: SourceSpan;
@@ -8,7 +9,7 @@ type DeclarationCandidate = {
 };
 
 type RuleCandidate = {
-  path: readonly string[];
+  nodes: readonly Pick<ParsedSelectorNode, 'name'>[];
   declarations: readonly DeclarationCandidate[];
 };
 
@@ -27,7 +28,7 @@ export function validateDeclarationSequences(
           code: 'GSS1204',
           severity: 'error',
           phase: 'resolve',
-          message: `Duplicate declaration for ${declaration.property} in ${rule.path.map((name) => `.${name}`).join(' ')}.`,
+          message: `Duplicate declaration for ${declaration.property} in ${getOwnershipPath(rule.nodes).map((name) => `.${name}`).join(' ')}.`,
           id,
           ...(declaration.source.sourceId === id ? {
             range: { start: declaration.source.start, end: declaration.source.end }

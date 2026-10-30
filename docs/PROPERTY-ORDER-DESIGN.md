@@ -159,7 +159,7 @@ Tailwind 参考：[margin utilities](https://tailwindcss.com/docs/margin)、[冲
 - 收集读取 `instance.rule.declarations` 及其下标，保持候选竞争范围；不能改成已经剪枝的 `instance.declarations`，否则竞争者可能丢失、声明顺序位置可能移动。这里的下标属于展开后的语义规则，不是 parser 源码偏移。相同完整身份继续沿用原 Map 去重行为。
 - occurrence 分离不禁止最终 atom 复用；复用仍由现有完整连续桶、安全条件和来源汇总决定。`.early{color:red}.middle{color:blue}.late{color:red}` 仍不能将两个红色跨竞争者合并。
 
-该身份收集切片是行为保持式重构；当时未改变 effect 竞争族编号及最终输出策略。随后完成的 rank 分离见下文；selector 条件平行数组已迁至节点，ownership 路径投影与各关系 planner 的专用绑定模型仍未整体统一。验证使用既有排序／复用／来源／收敛测试，并将 534 个既有排序 fixtures 的完整 replacement 与 finalize 输出和重构前基线逐字段比较；证据见 [当前计划](NEXT-STAGE.md)。
+该身份收集切片是行为保持式重构；当时未改变 effect 竞争族编号及最终输出策略。随后完成的 rank 分离见下文；selector 条件平行数组已迁至节点，ownership 名称路径已改为从只读节点按需派生，不增加缓存；各关系 planner 的专用绑定模型仍未整体统一。验证使用既有排序／复用／来源／收敛测试，并将 534 个既有排序 fixtures 的完整 replacement 与 finalize 输出和重构前基线逐字段比较；证据见 [当前计划](NEXT-STAGE.md)。
 
 ### 持续适用的排序约束
 

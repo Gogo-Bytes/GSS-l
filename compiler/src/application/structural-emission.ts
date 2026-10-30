@@ -1,3 +1,4 @@
+import { getOwnershipPath } from '../domain/ownership-path.js';
 import type { AtomicEmissionContext } from './atomic-emission-context.js';
 import type { ContextualRelationIdentity } from '../domain/readable-name.js';
 import type { StructuralInstance } from '../domain/plan-structural-relations.js';
@@ -15,6 +16,7 @@ export function emitStructuralRules(input: AtomicEmissionContext & {
   const { rules, instances, moduleId, bindings, nameAllocator, roots, moduleOrder } = input;
   for (const instance of instances) {
     const { rule, declarations, relationRank } = instance;
+    const authoredPath = getOwnershipPath(rule.nodes);
     const wrappers = rule.conditions;
     const condition = canonicalCondition(wrappers);
     const layer = rule.layer;
@@ -22,8 +24,8 @@ export function emitStructuralRules(input: AtomicEmissionContext & {
       (relation) => relation !== 'descendant'
     );
     const runtimeRelations = rule.relations.slice(firstRuntimeRelation);
-    const sourcePath = rule.path.slice(0, firstRuntimeRelation + 1);
-    const runtimePaths = rule.path.slice(firstRuntimeRelation);
+    const sourcePath = authoredPath.slice(0, firstRuntimeRelation + 1);
+    const runtimePaths = authoredPath.slice(firstRuntimeRelation);
     const predicate = rule.nodes[firstRuntimeRelation];
     const sourceState = predicate?.states.join(':') || undefined;
     const sourceAttributeCondition = predicate?.attributes[0];
@@ -39,11 +41,11 @@ export function emitStructuralRules(input: AtomicEmissionContext & {
       ...(sourceState ? { sourceState } : {}),
       ...(sourceAttribute ? { sourceAttribute } : {}),
       sourcePath,
-      targetPath: rule.path
+      targetPath: authoredPath
     };
     const targetMarker = nameAllocator.createTargetMarker(relationIdentity);
     const markers = runtimePaths.map((_, index) => {
-      const path = rule.path.slice(0, firstRuntimeRelation + index + 1);
+      const path = authoredPath.slice(0, firstRuntimeRelation + index + 1);
       const marker = index === 0
         ? sourceMarker
         : index === runtimePaths.length - 1

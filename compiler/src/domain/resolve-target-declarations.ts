@@ -1,7 +1,7 @@
 import { effectsOfProperty } from './property-effects.js';
 import { comparePropertyRenderOrder } from './module-order-policy.js';
-import { matchesOwnedTarget } from './ownership-path.js';
-import type { SourceSpan } from './parsed-stylesheet.js';
+import { getOwnershipPath, matchesOwnedTarget } from './ownership-path.js';
+import type { ParsedSelectorNode, SourceSpan } from './parsed-stylesheet.js';
 
 type DeclarationCandidate = {
   property: string;
@@ -11,8 +11,7 @@ type DeclarationCandidate = {
 };
 
 type RuleCandidate = {
-  path: readonly string[];
-  nodes: readonly unknown[];
+  nodes: readonly Pick<ParsedSelectorNode, 'name'>[];
   declarations: readonly DeclarationCandidate[];
   sourceOrdinal: number;
 };
@@ -33,7 +32,7 @@ type RankedDeclaration<R extends RuleCandidate> = {
 
 export function resolveTargetDeclarations<R extends RuleCandidate>(
   rules: readonly R[],
-  declaredTargetPaths: readonly (readonly string[])[] = rules.map(({ path }) => path)
+  declaredTargetPaths: readonly (readonly string[])[] = rules.map(({ nodes }) => getOwnershipPath(nodes))
 ): readonly ResolvedTarget<R>[] {
   const targetPaths = new Map<string, readonly string[]>();
   for (const path of declaredTargetPaths) targetPaths.set(serializePath(path), path);
@@ -51,7 +50,7 @@ function resolveOneTarget<R extends RuleCandidate>(
   const winners = new Map<string, RankedDeclaration<R>>();
 
   for (const rule of rules) {
-    if (!matchesOwnedTarget(rule.path, targetPath)) continue;
+    if (!matchesOwnedTarget(getOwnershipPath(rule.nodes), targetPath)) continue;
 
     rule.declarations.forEach((declaration, declarationOrdinal) => {
       const candidate: RankedDeclaration<R> = {

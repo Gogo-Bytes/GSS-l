@@ -1,3 +1,4 @@
+import { getOwnershipPath } from './ownership-path.js';
 import { planDescendantConditions, type DescendantInstance, type DescendantRule } from './plan-descendant-conditions.js';
 
 type PseudoRule = DescendantRule & {
@@ -23,8 +24,9 @@ export function planPseudoElementConditions<R extends PseudoRule>(
     const targets = new Map<string, { path: readonly string[]; ownership: boolean }>();
     for (const rule of semanticRules) {
       if (rule.layer !== first.layer || JSON.stringify(rule.conditions) !== JSON.stringify(first.conditions)) continue;
-      rule.path.forEach((_, index) => {
-        const path = rule.path.slice(0, index + 1);
+      const authoredPath = getOwnershipPath(rule.nodes);
+      authoredPath.forEach((_, index) => {
+        const path = authoredPath.slice(0, index + 1);
         const key = JSON.stringify(path);
         const ownership = rule.relations.slice(0, index).every((relation) => relation === 'descendant');
         targets.set(key, { path, ownership: ownership || (targets.get(key)?.ownership ?? false) });

@@ -2,6 +2,15 @@
 
 ## 当前方向
 
+### 当前 selector 迁移状态（2026-10-30）
+
+owner 已确认采用只读 `nodes` + `getOwnershipPath(nodes)`，先不加 WeakMap 缓存。规则上的独立 `path` 和 `projectForPlanning` 已删除；名称按需派生，单次操作可保留局部变量，实际 target／source 绑定仍独立。排序、marker 身份、selector-list 声明共享、准入及 fallback 不变。设计理由与反例见 [Parser 内部 selector 片段](ARCHITECTURE-DIRECTION.md#parser-内部-selector-片段)。
+
+完整 `verify` **2456** 项（Compiler 1910／React 49／Vite 163／Testing 334）及 lint／build／types 通过；545 样本完整 replacement／finalize、四个歧义、七个诊断优先级／LKG、两种 compatibility 下的 preserved／atomic／失败／恢复对照一致。parser 历史结构仅在证据脚本中从节点重建，公共结果逐字段比较。既有节点测试验证不可变替换后的名称派生与原节点独立。证据见 `artifacts/selector-derived-path/`；首次构建遗漏的内部类型依赖已修复，初始失败日志保留。此次行为保持式迁移未重跑浏览器，前次三引擎证据仍是历史验证。
+
+下一步先清理失去区别的 parser／planning 规则类型别名，再核对各 planner 绑定的实际差异；不因字段相似而合并独立证明或扩大语义。以下逐切片记录保留当时状态，其中“仍保留路径投影”已由本项完成。
+
+
 owner 已要求开始推进核心架构与属性排序目标；[架构方向](ARCHITECTURE-DIRECTION.md) 记录当前实现、优先级、阶段状态和验证要求，[属性排序设计](PROPERTY-ORDER-DESIGN.md) 记录排序目标。会话提交／失效已从贡献准备与快照汇总中拆出，保持公共接口及行为。可原子化的 pure ownership 规则内及跨规则累积的已登记逻辑／物理 longhand 对已准入；preserved 模式、shorthand 和其他上下文仍可能报 `GSS1206`，同属性 rank 与跨属性输出位置已分离，完整安全展开及更宽复用仍未完成。
 
 已确认原生强度／上下文和已证明的所有权／结构语义优先，同语义高度时逻辑属性先、物理属性后；同属性 rank 已与跨属性输出位置分开；shorthand 完整展开及更宽复用仍需设计。不能安全展开的既有输入暂时沿用原 shorthand 处理和 fallback，不额外拒绝。owner 仍要求**不自行新增框架或验收场景**；保留独立 oracle、历史失败及现有验证边界。

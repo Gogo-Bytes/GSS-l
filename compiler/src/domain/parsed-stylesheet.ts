@@ -68,10 +68,7 @@ export type ParsedSourceRule = ParsedSelector & {
   sourceOrdinal: number;
 };
 
-export type ParsedStyleRule = ParsedSourceRule & {
-  /** Temporary ownership path projection; it does not prove DOM ancestry. */
-  readonly path: readonly string[];
-};
+export type ParsedStyleRule = ParsedSourceRule;
 
 export type ParsedPropertyRegistration = {
   source: SourceSpan;

@@ -1,15 +1,15 @@
 import type { ParsedStyleRule } from './parsed-stylesheet.js';
 import { effectsOfProperty } from './property-effects.js';
-import { matchesOwnedTarget } from './ownership-path.js';
+import { getOwnershipPath, matchesOwnedTarget } from './ownership-path.js';
 
 /** Admission envelope only, not a general cascade model. Called on all module rules,
  * before pruning, so an opaque competing declaration cannot escape rank closure.
  * Existing accepted inputs never depend on this opt-in check. */
 export function supportsCurrentBackgroundRanks(rules: readonly ParsedStyleRule[], target: readonly string[]): boolean {
   // An external residual selects a browser descendant, not the owned anchor in
-  // rule.path. It may match this target under any anchor; no disjointness proof
+  // the authored nodes. It may match this target under any anchor; no disjointness proof
   // exists here, so competing external effects must be checked module-wide.
-  return rules.filter((rule) => rule.externalTarget !== undefined || matchesOwnedTarget(rule.path, target)).every((rule) => {
+  return rules.filter((rule) => rule.externalTarget !== undefined || matchesOwnedTarget(getOwnershipPath(rule.nodes), target)).every((rule) => {
     const competing = rule.declarations.filter((declaration) => effectsOfProperty(declaration.property).includes('background-color'));
     if (!competing.length) return true;
     return rule.layer === 'unlayered' && rule.conditions.length === 0 &&

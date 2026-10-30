@@ -1,3 +1,4 @@
+import { getOwnershipPath } from './ownership-path.js';
 import type { ParsedStyleRule } from './parsed-stylesheet.js';
 import type { OrderInstance } from './order-occurrences.js';
 import { planDescendantConditions } from './plan-descendant-conditions.js';
@@ -17,7 +18,10 @@ export function planModuleRelations(localRules: readonly ParsedStyleRule[], sema
     isAncestorStateRule(rule) || isAncestorAttributeRule(rule)
   );
   const hasDescendantConditions = contextualRules.length > 0 || descendantRules.some((rule) => !isPureOwnershipRule(rule));
-  const declaredPaths = semanticRules.flatMap(({ path }) => path.map((_, index) => path.slice(0, index + 1)));
+  const declaredPaths = semanticRules.flatMap(({ nodes }) => {
+    const path = getOwnershipPath(nodes);
+    return path.map((_, index) => path.slice(0, index + 1));
+  });
   const plannedDescendants = hasDescendantConditions ? planDescendantConditions(descendantRules, declaredPaths,
     (target) => supportsCurrentBackgroundRanks(semanticRules, target)) : undefined;
   if (plannedDescendants?.ambiguity) return { ambiguity: plannedDescendants.ambiguity };
@@ -43,11 +47,11 @@ export function collectModuleOrderCandidates(
     ...plannedStructural.instances,
     ...plannedPseudos.candidates,
     ...[...sameNodeRules, ...externalRules].map((rule) => ({
-      rule, targetPath: rule.path, sourceIndex: -1, specificity: rule.nodes.length,
+      rule, targetPath: getOwnershipPath(rule.nodes), sourceIndex: -1, specificity: rule.nodes.length,
       relationRank: 0, declarations: rule.declarations
     })),
     ...hasRules.flatMap((rule) => rule.nodes.at(-1)!.observations.map((observation) => ({
-      rule, observation, targetPath: rule.path, sourceIndex: -1, specificity: rule.nodes.length,
+      rule, observation, targetPath: getOwnershipPath(rule.nodes), sourceIndex: -1, specificity: rule.nodes.length,
       relationRank: 0, declarations: rule.declarations
     })))
   ];

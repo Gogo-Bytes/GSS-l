@@ -1,3 +1,4 @@
+import { getOwnershipPath } from '../domain/ownership-path.js';
 import type { AtomicEmissionContext } from './atomic-emission-context.js';
 import type { ParsedStyleRule } from '../domain/parsed-stylesheet.js';
 import type { PureDeclarationIdentity } from '../domain/readable-name.js';
@@ -16,9 +17,10 @@ export function emitExternalRules(input: AtomicEmissionContext & {
 }): { diagnostics: readonly GssDiagnostic[] } | undefined {
   const { rules, sameNodeRules, externalRules, moduleId, bindings, nameAllocator, roots, moduleOrder } = input;
   for (const rule of sameNodeRules) {
-    const scope = ensureScopePath(roots, rule.path);
-    const ancestorMarkers = rule.path.slice(0, -1).map((_, index) => {
-      const path = rule.path.slice(0, index + 1);
+    const authoredPath = getOwnershipPath(rule.nodes);
+    const scope = ensureScopePath(roots, authoredPath);
+    const ancestorMarkers = authoredPath.slice(0, -1).map((_, index) => {
+      const path = authoredPath.slice(0, index + 1);
       const marker = nameAllocator.createScopeMarker(moduleId, path);
       ensureScopePath(roots, path).classNames.add(marker);
       return marker;
@@ -37,8 +39,8 @@ export function emitExternalRules(input: AtomicEmissionContext & {
       const identity: PureDeclarationIdentity = {
         layer: rule.layer, condition: canonicalCondition(rule.conditions),
         state: `external-condition:${rule.externalCondition!}`,
-        ...(moduleOrder.get(declaration, { rule, targetPath: rule.path }) ?? {}),
-        ownership: { moduleId, path: rule.path, specificity: rule.nodes.length },
+        ...(moduleOrder.get(declaration, { rule, targetPath: authoredPath }) ?? {}),
+        ownership: { moduleId, path: authoredPath, specificity: rule.nodes.length },
         property: declaration.property,
         ...identifyAssetValue(declaration.value, bindings),
         important: declaration.important
@@ -59,9 +61,10 @@ export function emitExternalRules(input: AtomicEmissionContext & {
   // planner can prove a winner across external selector branches.
   const externalEffects = new Set<string>();
   for (const rule of externalRules) {
-    const scope = ensureScopePath(roots, rule.path);
-    const ancestorMarkers = rule.path.slice(0, -1).map((_, index) => {
-      const path = rule.path.slice(0, index + 1);
+    const authoredPath = getOwnershipPath(rule.nodes);
+    const scope = ensureScopePath(roots, authoredPath);
+    const ancestorMarkers = authoredPath.slice(0, -1).map((_, index) => {
+      const path = authoredPath.slice(0, index + 1);
       const marker = nameAllocator.createScopeMarker(moduleId, path);
       ensureScopePath(roots, path).classNames.add(marker);
       return marker;
@@ -79,8 +82,8 @@ export function emitExternalRules(input: AtomicEmissionContext & {
       const identity: PureDeclarationIdentity = {
         layer: rule.layer, condition: canonicalCondition(rule.conditions),
         state: `external:${rule.externalTarget!}`,
-        ...(moduleOrder.get(declaration, { rule, targetPath: rule.path }) ?? {}),
-        ownership: { moduleId, path: rule.path, specificity: rule.nodes.length },
+        ...(moduleOrder.get(declaration, { rule, targetPath: authoredPath }) ?? {}),
+        ownership: { moduleId, path: authoredPath, specificity: rule.nodes.length },
         property: declaration.property,
         ...identifyAssetValue(declaration.value, bindings),
         important: declaration.important

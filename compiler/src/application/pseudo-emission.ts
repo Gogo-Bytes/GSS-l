@@ -1,3 +1,4 @@
+import { getOwnershipPath } from '../domain/ownership-path.js';
 import type { ParsedStyleRule } from '../domain/parsed-stylesheet.js';
 import type { PureDeclarationIdentity } from '../domain/readable-name.js';
 import type { DescendantInstance } from '../domain/plan-descendant-conditions.js';
@@ -16,7 +17,7 @@ export function emitPseudoRules(input: AtomicEmissionContext & {
   const { rules, localRules, instances, moduleId, bindings, nameAllocator, roots, moduleOrder } = input;
   // Declared pseudo paths remain public scopes even when no declarations survive planning.
   for (const rule of localRules) {
-    if (isPseudoElementRule(rule)) ensureScopePath(roots, rule.path);
+    if (isPseudoElementRule(rule)) ensureScopePath(roots, getOwnershipPath(rule.nodes));
   }
   for (const instance of instances) {
     const { rule, targetPath, declarations, relationRank } = instance;

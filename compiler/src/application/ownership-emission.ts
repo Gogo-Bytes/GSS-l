@@ -1,3 +1,4 @@
+import { getOwnershipPath } from '../domain/ownership-path.js';
 import type { AtomicEmissionContext } from './atomic-emission-context.js';
 import type { ParsedStyleRule } from '../domain/parsed-stylesheet.js';
 import type { ContextualRelationIdentity, PureDeclarationIdentity } from '../domain/readable-name.js';
@@ -18,7 +19,7 @@ export function emitOwnershipRules(input: AtomicEmissionContext & {
   const { rules, localRules, plan, moduleId, bindings, nameAllocator, roots, moduleOrder } = input;
   const { ownershipRules, hasDescendantConditions, plannedDescendants, plannedStructural } = plan;
   if (plannedDescendants) {
-    for (const rule of localRules) ensureScopePath(roots, rule.path);
+    for (const rule of localRules) ensureScopePath(roots, getOwnershipPath(rule.nodes));
     for (const instance of plannedStructural.descendants) {
       const { rule, targetPath, sourcePath, sourceIndex, relationRank } = instance;
       const wrappers = rule.conditions;
@@ -31,12 +32,13 @@ export function emitOwnershipRules(input: AtomicEmissionContext & {
       const ancestor = sourcePath !== undefined && sourcePath.length < targetPath.length;
       const scope = ensureScopePath(roots, targetPath);
       if (ancestor) {
+        const authoredPath = getOwnershipPath(rule.nodes);
         const sourceMarker = nameAllocator.createSourceMarker(moduleId, sourcePath, condition, layer);
         const relationIdentity: ContextualRelationIdentity = {
           moduleId, layer, condition, sourcePath, targetPath,
           relations: rule.relations.slice(sourceIndex),
           ...(attribute ? { sourceAttribute: canonicalAttributeCondition(attribute) } : { sourceState: states.join(':') }),
-          ...(JSON.stringify(rule.path) !== JSON.stringify(targetPath) ? { authoredPath: rule.path } : {})
+          ...(JSON.stringify(authoredPath) !== JSON.stringify(targetPath) ? { authoredPath } : {})
         };
         const targetMarker = nameAllocator.createTargetMarker(relationIdentity);
         ensureScopePath(roots, sourcePath).classNames.add(sourceMarker);
@@ -75,7 +77,10 @@ export function emitOwnershipRules(input: AtomicEmissionContext & {
       .filter((rule) =>
         rule.layer === layer && canonicalCondition(rule.conditions) === condition
       )
-      .flatMap(({ path }) => path.map((_, index) => path.slice(0, index + 1)));
+      .flatMap(({ nodes }) => {
+        const path = getOwnershipPath(nodes);
+        return path.map((_, index) => path.slice(0, index + 1));
+      });
     for (const target of resolveTargetDeclarations(groupedRules, declaredPaths)) {
       const scope = ensureScopePath(roots, target.path);
       for (const { rule, declaration } of target.occurrences) {

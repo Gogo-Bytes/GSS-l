@@ -1,3 +1,4 @@
+import { getOwnershipPath } from './ownership-path.js';
 import { effectsOfProperty } from './property-effects.js';
 import type { DescendantInstance } from './plan-descendant-conditions.js';
 import type { ParsedHasCondition, ParsedStyleRule, SelectorRelation } from './parsed-stylesheet.js';
@@ -145,12 +146,13 @@ export function planStructuralRelations(
 ): { instances: StructuralInstance[]; descendants: StructuralInstance[]; ambiguity?: string } {
   if (!rules.length) return { instances: [], descendants: [...descendants] };
   const structural: Candidate[] = rules.map((rule) => {
+    const targetPath = getOwnershipPath(rule.nodes);
     const sourceIndex = rule.relations.findIndex((relation) => relation !== 'descendant');
-    const sourcePath = rule.path.slice(0, sourceIndex + 1);
+    const sourcePath = targetPath.slice(0, sourceIndex + 1);
     // The session admits one or more trailing descendant ownership edges;
     // they remain in the emitted selector but are not runtime implication edges.
     const { states, attributes } = rule.nodes[sourceIndex]!;
-    const instance: StructuralInstance = { rule, targetPath: rule.path, sourcePath, sourceIndex,
+    const instance: StructuralInstance = { rule, targetPath, sourcePath, sourceIndex,
       specificity: rule.nodes.length + states!.filter((state) => !state.startsWith('where(')).length + attributes!.length,
       relationRank: 0, declarations: rule.declarations };
     return {
@@ -169,15 +171,16 @@ export function planStructuralRelations(
   const observedCandidates: Candidate[] = observed.filter((rule) =>
     !rule.nodes.at(-1)!.observations.some((observation) => observation.nativeSpecificity)
   ).flatMap((rule) => rule.nodes.at(-1)!.observations.map((observation) => {
+    const targetPath = getOwnershipPath(rule.nodes);
     const isTag = observation.observedResidual !== undefined &&
       observation.observedResidualClassCount === undefined &&
       !observation.observedResidual.startsWith(':') && !observation.observedResidual.startsWith('[');
     const argumentClasses = observation.observedClass ? 1 + Number(Boolean(observation.observedState))
       : observation.observedResidualClassCount ?? Number(!isTag);
     return {
-      instance: { rule, targetPath: rule.path, sourceIndex: -1, specificity: rule.nodes.length + argumentClasses,
+      instance: { rule, targetPath, sourceIndex: -1, specificity: rule.nodes.length + argumentClasses,
         relationRank: 0, declarations: rule.declarations },
-      constraint: { targetPath: rule.path, predicates: [], observation },
+      constraint: { targetPath, predicates: [], observation },
       typeSpecificity: Number(isTag)
     };
   }));

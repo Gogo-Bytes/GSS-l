@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseStylesheet } from '../src/infrastructure/postcss-stylesheet-parser.js';
 import type { ParsedStylesheet } from '../src/application/css-parser-port.js';
-import { projectForPlanning } from '../src/application/css-parser-port.js';
+import { getOwnershipPath } from '../src/domain/ownership-path.js';
 
 const id = '/project/card.gss';
 const source = '.card {\r\n color: /*😀*/ red;\r\n & .icon, & .badge { width: 1px; }\r\n height: 2px;\r\n}';
@@ -129,7 +129,7 @@ it('preserves each selector segment and the established external early-return st
   ]);
 });
 
-it('binds selector conditions to nodes while preserving shared declarations through the planning projection', () => {
+it('binds selector conditions to nodes while preserving shared declarations and deriving ownership names', () => {
   const parsed = parseStylesheet(id, '.a:hover .b[role="x"], .c:has(.flag) { color:red }');
   expect(parsed.diagnostics).toEqual([]);
   expect(parsed.rules[0]!.nodes).toMatchObject([
@@ -140,9 +140,9 @@ it('binds selector conditions to nodes while preserving shared declarations thro
     { name: 'c', states: [], attributes: [], observations: [{ observedClass: 'flag' }], pseudoElement: null }
   ]);
   expect(parsed.rules[0]!.declarations).toBe(parsed.rules[1]!.declarations);
-  const projected = projectForPlanning(parsed);
-  expect(projected.rules[0]!.nodes).toBe(parsed.rules[0]!.nodes);
-  expect(projected.rules[0]).toMatchObject({ path: ['a', 'b'], relations: ['descendant'] });
-  expect(projected.rules[0]!.declarations).toBe(parsed.rules[0]!.declarations);
-  expect(projected.rules[1]!.declarations).toBe(parsed.rules[1]!.declarations);
+  expect(getOwnershipPath(parsed.rules[0]!.nodes)).toEqual(['a', 'b']);
+  expect(parsed.rules[0]!.relations).toEqual(['descendant']);
+  const renamed = parsed.rules[0]!.nodes.map((node) => ({ ...node, name: `new-${node.name}` }));
+  expect(getOwnershipPath(renamed)).toEqual(['new-a', 'new-b']);
+  expect(getOwnershipPath(parsed.rules[0]!.nodes)).toEqual(['a', 'b']);
 });

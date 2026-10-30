@@ -1,8 +1,9 @@
+import { getOwnershipPath } from '../domain/ownership-path.js';
 import selectorParser from 'postcss-selector-parser';
 import type { CompatibilityTransformer } from './compatibility-transformer.js';
 import type { ParsedStyleRule } from '../domain/parsed-stylesheet.js';
 import type { GssDiagnostic, ReplaceStylesheetInput, StyleModuleArtifact } from '../public-types.js';
-import type { PlanningStylesheet } from './css-parser-port.js';
+import type { ParsedStylesheet } from './css-parser-port.js';
 import type { NameAllocatorPort } from './name-allocator.js';
 import type { ModuleContribution } from './module-contribution.js';
 import { bindCssAssets } from './asset-values.js';
@@ -15,7 +16,7 @@ import { ensureScopePath, toScopeSchema, renderModuleCode, renderDeclarationCode
 export function preparePreservedContribution(input: {
   input: ReplaceStylesheetInput;
   moduleId: string;
-  parsed: PlanningStylesheet;
+  parsed: ParsedStylesheet;
   rules: readonly ParsedStyleRule[];
   conditionDiagnostics: readonly GssDiagnostic[];
   fallbackProperties: readonly string[];
@@ -26,8 +27,9 @@ export function preparePreservedContribution(input: {
 }): ModuleContribution {
   const roots = new Map<string, MutableScopeNode>();
   for (const rule of input.rules) {
+    const authoredPath = getOwnershipPath(rule.nodes);
     for (let index = 0; index < rule.nodes.length; index += 1) {
-      const path = rule.path.slice(0, index + 1);
+      const path = authoredPath.slice(0, index + 1);
       ensureScopePath(roots, path).classNames.add(input.nameAllocator.createScopeMarker(input.moduleId, path));
     }
     for (const observation of rule.nodes.flatMap((node) => node.observations)) {
@@ -92,13 +94,14 @@ function renderPreservedRule(
   nameAllocator: NameAllocatorPort,
   compatibility?: CompatibilityTransformer
 ): { css: string; declarationOffsets: readonly number[] } {
+  const authoredPath = getOwnershipPath(rule.nodes);
   const selector = selectorParser((root) => {
     for (const branch of root.nodes) {
       let pathIndex = 0;
       for (const node of branch.nodes) {
         if (node.type === 'class') {
           pathIndex += 1;
-          node.value = nameAllocator.createScopeMarker(moduleId, rule.path.slice(0, pathIndex));
+          node.value = nameAllocator.createScopeMarker(moduleId, authoredPath.slice(0, pathIndex));
           continue;
         }
         if (node.type !== 'pseudo' || node.value !== ':has') continue;

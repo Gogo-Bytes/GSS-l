@@ -1,5 +1,5 @@
 import valueParser from 'postcss-value-parser';
-import type { CssParserPort, ParsedStylesheet, PlanningStylesheet } from './css-parser-port.js';
+import type { CssParserPort, ParsedStylesheet } from './css-parser-port.js';
 import type { GssDiagnostic, ReplaceStylesheetInput } from '../public-types.js';
 
 export function discoverAssets(input: Pick<ReplaceStylesheetInput, 'id' | 'source'>, cssParser: CssParserPort): {
@@ -10,7 +10,7 @@ export function discoverAssets(input: Pick<ReplaceStylesheetInput, 'id' | 'sourc
   return { urls: collectAssetDependencies(parsed), diagnostics: parsed.diagnostics };
 }
 
-export function collectAssetDependencies(parsed: ParsedStylesheet | PlanningStylesheet): readonly string[] {
+export function collectAssetDependencies(parsed: ParsedStylesheet): readonly string[] {
   const values = [
     ...parsed.rules.flatMap((rule) => rule.declarations.map(({ value }) => value)),
     ...parsed.resources.flatMap((resource) => resource.kind === 'keyframes'

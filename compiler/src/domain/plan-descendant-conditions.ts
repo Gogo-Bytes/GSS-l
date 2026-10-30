@@ -1,9 +1,9 @@
 import { effectsOfProperty } from './property-effects.js';
-import { isSubsequence, matchesOwnedTarget } from './ownership-path.js';
+import { getOwnershipPath, isSubsequence, matchesOwnedTarget } from './ownership-path.js';
 import { isStructuralPseudoState } from './pseudo-state-capabilities.js';
 import type { ParsedStyleRule } from './parsed-stylesheet.js';
 
-export type DescendantRule = Pick<ParsedStyleRule, 'path' | 'nodes'> & {
+export type DescendantRule = Pick<ParsedStyleRule, 'nodes'> & {
   conditions: readonly { kind: string; query: string }[];
   layer: string;
   sourceOrdinal: number;
@@ -71,7 +71,7 @@ export function planDescendantConditions<R extends DescendantRule>(
     const candidates: DescendantInstance<R>[] = [];
     for (const rule of rules) {
       const sourceIndex = rule.nodes.findIndex(({ states, attributes }) => states.length > 0 || attributes.length > 0);
-      for (const position of conditionSourcePositions(rule.path, targetPath, sourceIndex)) {
+      for (const position of conditionSourcePositions(getOwnershipPath(rule.nodes), targetPath, sourceIndex)) {
         const sourcePath = sourceIndex < 0 ? undefined : targetPath.slice(0, position + 1);
         const predicate = sourceIndex < 0 ? undefined : rule.nodes[sourceIndex];
         const states = sourceIndex < 0 ? [] : predicate!.states!;

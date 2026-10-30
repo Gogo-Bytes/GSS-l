@@ -4,9 +4,9 @@
 
 | 工作 | 现有入口 | 必须区分的语义 |
 | --- | --- | --- |
-| 解析后的 selector 分支 | [parsed-stylesheet.ts](parsed-stylesheet.ts) | `ParsedSelectorNode` 绑定名称和条件；规划阶段仍保留单独的 ownership 路径投影。分支与声明来源、ownership 与 DOM 关系不能混同。 |
+| 解析后的 selector 分支 | [parsed-stylesheet.ts](parsed-stylesheet.ts) | `ParsedSelectorNode` 绑定名称和条件；ownership 名称路径通过 `getOwnershipPath(nodes)` 按需派生，不存入规则、不缓存。分支与声明来源、ownership 与 DOM 关系不能混同。 |
 | 规则形态判断 | [rule-classification.ts](rule-classification.ts) | 谓词可重叠，不等同准入或 DOM 匹配；冲突检查还需单独排除 external target／condition。 |
-| Ownership 路径 | [ownership-path.ts](ownership-path.ts) | 目标末节点相同，前缀按有序子序列匹配；声明胜出、关系规划、语义高度、背景准入和逻辑／物理冲突校验使用同一规则。这是 scope 组合关系，不证明 DOM 祖先或结构 selector。 |
+| Ownership 路径 | [ownership-path.ts](ownership-path.ts) | `getOwnershipPath` 从只读节点派生名称；实际 target／source 绑定独立。目标末节点相同，前缀按有序子序列匹配；声明胜出、关系规划、语义高度、背景准入和逻辑／物理冲突校验使用同一规则。这是 scope 组合关系，不证明 DOM 祖先或结构 selector。 |
 | 节点条件 | [parsed-stylesheet.ts](parsed-stylesheet.ts) | planner、语义高度与 ownership／结构输出直接读取同一 authored 节点的状态与属性，不合并 descendant 和结构 planner 的蕴含／互斥证明。 |
 | 关系规划编排 | [plan-module-relations.ts](plan-module-relations.ts) | descendant、结构和 pseudo 按既有顺序规划与报告歧义；排序候选按原路径收集，candidate 与存活 instance 不能混用。 |
 | 排序 occurrence 身份 | [order-occurrences.ts](order-occurrences.ts) | 声明对象、selector 分支和 target／source／observation 绑定共同标识 occurrence；它不是可复用 atom 的身份。收集保留剪枝前的声明及位置。 |

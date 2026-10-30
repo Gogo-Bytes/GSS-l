@@ -1,7 +1,7 @@
 import type { ParsedStyleRule } from './parsed-stylesheet.js';
 import type { OrderOccurrence } from './order-occurrences.js';
 import { strictlyRefines } from './plan-structural-relations.js';
-import { matchesOwnedTarget } from './ownership-path.js';
+import { getOwnershipPath, matchesOwnedTarget } from './ownership-path.js';
 import { propertiesMayOverlapForModuleOrder } from './module-order-policy.js';
 
 const context = (target: readonly string[], source?: readonly string[]) => JSON.stringify([target, source]);
@@ -20,7 +20,7 @@ export function semanticOrderHeights(family: readonly OrderOccurrence[]): Readon
       !propertiesMayOverlapForModuleOrder(a.declaration.property, b.declaration.property) ||
       context(a.instance.targetPath) !== context(b.instance.targetPath)) return false;
     // A target predicate cannot erase the broader authored ownership requirement.
-    if (matchesOwnedTarget(a.instance.rule.path, b.instance.rule.path) && strictlyRefines(b.instance, a.instance)) return true;
+    if (matchesOwnedTarget(getOwnershipPath(a.instance.rule.nodes), getOwnershipPath(b.instance.rule.nodes)) && strictlyRefines(b.instance, a.instance)) return true;
     // Equivalent predicates retain the owned-resolution specificity proof.
     return !strictlyRefines(a.instance, b.instance) &&
       a.instance.rule.relations.every((relation) => relation === 'descendant') &&
