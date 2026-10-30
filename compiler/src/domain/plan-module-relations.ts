@@ -32,7 +32,7 @@ export function planModuleRelations(localRules: readonly ParsedStyleRule[], sema
   const observedSubjects: OwnedTargetBinding[] = hasRules.map((rule) => ({
     rule, targetPath: getOwnershipPath(rule.nodes)
   }));
-  return { plan: { ownershipRules, observedSubjects, descendantRules, hasDescendantConditions, declaredPaths,
+  return { plan: { ownershipRules, observedSubjects, descendantRules, declaredPaths,
     plannedDescendants, plannedStructural, plannedPseudos } };
 }
 

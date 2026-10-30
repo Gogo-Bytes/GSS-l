@@ -4,6 +4,8 @@
 
 ### 当前 selector 迁移状态（2026-10-30）
 
+关系计划不再返回与 plannedDescendants 是否存在重复的 hasDescendantConditions；输出按规划结果是否存在选择路径，保留已规划但实例为空的 scope 登记。原准入谓词及 planner 调用时机不变。完整 `verify` 2456 项与 545 样本／歧义／诊断／fallback 对照通过，见 `artifacts/descendant-plan-presence/`；未重跑浏览器。
+
 已删除 `ResolvedTarget.declarations`：它只是 occurrences 的声明投影且无消费方。目标结果只保留路径和包含规则／声明身份的 occurrences，不影响排序候选或存活声明顺序。完整 `verify` 2456 项与 545 样本／歧义／诊断／fallback 对照通过，见 `artifacts/ownership-occurrence-only/`；未重跑浏览器。
 
 普通 ownership 的 layer／条件分组、局部目标前缀和胜出解析移入 `application/ownership-planning.ts`；输出只消费目标分组与可选 descendant 实例，不再读取整个 relation plan。保留空目标 scope、剪枝前排序候选与存活输出的区别、解析顺序及 fallback 后调用时机。完整 `verify` 2456 项、545 样本完整输出及歧义／诊断／fallback 序列对照通过，见 `artifacts/ownership-planning-boundary/`；本切片未重跑浏览器。

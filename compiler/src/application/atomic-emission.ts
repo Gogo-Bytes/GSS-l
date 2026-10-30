@@ -39,10 +39,10 @@ export function emitAtomicRules(input: {
     collectModuleOrderCandidates(input.relationPlan, sameNodeAnchors, externalAnchors));
   const context = { rules, moduleId, bindings, nameAllocator, roots, moduleOrder };
 
-  const { hasDescendantConditions, ownershipRules } = input.relationPlan;
-  const ownershipGroups = planOwnershipTargets(hasDescendantConditions ? [] : ownershipRules, localRules);
+  const { plannedDescendants, ownershipRules } = input.relationPlan;
+  const ownershipGroups = planOwnershipTargets(plannedDescendants ? [] : ownershipRules, localRules);
   emitOwnershipRules({ ...context, localRules, ownershipGroups,
-    ...(input.relationPlan.plannedDescendants ? { descendants: plannedStructural.descendants } : {}) });
+    ...(plannedDescendants ? { descendants: plannedStructural.descendants } : {}) });
 
   emitPseudoRules({ ...context, localRules, instances: plannedPseudos.instances });
 
