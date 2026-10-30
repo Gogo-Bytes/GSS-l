@@ -4,6 +4,8 @@
 
 ### 当前 selector 迁移状态（2026-10-30）
 
+当前停止点是架构决策，不是验证失败：结构绑定消费（`1495405`）、来源类型保证（`99038b5`）与 observation 主体共享（`685c78f`）均已交付。下一步是否新增独立 MarkerPlan 中间阶段，见 [具体方案与边界](ARCHITECTURE-DIRECTION.md#待-owner-决策是否新增显式-markerplan-阶段)；建议暂保留专用输出分支，owner 确认前不新增中间层，也不把历史 shorthand／框架开放项当自动任务。
+
 `:has()` 主体绑定已在关系规划阶段建立，排序候选和 marker 输出共用 rule／targetPath；逐 observation 身份、原生 selector-list specificity 和结构歧义的独立计算保留。完整 `verify` 2456 项和 545 样本完整输出、歧义／诊断／fallback 序列对照通过，见 `artifacts/observed-subject-binding/`；未重跑浏览器 gate。
 
 结构输出类型进一步明确为 `RuntimeStructuralInstance`，要求 planner 返回的 sourcePath 必须存在；普通／继承的 descendant 实例仍允许无来源路径。输出端移除非空断言，运行时算法不变。完整 `verify` 2456 项及 545 样本／歧义／诊断／fallback 对照通过，见 `artifacts/structural-source-contract/`；未重跑浏览器。

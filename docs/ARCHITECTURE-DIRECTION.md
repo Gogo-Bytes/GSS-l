@@ -125,6 +125,21 @@ Pseudo planner 和输出从末尾节点读取主体与状态，固定排序从�
 
 不同输出分支不能简单合并：普通 ownership 可以累积目标路径；结构／祖先状态需要 source、target 和中间 marker；`:has()` 按 observation 保留主体／观察身份和 native specificity；external target 不导出为 scope，重叠 effect 仍按既有规则拒绝。规则来源、`!important`、条件／layer、scope 中未存活 pseudo 路径以及 asset 身份都必须保留。输出过程中遇到的 external 歧义依旧返回 `GSS1205`，且失败贡献不会提交；preserved 仍有独立输出路径。本次只移动阶段边界，分支内部的语义、执行顺序、identity 和 fallback 未改变；planner 内部模型及更宽复用仍未完成。验证见 [当前计划](NEXT-STAGE.md)。
 
+### 待 owner 决策：是否新增显式 MarkerPlan 阶段
+
+2026-10-30 的绑定收敛完成后，结构输出消费已规划 source／target，`:has()` 排序与输出共用主体绑定。目前 marker 的命名、scope class 登记、selector 渲染仍由各专用输出分支完成，共用 name allocator、scope exports 和 selector rendering。未发现这一组织方式导致的新契约反例。
+
+下一步涉及架构选择，以下为待确认方案，不是已批准实现：
+
+| 方案 | 具体数据流与改动 | 收益与代价 |
+| --- | --- | --- |
+| A：保留专用输出分支（建议） | 关系计划／排序 → 现有各 emitter → scope 与 CSS；继续消除真实的重复绑定，不新增统一中间层 | 当前路径最短，各关系的例外显式保留；marker 登记和 selector 生成仍在同一过程，不能单独检查一份完整 marker 计划 |
+| B：新增 MarkerPlan | 关系计划／排序 → 各分支生成 marker 请求、scope membership 和 selector 结构计划 → 统一命名／登记／渲染 | 可独立检查“声明了哪些 marker、放到哪些 scope、哪些 selector 引用它”；需要新的内部数据模型、完整迁移和浏览器复验，不能仅包装现有函数或改为拼接模板 |
+
+若选择 B，最小计划需要表达 marker 角色（source／target／context／subject／observed）、既有完整身份输入、scope 路径及 selector 对 marker 的引用；应复用现有身份类型与 selector parser。它不统一关系蕴含、重写 specificity 规则或增加新框架。`:has()` 的 native list 与分支 witness、external target 不导出 scope、pseudo 即使无存活声明仍保留 scope、结构尾部 descendant 和 source specificity 都是必须保留的反例边界。迁移要求现有完整输出等价、diagnostic／LKG／fallback 对照及受影响的原浏览器入口，不替换独立 oracle。
+
+建议 A 的理由是目前已有共享基础能力，尚无第二种 renderer、marker 计划消费者或复现缺陷要求新增阶段。若 owner 将“marker 计划本身可检查”视为整体架构目标，则 B 有明确价值。两者不改变已确认的排序或 fallback；本轮只记录选择，不新增 MarkerPlan 代码。
+
 ### External selector 上下文准入
 
 [selector-admission.ts](../compiler/src/application/selector-admission.ts) 在其他条件、声明与关系规划前，按已解析规则分别收集 local、external target 和同节点 external condition，并沿用原 selector AST 中 `:global()` 的检测。外部 descendant 只准入当前已支持的纯 ownership 路径；同节点 external condition 保留单规则或已证明的单 longhand base refinement 等既有限制。它不把 external target 变成导出的 scope，也不把外部类视为 GSS ownership。
