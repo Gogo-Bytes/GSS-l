@@ -3,6 +3,22 @@ import { propertiesMayOverlapForModuleOrder } from './module-order-policy.js';
 
 const sides = ['top', 'right', 'bottom', 'left'] as const;
 const boxShorthands = ['margin', 'padding', 'inset', 'scroll-margin', 'scroll-padding'] as const;
+// Expansion eligibility is separate from the property-effect registry: known
+// effects alone do not prove value distribution or alias isolation is safe.
+const boxExpansions = boxShorthands.flatMap((family) =>
+  ([undefined, 'inline', 'block'] as const).map((axis) => {
+    const shorthand = axis ? `${family}-${axis}` : family;
+    return {
+      shorthand,
+      properties: axis ? ['start', 'end'].map((side) => `${shorthand}-${side}`) :
+        sides.map((side) => family === 'inset' ? side : `${family}-${side}`),
+      nonnegative: family === 'padding' || family === 'scroll-padding',
+      allowPercentage: family !== 'scroll-margin',
+      isolateAliases: axis !== undefined || family.startsWith('scroll-')
+    };
+  })
+);
+
 // Deliberately limited to values whose grammar and serialization need no CSS
 // value evaluation. Unknown syntax and var() remain on the existing path.
 const length = /^(?:[+-]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)px|[+-]?0(?:\.0+)?)$/i;
@@ -27,30 +43,23 @@ export function discardInvalidStaticPadding(rules: readonly ParsedStyleRule[]): 
 }
 
 export function expandSafeBoxRules(rules: readonly ParsedStyleRule[]): readonly ParsedStyleRule[] {
-  return boxShorthands.reduce((current, family) => {
-    const physical = expandFamily(current, family);
-    const inline = expandFamily(physical, family, 'inline');
-    return expandFamily(inline, family, 'block');
-  }, rules);
+  return boxExpansions.reduce((current, policy) => expandBox(current, policy), rules);
 }
 
-function expandFamily(rules: readonly ParsedStyleRule[], family: typeof boxShorthands[number], axis?: 'inline' | 'block'): readonly ParsedStyleRule[] {
-  const shorthand = axis ? `${family}-${axis}` : family;
+function expandBox(rules: readonly ParsedStyleRule[], policy: typeof boxExpansions[number]): readonly ParsedStyleRule[] {
+  const { shorthand, properties, nonnegative, allowPercentage, isolateAliases } = policy;
   const declarations = [...new Set(rules.flatMap((rule) => rule.declarations))];
-  const properties = axis ? ['start', 'end'].map((side) => `${shorthand}-${side}`) :
-    sides.map((side) => family === 'inset' ? side : `${family}-${side}`);
   const isSide = (property: string) => properties.includes(property);
   // Padding and scroll-padding reject negative lengths; a partially expanded invalid shorthand
   // would incorrectly apply its otherwise valid sides.
-  const nonnegative = family === 'padding' || family === 'scroll-padding';
   // Percentages remain unevaluated for the browser; scroll-margin only accepts lengths.
   const safeLength = (value: string) =>
-    (length.test(value) || fontLength.test(value) || (family !== 'scroll-margin' && percentage.test(value))) &&
+    (length.test(value) || fontLength.test(value) || (allowPercentage && percentage.test(value))) &&
     (!nonnegative || !value.startsWith('-'));
   // Scroll boxes and logical axes require isolation from potential aliases even
   // within one rule. Logical expansion writes start/end, never mapped physical
   // sides. See PROPERTY-ORDER-DESIGN.md for the fallback and direction contract.
-  if ((axis || family.startsWith('scroll-')) && declarations.some(({ property }) =>
+  if (isolateAliases && declarations.some(({ property }) =>
     property !== shorthand && !isSide(property) && propertiesMayOverlapForModuleOrder(property, shorthand))) return rules;
   // Cross-scope ranks preserve authored order only with proven static competing
   // values and no other participating alias.

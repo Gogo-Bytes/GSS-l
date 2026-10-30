@@ -1,5 +1,7 @@
 # GSS 工作状态
 
+既有五族 box 安全展开策略已集中描述目标属性顺序、非负／百分比限制及别名隔离，算法不再按 family／axis 分支计算策略；仍按 physical → inline → block 处理每族。没有新增 CSS 族、值域或注册 API，既有保守边界不变。完整 `verify` 2456 项及 545 样本／歧义／诊断／fallback 对照通过，见 `artifacts/box-expansion-policy/`；未重跑浏览器。
+
 关系计划不再返回与 plannedDescendants 是否存在重复的 hasDescendantConditions；输出按规划结果是否存在选择路径，保留已规划但实例为空的 scope 登记。原准入谓词及 planner 调用时机不变。完整 `verify` 2456 项与 545 样本／歧义／诊断／fallback 对照通过，见 `artifacts/descendant-plan-presence/`；未重跑浏览器。
 
 已删除 `ResolvedTarget.declarations`：它只是 occurrences 的声明投影且无消费方。目标结果只保留路径和包含规则／声明身份的 occurrences，不影响排序候选或存活声明顺序。完整 `verify` 2456 项与 545 样本／歧义／诊断／fallback 对照通过，见 `artifacts/ownership-occurrence-only/`；未重跑浏览器。

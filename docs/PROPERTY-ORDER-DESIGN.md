@@ -202,3 +202,11 @@ Tailwind 参考：[margin utilities](https://tailwindcss.com/docs/margin)、[冲
 **保持语义的依据**：`orderSlot` 在复用前等于旧跨属性 rank；连续桶收缩沿用原准入并同时搬移两个数，故收缩后的输出位置也保持原投影。新身份保留全部旧身份字段和旧位置，并额外区分属性内版本，不会将原本不同的输出位置合并。同属性计数器只是既有有序序列的单调投影，不新增排序边；最终比较器仍是总键，故本次分离不引入新的环。额外身份维度可能保守地拆分旧共享，不宣称复用率提升或跨模块同节点优先级。
 
 验证包括独立编号、多档逻辑／单档物理、未展开 `var()` 正反顺序、不同模块不同输出位置的复用隔离、失败更新／恢复／插入顺序收敛，以及名称编解码。既有 534 个排序 fixtures 在把新名称映射回旧输出位置编码后，replacement 和 finalize 输出一致；source map 的列编码因名称长度改变而不作字节比较，来源及 sources 仍比较，map 由现有 source-map 回归检查。三引擎／原生证据与最终检查结果见 [当前计划](NEXT-STAGE.md)。本次未扩大 shorthand 展开、准入、compatibility 或 preserved fallback 范围。
+
+### 既有 box 安全展开策略的扩展边界
+
+`expand-safe-box.ts` 用内部 `boxExpansions` 描述已准入的五族物理／inline／block 展开：shorthand 名称、有序目标属性、非负限制、百分比许可及潜在别名隔离。顺序仍为每族 physical → inline → block，再处理下一族。算法只消费这些策略，继续执行单 shorthand、静态值、同规则／有界跨 scope 竞争检查、来源共享和原位置替换。
+
+这不是新的公共注册 API，也不扩大 CSS 范围。property-effect registry 表示已知写入／reset effects，不自动证明 shorthand 可以展开；不能直接遍历所有已登记 shorthand 生成展开策略。现有分配算法仅处理双侧／四侧值列表，新形状或隐含 reset 需要另外证明。margin／padding／inset 物理同规则路径、scroll 及逻辑轴的隔离差异，负零的现有保守准入、`var()`／复杂值和 compatibility／preserved 边界均保留。
+
+新增族时应先确认完整 effects、值域、目标次序、别名隔离及源码覆盖，再加入策略；本轮没有加入 border 或其他族。既有五族验证与完整输出对照见当前计划。
