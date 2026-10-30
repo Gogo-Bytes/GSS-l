@@ -2,6 +2,8 @@
 
 ## 当前方向
 
+本轮结构切片已交付：ownership 规划／输出边界 `6f40301`、删除冗余声明投影 `c50eeae`、规划存在性作为唯一分支依据 `30ce50e`、五族安全展开策略集中 `fe46429`。下一项建议为有限 border-width 展开，具体提案见 [属性排序设计](PROPERTY-ORDER-DESIGN.md#待确认的下一范围有限-border-width-展开)；涉及新增展开范围，等待 owner 确认，不先实现。方案 A 和既有排序／fallback 决策继续有效。本段是范围提案，不宣称新增运行验证或整个架构目标已完成。
+
 ### 当前 selector 迁移状态（2026-10-30）
 
 既有五族 box 安全展开策略已集中描述目标属性顺序、非负／百分比限制及别名隔离，算法不再按 family／axis 分支计算策略；仍按 physical → inline → block 处理每族。没有新增 CSS 族、值域或注册 API，既有保守边界不变。完整 `verify` 2456 项及 545 样本／歧义／诊断／fallback 对照通过，见 `artifacts/box-expansion-policy/`；未重跑浏览器。

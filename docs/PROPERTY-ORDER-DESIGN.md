@@ -210,3 +210,13 @@ Tailwind 参考：[margin utilities](https://tailwindcss.com/docs/margin)、[冲
 这不是新的公共注册 API，也不扩大 CSS 范围。property-effect registry 表示已知写入／reset effects，不自动证明 shorthand 可以展开；不能直接遍历所有已登记 shorthand 生成展开策略。现有分配算法仅处理双侧／四侧值列表，新形状或隐含 reset 需要另外证明。margin／padding／inset 物理同规则路径、scroll 及逻辑轴的隔离差异，负零的现有保守准入、`var()`／复杂值和 compatibility／preserved 边界均保留。
 
 新增族时应先确认完整 effects、值域、目标次序、别名隔离及源码覆盖，再加入策略；本轮没有加入 border 或其他族。既有五族验证与完整输出对照见当前计划。
+
+### 待确认的下一范围：有限 border-width 展开
+
+此项为提案，尚未实施。effect registry 已认识 border-width 及物理侧宽度，但当前安全展开仅覆盖既有五族；不能把 effect 登记直接视为展开授权或正确性证明。
+
+建议首个切片只处理既有 pure ownership 原子化路径中，同一规则恰有一条 border-width 与对应物理侧宽度竞争、值为简单非负 px／单位省略的零；要求模块中没有其他与宽度潜在重叠的 shorthand／逻辑属性参与。目标是保持两种 authored 顺序，例如 border-width:1px 2px 后接 border-left-width:3px 时 left 为 3px，反向顺序由后写 shorthand 覆盖 left。实际准入与完整 effects 仍须实施前证明和验证，不以示例代替证明。
+
+暂不增加跨 scope 展开、逻辑轴、border 总 shorthand、宽度关键字、相对单位、var() 或复杂值支持；负值不新增过滤／诊断，继续现有处理；compatibility／preserved 及排序、复用屏障不变。验证复用现有测试载体，覆盖 1–4 值、正反源码顺序、importance、selector-list 共享来源、map、fallback 和浏览器独立原生对照，不新增 demo／框架或验收矩阵。
+
+扩展该族会改变内部 atom 形态及可能生成的 class／复用结果，因此先由 owner 确认此具体范围。若不扩大范围，则保留五族策略，不把该提案作为默认代办。
