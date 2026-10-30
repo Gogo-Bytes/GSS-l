@@ -27,7 +27,7 @@ export function emitAtomicRules(input: {
   roots: Map<string, MutableScopeNode>;
 }): { rules: PlannedDeclaration[] } | { diagnostics: readonly GssDiagnostic[] } {
   const { moduleId, semanticRules, localRules, sameNodeRules, externalRules, bindings, nameAllocator, roots } = input;
-  const { hasRules, plannedStructural, plannedPseudos } = input.relationPlan;
+  const { observedSubjects, plannedStructural, plannedPseudos } = input.relationPlan;
   const rules: PlannedDeclaration[] = [];
   const moduleOrder = planFixedModuleOrder(semanticRules,
     collectModuleOrderCandidates(input.relationPlan, sameNodeRules, externalRules));
@@ -37,7 +37,7 @@ export function emitAtomicRules(input: {
 
   emitPseudoRules({ ...context, localRules, instances: plannedPseudos.instances });
 
-  emitObservedRules({ ...context, hasRules });
+  emitObservedRules({ ...context, subjects: observedSubjects });
 
   emitStructuralRules({ ...context, instances: plannedStructural.instances });
 

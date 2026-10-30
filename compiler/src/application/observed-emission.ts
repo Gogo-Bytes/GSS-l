@@ -1,6 +1,6 @@
-import { getOwnershipPath } from '../domain/ownership-path.js';
+import type { ObservedSubjectBinding } from '../domain/plan-module-relations.js';
 import type { AtomicEmissionContext } from './atomic-emission-context.js';
-import type { ParsedStyleRule, ParsedHasCondition } from '../domain/parsed-stylesheet.js';
+import type { ParsedHasCondition } from '../domain/parsed-stylesheet.js';
 import type { ObservedRelationIdentity } from '../domain/readable-name.js';
 import { identifyAssetValue } from './asset-values.js';
 import { canonicalCondition } from './condition-context.js';
@@ -11,11 +11,10 @@ import type { ObservedDeclarationIdentity } from './planned-declaration.js';
 /** Emit already-planned :has() branches; native list specificity, branch
  * witness and observed marker membership remain distinct parts of identity. */
 export function emitObservedRules(input: AtomicEmissionContext & {
-  hasRules: readonly ParsedStyleRule[];
+  subjects: readonly ObservedSubjectBinding[];
 }): void {
-  const { rules, hasRules, moduleId, bindings, nameAllocator, roots, moduleOrder } = input;
-  for (const rule of hasRules) {
-    const authoredPath = getOwnershipPath(rule.nodes);
+  const { rules, subjects, moduleId, bindings, nameAllocator, roots, moduleOrder } = input;
+  for (const { rule, targetPath } of subjects) {
     const wrappers = rule.conditions;
     const condition = canonicalCondition(wrappers);
     const layer = rule.layer;
@@ -33,7 +32,7 @@ export function emitObservedRules(input: AtomicEmissionContext & {
         moduleId,
         layer,
         condition,
-        subjectPath: authoredPath,
+        subjectPath: targetPath,
         relation: observation.relation,
         ...(observation.observedClass ? { observedClass: observation.observedClass } : {}),
         ...(observation.observedState ? { observedState: observation.observedState } : {}),
@@ -42,7 +41,7 @@ export function emitObservedRules(input: AtomicEmissionContext & {
           : {})
       };
       const subjectMarker = nameAllocator.createHasSubjectMarker(relationIdentity);
-      ensureScopePath(roots, authoredPath).classNames.add(subjectMarker);
+      ensureScopePath(roots, targetPath).classNames.add(subjectMarker);
       const observedSelector = observation.observedClass
         ? (() => {
           const observedMarker = nameAllocator.createObservedMarker(relationIdentity);
@@ -69,7 +68,7 @@ export function emitObservedRules(input: AtomicEmissionContext & {
       for (const declaration of rule.declarations) {
         const identity: ObservedDeclarationIdentity = {
           ...relationIdentity,
-          ...(moduleOrder.get(declaration, { rule, targetPath: authoredPath, observation }) ?? {}),
+          ...(moduleOrder.get(declaration, { rule, targetPath: targetPath, observation }) ?? {}),
           property: declaration.property,
           ...identifyAssetValue(declaration.value, bindings),
           important: declaration.important

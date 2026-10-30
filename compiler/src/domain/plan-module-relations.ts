@@ -1,11 +1,15 @@
 import { getOwnershipPath } from './ownership-path.js';
 import type { ParsedStyleRule } from './parsed-stylesheet.js';
-import type { OrderInstance } from './order-occurrences.js';
+import type { OrderBinding, OrderInstance } from './order-occurrences.js';
 import { planDescendantConditions } from './plan-descendant-conditions.js';
 import { planStructuralRelations } from './plan-structural-relations.js';
 import { planPseudoElementConditions } from './plan-pseudo-element-conditions.js';
 import { supportsCurrentBackgroundRanks } from './module-local-atom-ranks.js';
 import { isPureOwnershipRule, isCurrentStateRule, isCurrentAttributeRule, isAncestorStateRule, isAncestorAttributeRule } from './rule-classification.js';
+
+/** One subject per selector branch; observations stay on its readonly node.
+ * This binding supplies paths, not scalar specificity or implication proofs. */
+export type ObservedSubjectBinding = Pick<OrderBinding, 'rule' | 'targetPath'>;
 
 /** Coordinate existing proofs in their established diagnostic order. The
  * individual planners still own their relation and specificity semantics. */
@@ -29,7 +33,10 @@ export function planModuleRelations(localRules: readonly ParsedStyleRule[], sema
   if (plannedStructural.ambiguity) return { ambiguity: plannedStructural.ambiguity };
   const plannedPseudos = planPseudoElementConditions(localRules);
   if (plannedPseudos.ambiguity) return { ambiguity: plannedPseudos.ambiguity };
-  return { plan: { ownershipRules, hasRules, descendantRules, hasDescendantConditions, declaredPaths,
+  const observedSubjects: ObservedSubjectBinding[] = hasRules.map((rule) => ({
+    rule, targetPath: getOwnershipPath(rule.nodes)
+  }));
+  return { plan: { ownershipRules, observedSubjects, descendantRules, hasDescendantConditions, declaredPaths,
     plannedDescendants, plannedStructural, plannedPseudos } };
 }
 
@@ -41,7 +48,7 @@ export function collectModuleOrderCandidates(
   sameNodeRules: readonly ParsedStyleRule[],
   externalRules: readonly ParsedStyleRule[]
 ): OrderInstance[] {
-  const { plannedDescendants, descendantRules, declaredPaths, plannedStructural, plannedPseudos, hasRules } = plan;
+  const { plannedDescendants, descendantRules, declaredPaths, plannedStructural, plannedPseudos, observedSubjects } = plan;
   return [
     ...(plannedDescendants ?? planDescendantConditions(descendantRules, declaredPaths)).candidates,
     ...plannedStructural.instances,
@@ -50,8 +57,8 @@ export function collectModuleOrderCandidates(
       rule, targetPath: getOwnershipPath(rule.nodes), sourceIndex: -1, specificity: rule.nodes.length,
       relationRank: 0, declarations: rule.declarations
     })),
-    ...hasRules.flatMap((rule) => rule.nodes.at(-1)!.observations.map((observation) => ({
-      rule, observation, targetPath: getOwnershipPath(rule.nodes), sourceIndex: -1, specificity: rule.nodes.length,
+    ...observedSubjects.flatMap(({ rule, targetPath }) => rule.nodes.at(-1)!.observations.map((observation) => ({
+      rule, observation, targetPath, sourceIndex: -1, specificity: rule.nodes.length,
       relationRank: 0, declarations: rule.declarations
     })))
   ];
