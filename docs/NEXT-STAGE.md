@@ -8,7 +8,7 @@ owner 已确认采用只读 `nodes` + `getOwnershipPath(nodes)`，先不加 Weak
 
 完整 `verify` **2456** 项（Compiler 1910／React 49／Vite 163／Testing 334）及 lint／build／types 通过；545 样本完整 replacement／finalize、四个歧义、七个诊断优先级／LKG、两种 compatibility 下的 preserved／atomic／失败／恢复对照一致。parser 历史结构仅在证据脚本中从节点重建，公共结果逐字段比较。既有节点测试验证不可变替换后的名称派生与原节点独立。证据见 `artifacts/selector-derived-path/`；首次构建遗漏的内部类型依赖已修复，初始失败日志保留。此次行为保持式迁移未重跑浏览器，前次三引擎证据仍是历史验证。
 
-下一步先清理失去区别的 parser／planning 规则类型别名，再核对各 planner 绑定的实际差异；不因字段相似而合并独立证明或扩大语义。以下逐切片记录保留当时状态，其中“仍保留路径投影”已由本项完成。
+路径迁移已提交为 `242fe57`。后续清理失去区别的 parser／planning 规则类型别名，统一使用 `ParsedStyleRule`；完整 `verify` 2456 项通过，日志见 `artifacts/selector-rule-type/verify.log`。下一步核对各 planner 绑定的实际差异；不因字段相似而合并独立证明或扩大语义。以下逐切片记录保留当时状态，其中“仍保留路径投影”已由本项完成。
 
 
 owner 已要求开始推进核心架构与属性排序目标；[架构方向](ARCHITECTURE-DIRECTION.md) 记录当前实现、优先级、阶段状态和验证要求，[属性排序设计](PROPERTY-ORDER-DESIGN.md) 记录排序目标。会话提交／失效已从贡献准备与快照汇总中拆出，保持公共接口及行为。可原子化的 pure ownership 规则内及跨规则累积的已登记逻辑／物理 longhand 对已准入；preserved 模式、shorthand 和其他上下文仍可能报 `GSS1206`，同属性 rank 与跨属性输出位置已分离，完整安全展开及更宽复用仍未完成。

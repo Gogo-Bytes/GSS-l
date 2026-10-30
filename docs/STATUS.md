@@ -73,7 +73,7 @@
 
 准入、规划与输出中 authored selector 的节点数量和位置已改由节点读取；实际 ownership 目标／来源绑定仍保留独立路径，验证见当前计划。
 
-Parser 与规划规则现共用节点分支类型；准备阶段的 ownership 路径投影已移除，验证见当前计划。
+Parser 与规划规则现共用 `ParsedStyleRule`，准备阶段的 ownership 路径投影及过渡 `ParsedSourceRule` 别名已移除，验证见当前计划。
 
 节点及派生路径返回值有类型层面的只读约束，运行时不冻结；验证见当前计划。
 

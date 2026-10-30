@@ -1,8 +1,8 @@
-import type { ParsedGlobalResource, ParsedSourceRule } from '../domain/parsed-stylesheet.js';
+import type { ParsedGlobalResource, ParsedStyleRule } from '../domain/parsed-stylesheet.js';
 import type { GssDiagnostic } from '../public-types.js';
 
 export type ParsedStylesheet = {
-  rules: readonly ParsedSourceRule[];
+  rules: readonly ParsedStyleRule[];
   resources: readonly ParsedGlobalResource[];
   diagnostics: readonly GssDiagnostic[];
 };

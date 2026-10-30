@@ -60,15 +60,13 @@ export type ParsedSelector = {
   readonly relations: readonly SelectorRelation[];
 };
 
-export type ParsedSourceRule = ParsedSelector & {
+export type ParsedStyleRule = ParsedSelector & {
   source: SourceSpan;
   conditions: readonly ParsedCondition[];
   layer: string;
   declarations: readonly ParsedDeclaration[];
   sourceOrdinal: number;
 };
-
-export type ParsedStyleRule = ParsedSourceRule;
 
 export type ParsedPropertyRegistration = {
   source: SourceSpan;

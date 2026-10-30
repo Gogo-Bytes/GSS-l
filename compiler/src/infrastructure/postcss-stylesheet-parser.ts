@@ -15,7 +15,7 @@ import type { GssDiagnostic, GssSourceRange } from '../public-types.js';
 
 import type {
   ParsedDeclaration, SelectorRelation, ParsedAttributeCondition, ParsedHasCondition,
-  ParsedCondition, ParsedSourceRule, ParsedPropertyRegistration, ParsedKeyframesRegistration,
+  ParsedCondition, ParsedStyleRule, ParsedPropertyRegistration, ParsedKeyframesRegistration,
   ParsedFontFaceResource, ParsedGlobalResource, SourceSpan
 } from '../domain/parsed-stylesheet.js';
 import type { ParsedStylesheet } from '../application/css-parser-port.js';
@@ -150,7 +150,7 @@ function parseAndNormalizeStylesheet(id: string, source: string): ParsedStyleshe
   const root = postcss([postcssNesting()]).process(authored, { from: id }).sync().root;
 
   const diagnostics: GssDiagnostic[] = [];
-  const rules: ParsedSourceRule[] = [];
+  const rules: ParsedStyleRule[] = [];
   const resources: ParsedGlobalResource[] = [];
 
   let sourceOrdinal = 0;
@@ -325,7 +325,7 @@ function parsePropertyRegistration(
   return { kind: 'property', name, declarations, source: spanOf(node) };
 }
 
-type ParsedSelectorPath = Pick<ParsedSourceRule, 'nodes' | 'relations' | 'externalTarget' | 'externalCondition'>;
+type ParsedSelectorPath = Pick<ParsedStyleRule, 'nodes' | 'relations' | 'externalTarget' | 'externalCondition'>;
 
 function isNamedLayer(value: string): boolean {
   return /^[-_A-Za-z][-_A-Za-z0-9]*(?:\.[-_A-Za-z][-_A-Za-z0-9]*)*$/.test(value);
