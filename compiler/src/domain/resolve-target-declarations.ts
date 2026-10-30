@@ -18,7 +18,6 @@ type RuleCandidate = {
 
 export type ResolvedTarget<R extends RuleCandidate> = {
   path: readonly string[];
-  declarations: readonly DeclarationCandidate[];
   occurrences: readonly { rule: R; declaration: DeclarationCandidate }[];
 };
 
@@ -39,7 +38,7 @@ export function resolveTargetDeclarations<R extends RuleCandidate>(
 
   return [...targetPaths.values()].map((targetPath) => {
     const occurrences = resolveOneTarget(rules, targetPath);
-    return { path: targetPath, declarations: occurrences.map(({ declaration }) => declaration), occurrences };
+    return { path: targetPath, occurrences };
   });
 }
 

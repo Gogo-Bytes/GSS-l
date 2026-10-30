@@ -4,6 +4,8 @@
 
 ### 当前 selector 迁移状态（2026-10-30）
 
+已删除 `ResolvedTarget.declarations`：它只是 occurrences 的声明投影且无消费方。目标结果只保留路径和包含规则／声明身份的 occurrences，不影响排序候选或存活声明顺序。完整 `verify` 2456 项与 545 样本／歧义／诊断／fallback 对照通过，见 `artifacts/ownership-occurrence-only/`；未重跑浏览器。
+
 普通 ownership 的 layer／条件分组、局部目标前缀和胜出解析移入 `application/ownership-planning.ts`；输出只消费目标分组与可选 descendant 实例，不再读取整个 relation plan。保留空目标 scope、剪枝前排序候选与存活输出的区别、解析顺序及 fallback 后调用时机。完整 `verify` 2456 项、545 样本完整输出及歧义／诊断／fallback 序列对照通过，见 `artifacts/ownership-planning-boundary/`；本切片未重跑浏览器。
 
 方案 A 后续切片：external 同节点／后代 anchor 在原子输出入口建立绑定，排序候选与输出共用 `OwnedTargetBinding`；`:has()` 主体复用同一字段契约。外部目标仍不导出 scope，两类 external 的 effect 检查范围及诊断顺序保留。完整 `verify` 2456 项与 545 样本完整输出、四个歧义、七个诊断／LKG、两种 compatibility fallback／恢复序列对照通过，见 `artifacts/external-anchor-binding/`。未重跑浏览器 gate。
