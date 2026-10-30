@@ -81,6 +81,8 @@ Parser 与规划规则现共用 `ParsedStyleRule`，准备阶段的 ownership �
 
 Selector 节点迁移后的默认 Chromium／Firefox／WebKit 排序验收及独立 Chromium browser oracle 已通过；旧产物备份和具体覆盖见当前计划。
 
+排序绑定的 rule／targetPath／sourcePath 已从已有 planner instance 类型选取，结构 instance 原本已共享该类型；只收敛数据契约，不合并关系证明。验证见当前计划。
+
 逻辑／物理冲突上下文已按节点形成等价分组键，不再重建条件平行数组；验证见当前计划。
 
 `:has()` 关系候选、结构规划、语义高度和 atom／preserved 输出已改读节点 observation，相关平行数组已移除，验证见当前计划。

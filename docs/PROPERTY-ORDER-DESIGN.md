@@ -152,6 +152,8 @@ Tailwind 参考：[margin utilities](https://tailwindcss.com/docs/margin)、[冲
 
 `compiler/src/domain/order-occurrences.ts` 集中排序输入的具体模型与收集：`OrderBinding` 表达规则分支和 target／source／observation 绑定，`OrderInstance` 保留 planner 的强度、来源位置及声明集合，`OrderOccurrence` 将绑定与当前语义规则中的声明及其下标连接起来。该规则已完成适用的安全展开，声明仍携带原始来源。语义高度和 rank 规划使用同一个模型，生成阶段按具名绑定查询 rank；已有 instance 的路径直接来自 planner。
 
+`OrderBinding` 的 rule／targetPath／sourcePath 字段从现有 planner instance 类型选取，避免重复定义后逐渐偏移；observation 是排序绑定的额外字段。这只是共用字段契约，不能据此把 descendant、结构和 observation 的蕴含／互斥证明合并。
+
 身份采用本次 contribution 准备中的声明对象编号、规则分支对象编号，以及 target／source／observation 的序列化值。保持现有编码，不对 observation 做新的等价归一化。它只用于本次规划和查询，不写入公共 API，也不直接作为 class 名或复用证明。
 
 - selector-list 分支即使共享声明对象，也不能合为一个 occurrence：例如 `.a::before, .a::after` 的主体不同，`.a:focus, .a:where(:checked)` 的谓词也不同。
