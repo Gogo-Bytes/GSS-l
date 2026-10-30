@@ -1,5 +1,7 @@
 # GSS 工作状态
 
+结构输出类型进一步明确为 `RuntimeStructuralInstance`，要求 planner 返回的 sourcePath 必须存在；普通／继承的 descendant 实例仍允许无来源路径。输出端移除非空断言，运行时算法不变。完整 `verify` 2456 项及 545 样本／歧义／诊断／fallback 对照通过，见 `artifacts/structural-source-contract/`；未重跑浏览器。
+
 已交付宿主基线为 `4b7a982`，核心修复为 `af02efe`，统一固定排序为 `e04327b`：核心收敛、官方 Vite 模板、Declarative 客户端路由和 Framework SSR 的已选任务均已交付。本文保留历史证据，不把旧快照当成未来代码的自动验收。后续工作以 [当前计划](NEXT-STAGE.md) 为准。
 
 有限 MVP 的逐项目标进度及后续 `2f115b1` 基线上的基础验证、演示生产构建结果见 [MVP 进度](MVP-PROGRESS.md)。该核对未新增浏览器验收，也不将历史开放项改判为全部完成。

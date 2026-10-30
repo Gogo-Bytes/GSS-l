@@ -13,7 +13,12 @@ type Constraint = {
   observation?: ParsedHasCondition;
 };
 export type StructuralInstance = DescendantInstance<ParsedStyleRule>;
-type Candidate = { instance: StructuralInstance; constraint: Constraint; typeSpecificity?: number };
+/** Runtime structural outputs always bind a source; inherited descendant
+ * instances may be unconditional and keep the broader shared shape. */
+export type RuntimeStructuralInstance = StructuralInstance & { sourcePath: readonly string[] };
+type Candidate<I extends StructuralInstance = StructuralInstance> = {
+  instance: I; constraint: Constraint; typeSpecificity?: number;
+};
 
 function samePath(a: readonly string[] | undefined, b: readonly string[] | undefined) {
   return JSON.stringify(a) === JSON.stringify(b);
@@ -143,16 +148,16 @@ function ambiguity(candidates: readonly Candidate[]): string | undefined {
  * Keep all original rules/declarations (including source spans) as provenance. */
 export function planStructuralRelations(
   rules: readonly ParsedStyleRule[], descendants: readonly StructuralInstance[], observed: readonly ParsedStyleRule[]
-): { instances: StructuralInstance[]; descendants: StructuralInstance[]; ambiguity?: string } {
+): { instances: RuntimeStructuralInstance[]; descendants: StructuralInstance[]; ambiguity?: string } {
   if (!rules.length) return { instances: [], descendants: [...descendants] };
-  const structural: Candidate[] = rules.map((rule) => {
+  const structural: Candidate<RuntimeStructuralInstance>[] = rules.map((rule) => {
     const targetPath = getOwnershipPath(rule.nodes);
     const sourceIndex = rule.relations.findIndex((relation) => relation !== 'descendant');
     const sourcePath = targetPath.slice(0, sourceIndex + 1);
     // The session admits one or more trailing descendant ownership edges;
     // they remain in the emitted selector but are not runtime implication edges.
     const { states, attributes } = rule.nodes[sourceIndex]!;
-    const instance: StructuralInstance = { rule, targetPath, sourcePath, sourceIndex,
+    const instance: RuntimeStructuralInstance = { rule, targetPath, sourcePath, sourceIndex,
       specificity: rule.nodes.length + states!.filter((state) => !state.startsWith('where(')).length + attributes!.length,
       relationRank: 0, declarations: rule.declarations };
     return {

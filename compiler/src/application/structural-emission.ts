@@ -1,6 +1,6 @@
 import type { AtomicEmissionContext } from './atomic-emission-context.js';
 import type { ContextualRelationIdentity } from '../domain/readable-name.js';
-import type { StructuralInstance } from '../domain/plan-structural-relations.js';
+import type { RuntimeStructuralInstance } from '../domain/plan-structural-relations.js';
 import { identifyAssetValue } from './asset-values.js';
 import { canonicalCondition } from './condition-context.js';
 import { canonicalAttributeCondition, renderAttributeCondition, renderStateSuffix, renderRelationCombinator } from './selector-rendering.js';
@@ -10,7 +10,7 @@ import type { ContextualDeclarationIdentity } from './planned-declaration.js';
 /** Render already-planned runtime relations, preserving source, intermediate
  * and target marker bindings and the authored selector specificity. */
 export function emitStructuralRules(input: AtomicEmissionContext & {
-  instances: readonly StructuralInstance[];
+  instances: readonly RuntimeStructuralInstance[];
 }): void {
   const { rules, instances, moduleId, bindings, nameAllocator, roots, moduleOrder } = input;
   for (const instance of instances) {
@@ -20,7 +20,7 @@ export function emitStructuralRules(input: AtomicEmissionContext & {
     const layer = rule.layer;
     // Only structural planner instances enter this branch; their source binding
     // is already established. Keep trailing descendant edges in emitted selectors.
-    const sourcePath = instance.sourcePath!;
+    const sourcePath = instance.sourcePath;
     const runtimeRelations = rule.relations.slice(sourceIndex);
     const runtimePaths = targetPath.slice(sourceIndex);
     const predicate = rule.nodes[sourceIndex];

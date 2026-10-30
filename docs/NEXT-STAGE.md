@@ -4,6 +4,8 @@
 
 ### 当前 selector 迁移状态（2026-10-30）
 
+结构输出类型进一步明确为 `RuntimeStructuralInstance`，要求 planner 返回的 sourcePath 必须存在；普通／继承的 descendant 实例仍允许无来源路径。输出端移除非空断言，运行时算法不变。完整 `verify` 2456 项及 545 样本／歧义／诊断／fallback 对照通过，见 `artifacts/structural-source-contract/`；未重跑浏览器。
+
 结构 marker 输出现直接消费 planner 已确定的 sourceIndex／sourcePath／targetPath，不再重复从规则搜索和派生绑定。尾部 descendant 仍参与 CSS 渲染，结构证明过滤后的 edges 不能替代完整组合符；排序查询、身份、来源和 fallback 不变。完整 `verify` 2456 项及 545 样本完整输出、歧义／诊断／fallback 序列对照通过，见 `artifacts/structural-bound-emission/`；本切片未重跑浏览器 gate。
 
 owner 已确认采用只读 `nodes` + `getOwnershipPath(nodes)`，先不加 WeakMap 缓存。规则上的独立 `path` 和 `projectForPlanning` 已删除；名称按需派生，单次操作可保留局部变量，实际 target／source 绑定仍独立。排序、marker 身份、selector-list 声明共享、准入及 fallback 不变。设计理由与反例见 [Parser 内部 selector 片段](ARCHITECTURE-DIRECTION.md#parser-内部-selector-片段)。
