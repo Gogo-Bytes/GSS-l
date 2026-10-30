@@ -1,5 +1,7 @@
 # 当前进度与后续工作计划
 
+border-width 切片已提交 `8cc95c2`。后续完成 planner／五个专用 emitter 的绑定消费核对，未发现新的重复目标决策或契约反例；保留候选／存活 occurrence、authored scope 与实际绑定的区别。核对为只读，没有新增运行验证，详见 [架构核对](ARCHITECTURE-DIRECTION.md#绑定消费后续核对2026-10-30)。当前已授权有限范围已完成；下一能力扩展的具体范围仍需 owner 决策，不自动扩展 CSS 族、值域、跨 scope 或复用边界。
+
 ## 当前方向
 
 此前结构切片已交付：ownership 规划／输出边界 `6f40301`、删除冗余声明投影 `c50eeae`、规划存在性作为唯一分支依据 `30ce50e`、五族安全展开策略集中 `fe46429`。owner 已确认有限 border-width 展开，已实现同规则静态非负 px／零值子集，范围与证明见 [属性排序设计](PROPERTY-ORDER-DESIGN.md#已实现有限-border-width-安全展开)。不再等待该范围的确认；其他 CSS 族、跨 scope／复杂值仍未纳入。方案 A 和既有排序／fallback 决策继续有效。

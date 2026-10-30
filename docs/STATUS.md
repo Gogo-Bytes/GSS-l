@@ -1,5 +1,7 @@
 # GSS 工作状态
 
+border-width 切片已提交 `8cc95c2`。后续完成 planner／五个专用 emitter 的绑定消费核对，未发现新的重复目标决策或契约反例；保留候选／存活 occurrence、authored scope 与实际绑定的区别。核对为只读，没有新增运行验证，详见 [架构核对](ARCHITECTURE-DIRECTION.md#绑定消费后续核对2026-10-30)。当前已授权有限范围已完成；下一能力扩展的具体范围仍需 owner 决策，不自动扩展 CSS 族、值域、跨 scope 或复用边界。
+
 有限 border-width 安全展开已按 owner 授权实现：只处理隔离的同规则非负静态 px／零与物理侧宽度竞争，按原位置展开四侧，保留 importance、来源、selector-list 共享和排序／复用屏障；跨规则竞争、逻辑别名、复杂值及 compatibility／preserved 保持原路径。范围及反例见 [属性排序设计](PROPERTY-ORDER-DESIGN.md#已实现有限-border-width-安全展开)。
 
 完整 `verify` **2491** 项（Compiler 1945／React 49／Vite 163／Testing 334）及 lint／build／types 通过，定向 378 项通过。旧 545 样本完整输出、四个歧义、七个诊断／LKG、两种 compatibility fallback／恢复序列对照不变；新 19 个浏览器用例独立使用 authored CSS 和字面预期。原 atom-ranks 默认 Chromium／Firefox／WebKit 均通过：每引擎 fixed 部分 69 fixtures／220 comparisons／110 exact image pairs／3 corruptions，逻辑／物理部分 418 simple＋59 semantic、2852 paired＋800 authored-native readings，状态部分 96 comparisons／32 exact image pairs／2 order corruptions／6 external boundary checks。证据在 `artifacts/border-width-expansion/`；保留首次 feature-red（11 项失败）、focused／verify／rank-browser 日志和旧浏览器产物备份。完整报告在 `artifacts/rank-integration/browser/result.json`，不扩大值域或性能承诺。独立 Chromium browser oracle 125 fixtures／1267 comparisons／38 controls 及 Vite host、SSG、multipage 均通过，日志为同目录 `browser-oracle.log`，当前报告为 `artifacts/browser-reference.json`。
