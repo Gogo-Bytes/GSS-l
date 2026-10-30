@@ -4,6 +4,8 @@
 
 ### 当前 selector 迁移状态（2026-10-30）
 
+结构 marker 输出现直接消费 planner 已确定的 sourceIndex／sourcePath／targetPath，不再重复从规则搜索和派生绑定。尾部 descendant 仍参与 CSS 渲染，结构证明过滤后的 edges 不能替代完整组合符；排序查询、身份、来源和 fallback 不变。完整 `verify` 2456 项及 545 样本完整输出、歧义／诊断／fallback 序列对照通过，见 `artifacts/structural-bound-emission/`；本切片未重跑浏览器 gate。
+
 owner 已确认采用只读 `nodes` + `getOwnershipPath(nodes)`，先不加 WeakMap 缓存。规则上的独立 `path` 和 `projectForPlanning` 已删除；名称按需派生，单次操作可保留局部变量，实际 target／source 绑定仍独立。排序、marker 身份、selector-list 声明共享、准入及 fallback 不变。设计理由与反例见 [Parser 内部 selector 片段](ARCHITECTURE-DIRECTION.md#parser-内部-selector-片段)。
 
 完整 `verify` **2456** 项（Compiler 1910／React 49／Vite 163／Testing 334）及 lint／build／types 通过；545 样本完整 replacement／finalize、四个歧义、七个诊断优先级／LKG、两种 compatibility 下的 preserved／atomic／失败／恢复对照一致。parser 历史结构仅在证据脚本中从节点重建，公共结果逐字段比较。既有节点测试验证不可变替换后的名称派生与原节点独立。证据见 `artifacts/selector-derived-path/`；首次构建遗漏的内部类型依赖已修复，初始失败日志保留。此次行为保持式迁移未重跑浏览器，前次三引擎证据仍是历史验证。

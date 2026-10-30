@@ -67,6 +67,8 @@
 
 已三引擎复现负百分比／em／rem padding 导致先前有效声明被误删；合法负零仍有效。owner 决定无效 CSS 由作者负责，不扩大过滤；既有负 px 处理保留，反例及证据见当前计划。
 
+结构 marker 输出现直接消费 planner 已确定的 sourceIndex／sourcePath／targetPath，不再重复从规则搜索和派生绑定。尾部 descendant 仍参与 CSS 渲染，结构证明过滤后的 edges 不能替代完整组合符；排序查询、身份、来源和 fallback 不变。完整 `verify` 2456 项及 545 样本完整输出、歧义／诊断／fallback 序列对照通过，见 `artifacts/structural-bound-emission/`；本切片未重跑浏览器 gate。
+
 2026-10-30 按 owner 确认完成只读节点／派生路径迁移：移除规则 `path` 与准备阶段投影，无 WeakMap／getter／响应式缓存。完整 `verify` 2456 项、545 样本完整输出及歧义／诊断／fallback 对照通过，首次构建失败已修复并保留日志；本次未重跑浏览器。具体证据及下一步见当前计划。
 
 内部 CSS parser port、准入、关系规划、排序和输出已改为节点绑定，状态／属性／observation／pseudo 平行数组已移除；ownership 名称路径已按 owner 决策从只读节点按需派生，不保存第二份字段或增加缓存。公共编译输出不变，完整绑定模型仍未完成。`verify` 2456 项和对照验证见当前计划。

@@ -1,4 +1,3 @@
-import { getOwnershipPath } from '../domain/ownership-path.js';
 import type { AtomicEmissionContext } from './atomic-emission-context.js';
 import type { ContextualRelationIdentity } from '../domain/readable-name.js';
 import type { StructuralInstance } from '../domain/plan-structural-relations.js';
@@ -15,18 +14,16 @@ export function emitStructuralRules(input: AtomicEmissionContext & {
 }): void {
   const { rules, instances, moduleId, bindings, nameAllocator, roots, moduleOrder } = input;
   for (const instance of instances) {
-    const { rule, declarations, relationRank } = instance;
-    const authoredPath = getOwnershipPath(rule.nodes);
+    const { rule, declarations, relationRank, targetPath, sourceIndex } = instance;
     const wrappers = rule.conditions;
     const condition = canonicalCondition(wrappers);
     const layer = rule.layer;
-    const firstRuntimeRelation = rule.relations.findIndex(
-      (relation) => relation !== 'descendant'
-    );
-    const runtimeRelations = rule.relations.slice(firstRuntimeRelation);
-    const sourcePath = authoredPath.slice(0, firstRuntimeRelation + 1);
-    const runtimePaths = authoredPath.slice(firstRuntimeRelation);
-    const predicate = rule.nodes[firstRuntimeRelation];
+    // Only structural planner instances enter this branch; their source binding
+    // is already established. Keep trailing descendant edges in emitted selectors.
+    const sourcePath = instance.sourcePath!;
+    const runtimeRelations = rule.relations.slice(sourceIndex);
+    const runtimePaths = targetPath.slice(sourceIndex);
+    const predicate = rule.nodes[sourceIndex];
     const sourceState = predicate?.states.join(':') || undefined;
     const sourceAttributeCondition = predicate?.attributes[0];
     const sourceAttribute = sourceAttributeCondition
@@ -41,11 +38,11 @@ export function emitStructuralRules(input: AtomicEmissionContext & {
       ...(sourceState ? { sourceState } : {}),
       ...(sourceAttribute ? { sourceAttribute } : {}),
       sourcePath,
-      targetPath: authoredPath
+      targetPath
     };
     const targetMarker = nameAllocator.createTargetMarker(relationIdentity);
     const markers = runtimePaths.map((_, index) => {
-      const path = authoredPath.slice(0, firstRuntimeRelation + index + 1);
+      const path = targetPath.slice(0, sourceIndex + index + 1);
       const marker = index === 0
         ? sourceMarker
         : index === runtimePaths.length - 1
