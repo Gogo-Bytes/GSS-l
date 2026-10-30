@@ -1,5 +1,7 @@
 # GSS 工作状态
 
+2026-10-30 owner 确认 marker 架构方案 A：保留专用输出分支和共享命名／scope／selector 基础能力，不新增 MarkerPlan。输出消费已规划绑定，排序、身份和 fallback 不变；该架构选择已决，不再等待 owner。理由与重评条件见 [架构方向](ARCHITECTURE-DIRECTION.md#已确认保留专用-marker-输出分支方案-a)。本次仅文档变更，没有新运行验证。
+
 `:has()` 主体绑定已在关系规划阶段建立，排序候选和 marker 输出共用 rule／targetPath；逐 observation 身份、原生 selector-list specificity 和结构歧义的独立计算保留。完整 `verify` 2456 项和 545 样本完整输出、歧义／诊断／fallback 序列对照通过，见 `artifacts/observed-subject-binding/`；未重跑浏览器 gate。
 
 结构输出类型进一步明确为 `RuntimeStructuralInstance`，要求 planner 返回的 sourcePath 必须存在；普通／继承的 descendant 实例仍允许无来源路径。输出端移除非空断言，运行时算法不变。完整 `verify` 2456 项及 545 样本／歧义／诊断／fallback 对照通过，见 `artifacts/structural-source-contract/`；未重跑浏览器。

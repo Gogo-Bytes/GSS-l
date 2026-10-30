@@ -4,7 +4,7 @@
 
 ### 当前 selector 迁移状态（2026-10-30）
 
-当前停止点是架构决策，不是验证失败：结构绑定消费（`1495405`）、来源类型保证（`99038b5`）与 observation 主体共享（`685c78f`）均已交付。下一步是否新增独立 MarkerPlan 中间阶段，见 [具体方案与边界](ARCHITECTURE-DIRECTION.md#待-owner-决策是否新增显式-markerplan-阶段)；建议暂保留专用输出分支，owner 确认前不新增中间层，也不把历史 shorthand／框架开放项当自动任务。
+owner 已选择方案 A：保留专用 marker 输出分支，不新增 MarkerPlan。结构绑定消费（`1495405`）、来源类型保证（`99038b5`）与 observation 主体共享（`685c78f`）均已交付；设计选择已解除，不再等待确认。具体理由和未来重评条件见 [已确认决策](ARCHITECTURE-DIRECTION.md#已确认保留专用-marker-输出分支方案-a)。后续按实际问题收敛已有输出分支，保持专用证明、排序与 fallback；不把 MarkerPlan 或历史 shorthand／框架开放项当自动任务。本次仅记录决策并检查文档，不新增运行验证。
 
 `:has()` 主体绑定已在关系规划阶段建立，排序候选和 marker 输出共用 rule／targetPath；逐 observation 身份、原生 selector-list specificity 和结构歧义的独立计算保留。完整 `verify` 2456 项和 545 样本完整输出、歧义／诊断／fallback 序列对照通过，见 `artifacts/observed-subject-binding/`；未重跑浏览器 gate。
 
