@@ -4,6 +4,8 @@
 
 ### 当前 selector 迁移状态（2026-10-30）
 
+方案 A 后续切片：external 同节点／后代 anchor 在原子输出入口建立绑定，排序候选与输出共用 `OwnedTargetBinding`；`:has()` 主体复用同一字段契约。外部目标仍不导出 scope，两类 external 的 effect 检查范围及诊断顺序保留。完整 `verify` 2456 项与 545 样本完整输出、四个歧义、七个诊断／LKG、两种 compatibility fallback／恢复序列对照通过，见 `artifacts/external-anchor-binding/`。未重跑浏览器 gate。
+
 owner 已选择方案 A：保留专用 marker 输出分支，不新增 MarkerPlan。结构绑定消费（`1495405`）、来源类型保证（`99038b5`）与 observation 主体共享（`685c78f`）均已交付；设计选择已解除，不再等待确认。具体理由和未来重评条件见 [已确认决策](ARCHITECTURE-DIRECTION.md#已确认保留专用-marker-输出分支方案-a)。后续按实际问题收敛已有输出分支，保持专用证明、排序与 fallback；不把 MarkerPlan 或历史 shorthand／框架开放项当自动任务。本次仅记录决策并检查文档，不新增运行验证。
 
 `:has()` 主体绑定已在关系规划阶段建立，排序候选和 marker 输出共用 rule／targetPath；逐 observation 身份、原生 selector-list specificity 和结构歧义的独立计算保留。完整 `verify` 2456 项和 545 样本完整输出、歧义／诊断／fallback 序列对照通过，见 `artifacts/observed-subject-binding/`；未重跑浏览器 gate。

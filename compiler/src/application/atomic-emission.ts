@@ -1,3 +1,5 @@
+import { getOwnershipPath } from '../domain/ownership-path.js';
+import type { OwnedTargetBinding } from '../domain/order-occurrences.js';
 import type { ParsedStyleRule } from '../domain/parsed-stylesheet.js';
 import type { GssDiagnostic } from '../public-types.js';
 import { planFixedModuleOrder } from '../domain/fixed-module-ranks.js';
@@ -28,9 +30,12 @@ export function emitAtomicRules(input: {
 }): { rules: PlannedDeclaration[] } | { diagnostics: readonly GssDiagnostic[] } {
   const { moduleId, semanticRules, localRules, sameNodeRules, externalRules, bindings, nameAllocator, roots } = input;
   const { observedSubjects, plannedStructural, plannedPseudos } = input.relationPlan;
+  const bindAnchor = (rule: ParsedStyleRule): OwnedTargetBinding => ({ rule, targetPath: getOwnershipPath(rule.nodes) });
+  const sameNodeAnchors = sameNodeRules.map(bindAnchor);
+  const externalAnchors = externalRules.map(bindAnchor);
   const rules: PlannedDeclaration[] = [];
   const moduleOrder = planFixedModuleOrder(semanticRules,
-    collectModuleOrderCandidates(input.relationPlan, sameNodeRules, externalRules));
+    collectModuleOrderCandidates(input.relationPlan, sameNodeAnchors, externalAnchors));
   const context = { rules, moduleId, bindings, nameAllocator, roots, moduleOrder };
 
   emitOwnershipRules({ ...context, localRules, plan: input.relationPlan });
@@ -41,7 +46,7 @@ export function emitAtomicRules(input: {
 
   emitStructuralRules({ ...context, instances: plannedStructural.instances });
 
-  const externalEmission = emitExternalRules({ ...context, id: input.id, sameNodeRules, externalRules });
+  const externalEmission = emitExternalRules({ ...context, id: input.id, sameNodeAnchors, externalAnchors });
   if (externalEmission) return externalEmission;
 
   return { rules };

@@ -6,6 +6,9 @@ export type OrderBinding = Pick<DescendantInstance<ParsedStyleRule>, 'rule' | 't
   observation?: ParsedHasCondition;
 };
 
+/** An owned target shared by ordering and emission; not a DOM witness. */
+export type OwnedTargetBinding = Pick<OrderBinding, 'rule' | 'targetPath'>;
+
 export type OrderInstance = DescendantInstance<ParsedStyleRule> & OrderBinding;
 export type OrderOccurrence = { instance: OrderInstance; declaration: ParsedDeclaration; index: number; key: string };
 

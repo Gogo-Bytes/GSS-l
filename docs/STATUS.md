@@ -1,5 +1,7 @@
 # GSS 工作状态
 
+方案 A 后续切片：external 同节点／后代 anchor 在原子输出入口建立绑定，排序候选与输出共用 `OwnedTargetBinding`；`:has()` 主体复用同一字段契约。外部目标仍不导出 scope，两类 external 的 effect 检查范围及诊断顺序保留。完整 `verify` 2456 项与 545 样本完整输出、四个歧义、七个诊断／LKG、两种 compatibility fallback／恢复序列对照通过，见 `artifacts/external-anchor-binding/`。未重跑浏览器 gate。
+
 2026-10-30 owner 确认 marker 架构方案 A：保留专用输出分支和共享命名／scope／selector 基础能力，不新增 MarkerPlan。输出消费已规划绑定，排序、身份和 fallback 不变；该架构选择已决，不再等待 owner。理由与重评条件见 [架构方向](ARCHITECTURE-DIRECTION.md#已确认保留专用-marker-输出分支方案-a)。本次仅文档变更，没有新运行验证。
 
 `:has()` 主体绑定已在关系规划阶段建立，排序候选和 marker 输出共用 rule／targetPath；逐 observation 身份、原生 selector-list specificity 和结构歧义的独立计算保留。完整 `verify` 2456 项和 545 样本完整输出、歧义／诊断／fallback 序列对照通过，见 `artifacts/observed-subject-binding/`；未重跑浏览器 gate。

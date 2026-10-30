@@ -1,6 +1,5 @@
-import { getOwnershipPath } from '../domain/ownership-path.js';
 import type { AtomicEmissionContext } from './atomic-emission-context.js';
-import type { ParsedStyleRule } from '../domain/parsed-stylesheet.js';
+import type { OwnedTargetBinding } from '../domain/order-occurrences.js';
 import type { PureDeclarationIdentity } from '../domain/readable-name.js';
 import type { GssDiagnostic } from '../public-types.js';
 import { classifyPropertyEffect } from '../domain/property-effects.js';
@@ -12,15 +11,14 @@ import { ensureScopePath } from './scope-exports.js';
  * scopes; overlap remains fail-closed until relation semantics are proved. */
 export function emitExternalRules(input: AtomicEmissionContext & {
   id: string;
-  sameNodeRules: readonly ParsedStyleRule[];
-  externalRules: readonly ParsedStyleRule[];
+  sameNodeAnchors: readonly OwnedTargetBinding[];
+  externalAnchors: readonly OwnedTargetBinding[];
 }): { diagnostics: readonly GssDiagnostic[] } | undefined {
-  const { rules, sameNodeRules, externalRules, moduleId, bindings, nameAllocator, roots, moduleOrder } = input;
-  for (const rule of sameNodeRules) {
-    const authoredPath = getOwnershipPath(rule.nodes);
-    const scope = ensureScopePath(roots, authoredPath);
-    const ancestorMarkers = authoredPath.slice(0, -1).map((_, index) => {
-      const path = authoredPath.slice(0, index + 1);
+  const { rules, sameNodeAnchors, externalAnchors, moduleId, bindings, nameAllocator, roots, moduleOrder } = input;
+  for (const { rule, targetPath } of sameNodeAnchors) {
+    const scope = ensureScopePath(roots, targetPath);
+    const ancestorMarkers = targetPath.slice(0, -1).map((_, index) => {
+      const path = targetPath.slice(0, index + 1);
       const marker = nameAllocator.createScopeMarker(moduleId, path);
       ensureScopePath(roots, path).classNames.add(marker);
       return marker;
@@ -39,8 +37,8 @@ export function emitExternalRules(input: AtomicEmissionContext & {
       const identity: PureDeclarationIdentity = {
         layer: rule.layer, condition: canonicalCondition(rule.conditions),
         state: `external-condition:${rule.externalCondition!}`,
-        ...(moduleOrder.get(declaration, { rule, targetPath: authoredPath }) ?? {}),
-        ownership: { moduleId, path: authoredPath, specificity: rule.nodes.length },
+        ...(moduleOrder.get(declaration, { rule, targetPath }) ?? {}),
+        ownership: { moduleId, path: targetPath, specificity: rule.nodes.length },
         property: declaration.property,
         ...identifyAssetValue(declaration.value, bindings),
         important: declaration.important
@@ -60,11 +58,10 @@ export function emitExternalRules(input: AtomicEmissionContext & {
   // Keep overlapping effect families fail-closed until the contextual cascade
   // planner can prove a winner across external selector branches.
   const externalEffects = new Set<string>();
-  for (const rule of externalRules) {
-    const authoredPath = getOwnershipPath(rule.nodes);
-    const scope = ensureScopePath(roots, authoredPath);
-    const ancestorMarkers = authoredPath.slice(0, -1).map((_, index) => {
-      const path = authoredPath.slice(0, index + 1);
+  for (const { rule, targetPath } of externalAnchors) {
+    const scope = ensureScopePath(roots, targetPath);
+    const ancestorMarkers = targetPath.slice(0, -1).map((_, index) => {
+      const path = targetPath.slice(0, index + 1);
       const marker = nameAllocator.createScopeMarker(moduleId, path);
       ensureScopePath(roots, path).classNames.add(marker);
       return marker;
@@ -82,8 +79,8 @@ export function emitExternalRules(input: AtomicEmissionContext & {
       const identity: PureDeclarationIdentity = {
         layer: rule.layer, condition: canonicalCondition(rule.conditions),
         state: `external:${rule.externalTarget!}`,
-        ...(moduleOrder.get(declaration, { rule, targetPath: authoredPath }) ?? {}),
-        ownership: { moduleId, path: authoredPath, specificity: rule.nodes.length },
+        ...(moduleOrder.get(declaration, { rule, targetPath }) ?? {}),
+        ownership: { moduleId, path: targetPath, specificity: rule.nodes.length },
         property: declaration.property,
         ...identifyAssetValue(declaration.value, bindings),
         important: declaration.important

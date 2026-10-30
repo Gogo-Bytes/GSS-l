@@ -1,4 +1,4 @@
-import type { ObservedSubjectBinding } from '../domain/plan-module-relations.js';
+import type { OwnedTargetBinding } from '../domain/order-occurrences.js';
 import type { AtomicEmissionContext } from './atomic-emission-context.js';
 import type { ParsedHasCondition } from '../domain/parsed-stylesheet.js';
 import type { ObservedRelationIdentity } from '../domain/readable-name.js';
@@ -11,7 +11,7 @@ import type { ObservedDeclarationIdentity } from './planned-declaration.js';
 /** Emit already-planned :has() branches; native list specificity, branch
  * witness and observed marker membership remain distinct parts of identity. */
 export function emitObservedRules(input: AtomicEmissionContext & {
-  subjects: readonly ObservedSubjectBinding[];
+  subjects: readonly OwnedTargetBinding[];
 }): void {
   const { rules, subjects, moduleId, bindings, nameAllocator, roots, moduleOrder } = input;
   for (const { rule, targetPath } of subjects) {
