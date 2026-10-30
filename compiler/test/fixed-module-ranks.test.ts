@@ -751,3 +751,74 @@ it('distributes mixed safe font, percentage and pixel values without changing sc
   });
   expect(compile('.a{scroll-margin:1em 2%;scroll-margin-left:9px}').finalize().manifest.rules.some(({ property }) => property === 'scroll-margin')).toBe(true);
 });
+
+for (const reverse of [false, true]) {
+  it.each([
+    ['1px', ['1px', '1px', '1px', '1px']],
+    ['1px 2px', ['1px', '2px', '1px', '2px']],
+    ['1px 2px 3px', ['1px', '2px', '3px', '2px']],
+    ['1px 2px 3px 4px', ['1px', '2px', '3px', '4px']],
+    ['0 +0.0 0px', ['0', '+0.0', '0px', '+0.0']]
+  ])(`expands bounded border-width %s with authored order and provenance (reverse=${reverse})`, (value, expected) => {
+    for (const important of ['none', 'short', 'long', 'both']) {
+      const shortImportant = important === 'short' || important === 'both';
+      const longImportant = important === 'long' || important === 'both';
+      const short = `border-width:${value}${shortImportant ? '!important' : ''}`;
+      const long = `border-left-width:9px${longImportant ? '!important' : ''}`;
+      const source = `.a,.b{${(reverse ? [long, short] : [short, long]).join(';')}}`;
+      const session = compile(source);
+      const rules = rulesFor(session, ['a']);
+      expect(rules).toHaveLength(4);
+      expect(rulesFor(session, ['b']).map(({ className }) => className)).toEqual(rules.map(({ className }) => className));
+      const longWins = shortImportant === longImportant ? !reverse : longImportant;
+      for (const [index, side] of ['top', 'right', 'bottom', 'left'].entries()) {
+        const winner = side === 'left' && longWins;
+        const rule = rules.find(({ property }) => property === `border-${side}-width`)!;
+        expect(rule).toMatchObject({ value: winner ? '9px' : expected[index], important: winner ? longImportant : shortImportant });
+        expect(rule.origins).toHaveLength(1);
+        expect(rule.origins[0]?.range.start).toBe(source.indexOf(winner ? 'border-left-width:' : 'border-width:'));
+      }
+    }
+  });
+}
+
+it.each(['var(--widths)', 'calc(1px + 2px)', 'thin', 'medium', 'thick', '1em', '1rem', '1%', '-1px', '-0px', '1.px', '1px 2px 3px 4px 5px'])('retains border-width %s outside the approved value subset', (value) => {
+  const rules = rulesFor(compile(`.a{border-width:${value};border-left-width:9px}`), ['a']);
+  expect(rules.map(({ property }) => property)).toEqual(['border-width', 'border-left-width']);
+});
+
+it.each([
+  '.a{border-width:1px}',
+  '.a{border-width:1px}.b{border-left-width:9px}',
+  '.a{border-width:1px;border-left-width:9px}.b{border-right-width:3px}',
+  '.a{border-width:1px;border-left-width:9px}.a{border-right-width:3px}',
+  '.a{border-width:1px;border-left-width:var(--side)}',
+  '.a{border-width:1px;border-left-width:-1px}',
+  '.a:hover{border-width:1px;border-left-width:9px}',
+  '.a{border-width:1px;border-left-width:9px}.b{border-inline-start-width:3px}',
+  '.a{border-width:1px;border-left-width:9px;border-inline-start-width:3px}',
+  '.a{border:2px solid red;border-width:1px;border-left-width:9px}',
+  '.a{border-width:1px;border-left-width:9px}.b{border:2px solid red}'
+])('retains border-width outside same-rule isolated expansion: %s', (source) => {
+  expect(compile(source).finalize().manifest.rules.some(({ property }) => property === 'border-width')).toBe(true);
+});
+
+it('keeps border-width compatibility, preserved fallback, duplicate diagnostics and recovery', () => {
+  const source = '.a{border-width:1px 2px;border-left-width:9px}';
+  const session = compile(source);
+  const before = session.finalize();
+  expect(session.replaceStylesheet({ id: '/project/Fixed.gss', source: '.a{border-width:1px;border-width:2px;border-left-width:9px}' }))
+    .toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1204' }] });
+  expect(session.finalize()).toEqual(before);
+  expect(session.replaceStylesheet({ id: '/project/Fixed.gss', source }).committed).toBe(true);
+  expect(session.finalize().css).toBe(before.css);
+  expect(session.finalize().sourceMap).toEqual(before.sourceMap);
+  const compatible = createGssCompilerSession({ projectRoot: '/project', compatibilityTargetStages: [{ chrome: '120.0' }] });
+  expect(compatible.replaceStylesheet({ id: '/project/Fixed.gss', source }).committed).toBe(true);
+  expect(compatible.finalize().manifest.rules.some(({ property }) => property === 'border-width')).toBe(true);
+  const preserved = createGssCompilerSession({ projectRoot: '/project' });
+  expect(preserved.replaceStylesheet({ id: '/project/Fixed.gss', source: source + '.unknown{future-paint:1}' }))
+    .toMatchObject({ committed: true, module: { compilationMode: 'preserved' }, diagnostics: [{ code: 'GSS1104' }] });
+  expect(preserved.finalize().css).toContain('border-width: 1px 2px;');
+  expect(preserved.finalize().css).toContain('border-left-width: 9px;');
+});

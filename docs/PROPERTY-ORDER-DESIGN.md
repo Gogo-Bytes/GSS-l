@@ -209,14 +209,18 @@ Tailwind 参考：[margin utilities](https://tailwindcss.com/docs/margin)、[冲
 
 这不是新的公共注册 API，也不扩大 CSS 范围。property-effect registry 表示已知写入／reset effects，不自动证明 shorthand 可以展开；不能直接遍历所有已登记 shorthand 生成展开策略。现有分配算法仅处理双侧／四侧值列表，新形状或隐含 reset 需要另外证明。margin／padding／inset 物理同规则路径、scroll 及逻辑轴的隔离差异，负零的现有保守准入、`var()`／复杂值和 compatibility／preserved 边界均保留。
 
-新增族时应先确认完整 effects、值域、目标次序、别名隔离及源码覆盖，再加入策略；本轮没有加入 border 或其他族。既有五族验证与完整输出对照见当前计划。
+新增族时应先确认完整 effects、值域、目标次序、别名隔离及源码覆盖，再加入策略；后续已按 owner 授权加入下述有限 border-width 策略；其他族不自动准入。验证与完整输出对照见当前计划。
 
-### 待确认的下一范围：有限 border-width 展开
+### 已实现：有限 border-width 安全展开
 
-此项为提案，尚未实施。effect registry 已认识 border-width 及物理侧宽度，但当前安全展开仅覆盖既有五族；不能把 effect 登记直接视为展开授权或正确性证明。
+2026-10-30 owner 批准并实施有限范围。沿用现有 pure ownership 原子化入口：无 compatibility、无 external、整模块 effect 已知且规则形态允许时，才考虑展开；preserved 和其他上下文保持原路径。
 
-建议首个切片只处理既有 pure ownership 原子化路径中，同一规则恰有一条 border-width 与对应物理侧宽度竞争、值为简单非负 px／单位省略的零；要求模块中没有其他与宽度潜在重叠的 shorthand／逻辑属性参与。目标是保持两种 authored 顺序，例如 border-width:1px 2px 后接 border-left-width:3px 时 left 为 3px，反向顺序由后写 shorthand 覆盖 left。实际准入与完整 effects 仍须实施前证明和验证，不以示例代替证明。
+- 每条规则恰有一条 border-width，并有至少一条对应物理侧宽度；shorthand 的 1–4 个值和本规则物理侧值都必须是现有简单非负 px／无单位零识别子集。关键字、相对单位、百分比、var()、calc()、负值及带负号的零保留原声明，不新增报错或无效值过滤。
+- 模块中存在其他潜在重叠 shorthand／逻辑属性时不展开。为保持跨 scope 原行为，若有任何参与宽度竞争的独立声明不属于本规则，也不展开；同 selector 名的另一条 authored 规则同样隔离。selector-list 的分支共享声明对象，仍可展开并保留共同来源。不与宽度竞争的其他声明不构成这一屏障。
+- 目标顺序为 top／right／bottom／left，按原位置替换为四条 longhand，保留 importance 和 source span；同属性后写胜出、importance 优先仍由原解析与排序处理，不引入 longhand 天然优先级。两侧同等 importance 时，border-width:1px 2px 后接 border-left-width:9px 得到 left=9px，反向顺序得到 left=2px。
 
-暂不增加跨 scope 展开、逻辑轴、border 总 shorthand、宽度关键字、相对单位、var() 或复杂值支持；负值不新增过滤／诊断，继续现有处理；compatibility／preserved 及排序、复用屏障不变。验证复用现有测试载体，覆盖 1–4 值、正反源码顺序、importance、selector-list 共享来源、map、fallback 和浏览器独立原生对照，不新增 demo／框架或验收矩阵。
+**等价依据与限制**：[CSS Backgrounds and Borders §3.3](https://www.w3.org/TR/css-backgrounds-3/#border-width) 定义 border-width 只设置四侧宽度及 1–4 值的分配方式；不同于 border 总 shorthand，它不重置 border-image。这里仅保留无需求值的值字面量，并排除外部竞争，故原位置的完整四侧替换保留写入和覆盖顺序；未展开关键词、CSS-wide 值或更大 shorthand，不能由此推广到未知 reset。原子形态、class 和复用机会可以改变，不承诺更少 CSS 或性能收益。
 
-扩展该族会改变内部 atom 形态及可能生成的 class／复用结果，因此先由 owner 确认此具体范围。若不扩大范围，则保留五族策略，不把该提案作为默认代办。
+内部策略增加相对单位许可和跨 scope 许可；旧五族保持原配置和 physical → inline → block 次序，border-width 在它们之后处理。来源对象按原共享缓存产生展开声明；ResolvedTarget 的存活 occurrence 不替代排序的剪枝前候选，atomRank／orderSlot／复用屏障保持现状。
+
+验证使用既有 fixed-module-ranks、css-source-map 和 atom-ranks 浏览器载体：正反顺序、1–4 值／零、四种 importance、selector-list 共享 class 与来源、原始 source map、跨规则／别名／非 pure／非法值保留、重复诊断／LKG／恢复和 compatibility／preserved。浏览器仍以 authored shorthand 作独立 native oracle，增加四侧计算值及精确图像检查和宽度篡改负对照；执行结果见当前计划。

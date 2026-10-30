@@ -26,7 +26,11 @@ async function compile(fixture) {
     assert.equal(value?.self,node?.selfClassName);
     return value?.self ?? '';
   };
-  return {snapshot:session.finalize(),exports,classes};
+  const snapshot = session.finalize();
+  if (fixture.expandedBorderWidth !== undefined) {
+    assert.equal(snapshot.manifest.rules.some(({ property }) => property === 'border-width'), !fixture.expandedBorderWidth);
+  }
+  return {snapshot,exports,classes};
 }
 async function mount(page, fixture, compiled, reverse) {
   const template = fixture.template ?? `<button id="target" class="{{${fixture.scopes.join(' ')}}}">target</button>`;
@@ -53,6 +57,7 @@ async function sample(page, fixture, state) {
   const result = await target.evaluate((node,pseudo)=>{
     const style=getComputedStyle(node),subject=getComputedStyle(node,pseudo),rect=node.getBoundingClientRect();
     return {background:style.backgroundColor,color:subject.color,border:style.borderTopColor,marginLeft:style.marginLeft,
+      borderWidths:[style.borderTopWidth,style.borderRightWidth,style.borderBottomWidth,style.borderLeftWidth].join(' '),
       geometry:[rect.x,rect.y,rect.width,rect.height],scroll:[window.scrollX,window.scrollY],
       hover:document.querySelector('#target:hover')===node,focus:document.activeElement===node,pressed:node.getAttribute('aria-pressed')==='true',
       checked:node.matches(':checked'),disabled:node.matches(':disabled'),after:getComputedStyle(node,'::after').color,
@@ -92,6 +97,21 @@ export async function checkFixedModuleRanks(native, atomic, directory, report) {
           assert.equal(comparison.passed,true,`${name}: exact RGBA pair`);
         }
       }
+    }
+    if(fixture.corruptBorderWidth){
+      const state=states.idle,reference=await sample(native,fixture,state),referenceImage=await image(native);
+      const tree=postcss.parse(compiled.snapshot.css);
+      let changed=0;
+      tree.walkDecls('border-left-width',(declaration)=>{declaration.value='7px';changed++;});
+      assert.ok(changed>0);
+      await atomic.locator('#subject-css').evaluate((node,css)=>{node.textContent=css;},tree.toString());
+      const corrupted=await sample(atomic,fixture,state),actualImage=await image(atomic);
+      const comparison=comparePng(actualImage,referenceImage);
+      assert.notEqual(corrupted.borderWidths,reference.borderWidths);
+      assert.equal(comparison.passed,false);
+      await writeFile(join(directory,'border-width-corrupted.png'),actualImage);
+      await writeFile(join(directory,'border-width-corrupted-diff.png'),comparison.diff);
+      report.negativeControls.push({name:fixture.name,property:'borderWidths',reference,corrupted,differentPixels:comparison.differentPixels});
     }
     if(fixture.name==='02-unranked-base-conflict'||fixture.corruptNested){
       const state=states[fixture.stateNames.at(-1)];

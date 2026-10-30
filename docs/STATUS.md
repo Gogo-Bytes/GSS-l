@@ -1,5 +1,9 @@
 # GSS 工作状态
 
+有限 border-width 安全展开已按 owner 授权实现：只处理隔离的同规则非负静态 px／零与物理侧宽度竞争，按原位置展开四侧，保留 importance、来源、selector-list 共享和排序／复用屏障；跨规则竞争、逻辑别名、复杂值及 compatibility／preserved 保持原路径。范围及反例见 [属性排序设计](PROPERTY-ORDER-DESIGN.md#已实现有限-border-width-安全展开)。
+
+完整 `verify` **2491** 项（Compiler 1945／React 49／Vite 163／Testing 334）及 lint／build／types 通过，定向 378 项通过。旧 545 样本完整输出、四个歧义、七个诊断／LKG、两种 compatibility fallback／恢复序列对照不变；新 19 个浏览器用例独立使用 authored CSS 和字面预期。原 atom-ranks 默认 Chromium／Firefox／WebKit 均通过：每引擎 fixed 部分 69 fixtures／220 comparisons／110 exact image pairs／3 corruptions，逻辑／物理部分 418 simple＋59 semantic、2852 paired＋800 authored-native readings，状态部分 96 comparisons／32 exact image pairs／2 order corruptions／6 external boundary checks。证据在 `artifacts/border-width-expansion/`；保留首次 feature-red（11 项失败）、focused／verify／rank-browser 日志和旧浏览器产物备份。完整报告在 `artifacts/rank-integration/browser/result.json`，不扩大值域或性能承诺。独立 Chromium browser oracle 125 fixtures／1267 comparisons／38 controls 及 Vite host、SSG、multipage 均通过，日志为同目录 `browser-oracle.log`，当前报告为 `artifacts/browser-reference.json`。
+
 既有五族 box 安全展开策略已集中描述目标属性顺序、非负／百分比限制及别名隔离，算法不再按 family／axis 分支计算策略；仍按 physical → inline → block 处理每族。没有新增 CSS 族、值域或注册 API，既有保守边界不变。完整 `verify` 2456 项及 545 样本／歧义／诊断／fallback 对照通过，见 `artifacts/box-expansion-policy/`；未重跑浏览器。
 
 关系计划不再返回与 plannedDescendants 是否存在重复的 hasDescendantConditions；输出按规划结果是否存在选择路径，保留已规划但实例为空的 scope 登记。原准入谓词及 planner 调用时机不变。完整 `verify` 2456 项与 545 样本／歧义／诊断／fallback 对照通过，见 `artifacts/descendant-plan-presence/`；未重跑浏览器。

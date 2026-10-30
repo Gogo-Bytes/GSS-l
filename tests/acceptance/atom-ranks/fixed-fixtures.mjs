@@ -70,3 +70,29 @@ fixedFixtures.push(
     '.a:where(:checked) + .a-b{color:red} .a:where(:checked):where(:disabled) + .a-b{color:blue}', ['a.b'], {color:blue},
     {template:'<input type="checkbox" checked disabled class="{{a}}"><button id="target" class="{{a.b}}">target</button>'})
 );
+
+// Authored shorthand remains the native oracle; expected four-side values are literal.
+for (const [label, value, ordinary, overridden] of [
+  ['one', '1px', '1px 1px 1px 1px', '1px 1px 1px 9px'],
+  ['two', '1px 2px', '1px 2px 1px 2px', '1px 2px 1px 9px'],
+  ['three', '1px 2px 3px', '1px 2px 3px 2px', '1px 2px 3px 9px'],
+  ['four', '1px 2px 3px 4px', '1px 2px 3px 4px', '1px 2px 3px 9px'],
+  ['zero', '0 +0.0 0px', '0px 0px 0px 0px', '0px 0px 0px 9px']
+]) for (const reverse of [false, true]) {
+  const declarations = reverse ? `border-left-width:9px;border-width:${value}` : `border-width:${value};border-left-width:9px`;
+  fixedFixtures.push(one(`border-width-${label}-${reverse}`, `.a,.b{${declarations}}`, `.a,.b{${declarations}}`, ['a','b'],
+    { borderWidths: reverse ? ordinary : overridden }, { expandedBorderWidth: true, corruptBorderWidth: label === 'four' && !reverse }));
+}
+for (const importance of ['short', 'long', 'both']) for (const reverse of [false, true]) {
+  const short = `border-width:1px 2px${importance !== 'long' ? '!important' : ''}`;
+  const long = `border-left-width:9px${importance !== 'short' ? '!important' : ''}`;
+  const declarations = (reverse ? [long, short] : [short, long]).join(';');
+  fixedFixtures.push(one(`border-width-important-${importance}-${reverse}`, `.a{${declarations}}`, `.a{${declarations}}`, ['a'],
+    { borderWidths: importance === 'short' || (importance === 'both' && reverse) ? '1px 2px 1px 2px' : '1px 2px 1px 9px' },
+    { expandedBorderWidth: true }));
+}
+for (const [label, source, scopes, borderWidths] of [
+  ['cross-scope', '.a{border-width:1px;border-left-width:9px}.b{border-right-width:3px}', ['a','b'], '1px 3px 1px 9px'],
+  ['logical', '.a{border-inline-start-width:3px;border-width:1px;border-left-width:9px}', ['a'], '1px 1px 1px 9px'],
+  ['variable', '.a{border-width:var(--widths,1px);border-left-width:9px}', ['a'], '1px 1px 1px 9px']
+]) fixedFixtures.push(one(`border-width-retained-${label}`, source, source, scopes, { borderWidths }, { expandedBorderWidth: false }));

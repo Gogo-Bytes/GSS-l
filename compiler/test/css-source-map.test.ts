@@ -358,3 +358,16 @@ it.each(['margin', 'padding', 'inset', 'scroll-margin', 'scroll-padding'])('maps
   expect(originalPositionFor(map, generatedPosition(snapshot.css, `${family}-inline-start:`, 0))).toMatchObject({ source: 'box.gss', line: 1, column: source.indexOf(`${family}-inline:`) });
   expect(originalPositionFor(map, generatedPosition(snapshot.css, `${family}-inline-start:`, 1))).toMatchObject({ source: 'box.gss', line: 1, column: source.indexOf(`${family}-inline-start:`) });
 });
+
+it('maps expanded border widths to their authored shorthand and surviving side declaration', () => {
+  const session = createGssCompilerSession({ projectRoot: '/project' });
+  const source = '.a,.b {\n  border-width: 1px 2px;\n  border-left-width: 9px;\n}';
+  expect(session.replaceStylesheet({ id: '/project/border.gss', source }).committed).toBe(true);
+  const snapshot = session.finalize();
+  const map = new TraceMap(snapshot.sourceMap);
+  for (const side of ['top', 'right', 'bottom', 'left']) {
+    expect(originalPositionFor(map, generatedPosition(snapshot.css, `border-${side}-width:`)))
+      .toMatchObject({ source: 'border.gss', line: side === 'left' ? 3 : 2, column: 2 });
+  }
+  expect(snapshot.sourceMap.sourcesContent).toEqual([source]);
+});
