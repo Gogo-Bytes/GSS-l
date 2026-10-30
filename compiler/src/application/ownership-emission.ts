@@ -2,10 +2,10 @@ import { getOwnershipPath } from '../domain/ownership-path.js';
 import type { AtomicEmissionContext } from './atomic-emission-context.js';
 import type { ParsedStyleRule } from '../domain/parsed-stylesheet.js';
 import type { ContextualRelationIdentity, PureDeclarationIdentity } from '../domain/readable-name.js';
-import type { planModuleRelations } from '../domain/plan-module-relations.js';
-import { resolveTargetDeclarations } from '../domain/resolve-target-declarations.js';
+import type { DescendantInstance } from '../domain/plan-descendant-conditions.js';
+import type { PlannedOwnershipGroup } from './ownership-planning.js';
 import { identifyAssetValue } from './asset-values.js';
-import { canonicalCondition, groupRulesByCondition } from './condition-context.js';
+import { canonicalCondition } from './condition-context.js';
 import { canonicalAttributeCondition, renderAttributeCondition, renderStateSuffix } from './selector-rendering.js';
 import { ensureScopePath } from './scope-exports.js';
 
@@ -14,13 +14,13 @@ import { ensureScopePath } from './scope-exports.js';
  * source/target relation selector. */
 export function emitOwnershipRules(input: AtomicEmissionContext & {
   localRules: readonly ParsedStyleRule[];
-  plan: NonNullable<ReturnType<typeof planModuleRelations>['plan']>;
+  descendants?: readonly DescendantInstance<ParsedStyleRule>[];
+  ownershipGroups: readonly PlannedOwnershipGroup[];
 }): void {
-  const { rules, localRules, plan, moduleId, bindings, nameAllocator, roots, moduleOrder } = input;
-  const { ownershipRules, hasDescendantConditions, plannedDescendants, plannedStructural } = plan;
-  if (plannedDescendants) {
+  const { rules, localRules, descendants, ownershipGroups, moduleId, bindings, nameAllocator, roots, moduleOrder } = input;
+  if (descendants) {
     for (const rule of localRules) ensureScopePath(roots, getOwnershipPath(rule.nodes));
-    for (const instance of plannedStructural.descendants) {
+    for (const instance of descendants) {
       const { rule, targetPath, sourcePath, sourceIndex, relationRank } = instance;
       const wrappers = rule.conditions;
       const condition = canonicalCondition(wrappers);
@@ -68,20 +68,8 @@ export function emitOwnershipRules(input: AtomicEmissionContext & {
     }
   }
 
-  const ownershipGroups = groupRulesByCondition(hasDescendantConditions ? [] : ownershipRules);
-  for (const groupedRules of ownershipGroups.values()) {
-    const wrappers = groupedRules[0]!.conditions;
-    const condition = canonicalCondition(wrappers);
-    const layer = groupedRules[0]!.layer;
-    const declaredPaths = localRules
-      .filter((rule) =>
-        rule.layer === layer && canonicalCondition(rule.conditions) === condition
-      )
-      .flatMap(({ nodes }) => {
-        const path = getOwnershipPath(nodes);
-        return path.map((_, index) => path.slice(0, index + 1));
-      });
-    for (const target of resolveTargetDeclarations(groupedRules, declaredPaths)) {
+  for (const { wrappers, condition, layer, targets } of ownershipGroups) {
+    for (const target of targets) {
       const scope = ensureScopePath(roots, target.path);
       for (const { rule, declaration } of target.occurrences) {
         const identity: PureDeclarationIdentity = {

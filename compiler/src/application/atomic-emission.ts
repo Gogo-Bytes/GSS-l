@@ -11,6 +11,7 @@ import type { PlannedDeclaration } from './planned-declaration.js';
 import { emitObservedRules } from './observed-emission.js';
 import { emitStructuralRules } from './structural-emission.js';
 import { emitOwnershipRules } from './ownership-emission.js';
+import { planOwnershipTargets } from './ownership-planning.js';
 import { emitExternalRules } from './external-emission.js';
 import { emitPseudoRules } from './pseudo-emission.js';
 
@@ -38,7 +39,10 @@ export function emitAtomicRules(input: {
     collectModuleOrderCandidates(input.relationPlan, sameNodeAnchors, externalAnchors));
   const context = { rules, moduleId, bindings, nameAllocator, roots, moduleOrder };
 
-  emitOwnershipRules({ ...context, localRules, plan: input.relationPlan });
+  const { hasDescendantConditions, ownershipRules } = input.relationPlan;
+  const ownershipGroups = planOwnershipTargets(hasDescendantConditions ? [] : ownershipRules, localRules);
+  emitOwnershipRules({ ...context, localRules, ownershipGroups,
+    ...(input.relationPlan.plannedDescendants ? { descendants: plannedStructural.descendants } : {}) });
 
   emitPseudoRules({ ...context, localRules, instances: plannedPseudos.instances });
 
