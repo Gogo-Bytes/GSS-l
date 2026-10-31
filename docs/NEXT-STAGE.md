@@ -1,12 +1,44 @@
 # 当前进度与后续工作计划
 
+## 当前结论（2026-10-31）
+
+已确认的架构迁移与最近三个能力切片均已提交并推送 main；本次整理基线为 `51c12a4`，无待提交实现。整体目标已有可运行主干，不能等同于任意 CSS、所有关系或所有框架已支持。
+
+| 工作面 | 当前交付 | 保留边界 |
+| --- | --- | --- |
+| 顶层目录与职责 | compiler、React adapter、Vite integration、types 分开；Playground 在 examples，参考与验收在 tests | 其余验收应用留在 tests，不为目录对称继续迁移 |
+| 编译阶段 | 会话事务、贡献准备、快照、准入、关系规划、资源、scope 导出和专用输出已有明确模块 | 各关系证明继续独立；owner 已选方案 A，不增加 MarkerPlan |
+| Selector 模型 | 只读 nodes 是名称与条件来源；派生路径；移除平行数组和冗余路径投影 | 实际 source／target 绑定与 authored 路径有不同含义，不能合并 |
+| 排序 | atomRank 与 orderSlot 分离；原生强度／上下文和已证明语义优先，同语义逻辑先、物理后 | 未展开 shorthand 的源码覆盖和跨位置身份隔离保留 |
+| 安全展开 | 既有五族有界展开；有限 border-width `8cc95c2` | 复杂值、其他族和更宽跨 scope 范围不自动扩展；不做通用无效 CSS 兜底 |
+| Atom 复用 | 隔离物理 longhand 连续同值 `1080947`；相同完整条件链纯 atom `9216360` | 不跨异值竞争者、不同条件链、状态／属性 selector、pseudo、ownership／结构等屏障 |
+| 身份说明 | Unicode／资源身份核对与注释修正 `51c12a4` | 不改资源编码、class 命名或公共接口 |
+
+最新实现验证基线是 `9216360`：完整 verify **2537 项**及 lint／build／types；默认三引擎排序验收、独立 Chromium browser oracle（125／1267／38）及 Vite host／SSG／multipage 均通过。后续注释与本次进度整理无运行行为变更，没有重跑测试。具体计数、范围和失败记录见下方历史记录与 `artifacts/conditional-atom-reuse/`；外部 SPA／SSR、Article 的历史验证不算本轮重验。
+
+## 接下来建议：CSS 能力接入流程与策略归属
+
+优先回到最初“未来增加 CSS 支持时容易接入”的目标，暂不继续逐族扩 shorthand 或逐类放宽复用。此次只整理进度与建议，没有开始下一实现或批准新的语义范围。
+
+1. **梳理一条完整接入路径。** 以已支持的独立 longhand、方向 longhand、shorthand 各选一个代表，映射 property-effects、module-order-policy、selector／声明准入、expand-safe-box、输出与测试。区分“认识写入 effects”“允许该上下文”“允许展开”“允许复用”，明确每种事实的权威来源。
+2. **列出实际重复维护点与必须独立的规则。** 特别核对 `supportsCurrentBackgroundRanks` 这类有界准入为何独立存在。产出文件级变更清单、反例和当前保护，不以统一 registry 为预设答案；不能由 effect 登记自动推导全部能力。
+3. **有依据再实施。** 若发现同一事实重复计算／登记，选择保持行为的最小切片并作输出与相关回归对照；若没有具体问题，结束核对。改变准入、复用、fallback、架构或公共注册接口，先给具体方案和影响，再由 owner 决策。
+
+完成标准：在现有设计文档／模块说明中形成一份可执行的 CSS 接入清单，列清每类变更要改哪里、无需改哪里、用什么独立预期验证；实际重复项必须有调用点证据与处理结论。复用现有测试载体，不增加框架、demo 或验收矩阵，不做性能 profiling。
+
+Parser／Adapter 的 Vue／Svelte 扩展仍需真实需求；此前已有接口核对，不把未验证框架当 bug。Firefox Article、性能、跨模块同节点优先级、发布与 tags 继续保持原授权边界。已完成的会话／资源生命周期核查也不重复排队。
+
+## 历史切片与证据
+
+以下保留各切片当时的状态、计数和本地证据位置；涉及“当前／下一步”的历史语句均以本文顶部为准。
+
 同条件链连续复用已提交 `9216360`。后续继续核对命名与资源身份，修正通用编码器 NFC 行为的过时注释；现有编码保持 Unicode 序列区别及资源 ASCII 转义格式，未改变运行时。说明见 [资源身份核对](ARCHITECTURE-DIRECTION.md#全局资源规划的职责边界)，已有相关回归包含在本次完整 verify；注释切片未重复运行测试。状态／属性 selector、pseudo、ownership／结构等剩余复用屏障继续保留，当前未证明可进一步放宽。
 
 同条件链连续复用的原 atom-ranks 默认 Chromium／Firefox／WebKit 全部通过：每引擎 fixed 部分 **86 fixtures／254 comparisons／127 exact image pairs／7 corruptions**；新增 media／supports／container 条件成立／不成立、嵌套条件与跨异值错误合并负对照。原逻辑／物理 418 simple＋59 semantic、2852 paired＋800 authored-native readings 以及状态 96 comparisons／32 exact image pairs／2 corruptions／6 external checks 均保留通过。四组歧义、七组诊断／LKG、两种 compatibility fallback／恢复与基线一致。证据在 `artifacts/conditional-atom-reuse/`，旧浏览器产物已备份；当前完整排序报告为 `artifacts/rank-integration/browser/result.json`。未放宽图像比较或独立预期。独立 Chromium browser oracle **125 fixtures／1267 comparisons／38 controls** 与 Vite host、SSG、multipage 同样通过，日志为同目录 `browser-oracle.log`，当前报告为 `artifacts/browser-reference.json`。
 
-物理 longhand 连续复用已提交 `1080947`。后续完成相同条件链的保守屏障核对：media／supports／container 内各一组同属性相邻同值仍输出三个 class，原因是现有纯 atom 条件要求 conditions 为空。owner 已确认并实现仅放开完全相同有序条件链，其他复用／语义／fallback 屏障保留；具体范围与回归要求见 [同条件链复用](PROPERTY-ORDER-DESIGN.md#已实现完全相同条件链内的纯-atom-连续复用)。完整 `verify` **2537** 项（Compiler 1991／React 49／Vite 163／Testing 334）及 lint／build／types 通过；初步定向 159 项通过。证据在 `artifacts/conditional-atom-reuse/`，feature-red 含 9 项预期行为失败和 1 项已修正的测试 scope 读取错误。浏览器结果见本文开头。
+物理 longhand 连续复用已提交 `1080947`。后续完成相同条件链的保守屏障核对：media／supports／container 内各一组同属性相邻同值在修改前输出三个 class，原因是当时的纯 atom 条件要求 conditions 为空。owner 已确认并实现仅放开完全相同有序条件链，其他复用／语义／fallback 屏障保留；具体范围与回归要求见 [同条件链复用](PROPERTY-ORDER-DESIGN.md#已实现完全相同条件链内的纯-atom-连续复用)。完整 `verify` **2537** 项（Compiler 1991／React 49／Vite 163／Testing 334）及 lint／build／types 通过；初步定向 159 项通过。证据在 `artifacts/conditional-atom-reuse/`，feature-red 含 9 项预期行为失败和 1 项已修正的测试 scope 读取错误。浏览器结果见本文开头。
 
-物理 longhand 连续复用实现验证：完整 `verify` **2522** 项（Compiler 1976／React 49／Vite 163／Testing 334）及 lint／build／types 通过；随后补充 alias 加入／移除时的共享拆分与恢复回归，复用测试文件 **112** 项、对应 lint 和 Compiler typecheck 通过（当前全仓测试数为 2523，未把这次定向运行写成第二次完整 verify）。复用仍取最早 `(atomRank, orderSlot)`，不重编号后续竞争者，来源／map 汇总与跨模块位置隔离保留。四组歧义、七组诊断／LKG、两种 compatibility fallback／恢复与既有基线一致。证据见 `artifacts/physical-longhand-reuse/`，保留 41 项 feature-red 和首次全仓 4 项旧方向屏障断言失败；旧断言按已批准范围拆为物理正例和混合属性负例，没有削弱独立排序预期。
+物理 longhand 连续复用实现验证：完整 `verify` **2522** 项（Compiler 1976／React 49／Vite 163／Testing 334）及 lint／build／types 通过；随后补充 alias 加入／移除时的共享拆分与恢复回归，复用测试文件 **112** 项、对应 lint 和 Compiler typecheck 通过（该切片当时全仓测试数为 2523，未把这次定向运行写成第二次完整 verify）。复用仍取最早 `(atomRank, orderSlot)`，不重编号后续竞争者，来源／map 汇总与跨模块位置隔离保留。四组歧义、七组诊断／LKG、两种 compatibility fallback／恢复与既有基线一致。证据见 `artifacts/physical-longhand-reuse/`，保留 41 项 feature-red 和首次全仓 4 项旧方向屏障断言失败；旧断言按已批准范围拆为物理正例和混合属性负例，没有削弱独立排序预期。
 
 原 atom-ranks 默认 Chromium／Firefox／WebKit 全部通过：每引擎 fixed 部分 **76 fixtures／234 comparisons／117 exact image pairs／4 corruptions**，包含新复用的五种 scope 子集、两种保留屏障及错误跨异值合并的计算样式／几何负对照；原逻辑／物理 418 simple＋59 semantic、2852 paired＋800 authored-native readings 与状态 96 comparisons／32 exact image pairs／2 corruptions／6 external checks 保持通过。当前报告 `artifacts/rank-integration/browser/result.json`；旧报告／图像及运行日志保存在 `artifacts/physical-longhand-reuse/`，无图像容差或预期放宽。独立 Chromium browser oracle **125 fixtures／1267 comparisons／38 controls** 及 Vite host、SSG、multipage 同样通过，见同证据目录 `browser-oracle.log` 与当前 `artifacts/browser-reference.json`。
 
@@ -14,11 +46,11 @@
 
 border-width 切片已提交 `8cc95c2`。后续完成 planner／五个专用 emitter 的绑定消费核对，未发现新的重复目标决策或契约反例；保留候选／存活 occurrence、authored scope 与实际绑定的区别。核对为只读，没有新增运行验证，详见 [架构核对](ARCHITECTURE-DIRECTION.md#绑定消费后续核对2026-10-30)。该轮已授权有限范围已完成；2026-10-31 已转入上方 atom 复用核查，物理 longhand 连续复用已获批准；除此之外不自动扩展 CSS 族、值域或复用边界。
 
-## 当前方向
+### 2026-10-30 阶段方向（历史）
 
 此前结构切片已交付：ownership 规划／输出边界 `6f40301`、删除冗余声明投影 `c50eeae`、规划存在性作为唯一分支依据 `30ce50e`、五族安全展开策略集中 `fe46429`。owner 已确认有限 border-width 展开，已实现同规则静态非负 px／零值子集，范围与证明见 [属性排序设计](PROPERTY-ORDER-DESIGN.md#已实现有限-border-width-安全展开)。不再等待该范围的确认；其他 CSS 族、跨 scope／复杂值仍未纳入。方案 A 和既有排序／fallback 决策继续有效。
 
-### 当前切片进度（2026-10-30）
+### 2026-10-30 切片记录（历史）
 
 有限 border-width 安全展开已按 owner 授权实现：只处理隔离的同规则非负静态 px／零与物理侧宽度竞争，按原位置展开四侧，保留 importance、来源、selector-list 共享和排序／复用屏障；跨规则竞争、逻辑别名、复杂值及 compatibility／preserved 保持原路径。范围及反例见 [属性排序设计](PROPERTY-ORDER-DESIGN.md#已实现有限-border-width-安全展开)。
 
