@@ -1,5 +1,7 @@
 # 当前进度与后续工作计划
 
+物理 longhand 连续复用已提交 `1080947`。后续完成相同条件链的保守屏障核对：media／supports／container 内各一组同属性相邻同值仍输出三个 class，原因是现有纯 atom 条件要求 conditions 为空。下一有限提案仅放开完全相同有序条件链，保留其他复用／语义／fallback 屏障，尚未实施；具体范围与回归要求见 [下一切片待决](PROPERTY-ORDER-DESIGN.md#下一切片待决完全相同条件链内的纯-atom-连续复用)。本次后续仅分析与文档，沿用上项检查，不宣称新算法已验证。
+
 物理 longhand 连续复用实现验证：完整 `verify` **2522** 项（Compiler 1976／React 49／Vite 163／Testing 334）及 lint／build／types 通过；随后补充 alias 加入／移除时的共享拆分与恢复回归，复用测试文件 **112** 项、对应 lint 和 Compiler typecheck 通过（当前全仓测试数为 2523，未把这次定向运行写成第二次完整 verify）。复用仍取最早 `(atomRank, orderSlot)`，不重编号后续竞争者，来源／map 汇总与跨模块位置隔离保留。四组歧义、七组诊断／LKG、两种 compatibility fallback／恢复与既有基线一致。证据见 `artifacts/physical-longhand-reuse/`，保留 41 项 feature-red 和首次全仓 4 项旧方向屏障断言失败；旧断言按已批准范围拆为物理正例和混合属性负例，没有削弱独立排序预期。
 
 原 atom-ranks 默认 Chromium／Firefox／WebKit 全部通过：每引擎 fixed 部分 **76 fixtures／234 comparisons／117 exact image pairs／4 corruptions**，包含新复用的五种 scope 子集、两种保留屏障及错误跨异值合并的计算样式／几何负对照；原逻辑／物理 418 simple＋59 semantic、2852 paired＋800 authored-native readings 与状态 96 comparisons／32 exact image pairs／2 corruptions／6 external checks 保持通过。当前报告 `artifacts/rank-integration/browser/result.json`；旧报告／图像及运行日志保存在 `artifacts/physical-longhand-reuse/`，无图像容差或预期放宽。独立 Chromium browser oracle **125 fixtures／1267 comparisons／38 controls** 及 Vite host、SSG、multipage 同样通过，见同证据目录 `browser-oracle.log` 与当前 `artifacts/browser-reference.json`。
