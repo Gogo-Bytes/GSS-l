@@ -1,6 +1,8 @@
 # 当前进度与后续工作计划
 
-border-width 切片已提交 `8cc95c2`。后续完成 planner／五个专用 emitter 的绑定消费核对，未发现新的重复目标决策或契约反例；保留候选／存活 occurrence、authored scope 与实际绑定的区别。核对为只读，没有新增运行验证，详见 [架构核对](ARCHITECTURE-DIRECTION.md#绑定消费后续核对2026-10-30)。当前已授权有限范围已完成；下一能力扩展的具体范围仍需 owner 决策，不自动扩展 CSS 族、值域、跨 scope 或复用边界。
+2026-10-31 owner 已指定转入 atom 身份与 class 复用核查。已完成当前排序／命名／汇总链路及八组公共会话输出核对，确认方向属性一律禁止连续复用是可进一步设计的保守限制，跨模块 orderSlot 和完整桶屏障仍必要。下一切片提案为「完整竞争组只有同一种物理单 effect longhand 时复用合格连续同值桶」，尚未修改语义，待 owner 确认具体范围。详细方案、反例及证据见 [Atom 复用核查](PROPERTY-ORDER-DESIGN.md#atom-复用核查与下一切片提案2026-10-31)。Compiler build 和既有定向 435 项通过；未重跑全仓 verify／浏览器，不启动 profiling。
+
+border-width 切片已提交 `8cc95c2`。后续完成 planner／五个专用 emitter 的绑定消费核对，未发现新的重复目标决策或契约反例；保留候选／存活 occurrence、authored scope 与实际绑定的区别。核对为只读，没有新增运行验证，详见 [架构核对](ARCHITECTURE-DIRECTION.md#绑定消费后续核对2026-10-30)。该轮已授权有限范围已完成；2026-10-31 已转入上方 atom 复用核查，具体放宽范围仍需 owner 决策，不自动扩展 CSS 族、值域、跨 scope 或复用边界。
 
 ## 当前方向
 

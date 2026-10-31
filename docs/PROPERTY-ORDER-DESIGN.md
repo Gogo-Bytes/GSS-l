@@ -224,3 +224,47 @@ Tailwind 参考：[margin utilities](https://tailwindcss.com/docs/margin)、[冲
 内部策略增加相对单位许可和跨 scope 许可；旧五族保持原配置和 physical → inline → block 次序，border-width 在它们之后处理。来源对象按原共享缓存产生展开声明；ResolvedTarget 的存活 occurrence 不替代排序的剪枝前候选，atomRank／orderSlot／复用屏障保持现状。
 
 验证使用既有 fixed-module-ranks、css-source-map 和 atom-ranks 浏览器载体：正反顺序、1–4 值／零、四种 importance、selector-list 共享 class 与来源、原始 source map、跨规则／别名／非 pure／非法值保留、重复诊断／LKG／恢复和 compatibility／preserved。浏览器仍以 authored shorthand 作独立 native oracle，增加四侧计算值及精确图像检查和宽度篡改负对照；执行结果见当前计划。
+
+## Atom 复用核查与下一切片提案（2026-10-31）
+
+owner 已要求从逐族 shorthand 扩展转向 atom 身份与 class 复用，先以具体输出确定收益与屏障。以下现状已核对；新增复用范围仍是待决提案，没有修改 compiler 行为。
+
+### 三层身份与决策位置
+
+1. `order-occurrences.ts` 标识声明／selector 分支／实际绑定，以保留剪枝前竞争者；它不是输出 class identity。
+2. `fixed-module-ranks.ts` 建立同上下文的潜在重叠连通组、语义高度及原始顺序桶，再为整个合格连续桶选取最早的 `(atomRank, orderSlot)`。是否允许移动在这里决定，后续 rank 不重编号。
+3. `readable-name.ts` 编码完整 atom 身份；`finalize-snapshot.ts` 仅汇总相同身份、全部 origins 与 sources，不再次猜测安全复用。资源仍按绑定身份区分，observed 声明还保留 emitted selector 区别，避免不同 selector-list specificity 被误合并。
+
+不建议新建通用去重框架或在 finalize 中仅按 property/value 合并。当前决策已集中，首个机会在方向属性的保守屏障，而非缺少新的架构层。
+
+### 当前可复现结果
+
+以下数字来自公共 compiler session 的实际输出，括号为 `(atomRank, orderSlot)`，不是建议的新排序编号。
+
+| 输入 | 当前输出 | 结论 |
+| --- | --- | --- |
+| `.a{color:red}.b{color:red}.c{color:blue}` | red `(1,1)`、blue `(3,3)`，red 汇总两个 origins | 相邻纯 atom 已可复用，后续版本不重编号 |
+| `.early{color:red}.middle{color:blue}.late{color:red}` | 三条，分别 `(1,1)`、`(2,2)`、`(3,3)` | 两个 red 必须隔离，early+middle 与 middle+late 的预期不同 |
+| `.a{margin-left:1px}.b{margin-left:1px}.c{margin-left:2px}` | 三条，分别 `(1,1)`、`(2,2)`、`(3,3)` | 整组只有同一种属性，仍因方向属性屏障禁止相邻复用；这是保守机会，不是渲染错误 |
+| `.a{margin-left:1px}.x{color:red}.b{margin-left:1px}` | 两条 margin-left，加一条 color | 是否连续应在竞争组内判断，不按整份源码的物理相邻判断 |
+| `.a{margin-left:1px}.b{margin-left:1px}.x{margin-inline-start:2px}` | 逻辑 `(1,1)`，两条物理 `(1,2)`、`(2,3)` | 已涉及跨属性投影，首个提案继续保留屏障 |
+| `.a:hover{color:red}.b:hover{color:red}` | 两条 red | 上下文复用不在既有连续纯 atom 范围内 |
+| `.a,.b:hover{color:red}.c{color:red}` | 三条 red；a 与 b:hover 同原始桶 | 不能用纯分支为同桶的状态分支授权移动 |
+
+跨模块反例也已重放：A 为 `.a{margin-left:1px}.x{margin-inline-start:2px}`；B 为 `.b{margin-left:1px}.x{margin-inline-start:2px}.y{margin-inline-start:3px}.z{margin-inline-start:4px}`。两条物理写入同为 rank 1，输出位置却分别为 2 和 4；B 自己的 b+z 组合要求物理 1px 在逻辑 4px 之后。若抹掉位置并沿用 A 的较早位置，便破坏 B 的组合。该问题不依赖跨模块同节点混用，不能以“不支持跨模块竞争”为由删除位置身份。
+
+### 提案：隔离物理 longhand 的连续复用
+
+首个切片只放宽方向屏障的一种情况：在原有同 layer／conditions／pseudo subject／importance 的**完整剪枝前竞争组**中，所有 occurrence 都是同一个已登记物理单 effect longhand。属性识别可复用已有 effects／物理优先级政策；不能把任意多 effect shorthand 或逻辑方向一起放开。
+
+仍要求原始桶中的每个 occurrence 都满足现有纯单节点／单目标、无状态／属性条件／observation／pseudo／external／source binding、语义高度为零的约束；连续桶的 property、原始 value 拼写和 importance 必须相同。不越过不同值或不合格桶，不按目标名推断互斥，不归一化颜色／单位，不变更资源身份。不相关属性不构成该组的竞争者；不同属性只要通过 alias／shorthand 连入同组，就保持原屏障。
+
+例如上面的 1px、1px、2px 可在拟议实现中成为 1px `(1,1)`、2px `(3,3)`；a 和 b 使用同一 class，manifest 保留两处来源。原始 `orderSlot` 仍进入身份，finalize 和跨模块汇总方式不变。仅将一段无异值竞争者的同属性相同写入收缩到段首，段前／段后竞争者的位置不变，是此提案的局部等价依据；完整桶限制防止共享 selector 分支或派生目标被遗漏。此论证只适用于既有 effect registry 的有界契约，不推广为任意 CSS 等价。
+
+预计收益是这类输入减少重复 class／CSS 规则；尚未实施，没有全项目体积或性能收益数据。生成 class 与 scope 映射会变化，现有 `never compresses directional property` 测试的一部分需要按新授权改为正例，同时保留混合方向／shorthand／上下文负例。因此这是复用范围变更，需 owner 确认后实施，而不是按 bug 修复直接解除屏障。
+
+实施后应在现有 reuse／source-map／convergence 和浏览器载体验证：不同值分隔、纯与状态混合 selector-list、强 ownership／结构、importance／layer、逻辑别名和未展开 shorthand 保留、跨模块 slot 隔离、来源汇总、失败更新／恢复与插入顺序收敛。使用独立预期，不能只比较新旧输出或删除旧屏障断言。compatibility／preserved 不变，不新增框架或验收项目。
+
+### 本轮证据与停止点
+
+Compiler build 与已有三组定向测试 **435** 项通过：fixed-module-rank-reuse（81）、fixed-module-ranks（345）、readable-name（9）。八组公共会话探针保存原始 CSS、schema、manifest origins 和解码身份；见 `artifacts/atom-reuse-analysis/{probe.mjs,results.json,probe.log,build.log,tests.log}`。这是现状证据，不是新复用算法通过验收；本轮没有改运行时代码、执行浏览器验收或性能 profiling。下一实施点为上述有界提案的 owner 决策。
