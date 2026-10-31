@@ -75,7 +75,7 @@ const directionalProperties = ['margin', 'padding', 'inset', 'scroll-margin', 's
   family, ...['top', 'right', 'bottom', 'left'].map((side) => family === 'inset' ? side : `${family}-${side}`),
   ...['inline', 'block'].flatMap((axis) => [`${family}-${axis}`, `${family}-${axis}-start`, `${family}-${axis}-end`])
 ]);
-it.each(directionalProperties)('never compresses directional property %s', (property) => {
+it.each(directionalProperties.filter((property) => !/^(?:(?:margin|padding|scroll-margin|scroll-padding)-(?:top|right|bottom|left)|top|right|bottom|left)$/.test(property)))('keeps shorthand and logical directional property %s isolated', (property) => {
   const session = compile(`.a{${property}:1px}.b{${property}:1px}`);
   expect(classes(session, 'a')).toContain('--rank_1');
   expect(classes(session, 'b')).toContain('--rank_2');
@@ -108,8 +108,8 @@ it('keeps source-sensitive asset identities while sharing only identical module-
   expect(session.finalize({ resolveAssetUrl: (identity) => `/${identity}.png` }).css).toContain('/asset-b.png');
 });
 
-it('converges reuse, schemas, origins and maps after real mutations, invalid replacement, permutations and relocation', () => {
-  const sources = ['.a{color:red}.b{color:red}.c{color:blue}', '.c{color:blue}.a{color:red}.b{color:red}', '.a{color:red}.b{color:red}.c{color:green}'];
+it.each([['color', 'red', 'blue', 'green'], ['margin-left', '1px', '2px', '3px']])('converges %s reuse, schemas, origins and maps after real mutations, invalid replacement, permutations and relocation', (property, first, second, third) => {
+  const sources = [`.a{${property}:${first}}.b{${property}:${first}}.c{${property}:${second}}`, `.c{${property}:${second}}.a{${property}:${first}}.b{${property}:${first}}`, `.a{${property}:${first}}.b{${property}:${first}}.c{${property}:${third}}`];
   const live = new Map<string, string>();
   const session = createGssCompilerSession({ projectRoot: '/project', atomizationFallback: 'error' });
   const view = (compiler: typeof session, root: string) => {
@@ -185,4 +185,89 @@ it('keeps equal property ranks at different output slots distinct across modules
   const { generation: _cleanGeneration, ...fresh } = clean.finalize(); void _cleanGeneration;
   expect(live).toEqual(fresh);
   expect(session.getScopeSchema('/project/1.gss')).toEqual(clean.getScopeSchema('/project/1.gss'));
+});
+
+const physicalWrites = [
+  ...['margin', 'padding', 'scroll-margin', 'scroll-padding'].flatMap((family) =>
+    ['top', 'right', 'bottom', 'left'].map((side) => [`${family}-${side}`, '1px', '2px'])),
+  ...['top', 'right', 'bottom', 'left', 'width', 'height', 'min-width', 'min-height', 'max-width', 'max-height',
+    'border-top-width', 'border-right-width', 'border-bottom-width', 'border-left-width',
+    'border-top-left-radius', 'border-top-right-radius', 'border-bottom-right-radius', 'border-bottom-left-radius']
+    .map((property) => [property, '1px', '2px']),
+  ['border-left-style', 'solid', 'dashed'], ['border-left-color', 'red', 'blue'],
+  ['overflow-x', 'hidden', 'scroll'], ['overscroll-behavior-y', 'contain', 'none']
+];
+it.each(physicalWrites)('shares isolated physical %s runs, retains origins and does not renumber competitors', (property, value, other) => {
+  const session = compile(`.a,.alias{${property}:${value}}.b{${property}:${value}}.c{${property}:${other}}.d{${property}:${value}}`);
+  expect(classes(session, 'a')).toBe(classes(session, 'b'));
+  expect(classes(session, 'alias')).toBe(classes(session, 'a'));
+  expect(classes(session, 'a')).not.toBe(classes(session, 'd'));
+  expect(classes(session, 'c')).toContain('--rank_3--order_3');
+  const rules = session.finalize().manifest.rules;
+  expect(rules.map(({ value }) => value)).toEqual([value, other, value]);
+  expect(rules[0]!.origins).toHaveLength(2);
+});
+
+it('uses competition adjacency rather than source adjacency for isolated physical writes', () => {
+  const session = compile('.a{margin-left:1px}.x{color:red}.b{margin-left:1px}');
+  expect(classes(session, 'a')).toBe(classes(session, 'b'));
+  expect(session.finalize().manifest.rules).toHaveLength(2);
+});
+
+it.each([
+  '.a{margin-left:1px}.b{margin-left:1px}.x{margin-inline-start:2px}',
+  '.a{margin-left:1px}.b{margin-left:1px}.x{margin:var(--space)}',
+  '.a{border-left-width:1px}.b{border-left-width:1px}.x{border-width:thin}',
+  '.a:hover{margin-left:1px}.b:hover{margin-left:1px}',
+  '.a,.x:hover{margin-left:1px}.b{margin-left:1px}',
+  '.a,.x[aria-pressed="true"]{margin-left:1px}.b{margin-left:1px}',
+  '.a{margin-left:1px}.root .a{display:block}.b{margin-left:1px}',
+  '.a{margin-left:1px}.b{margin-left:1.0px}'
+])('preserves physical reuse barriers: %s', (source) => {
+  const session = compile(source);
+  expect(classes(session, 'a')).not.toBe(classes(session, 'b'));
+});
+
+it('keeps physical reuse within layer and importance bands', () => {
+  const session = compile('@layer one{.a{margin-left:1px!important}.b{margin-left:1px!important}.c{margin-left:1px}}@layer two{.d{margin-left:1px}}', { layers: ['one', 'two'] });
+  expect(classes(session, 'a')).toBe(classes(session, 'b'));
+  expect(classes(session, 'a')).not.toBe(classes(session, 'c'));
+  expect(classes(session, 'c')).not.toBe(classes(session, 'd'));
+});
+
+it('keeps compatibility and preserved fallback decisions for physical reuse inputs', () => {
+  const source = '.a{margin-left:1px}.b{margin-left:1px}';
+  const compatible = compile(source, { compatibilityTargetStages: [{ chrome: '120.0' }] });
+  expect(compatible.finalize().report).toMatchObject({ atomicModules: 1, preservedModules: 0 });
+  expect(classes(compatible, 'a')).toBe(classes(compatible, 'b'));
+  const session = createGssCompilerSession({ projectRoot: '/project' });
+  const preserved = source + '.x{future-paint:1}';
+  expect(session.replaceStylesheet({ id: '/project/Reuse.gss', source: preserved }))
+    .toMatchObject({ committed: true, module: { compilationMode: 'preserved' }, diagnostics: [{ code: 'GSS1104' }] });
+  expect(session.finalize().manifest.rules).toHaveLength(0);
+  expect(session.finalize().css.match(/margin-left: 1px/g)).toHaveLength(2);
+  expect(session.replaceStylesheet({ id: '/project/Reuse.gss', source }).committed).toBe(true);
+  expect(session.finalize().manifest.rules).toHaveLength(1);
+});
+
+it('splits and restores physical sharing when an alias enters and leaves the competing family', () => {
+  const source = '.a{margin-left:1px}.b{margin-left:1px}';
+  const mixed = source + '.x{margin-inline-start:2px}';
+  const session = compile(source);
+  const compareFresh = (input: string) => {
+    const fresh = compile(input);
+    expect(session.finalize()).toEqual({ ...fresh.finalize(), generation: session.finalize().generation });
+    expect(session.getScopeSchema('/project/Reuse.gss')).toEqual(fresh.getScopeSchema('/project/Reuse.gss'));
+  };
+  expect(classes(session, 'a')).toBe(classes(session, 'b'));
+  expect(session.replaceStylesheet({ id: '/project/Reuse.gss', source: mixed }).committed).toBe(true);
+  expect(classes(session, 'a')).not.toBe(classes(session, 'b'));
+  compareFresh(mixed);
+  const before = session.finalize();
+  expect(session.replaceStylesheet({ id: '/project/Reuse.gss', source: '.a{margin-left:1px;margin-left:2px}' }).committed).toBe(false);
+  expect(session.finalize()).toEqual(before);
+  expect(classes(session, 'a')).not.toBe(classes(session, 'b'));
+  expect(session.replaceStylesheet({ id: '/project/Reuse.gss', source }).committed).toBe(true);
+  expect(classes(session, 'a')).toBe(classes(session, 'b'));
+  compareFresh(source);
 });

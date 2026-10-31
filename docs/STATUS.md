@@ -1,8 +1,12 @@
 # GSS 工作状态
 
-2026-10-31 owner 已指定转入 atom 身份与 class 复用核查。已完成当前排序／命名／汇总链路及八组公共会话输出核对，确认方向属性一律禁止连续复用是可进一步设计的保守限制，跨模块 orderSlot 和完整桶屏障仍必要。下一切片提案为「完整竞争组只有同一种物理单 effect longhand 时复用合格连续同值桶」，尚未修改语义，待 owner 确认具体范围。详细方案、反例及证据见 [Atom 复用核查](PROPERTY-ORDER-DESIGN.md#atom-复用核查与下一切片提案2026-10-31)。Compiler build 和既有定向 435 项通过；未重跑全仓 verify／浏览器，不启动 profiling。
+物理 longhand 连续复用实现验证：完整 `verify` **2522** 项（Compiler 1976／React 49／Vite 163／Testing 334）及 lint／build／types 通过；随后补充 alias 加入／移除时的共享拆分与恢复回归，复用测试文件 **112** 项、对应 lint 和 Compiler typecheck 通过（当前全仓测试数为 2523，未把这次定向运行写成第二次完整 verify）。复用仍取最早 `(atomRank, orderSlot)`，不重编号后续竞争者，来源／map 汇总与跨模块位置隔离保留。四组歧义、七组诊断／LKG、两种 compatibility fallback／恢复与既有基线一致。证据见 `artifacts/physical-longhand-reuse/`，保留 41 项 feature-red 和首次全仓 4 项旧方向屏障断言失败；旧断言按已批准范围拆为物理正例和混合属性负例，没有削弱独立排序预期。
 
-border-width 切片已提交 `8cc95c2`。后续完成 planner／五个专用 emitter 的绑定消费核对，未发现新的重复目标决策或契约反例；保留候选／存活 occurrence、authored scope 与实际绑定的区别。核对为只读，没有新增运行验证，详见 [架构核对](ARCHITECTURE-DIRECTION.md#绑定消费后续核对2026-10-30)。该轮已授权有限范围已完成；2026-10-31 已转入上方 atom 复用核查，具体放宽范围仍需 owner 决策，不自动扩展 CSS 族、值域、跨 scope 或复用边界。
+原 atom-ranks 默认 Chromium／Firefox／WebKit 全部通过：每引擎 fixed 部分 **76 fixtures／234 comparisons／117 exact image pairs／4 corruptions**，包含新复用的五种 scope 子集、两种保留屏障及错误跨异值合并的计算样式／几何负对照；原逻辑／物理 418 simple＋59 semantic、2852 paired＋800 authored-native readings 与状态 96 comparisons／32 exact image pairs／2 corruptions／6 external checks 保持通过。当前报告 `artifacts/rank-integration/browser/result.json`；旧报告／图像及运行日志保存在 `artifacts/physical-longhand-reuse/`，无图像容差或预期放宽。独立 Chromium browser oracle **125 fixtures／1267 comparisons／38 controls** 及 Vite host、SSG、multipage 同样通过，见同证据目录 `browser-oracle.log` 与当前 `artifacts/browser-reference.json`。
+
+2026-10-31 owner 已指定转入 atom 身份与 class 复用核查。已完成当前排序／命名／汇总链路及八组公共会话输出核对，确认方向属性一律禁止连续复用是可进一步设计的保守限制，跨模块 orderSlot 和完整桶屏障仍必要。owner 已批准「完整竞争组只有同一种物理单 effect longhand 时复用合格连续同值桶」，现已实施，排序投影、混合属性／上下文屏障与 fallback 准入保持。详细方案、反例及证据见 [Atom 复用核查](PROPERTY-ORDER-DESIGN.md#atom-复用核查与下一切片提案2026-10-31)。实施前 Compiler build 和既有定向 435 项通过；实施证据另列下方，不启动 profiling。
+
+border-width 切片已提交 `8cc95c2`。后续完成 planner／五个专用 emitter 的绑定消费核对，未发现新的重复目标决策或契约反例；保留候选／存活 occurrence、authored scope 与实际绑定的区别。核对为只读，没有新增运行验证，详见 [架构核对](ARCHITECTURE-DIRECTION.md#绑定消费后续核对2026-10-30)。该轮已授权有限范围已完成；2026-10-31 已转入上方 atom 复用核查，物理 longhand 连续复用已获批准；除此之外不自动扩展 CSS 族、值域或复用边界。
 
 有限 border-width 安全展开已按 owner 授权实现：只处理隔离的同规则非负静态 px／零与物理侧宽度竞争，按原位置展开四侧，保留 importance、来源、selector-list 共享和排序／复用屏障；跨规则竞争、逻辑别名、复杂值及 compatibility／preserved 保持原路径。范围及反例见 [属性排序设计](PROPERTY-ORDER-DESIGN.md#已实现有限-border-width-安全展开)。
 

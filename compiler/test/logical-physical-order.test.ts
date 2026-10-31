@@ -297,11 +297,12 @@ it.each(fixedPairs)('fixed policy emits physical %s after logical %s in admitted
 it.each([
   ['width', 'inline-size'], ['border-left-width', 'border-inline-start-width'],
   ['border-top-left-radius', 'border-start-start-radius'], ['overflow-x', 'overflow-inline']
-])('keeps %s/%s directional writes as rank-reuse barriers', (physical, logical) => {
+])('keeps mixed %s/%s directional writes as rank-reuse barriers', (physical, logical) => {
   const value = physical === 'overflow-x' ? 'hidden' : '2px';
   for (const property of [physical, logical]) {
-    const session = compile(`.a{${property}:${value}}.b{${property}:${value}}`);
-    expect(session.finalize().manifest.rules).toHaveLength(2);
+    const alias = property === physical ? logical : physical;
+    const session = compile(`.a{${property}:${value}}.b{${property}:${value}}.x{${alias}:${value}}`);
+    expect(session.finalize().manifest.rules).toHaveLength(3);
     expect(session.getScopeSchema('/project/Order.gss')!.exports.a!.selfClassName)
       .not.toBe(session.getScopeSchema('/project/Order.gss')!.exports.b!.selfClassName);
   }

@@ -44,6 +44,13 @@ export function isPropertyOrderReuseBarrier(property: string): boolean {
   return effectsOfProperty(property).some((effect) => directions.has(effect));
 }
 
+/** Only an exact physical longhand may relax the directional reuse barrier.
+ * Callers must also prove that the full competing family has this one property. */
+export function isPhysicalSingleEffectLonghand(property: string): boolean {
+  const effects = effectsOfProperty(property);
+  return directions.get(property)?.logical === false && effects.length === 1 && effects[0] === property;
+}
+
 const renderDepths = new Map<string, number>();
 function renderDepth(property: string): number {
   const cached = renderDepths.get(property);

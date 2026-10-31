@@ -96,3 +96,17 @@ for (const [label, source, scopes, borderWidths] of [
   ['logical', '.a{border-inline-start-width:3px;border-width:1px;border-left-width:9px}', ['a'], '1px 1px 1px 9px'],
   ['variable', '.a{border-width:var(--widths,1px);border-left-width:9px}', ['a'], '1px 1px 1px 9px']
 ]) fixedFixtures.push(one(`border-width-retained-${label}`, source, source, scopes, { borderWidths }, { expandedBorderWidth: false }));
+
+// Reuse must preserve arbitrary same-module subsets, not merely the all-class case.
+const physicalReuseSource = '.a{margin-left:1px}.b{margin-left:1px}.middle{margin-left:9px}.late{margin-left:1px}';
+for (const [label, scopes, marginLeft] of [
+  ['pair', ['a', 'b'], '1px'], ['early', ['a', 'middle'], '9px'],
+  ['second', ['b', 'middle'], '9px'], ['late', ['middle', 'late'], '1px'],
+  ['all', ['a', 'b', 'middle', 'late'], '1px']
+]) fixedFixtures.push(one(`physical-reuse-${label}`, physicalReuseSource, physicalReuseSource, scopes,
+  { marginLeft }, { sharedScopes: ['a', 'b'], distinctScopes: ['a', 'late'], corruptPhysicalReuse: label === 'early' }));
+for (const [label, source] of [
+  ['logical', '.a{margin-left:1px}.b{margin-left:1px}.x{margin-inline-start:2px}'],
+  ['shorthand', '.a{margin-left:1px}.b{margin-left:1px}.x{margin:var(--space,3px)}']
+]) fixedFixtures.push(one(`physical-reuse-barrier-${label}`, source, source, ['a', 'b'],
+  { marginLeft: '1px' }, { distinctScopes: ['a', 'b'] }));

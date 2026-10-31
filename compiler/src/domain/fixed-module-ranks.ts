@@ -1,7 +1,7 @@
 import type { ParsedDeclaration, ParsedStyleRule } from './parsed-stylesheet.js';
 import { collectOrderOccurrences, type OrderBinding, type OrderInstance, type OrderOccurrence as Occurrence } from './order-occurrences.js';
 import { semanticOrderHeights } from './semantic-order-heights.js';
-import { propertiesMayOverlapForModuleOrder, propertyOrderPriority, isPropertyOrderReuseBarrier } from './module-order-policy.js';
+import { propertiesMayOverlapForModuleOrder, propertyOrderPriority, isPropertyOrderReuseBarrier, isPhysicalSingleEffectLonghand } from './module-order-policy.js';
 
 type DeclarationOrder = { atomRank: number; orderSlot: number };
 
@@ -53,25 +53,31 @@ export function planFixedModuleOrder(rules: readonly ParsedStyleRule[], instance
   } };
 }
 
-function reusablePureOccurrence({ instance, declaration }: Occurrence): boolean {
+function reusablePureOccurrence({ instance }: Occurrence): boolean {
   const rule = instance.rule;
   return rule.conditions.length === 0 && rule.nodes.length === 1 && instance.targetPath.length === 1 &&
     !instance.sourcePath && instance.sourceIndex === -1 && !instance.observation &&
     !rule.externalTarget && !rule.externalCondition && rule.relations.length === 0 &&
     rule.nodes.every((node) => node.states.length === 0) && rule.nodes.every((node) => node.attributes.length === 0) &&
-    rule.nodes.every((node) => node.observations.length === 0) && rule.nodes.every((node) => node.pseudoElement === null) &&
-    !isPropertyOrderReuseBarrier(declaration.property);
+    rule.nodes.every((node) => node.observations.length === 0) && rule.nodes.every((node) => node.pseudoElement === null);
 }
 
 /** Only contract adjacent, wholly eligible original buckets with identical writes.
  * Different target names are NOT a disjointness proof: arbitrary same-module
  * subsets can compose. No unlike competitor may be crossed, and no later rank
  * is renumbered. This bounded model relies on the current overlap registry plus
- * the directional exclusion, not a universal proof about browser CSS aliases.
+ * the directional exclusion (except isolated physical longhands), not a universal
+ * proof about browser CSS aliases.
  * Exact value spelling is conservative: asset bindings are stylesheet-wide and
  * emitted identities still retain typed asset, layer, condition and importance.
  */
 function reuseContiguousPureOrders(family: readonly Occurrence[], heights: ReadonlyMap<Occurrence, number>, orders: Map<string, DeclarationOrder>) {
+  // Inspect all pre-pruning competitors, not only the surviving/emitted writes.
+  // A logical alias or unresolved shorthand anywhere in this family keeps the
+  // old barrier. Original whole-bucket eligibility remains mandatory below.
+  const property = family[0]!.declaration.property;
+  const isolatedPhysical = isPhysicalSingleEffectLonghand(property) &&
+    family.every((occurrence) => occurrence.declaration.property === property);
   const buckets = new Map<number, Occurrence[]>();
   for (const occurrence of family) {
     const orderSlot = orders.get(occurrence.key)!.orderSlot;
@@ -85,7 +91,8 @@ function reuseContiguousPureOrders(family: readonly Occurrence[], heights: Reado
     const value = semantic(bucket[0]!);
     // Selector-list branches share tuples, not necessarily eligibility. Never
     // allow a pure branch to license movement of an ineligible sibling.
-    if (!bucket.every((occurrence) => heights.get(occurrence) === 0 && reusablePureOccurrence(occurrence) && semantic(occurrence) === value)) {
+    if (!bucket.every((occurrence) => heights.get(occurrence) === 0 && reusablePureOccurrence(occurrence) &&
+      (isolatedPhysical || !isPropertyOrderReuseBarrier(occurrence.declaration.property)) && semantic(occurrence) === value)) {
       previous = undefined;
       continue;
     }

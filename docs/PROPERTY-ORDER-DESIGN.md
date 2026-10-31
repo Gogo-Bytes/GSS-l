@@ -227,7 +227,7 @@ Tailwind 参考：[margin utilities](https://tailwindcss.com/docs/margin)、[冲
 
 ## Atom 复用核查与下一切片提案（2026-10-31）
 
-owner 已要求从逐族 shorthand 扩展转向 atom 身份与 class 复用，先以具体输出确定收益与屏障。以下现状已核对；新增复用范围仍是待决提案，没有修改 compiler 行为。
+owner 已要求从逐族 shorthand 扩展转向 atom 身份与 class 复用，先以具体输出确定收益与屏障。owner 随后确认下述有限物理 longhand 复用范围，现已实施；核查时的基线和实施后状态分别记录。
 
 ### 三层身份与决策位置
 
@@ -237,7 +237,7 @@ owner 已要求从逐族 shorthand 扩展转向 atom 身份与 class 复用，�
 
 不建议新建通用去重框架或在 finalize 中仅按 property/value 合并。当前决策已集中，首个机会在方向属性的保守屏障，而非缺少新的架构层。
 
-### 当前可复现结果
+### 实施前可复现结果（基线 fee4909）
 
 以下数字来自公共 compiler session 的实际输出，括号为 `(atomRank, orderSlot)`，不是建议的新排序编号。
 
@@ -253,18 +253,18 @@ owner 已要求从逐族 shorthand 扩展转向 atom 身份与 class 复用，�
 
 跨模块反例也已重放：A 为 `.a{margin-left:1px}.x{margin-inline-start:2px}`；B 为 `.b{margin-left:1px}.x{margin-inline-start:2px}.y{margin-inline-start:3px}.z{margin-inline-start:4px}`。两条物理写入同为 rank 1，输出位置却分别为 2 和 4；B 自己的 b+z 组合要求物理 1px 在逻辑 4px 之后。若抹掉位置并沿用 A 的较早位置，便破坏 B 的组合。该问题不依赖跨模块同节点混用，不能以“不支持跨模块竞争”为由删除位置身份。
 
-### 提案：隔离物理 longhand 的连续复用
+### 已实现：隔离物理 longhand 的连续复用
 
-首个切片只放宽方向屏障的一种情况：在原有同 layer／conditions／pseudo subject／importance 的**完整剪枝前竞争组**中，所有 occurrence 都是同一个已登记物理单 effect longhand。属性识别可复用已有 effects／物理优先级政策；不能把任意多 effect shorthand 或逻辑方向一起放开。
+首个切片只放宽方向屏障的一种情况：在原有同 layer／conditions／pseudo subject／importance 的**完整剪枝前竞争组**中，所有 occurrence 都是同一个已登记物理单 effect longhand。属性识别复用既有方向登记与 effects：方向登记为 physical，且 effect 列表恰为属性自身；不能把任意多 effect shorthand 或逻辑方向一起放开。
 
 仍要求原始桶中的每个 occurrence 都满足现有纯单节点／单目标、无状态／属性条件／observation／pseudo／external／source binding、语义高度为零的约束；连续桶的 property、原始 value 拼写和 importance 必须相同。不越过不同值或不合格桶，不按目标名推断互斥，不归一化颜色／单位，不变更资源身份。不相关属性不构成该组的竞争者；不同属性只要通过 alias／shorthand 连入同组，就保持原屏障。
 
-例如上面的 1px、1px、2px 可在拟议实现中成为 1px `(1,1)`、2px `(3,3)`；a 和 b 使用同一 class，manifest 保留两处来源。原始 `orderSlot` 仍进入身份，finalize 和跨模块汇总方式不变。仅将一段无异值竞争者的同属性相同写入收缩到段首，段前／段后竞争者的位置不变，是此提案的局部等价依据；完整桶限制防止共享 selector 分支或派生目标被遗漏。此论证只适用于既有 effect registry 的有界契约，不推广为任意 CSS 等价。
+例如上面的 1px、1px、2px 现成为 1px `(1,1)`、2px `(3,3)`；a 和 b 使用同一 class，manifest 保留两处来源。原始 `orderSlot` 仍进入身份，finalize 和跨模块汇总方式不变。仅将一段无异值竞争者的同属性相同写入收缩到段首，段前／段后竞争者的位置不变，是此切片的局部等价依据；完整桶限制防止共享 selector 分支或派生目标被遗漏。此论证只适用于既有 effect registry 的有界契约，不推广为任意 CSS 等价。
 
-预计收益是这类输入减少重复 class／CSS 规则；尚未实施，没有全项目体积或性能收益数据。生成 class 与 scope 映射会变化，现有 `never compresses directional property` 测试的一部分需要按新授权改为正例，同时保留混合方向／shorthand／上下文负例。因此这是复用范围变更，需 owner 确认后实施，而不是按 bug 修复直接解除屏障。
+这类输入已减少重复 class／CSS 规则，没有全项目体积或性能收益数据。生成 class 与 scope 映射可能变化，旧方向屏障测试按新授权拆为孤立物理正例和混合方向／shorthand／上下文负例。此项为 owner 明确批准的复用范围变更，不是渲染 bug 修复。
 
-实施后应在现有 reuse／source-map／convergence 和浏览器载体验证：不同值分隔、纯与状态混合 selector-list、强 ownership／结构、importance／layer、逻辑别名和未展开 shorthand 保留、跨模块 slot 隔离、来源汇总、失败更新／恢复与插入顺序收敛。使用独立预期，不能只比较新旧输出或删除旧屏障断言。compatibility／preserved 不变，不新增框架或验收项目。
+回归使用现有 reuse／source-map／convergence 和浏览器载体，覆盖：不同值分隔、纯与状态混合 selector-list、强 ownership／结构、importance／layer、逻辑别名和未展开 shorthand 保留、跨模块 slot 隔离、来源汇总、失败更新／恢复与插入顺序收敛。使用独立预期，不能只比较新旧输出或删除旧屏障断言。compatibility 的转换／fallback 准入与 preserved 输出路径不变；通过 compatibility 分析而继续原子化的物理 longhand 也可按相同条件共享，整模块 preserved 不经过复用。安全 shorthand 展开后产生的物理 longhand 同样依据实际完整竞争组判定，不按来源豁免屏障。不新增框架或验收项目。
 
-### 本轮证据与停止点
+### 核查基线与实施证据
 
-Compiler build 与已有三组定向测试 **435** 项通过：fixed-module-rank-reuse（81）、fixed-module-ranks（345）、readable-name（9）。八组公共会话探针保存原始 CSS、schema、manifest origins 和解码身份；见 `artifacts/atom-reuse-analysis/{probe.mjs,results.json,probe.log,build.log,tests.log}`。这是现状证据，不是新复用算法通过验收；本轮没有改运行时代码、执行浏览器验收或性能 profiling。下一实施点为上述有界提案的 owner 决策。
+Compiler build 与已有三组定向测试 **435** 项通过：fixed-module-rank-reuse（81）、fixed-module-ranks（345）、readable-name（9）。八组公共会话探针保存原始 CSS、schema、manifest origins 和解码身份；见 `artifacts/atom-reuse-analysis/{probe.mjs,results.json,probe.log,build.log,tests.log}`。这是实施前的现状证据，不代表新算法验收。实施验证见当前计划和 `artifacts/physical-longhand-reuse/`；保留 feature-red 与首次全仓旧断言失败记录，不启动性能 profiling。

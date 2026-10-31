@@ -371,3 +371,15 @@ it('maps expanded border widths to their authored shorthand and surviving side d
   }
   expect(snapshot.sourceMap.sourcesContent).toEqual([source]);
 });
+
+it('maps reused physical writes to a deterministic original while retaining both origins', () => {
+  const session = createGssCompilerSession({ projectRoot: '/project' });
+  const source = '.a{\n  margin-left:1px;\n}\n.b{margin-left:1px}';
+  expect(session.replaceStylesheet({ id: '/project/reuse.gss', source }).committed).toBe(true);
+  const snapshot = session.finalize();
+  expect(snapshot.manifest.rules).toHaveLength(1);
+  expect(snapshot.manifest.rules[0]!.origins.map(({ range }) => range.start)).toEqual([source.indexOf('margin-left'), source.lastIndexOf('margin-left')]);
+  expect(originalPositionFor(new TraceMap(snapshot.sourceMap), generatedPosition(snapshot.css, 'margin-left:')))
+    .toMatchObject({ source: 'reuse.gss', line: 2, column: 2 });
+  expect(snapshot.sourceMap.sourcesContent).toEqual([source]);
+});

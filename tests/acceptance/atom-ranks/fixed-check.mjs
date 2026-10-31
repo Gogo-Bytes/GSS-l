@@ -27,6 +27,8 @@ async function compile(fixture) {
     return value?.self ?? '';
   };
   const snapshot = session.finalize();
+  if (fixture.sharedScopes) assert.equal(classes(fixture.sharedScopes[0]), classes(fixture.sharedScopes[1]));
+  if (fixture.distinctScopes) assert.notEqual(classes(fixture.distinctScopes[0]), classes(fixture.distinctScopes[1]));
   if (fixture.expandedBorderWidth !== undefined) {
     assert.equal(snapshot.manifest.rules.some(({ property }) => property === 'border-width'), !fixture.expandedBorderWidth);
   }
@@ -97,6 +99,21 @@ export async function checkFixedModuleRanks(native, atomic, directory, report) {
           assert.equal(comparison.passed,true,`${name}: exact RGBA pair`);
         }
       }
+    }
+    if(fixture.corruptPhysicalReuse){
+      const reference=await sample(native,fixture,states.idle),tree=postcss.parse(compiled.snapshot.css);
+      let changed=0;
+      // Simulate an unsafe merge across the middle competitor: early now also
+      // receives the late write. This must break the independently authored oracle.
+      tree.walkRules((rule)=>{
+        if(rule.selector===`.${compiled.classes('late')}`){rule.selector+=`,.${compiled.classes('a')}`;changed++;}
+      });
+      assert.equal(changed,1);
+      await atomic.locator('#subject-css').evaluate((node,css)=>{node.textContent=css;},tree.toString());
+      const corrupted=await sample(atomic,fixture,states.idle);
+      assert.notEqual(corrupted.marginLeft,reference.marginLeft);
+      assert.notDeepEqual(corrupted.geometry,reference.geometry);
+      report.negativeControls.push({name:fixture.name,property:'marginLeft',reference,corrupted});
     }
     if(fixture.corruptBorderWidth){
       const state=states.idle,reference=await sample(native,fixture,state),referenceImage=await image(native);
