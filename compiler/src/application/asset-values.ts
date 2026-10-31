@@ -18,7 +18,8 @@ export function identifyAssetValue(value: string, bindings: AssetBindings): { va
   }
   if (parts.length === 0) return { value };
   parts.push(value.slice(offset));
-  // Keep opaque identities exact even though the general readable-name encoder normalizes NFC.
+  // Preserve the established ASCII-escaped asset serialization and exact Unicode
+  // sequence. The general readable-name encoder also preserves Unicode sequences.
   const serialized = JSON.stringify(parts).split('').map((character) => character.charCodeAt(0) <= 127
     ? character : `\\u${character.charCodeAt(0).toString(16).padStart(4, '0')}`).join('');
   return { value: serialized, assetValue: true };

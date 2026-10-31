@@ -1,5 +1,7 @@
 # GSS 工作状态
 
+同条件链连续复用已提交 `9216360`。后续继续核对命名与资源身份，修正通用编码器 NFC 行为的过时注释；现有编码保持 Unicode 序列区别及资源 ASCII 转义格式，未改变运行时。说明见 [资源身份核对](ARCHITECTURE-DIRECTION.md#全局资源规划的职责边界)，已有相关回归包含在本次完整 verify；注释切片未重复运行测试。状态／属性 selector、pseudo、ownership／结构等剩余复用屏障继续保留，当前未证明可进一步放宽。
+
 同条件链连续复用的原 atom-ranks 默认 Chromium／Firefox／WebKit 全部通过：每引擎 fixed 部分 **86 fixtures／254 comparisons／127 exact image pairs／7 corruptions**；新增 media／supports／container 条件成立／不成立、嵌套条件与跨异值错误合并负对照。原逻辑／物理 418 simple＋59 semantic、2852 paired＋800 authored-native readings 以及状态 96 comparisons／32 exact image pairs／2 corruptions／6 external checks 均保留通过。四组歧义、七组诊断／LKG、两种 compatibility fallback／恢复与基线一致。证据在 `artifacts/conditional-atom-reuse/`，旧浏览器产物已备份；当前完整排序报告为 `artifacts/rank-integration/browser/result.json`。未放宽图像比较或独立预期。独立 Chromium browser oracle **125 fixtures／1267 comparisons／38 controls** 与 Vite host、SSG、multipage 同样通过，日志为同目录 `browser-oracle.log`，当前报告为 `artifacts/browser-reference.json`。
 
 物理 longhand 连续复用已提交 `1080947`。后续完成相同条件链的保守屏障核对：media／supports／container 内各一组同属性相邻同值仍输出三个 class，原因是现有纯 atom 条件要求 conditions 为空。owner 已确认并实现仅放开完全相同有序条件链，其他复用／语义／fallback 屏障保留；具体范围与回归要求见 [同条件链复用](PROPERTY-ORDER-DESIGN.md#已实现完全相同条件链内的纯-atom-连续复用)。完整 `verify` **2537** 项（Compiler 1991／React 49／Vite 163／Testing 334）及 lint／build／types 通过；初步定向 159 项通过。证据在 `artifacts/conditional-atom-reuse/`，feature-red 含 9 项预期行为失败和 1 项已修正的测试 scope 读取错误。浏览器结果见本文开头。
