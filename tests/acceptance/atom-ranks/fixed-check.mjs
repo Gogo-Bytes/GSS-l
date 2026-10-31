@@ -13,7 +13,7 @@ button,input{display:block;box-sizing:border-box;width:160px;height:48px;margin:
 #target::before,#target::after{content:'test'}`;
 
 async function compile(fixture) {
-  const session = createGssCompilerSession({ projectRoot: '/fixed-ranks' });
+  const session = createGssCompilerSession({ projectRoot: '/fixed-ranks', ...fixture.compilerConfig });
   const replacement = session.replaceStylesheet({id:'/fixed-ranks/Case.gss',source:fixture.source});
   assert.equal(replacement.committed,true,JSON.stringify(replacement.diagnostics));
   assert.deepEqual(replacement.diagnostics,[]);

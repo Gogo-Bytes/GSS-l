@@ -52,11 +52,8 @@ it.each([
   '.root .a{color:red}.root .b{color:red}',
   '.root:hover .a{color:red}.root:hover .b{color:red}',
   '.root > .a{color:red}.root > .b{color:red}',
-  '.a:has(> .flag){color:red}.b:has(> .flag){color:red}',
-  '@media (min-width:1px){.a{color:red}.b{color:red}}',
-  '@supports (display:grid){.a{color:red}.b{color:red}}',
-  '@container (min-width:1px){.a{color:red}.b{color:red}}'
-])('does not contract contextual, owned, runtime, pseudo or wrapped occurrences: %s', (source) => {
+  '.a:has(> .flag){color:red}.b:has(> .flag){color:red}'
+])('does not contract contextual, owned, runtime or pseudo occurrences: %s', (source) => {
   const session = compile(source, { conditions: { media: ['(min-width:1px)'], supports: ['(display:grid)'], container: ['(min-width:1px)'] } });
   expect(session.finalize().manifest.rules.filter(({ property }) => property === 'color')).toHaveLength(2);
 });
@@ -270,4 +267,70 @@ it('splits and restores physical sharing when an alias enters and leaves the com
   expect(session.replaceStylesheet({ id: '/project/Reuse.gss', source }).committed).toBe(true);
   expect(classes(session, 'a')).toBe(classes(session, 'b'));
   compareFresh(source);
+});
+
+const conditionalConfig = { conditions: { media: ['(min-width:1px)', '(min-width:2px)'], supports: ['(display:grid)'], container: ['(min-width:1px)'] } };
+for (const [kind, query] of [['media', '(min-width:1px)'], ['supports', '(display:grid)'], ['container', '(min-width:1px)']]) {
+  it.each([['color', 'red', 'blue'], ['margin-left', '1px', '2px']])(`shares pure %s in identical ${kind} chains while preserving the next competitor`, (property, value, other) => {
+    const source = `@${kind} ${query}{.a,.alias{${property}:${value}}.b{${property}:${value}}.middle{${property}:${other}}.late{${property}:${value}}}`;
+    const session = compile(source, conditionalConfig);
+    expect(classes(session, 'a')).toBe(classes(session, 'b'));
+    expect(classes(session, 'alias')).toBe(classes(session, 'a'));
+    expect(classes(session, 'a')).not.toBe(classes(session, 'late'));
+    expect(classes(session, 'middle')).toContain('--rank_3--order_3');
+    expect(session.finalize().manifest.rules.map(({ value }) => value)).toEqual([value, other, value]);
+    expect(session.finalize().manifest.rules[0]!.origins).toHaveLength(2);
+  });
+}
+it('shares identical nested chains but isolates different query and nesting order', () => {
+  const source = '@media (min-width:1px){@supports (display:grid){.a{color:red}.b{color:red}}}' +
+    '@supports (display:grid){@media (min-width:1px){.c{color:red}}}' +
+    '@media (min-width:2px){@supports (display:grid){.d{color:red}}}';
+  const session = compile(source, conditionalConfig);
+  expect(classes(session, 'a')).toBe(classes(session, 'b'));
+  expect(classes(session, 'a')).not.toBe(classes(session, 'c'));
+  expect(classes(session, 'a')).not.toBe(classes(session, 'd'));
+  expect(session.finalize().manifest.rules).toHaveLength(3);
+});
+it.each([
+  '.a,.x:hover{color:red}.b{color:red}',
+  '.a:hover{color:red}.b:hover{color:red}',
+  '.a{color:red}.root .a{display:block}.b{color:red}',
+  '.a{margin-left:1px}.b{margin-left:1px}.x{margin-inline-start:2px}',
+  '.a{margin-left:1px}.b{margin-left:1px}.x{margin:var(--space)}',
+  '.a{color:red}.b{color:red!important}',
+  '@layer first{.a{color:red}}@layer second{.b{color:red}}'
+])('retains existing barriers inside equal conditions: %s', (source) => {
+  const session = compile(`@media (min-width:1px){${source}}`, { ...conditionalConfig, layers: ['first', 'second'] });
+  expect(classes(session, 'a')).not.toBe(classes(session, 'b'));
+});
+it('converges conditional reuse after condition edits, failure and recovery across module insertion orders', () => {
+  const source = '@media (min-width:1px){.a{margin-left:1px}.b{margin-left:1px}.c{margin-left:2px}}';
+  const changed = '@media (min-width:1px){.a{margin-left:1px}.c{margin-left:2px}}@media (min-width:2px){.b{margin-left:1px}}';
+  const session = compile(source, conditionalConfig);
+  expect(session.replaceStylesheet({ id: '/project/Other.gss', source }).committed).toBe(true);
+  for (const input of [changed, source]) {
+    expect(session.replaceStylesheet({ id: '/project/Reuse.gss', source: input }).committed).toBe(true);
+    const clean = createGssCompilerSession({ projectRoot: '/project', ...conditionalConfig });
+    for (const [id, text] of [['Other.gss', source], ['Reuse.gss', input]]) expect(clean.replaceStylesheet({ id: `/project/${id}`, source: text! }).committed).toBe(true);
+    expect(session.finalize()).toEqual({ ...clean.finalize(), generation: session.finalize().generation });
+    expect(session.getScopeSchema('/project/Reuse.gss')).toEqual(clean.getScopeSchema('/project/Reuse.gss'));
+    const before = session.finalize();
+    expect(session.replaceStylesheet({ id: '/project/Reuse.gss', source: '@media (min-width:1px){.a{color:red;color:blue}}' }).committed).toBe(false);
+    expect(session.finalize()).toEqual(before);
+  }
+  expect(classes(session, 'a')).toBe(classes(session, 'b'));
+});
+
+it('preserves conditional compatibility and preserved fallback boundaries', () => {
+  const source = '@media (min-width:1px){.a{margin-left:1px}.b{margin-left:1px}}';
+  const compatible = compile(source, { ...conditionalConfig, compatibilityTargetStages: [{ chrome: '120.0' }] });
+  expect(classes(compatible, 'a')).toBe(classes(compatible, 'b'));
+  const session = createGssCompilerSession({ projectRoot: '/project', ...conditionalConfig });
+  expect(session.replaceStylesheet({ id: '/project/Reuse.gss', source: source + '.x{future-paint:1}' }))
+    .toMatchObject({ committed: true, module: { compilationMode: 'preserved' }, diagnostics: [{ code: 'GSS1104' }] });
+  expect(session.finalize().manifest.rules).toHaveLength(0);
+  expect(session.finalize().css.match(/margin-left: 1px/g)).toHaveLength(2);
+  expect(session.replaceStylesheet({ id: '/project/Reuse.gss', source }).committed).toBe(true);
+  expect(session.finalize().manifest.rules).toHaveLength(1);
 });

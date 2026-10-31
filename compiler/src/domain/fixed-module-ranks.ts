@@ -55,7 +55,9 @@ export function planFixedModuleOrder(rules: readonly ParsedStyleRule[], instance
 
 function reusablePureOccurrence({ instance }: Occurrence): boolean {
   const rule = instance.rule;
-  return rule.conditions.length === 0 && rule.nodes.length === 1 && instance.targetPath.length === 1 &&
+  // The complete ordered condition chain is already equal within this family.
+  // Sharing never crosses chains or infers equivalence between different queries.
+  return rule.nodes.length === 1 && instance.targetPath.length === 1 &&
     !instance.sourcePath && instance.sourceIndex === -1 && !instance.observation &&
     !rule.externalTarget && !rule.externalCondition && rule.relations.length === 0 &&
     rule.nodes.every((node) => node.states.length === 0) && rule.nodes.every((node) => node.attributes.length === 0) &&

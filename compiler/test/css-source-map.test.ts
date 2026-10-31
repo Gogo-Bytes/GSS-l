@@ -383,3 +383,15 @@ it('maps reused physical writes to a deterministic original while retaining both
     .toMatchObject({ source: 'reuse.gss', line: 2, column: 2 });
   expect(snapshot.sourceMap.sourcesContent).toEqual([source]);
 });
+
+it('retains authored origins and map locations when conditional atoms share', () => {
+  const session = createGssCompilerSession({ projectRoot: '/project', conditions: { media: ['(min-width:1px)'] } });
+  const source = '@media (min-width:1px){\n.a{margin-left:1px}\n.b{margin-left:1px}\n}';
+  expect(session.replaceStylesheet({ id: '/project/conditional.gss', source }).committed).toBe(true);
+  const snapshot = session.finalize();
+  expect(snapshot.manifest.rules).toHaveLength(1);
+  expect(snapshot.manifest.rules[0]!.origins).toHaveLength(2);
+  expect(originalPositionFor(new TraceMap(snapshot.sourceMap), generatedPosition(snapshot.css, 'margin-left:')))
+    .toMatchObject({ source: 'conditional.gss', line: 2, column: 3 });
+  expect(snapshot.sourceMap.sourcesContent).toEqual([source]);
+});

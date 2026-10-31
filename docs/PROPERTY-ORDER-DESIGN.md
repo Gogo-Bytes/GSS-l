@@ -269,12 +269,15 @@ owner 已要求从逐族 shorthand 扩展转向 atom 身份与 class 复用，�
 
 Compiler build 与已有三组定向测试 **435** 项通过：fixed-module-rank-reuse（81）、fixed-module-ranks（345）、readable-name（9）。八组公共会话探针保存原始 CSS、schema、manifest origins 和解码身份；见 `artifacts/atom-reuse-analysis/{probe.mjs,results.json,probe.log,build.log,tests.log}`。这是实施前的现状证据，不代表新算法验收。实施验证见当前计划和 `artifacts/physical-longhand-reuse/`；保留 feature-red 与首次全仓旧断言失败记录，不启动性能 profiling。
 
-### 下一切片待决：完全相同条件链内的纯 atom 连续复用
+### 已实现：完全相同条件链内的纯 atom 连续复用
 
-`1080947` 已完成无条件物理 longhand 的有界实现。随后核对剩余条件屏障：`reusablePureOccurrence` 要求 conditions 为空，所以 `@media (min-width:1px){.a{margin-left:1px}.b{margin-left:1px}.c{margin-left:2px}}` 当前仍输出三个 class。对已登记 media／supports／container 各一组公共 session 探针均复现，保留完整 schema／snapshot 于 `artifacts/physical-longhand-reuse/conditional-probe.json`，这是现状核对，不是新能力验收或性能测量。
+`1080947` 已完成无条件物理 longhand 的有界实现。随后核对当时的条件屏障：`reusablePureOccurrence` 要求 conditions 为空，所以 `@media (min-width:1px){.a{margin-left:1px}.b{margin-left:1px}.c{margin-left:2px}}` 实施前仍输出三个 class。对已登记 media／supports／container 各一组公共 session 探针均复现，保留完整 schema／snapshot 于 `artifacts/physical-longhand-reuse/conditional-probe.json`，这是现状核对，不是新能力验收或性能测量。
 
-建议下一切片只允许**完整有序 conditions 链完全相同**的、原本满足所有其他复用条件的纯 atom 连续桶共享。覆盖当前可复用的非方向属性和已批准的隔离物理 longhand；同 layer／importance／subject、完整剪枝前竞争组、语义高度零、完整桶、相同原始值、异值不跨越、资源身份和后续版本不重编号均保留。状态、属性 selector、pseudo、ownership／结构、external、observation 仍不放宽；逻辑／物理混合和 shorthand 保持原屏障。
+2026-10-31 owner 已确认并实施：只允许**完整有序 conditions 链完全相同**的、原本满足所有其他复用条件的纯 atom 连续桶共享。覆盖当前可复用的非方向属性和已批准的隔离物理 longhand；同 layer／importance／subject、完整剪枝前竞争组、语义高度零、完整桶、相同原始值、异值不跨越、资源身份和后续版本不重编号均保留。状态、属性 selector、pseudo、ownership／结构、external、observation 仍不放宽；逻辑／物理混合和 shorthand 保持原屏障。
 
-只利用已有相同 conditions 分组与 condition identity，不推理两个不同查询是否等价、蕴含或互斥，也不合并不同嵌套顺序。被共享的声明始终在同一条件下同时启用／停用，是拟议局部证明；最终 condition 排序、orderSlot 身份与 fallback 决策不变。目标例子从三条变成 1px `(1,1)` 和 2px `(3,3)`，来源仍汇总。它会改变带条件输入的 class／scope 映射，现有 wrapped 不合并测试也需按新授权拆分正负例，因此先请 owner 确认，不在 `1080947` 中实施。
+只利用已有相同 conditions 分组与 condition identity，不推理两个不同查询是否等价、蕴含或互斥，也不合并不同嵌套顺序。被共享的声明始终在同一条件下同时启用／停用，是本切片的局部证明；最终 condition 排序、orderSlot 身份与 fallback 决策不变。上述例子从三条变成 1px `(1,1)` 和 2px `(3,3)`，来源仍汇总。它会改变带条件输入的 class／scope 映射；原 wrapped 不合并测试已按授权拆成同链正例、不同链及状态／结构等负例。本切片只移除纯 occurrence 中 conditions 必须为空的限制，竞争组仍逐字段比较完整有序链；不新增缓存、模型或最终输出去重阶段。
 
-确认后应复用现有载体验证条件成立／不成立、不同 query／链顺序隔离、嵌套条件、importance／layer、混合 selector-list 桶、别名／shorthand 屏障、原始来源／map、模块插入顺序和编辑失败／恢复。不得以去掉条件判断代替这些证明和验证，也不扩大 query grammar 或增加公共 API。
+实现复用现有载体验证条件成立／不成立、不同 query／链顺序隔离、嵌套条件、importance／layer、混合 selector-list 桶、别名／shorthand 屏障、原始来源／map、模块插入顺序和编辑失败／恢复。不得以去掉条件判断代替这些证明和验证，也不扩大 query grammar 或增加公共 API。
+
+
+本项完整 `verify` **2537** 项（Compiler 1991／React 49／Vite 163／Testing 334）及 lint／build／types 通过，定向初测 159 项通过。feature-red 日志保留 9 项预期行为失败及 1 项测试本身误读嵌套 scope 的失败；后者已改为有真实独立 scope 的派生目标屏障，未修改产品逻辑兜底测试。原子化 compatibility 使用相同复用条件；preserved 输出不进入复用，失败更新／恢复保持原事务路径。浏览器执行范围与结果见当前计划，证据在 `artifacts/conditional-atom-reuse/`。

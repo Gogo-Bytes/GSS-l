@@ -1,6 +1,8 @@
 # GSS 工作状态
 
-物理 longhand 连续复用已提交 `1080947`。后续完成相同条件链的保守屏障核对：media／supports／container 内各一组同属性相邻同值仍输出三个 class，原因是现有纯 atom 条件要求 conditions 为空。下一有限提案仅放开完全相同有序条件链，保留其他复用／语义／fallback 屏障，尚未实施；具体范围与回归要求见 [下一切片待决](PROPERTY-ORDER-DESIGN.md#下一切片待决完全相同条件链内的纯-atom-连续复用)。本次后续仅分析与文档，沿用上项检查，不宣称新算法已验证。
+同条件链连续复用的原 atom-ranks 默认 Chromium／Firefox／WebKit 全部通过：每引擎 fixed 部分 **86 fixtures／254 comparisons／127 exact image pairs／7 corruptions**；新增 media／supports／container 条件成立／不成立、嵌套条件与跨异值错误合并负对照。原逻辑／物理 418 simple＋59 semantic、2852 paired＋800 authored-native readings 以及状态 96 comparisons／32 exact image pairs／2 corruptions／6 external checks 均保留通过。四组歧义、七组诊断／LKG、两种 compatibility fallback／恢复与基线一致。证据在 `artifacts/conditional-atom-reuse/`，旧浏览器产物已备份；当前完整排序报告为 `artifacts/rank-integration/browser/result.json`。未放宽图像比较或独立预期。独立 Chromium browser oracle **125 fixtures／1267 comparisons／38 controls** 与 Vite host、SSG、multipage 同样通过，日志为同目录 `browser-oracle.log`，当前报告为 `artifacts/browser-reference.json`。
+
+物理 longhand 连续复用已提交 `1080947`。后续完成相同条件链的保守屏障核对：media／supports／container 内各一组同属性相邻同值仍输出三个 class，原因是现有纯 atom 条件要求 conditions 为空。owner 已确认并实现仅放开完全相同有序条件链，其他复用／语义／fallback 屏障保留；具体范围与回归要求见 [同条件链复用](PROPERTY-ORDER-DESIGN.md#已实现完全相同条件链内的纯-atom-连续复用)。完整 `verify` **2537** 项（Compiler 1991／React 49／Vite 163／Testing 334）及 lint／build／types 通过；初步定向 159 项通过。证据在 `artifacts/conditional-atom-reuse/`，feature-red 含 9 项预期行为失败和 1 项已修正的测试 scope 读取错误。浏览器结果见本文开头。
 
 物理 longhand 连续复用实现验证：完整 `verify` **2522** 项（Compiler 1976／React 49／Vite 163／Testing 334）及 lint／build／types 通过；随后补充 alias 加入／移除时的共享拆分与恢复回归，复用测试文件 **112** 项、对应 lint 和 Compiler typecheck 通过（当前全仓测试数为 2523，未把这次定向运行写成第二次完整 verify）。复用仍取最早 `(atomRank, orderSlot)`，不重编号后续竞争者，来源／map 汇总与跨模块位置隔离保留。四组歧义、七组诊断／LKG、两种 compatibility fallback／恢复与既有基线一致。证据见 `artifacts/physical-longhand-reuse/`，保留 41 项 feature-red 和首次全仓 4 项旧方向屏障断言失败；旧断言按已批准范围拆为物理正例和混合属性负例，没有削弱独立排序预期。
 

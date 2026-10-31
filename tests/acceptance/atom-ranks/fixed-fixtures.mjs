@@ -110,3 +110,26 @@ for (const [label, source] of [
   ['shorthand', '.a{margin-left:1px}.b{margin-left:1px}.x{margin:var(--space,3px)}']
 ]) fixedFixtures.push(one(`physical-reuse-barrier-${label}`, source, source, ['a', 'b'],
   { marginLeft: '1px' }, { distinctScopes: ['a', 'b'] }));
+
+// Same ordered condition chains share; the browser independently evaluates them.
+for (const [kind, activeQuery, inactiveQuery] of [
+  ['media', '(min-width:1px)', '(max-width:1px)'],
+  ['supports', '(display:grid)', '(display:gss-invalid-display)'],
+  ['container', '(min-width:1px)', '(max-width:1px)']
+]) for (const [label, query, scopes, marginLeft] of [
+  ['early', activeQuery, ['a', 'b', 'middle'], '9px'],
+  ['late', activeQuery, ['middle', 'late'], '1px'],
+  ['inactive', inactiveQuery, ['a', 'b', 'middle', 'late'], '0px']
+]) {
+  const source = `@${kind} ${query}{${physicalReuseSource}}`;
+  fixedFixtures.push(one(`conditional-reuse-${kind}-${label}`, source, source, scopes, { marginLeft }, {
+    compilerConfig: { conditions: { [kind]: [query] } },
+    template: `<div style="container-type:inline-size;width:400px"><button id="target" class="{{${scopes.join(' ')}}}">target</button></div>`,
+    sharedScopes: ['a', 'b'], distinctScopes: ['a', 'late'], corruptPhysicalReuse: label === 'early'
+  }));
+}
+const nestedReuseSource = `@media (min-width:1px){@supports (display:grid){${physicalReuseSource}}}`;
+fixedFixtures.push(one('conditional-reuse-nested', nestedReuseSource, nestedReuseSource, ['a', 'b', 'middle'], { marginLeft: '9px' }, {
+  compilerConfig: { conditions: { media: ['(min-width:1px)'], supports: ['(display:grid)'] } },
+  sharedScopes: ['a', 'b'], distinctScopes: ['a', 'late']
+}));
