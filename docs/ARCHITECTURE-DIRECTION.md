@@ -91,6 +91,58 @@ Vite 当前将 transform 的原始 `id` 与源码交给 adapter；对发现的 s
 
 现有 Vite 测试用简单 `.view` 假 adapter 证明 schema 可在宿主与非 React adapter 间传递，并不是 Vue／Svelte 解析、模板绑定、插件顺序、虚拟子模块 id、HMR 或 source map 组合的验证。当前接口是同步 transform，依赖发现通过字符串 specifier；这些约束是否适合某个框架，需要按真实输入和宿主生命周期验证。owner 已确认将 `range?: GssSourceRange` 加入公开 `SourceAdapterDiagnostic`：它是相对于 `id` 所指源码的零起始 UTF-16 半开区间。React 可继续提供范围，Vite 在范围有效且属于当前源码时生成位置和代码框；缺失、无效或不属于当前源码的范围仍不生成定位。该可选类型扩展不改变运行时行为，不代表 Vue／Svelte 已接入；其他 adapter 协议扩展仍需结合具体需求决定。
 
+#### 接口评估与最小调整方案（2026-11-01）
+
+owner 本轮批准的是现有接口评估和新框架／非 Vite 宿主的纸面推演，不是新框架实施。以 `f7acf1a` 的实现为基线，结论是：当前职责分离可以保留，没有从所查调用链与既有测试中找到必须立即修改运行时的契约反例；接口的可替换性不等于所有输入阶段均可接入。
+
+```mermaid
+sequenceDiagram
+    participant H as Vite 宿主
+    participant A as SourceAdapter
+    participant C as Compiler session
+    H->>A: supports(id) / discoverImports(id, source)
+    A-->>H: 原始 GSS import specifiers
+    H->>H: resolve / realpath / read / assets / watch
+    H->>C: replaceStylesheet(id, source, assetReferences)
+    C->>C: CssParserPort → 准备 / 排序 / scope
+    C-->>H: committed / diagnostics
+    H->>A: transform(source, resolveScopeSchema)
+    A->>C: 经宿主映射查询已提交 ScopeSchema
+    A-->>H: code / map / diagnostics
+    H->>H: 报告诊断 / 更新依赖 / 返回转换结果
+```
+
+图中 schema 查询经宿主回调完成，adapter 不直接持有 session。无 GSS import 时，当前 Vite 宿主删除该源码的依赖记录并返回 `null`，不会调用 adapter.transform；因此它不是任意源码转换器。失败 replacement 不提交新贡献，宿主也不会将该次失败当作成功 transform；已提交 CSS／schema 与资源快照的 LKG 保留。后续 CSS 输出、生产 census、资源 URL、HMR 传播由宿主组织，不由源码 adapter 决定。
+
+| 接缝／权威入口 | 当前契约与责任 | 反例及扩展边界 |
+| --- | --- | --- |
+| [SourceAdapter](../compiler/src/application/source-adapter.ts) | 同步发现与转换；输入为宿主当前阶段的源码，返回一份代码及可选 map | 不能直接返回 Promise、多个虚拟模块或额外 watch 文件；不为假想用例预加这些字段 |
+| [React adapter](../adapters/react/src/index.ts) | Babel 识别静态 `.gss` import，再根据 schema 做有限引用 lowering；两步各自解析 | `.vue` 模板不是 JSX；`.tsx?query` 不匹配当前 supports。不能仅扩后缀就声称支持框架；不因重复解析启动缓存／性能工作 |
+| [Vite 编排](../integrations/vite/src/index.ts) | 原始 specifier 用于 schema 查询；宿主解析别名、物理路径和依赖，成功编译后转换 | `./Card.gss` 与规范物理 id 不是同一种身份；adapter 不能自行 realpath 后改用另一 key 查询 |
+| [虚拟 ID](../integrations/vite/src/virtual-id.ts) | 当前 GSS 虚拟模块对应绝对物理 `.gss` 文件；源码 id 原样传给 adapter | `Card.vue?type=script` 的查询和物理 importer、内联 style 的身份／生命周期没有通用协议，不能全局去 query 冒充解决 |
+| 诊断与 [定位](../integrations/vite/src/diagnostics.ts) | range 是当前输入 id 的 UTF-16 半开区间；同 id 且边界有效才生成 loc/frame | 子块相对位置不能冒充完整 SFC 位置；其他文件仅有 id/range 不足以生成代码框。React 的 Babel parse 异常仍可抛出，不承诺所有错误均已结构化 |
+| JS source map | React map 从输出映射到输入 source，并携带输入内容；Vite 返回给转换链组合 | 若前序预处理已改源码，该 map 不是直接映射磁盘原稿；诊断 range 也不会自动借 JS map 回溯。Compiler CSS map 是另一条输出链 |
+| [CssParserPort](../compiler/src/application/css-parser-port.ts) | 内部 CSS 解析接缝，产出规则／资源／诊断；不解析框架文件 | 更换 Vue／Svelte adapter 不需要将框架 AST 放入 domain，也不需要更换 CSS parser；内部 port 不等于已公开 parser 注入配置 |
+
+**新框架纸面推演（未实施／未验证）。** [Vue compiler-sfc 的官方说明](https://github.com/vuejs/core/blob/main/packages/compiler-sfc/README.md) 描述了 facade 与带 query 的 script／template／style 子模块。由此推断，若选择完整 SFC 阶段，应在框架转换前从 script 发现外部 `.gss`，用框架解析器建立 script binding 与 template 引用的联系，返回仍可被框架插件处理的 SFC；单文件、同步、外部 `.gss` 的窄场景可能不需要改公共接口，但模板绑定规则和插件先后必须实测。只改 script 中的引用并不能自动覆盖模板中的引用。
+
+若选择框架生成的 JS 阶段，则必须适配实际虚拟 id、编译后 binding 和来源位置；原始引用可能已被改写，不能把 React lowering 当通用后端。当前 GSS Vite 插件使用 `enforce: 'pre'`，这不保证它拿到磁盘原稿或排在所有其他 pre 插件前。插件分组顺序参见 [Vite 官方说明](https://vite.dev/guide/api-plugin.html#plugin-ordering)；当前在线文档与仓库 workspace 的 Vite 7 并非同一版本基线，这里只作设计参考，不代表升级或新增验证。
+
+[Svelte compiler 官方接口](https://svelte.dev/docs/svelte/svelte-compiler#preprocess) 的 preprocess 返回 Promise，Processed 还可携带 map 和额外依赖。由此推断，若要求 adapter 自行运行整条预处理链，当前同步接口及仅 GSS specifier 的依赖协议不足；若预处理由框架宿主完成，GSS adapter 只做选定阶段的同步改写，则未必需要改接口。两种路径须先确定作者体验与输入阶段，不能为预想中的 Svelte 支持把整个 Compiler 改为异步。
+
+内联 `<style lang="gss">`／自定义块不在当前外部 `.gss` 契约内：即使框架能抽出文本，也还缺稳定模块身份、资源相对基准、schema 可见范围和增量失效规则。这是新能力决策，不作为现有 bug。
+
+**非 Vite 宿主纸面推演。** Compiler session 和源码 adapter 可复用；新宿主仍需实现依赖解析、文件／资源读取、虚拟模块加载、异步更新的新旧任务协调、失败保留与恢复、CSS 输出、map 串联和自身 watch／build 生命周期。Vite 的 production census 与 HMR hooks 不能直接视作通用宿主实现。没有第二个实际宿主前，不提取覆盖所有 bundler 的公共引擎。
+
+**后续最小顺序与决策触发点。**
+
+1. 本轮完成调用链与隐含契约文档化，保持所有运行时代码、公共接口和已确认排序／fallback 不变；没有具体反例，不为接口形式统一而重构。
+2. 若 owner 选择真实框架接入，先确认外部 `.gss` 或内联块、作者引用语法、输入阶段及宿主，再实现一个完整窄路径。优先评估完整 SFC、外部 `.gss` 的方案；这是建议，尚未选定产品范围。
+3. 只有该路径证明同步、依赖或虚拟输出协议不足时，才提出对应公共接口调整及旧 React／Vite 调用方迁移。Promise 兼容、额外依赖、多个输出各自有独立触发条件，不打包成预设新架构；compiler 排序与 scope 语义不随框架变化。
+4. 获准实施后，以当前 React/Vite 回归保护旧调用方；新路径验证绑定与动态引用边界、诊断位置／map、依赖修改→失败→恢复和构建输出。真实框架测试载体及范围随该目标确定，本轮不新建 demo 或验收矩阵。
+
+本轮验证：既有 React 全部 **49** 项，以及 Vite `vite-plugin`／`diagnostic-location`／`dev-css` **51** 项通过，原始日志在 `artifacts/adapter-contract-review/react-tests.log` 与 `vite-tests.log`。首次错误 package filter 没有执行测试，记录保留在 `react.log`，不计入通过数。本轮只改文档，没有重跑全仓 verify、浏览器或外部框架验收，也没有把纸面推演计为支持证据。
+
 ### Preserved fallback 贡献边界
 
 [preserved-contribution.ts](../compiler/src/application/preserved-contribution.ts) 接收贡献准备已经选择的整模块 preserved 路径，生成原顺序 CSS、scope marker／schema、资源绑定、来源位置及 `GSS1104` warning。是否可进入该路径仍由贡献准备按既有 unknown effect、compatibility、`atomizationFallback`、`:global()` 和逻辑／物理冲突检查决定；该模块不决定准入，也不把 preserved 内容当成 atomic rule。

@@ -16,6 +16,12 @@
 
 最近浏览器验证基线是 `9216360`：完整 verify **2537 项**及 lint／build／types；默认三引擎排序验收、独立 Chromium browser oracle（125／1267／38）及 Vite host／SSG／multipage 均通过。随后注释及 2026-10-31 进度整理没有重跑测试；2026-11-01 的等价重构验证另列下方。具体计数、范围和失败记录见下方历史记录与 `artifacts/conditional-atom-reuse/`；外部 SPA／SSR、Article 的历史验证不算本轮重验。
 
+## 已完成：Parser／Adapter／宿主接口评估
+
+2026-11-01 owner 批准的调用链核对与 Vue／Svelte、非 Vite 宿主纸面推演已完成，基线为 `f7acf1a`。详见 [接口评估与最小调整方案](ARCHITECTURE-DIRECTION.md#接口评估与最小调整方案2026-11-01)：现有职责分离保留，未发现必须立即修改运行时的契约反例；新框架的输入阶段、模板绑定、虚拟 id、预处理依赖与 map 仍需真实需求决定。未新增框架、公共 API 或通用宿主引擎，排序／fallback 不变。
+
+既有 React 49 项及 Vite 插件／诊断定位／dev-CSS 51 项通过，日志在 `artifacts/adapter-contract-review/`；仅文档变更，未重跑全仓 verify 或浏览器。下一实施目标尚未指定；若进入框架接入，先确认框架、外部文件或内联块及作者语法，再按文档的窄路径推进，不从历史路线图自动扩能力。
+
 ## 已完成：CSS 能力接入流程与策略归属
 
 优先回到最初“未来增加 CSS 支持时容易接入”的目标，暂不继续逐族扩 shorthand 或逐类放宽复用。2026-11-01 owner 已批准本项，现已完成 [接入清单与处理结论](PROPERTY-ORDER-DESIGN.md#css-能力接入清单与策略归属2026-11-01)。实际重构只集中 GSS1206 中同轴重复的物理冲突列表；完整 verify 2537 项、7344 组 validator 及 14 次完整公共编译／恢复结果与基线一致，证据见 `artifacts/css-capability-workflow/`。未改变 CSS 范围、排序／fallback 或公共接口，未重跑浏览器。以下保留本项执行范围和完成标准，已完成部分不重复排队。
