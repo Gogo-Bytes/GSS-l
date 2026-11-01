@@ -13,7 +13,7 @@ owner 已要求按整体规划实施核心架构与属性排序目标；先读 d
 
 2026-10-31 当前进度已在 NEXT-STAGE.md 顶部汇总：已批准的 border-width 展开、物理 longhand 与相同条件链复用均交付，最新实现 verify 为 2537 项，并通过默认三引擎排序及独立 Chromium 参考入口。2026-11-01 已完成 CSS 能力接入清单与重复维护点核对，并等价集中 GSS1206 同轴冲突列表，完整 verify 2537 项及对照通过；具体结果见当前计划。剩余准入特例及方向／effect／展开策略职责独立，不能从旧计划自动扩大新语义／公共 API。不再从历史切片的“下一步”自动排队。
 
-2026-11-01 Parser／Adapter／宿主接口评估已完成，见 ARCHITECTURE-DIRECTION.md 的“接口评估与最小调整方案”。只有文档变更，React 49／Vite 定向 51 项通过；没有新框架支持或接口扩展。输入阶段、虚拟 id、模板绑定、预处理依赖与 map 的缺口是有条件的接入约束，不自动视为 bug。owner 随后已指定优先 React + Rsbuild／Rspack；见 NEXT-STAGE 当前目标及架构文档的“React 多构建工具接入方向”。建议一套 Rspack 集成供两个入口复用，架构方案待确认，尚未实现。不要再询问选 Vue 还是 Svelte，不自行扩展其他框架或通用宿主引擎。owner 已要求先稳定 React 生态，粗规划见架构文档的“React 生态覆盖规划”：Vite／Rsbuild／Rspack 优先，随后评估 webpack／Parcel，上层框架分别验证；这是调研顺序，不是一次实现所有候选的授权。进入其他 UI 框架前按阶段门槛确认剩余限制。
+2026-11-01 Parser／Adapter／宿主接口评估已完成，见 ARCHITECTURE-DIRECTION.md 的“接口评估与最小调整方案”。只有文档变更，React 49／Vite 定向 51 项通过；没有新框架支持或接口扩展。输入阶段、虚拟 id、模板绑定、预处理依赖与 map 的缺口是有条件的接入约束，不自动视为 bug。owner 随后已指定优先 React + Rsbuild／Rspack；见 NEXT-STAGE 当前目标及架构文档的“React 多构建工具接入方向”。建议一套 Rspack 集成供两个入口复用，架构方案待确认，尚未实现。不要再询问选 Vue 还是 Svelte，不自行扩展其他框架或通用宿主引擎。owner 已要求先稳定 React 生态，粗规划见架构文档的“React 生态覆盖规划”：Vite／Rsbuild／Rspack 优先，随后评估 webpack／Parcel，上层框架分别验证；这是调研顺序，不是一次实现所有候选的授权。进入其他 UI 框架前按阶段门槛确认剩余限制。Rsbuild／Rspack 最小配置与生命周期设计已形成；详见架构文档对应小节。原生 Rspack 图／缓存探针通过，Rsbuild 晚期 CSS 重建触发原生异常，对照成功，不能直接采用该机制；建议的 Rspack 核心 + Rsbuild 轻量封装入口待 owner 确认。接续先看 artifacts/rspack-lifecycle-design 证据，再核对输出机制，不重跑直至碰巧通过，不将探针当正式支持。
 
 已确定的使用契约不要重问：静态 scope 使用编译期字符串语法糖，旧 .self 兼容；未知/动态路径保持普通 JS undefined；DOM 关系和匹配由浏览器负责，GSS 按现有准入做 marker rewrite；公共 virtual:gss.css?url 通过宿主正常 stylesheet links 使用；gss() 返回 Plugin[]，标准 plugins:[gss(...)] 不变。SSR URL 的实际有界范围见 docs/FRAMEWORK-SSR-ACCEPTANCE.md。
 
