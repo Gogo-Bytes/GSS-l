@@ -18,6 +18,8 @@
 
 ## 当前目标：React 多构建工具接入
 
+owner 已补充整体目标：先稳定 React 生态，再进入 Vue 等 UI 框架。本轮已完成 [React 生态粗规划](ARCHITECTURE-DIRECTION.md#react-生态覆盖规划2026-11-01-调研)：第一批 Vite 与 Rsbuild／Rspack；第二批评估 webpack／Parcel；React Router、TanStack Start、Next.js 和 Storybook 按上层框架／消费场景分别验证。优先级不是市场份额排名，也不是全部工具已经获准实施；进入其他 UI 框架前须有支持范围、运行证据及剩余限制结论。下一具体工作是 Rsbuild／Rspack 最小配置与生命周期设计，本轮只调研与更新规划。
+
 owner 已指定优先支持 React + Rsbuild／Rspack，暂不新增 Vue／Svelte。具体 [接入方案与交付顺序](ARCHITECTURE-DIRECTION.md#react-多构建工具接入方向2026-11-01) 建议以一套 Rspack 集成供原生 Rspack 和 Rsbuild 复用，保留现有 React Adapter／Compiler。该架构方案待确认，当前未实现新宿主；先确定最小配置和缓存／编译生命周期，再完成构建、开发更新及两个消费入口。排序、fallback、既有 Vite 支持和发布授权边界不变。本次仅文档更新，无新增运行验证。
 
 ## 已完成：Parser／Adapter／宿主接口评估

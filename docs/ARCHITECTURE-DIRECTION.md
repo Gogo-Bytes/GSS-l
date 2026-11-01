@@ -180,6 +180,39 @@ Vite 集成（既有）     Rspack 集成（拟新增）
 
 本轮只更新方向与方案，未安装新依赖、添加集成包或执行新宿主测试。SSR／SSG、路由框架和其他 bundler 不因“等等”自动获得支持承诺；后续按真实需求扩展。
 
+#### React 生态覆盖规划（2026-11-01 调研）
+
+owner 进一步明确：先覆盖 React 生态及其主要构建工具解决方案，待这一阶段稳定后再进入 Vue 等其他 UI 框架。本轮是粗粒度调研规划，不实施新集成；上一节 Rspack 复用方案仍是建议，不把本轮方向确认写成公共接口已经批准。
+
+**选型依据。** 这里按官方推荐、接入复用收益和项目现状排序，不声称给出了下载量／市场份额排名。[React 从零建站指南](https://react.dev/learn/build-a-react-app-from-scratch) 列出 Vite、Parcel、Rsbuild；[React 创建应用指南](https://react.dev/learn/creating-a-react-app) 则区分构建工具与应用框架。两层应分别验收：脚手架创建成功不等于宿主完整支持，bundler 通过也不等于 SSR／RSC 框架通过。
+
+| 层级／建议顺序 | 对象 | GSS 当前状态与推进理由 |
+| --- | --- | --- |
+| 第一批，守住既有 | React + Vite / create-vite | 已有实现和有界外部证据。维护既有回归，明确实际 React 插件／版本，不能自动外推所有 Babel、SWC 或其他插件排列 |
+| 第一批，新增重点 | React + Rsbuild，以及直接 Rspack | owner 点名优先；建议共用 Rspack 集成。Rsbuild 是用户主要接入示例，直接 Rspack 用来确认底层集成不依赖脚手架隐含配置 |
+| 第二批，存量构建链 | React + webpack 5 | 在 Rspack 闭环后核对 loader／plugin 差异，再决定复用范围。Rspack 兼容多数 webpack loaders 不代表插件及缓存生命周期完全一致，必须独立验证 |
+| 第二批，独立构建链 | React + Parcel | React 官方列出的选项，值得纳入覆盖评估；它有独立插件体系，需单独评估 transformer／打包输出职责，不能包装 Rspack 插件宣称兼容 |
+| 应用层，先复用已有 | React Router Declarative / Framework | 现有 Vite 客户端路由与有限 SSR 证据保留；底层受影响时复验。其他宿主、模式和版本单列，不重复从零做已交付路径 |
+| 应用层，下一候选 | TanStack Start | 官方提供 Vite／Rsbuild 路径，可在两条底层稳定后评估路由及 server/client 输出；不因 bundler 支持就承诺 Start 的 SSR 或 server components |
+| 应用层，单独重点专项 | Next.js | 纳入 React 生态路线，先做可行性核对。webpack 与 Turbopack 路径分开，App Router 的服务端／客户端边界、CSS 加载及 RSC 不能用普通 SPA 结论代替 |
+| 开发工具，后续消费验证 | Storybook React | 按具体 builder 接入，验证组件预览消费；优先复用已支持宿主，不先增加独立 GSS 编译实现 |
+
+webpack 复用的依据与限制见 [Rspack 迁移说明](https://rspack.rs/guide/migration/webpack)；Parcel 的独立接缝见 [插件体系](https://parceljs.org/plugin-system/overview/)。[TanStack Start 官方说明](https://tanstack.com/start/latest/docs/framework/react/overview) 已列出 Vite／Rsbuild；[Next.js Turbopack 文档](https://nextjs.org/docs/app/api-reference/turbopack) 明确与 webpack 配置存在差异；[Storybook builder 接口](https://storybook.js.org/docs/builders/builder-api) 说明其构建器层。以上是选型资料，不是仓库已验证版本清单，实施时必须固定版本重新核对。
+
+不将 CRA 作为新增首选入口：[React 已弃用其新项目创建用途](https://react.dev/blog/2025/02/14/sunsetting-create-react-app)。如有存量需求，单独评估其配置约束，不能将 webpack 通过等同于未 eject 的 CRA 可用。React Native／Expo 不属当前 Web CSS 目标；更多框架、SSR 部署平台及 Module Federation 不是自动新增任务。
+
+**执行节奏。** 先完成上一节 Rsbuild／Rspack 的配置和生命周期设计，再依次打通 build、dev、外部消费；每个通过切片提交。第二批优先核对 webpack 复用成本，再做 Parcel 可行性评估。与此同时在进入上层框架实施前，先完成 Next.js 的阻塞点调查，避免最后才发现所需扩展机制不可用；调查不等于批准双后端、RSC 或新作者语法。React Router、TanStack Start、Next.js 的具体支持范围和必要验收在各专项开始前确定，不一次生成全部应用／浏览器组合矩阵。
+
+**进入其他 UI 框架前的阶段门槛。** “React 没啥问题”指选定支持范围稳定，并非证明整个 React 生态无缺陷：
+
+- 第一批 Vite、Rsbuild／Rspack 的 React 外部 `.gss` 路径完成开发及生产闭环，保留同一作者语法和已确认的排序／fallback。
+- 选定版本下，JS／TS／JSX／TSX、别名与依赖、资源 URL、诊断／map、CSS-only 更新、schema 变化、非法输入恢复、增量／缓存与干净构建一致性有证据；Fast Refresh 的状态保留边界明确。
+- 已声明支持的路由／SSR 路径有实际加载、导航和产物证据；不存在已知未解决的阻塞性契约错误。失败历史、版本范围及未验证组合如实记录。
+- webpack、Parcel、Next.js 等重点候选都有明确结论：已支持、存在具体阻塞，或由 owner 接受暂缓。不能默默跳过后宣称“React 生态完成”，也不无限等待所有组合支持。
+- 接入说明、最小配置、包消费与回归可重复；用户确认这一 React 阶段的剩余限制可接受后，再选择 Vue 等新 UI 框架。无需为了新 UI 框架提前修改 Compiler domain。
+
+下一具体工作仍是 **Rsbuild／Rspack 最小配置与生命周期设计**。本规划未改变 CSS 语义、公共接口或 fallback，未产生新的运行验证。
+
 ### Preserved fallback 贡献边界
 
 [preserved-contribution.ts](../compiler/src/application/preserved-contribution.ts) 接收贡献准备已经选择的整模块 preserved 路径，生成原顺序 CSS、scope marker／schema、资源绑定、来源位置及 `GSS1104` warning。是否可进入该路径仍由贡献准备按既有 unknown effect、compatibility、`atomizationFallback`、`:global()` 和逻辑／物理冲突检查决定；该模块不决定准入，也不把 preserved 内容当成 atomic rule。
