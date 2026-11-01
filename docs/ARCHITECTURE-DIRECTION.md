@@ -143,6 +143,43 @@ sequenceDiagram
 
 本轮验证：既有 React 全部 **49** 项，以及 Vite `vite-plugin`／`diagnostic-location`／`dev-css` **51** 项通过，原始日志在 `artifacts/adapter-contract-review/react-tests.log` 与 `vite-tests.log`。首次错误 package filter 没有执行测试，记录保留在 `react.log`，不计入通过数。本轮只改文档，没有重跑全仓 verify、浏览器或外部框架验收，也没有把纸面推演计为支持证据。
 
+### React 多构建工具接入方向（2026-11-01）
+
+owner 已明确下一产品方向为 **React + 多类脚手架／构建工具，优先 Rsbuild、Rspack**。Vue／Svelte 暂不进入实施。以下是待确认的最小架构方案，不代表已经支持 Rsbuild／Rspack；现有 React 作者语法、外部 `.gss`、Compiler 排序和 fallback 契约继续保留。
+
+**建议采用一套 Rspack 集成，同时供原生 Rspack 与 Rsbuild 使用。** Rsbuild 官方提供通过 `tools.rspack` 注册 Rspack 插件的方式，见 [配置 Rspack](https://rsbuild.rs/guide/configuration/rspack)。因此先提供 `integrations/rspack/`，Rsbuild 首轮使用配置接入示例；只有出现真实的 Rsbuild 专有配置重复，再加 `integrations/rsbuild/` 的轻量配置封装。不为两个入口复制编译和 React lowering，也不提前创建通用 bundler 包。包名、插件导出和选项尚未定稿，须在实施设计中给出最小可用配置后确认。
+
+```text
+React JS/TS/JSX/TSX + 外部 .gss
+          ↓
+现有 React Adapter + Compiler session
+          ↑
+Vite 集成（既有）     Rspack 集成（拟新增）
+                         ↑           ↑
+                  原生 Rspack     Rsbuild 配置入口
+```
+
+| 能力 | 复用或新增位置 | 必须守住的约束 |
+| --- | --- | --- |
+| import 发现、scope 引用转换 | 复用 adapters/react | 在 JSX/TS 被 SWC 等转换之前执行；不依赖 Vite 的 pre 钩子语义 |
+| `.gss` 编译、schema、排序、复用 | 复用 compiler | 不为宿主差异修改 atom 身份／rank／fallback；配置的 CSS compatibility target 必须明确映射 |
+| 文件解析与依赖 | 新 Rspack loader/plugin 配合宿主 resolver | 原始 specifier 与规范物理身份分开；别名、资源依赖和 map 沿宿主管线传递 |
+| session 生命周期 | 新 Rspack 集成内部 | 按 compiler／构建环境隔离，不用进程全局 session；增量、缓存命中和并发编译不能丢贡献或混入旧模块 |
+| CSS／资源输出 | 使用 Rspack 产物和模块图能力组织 | 必须汇总当前可达贡献，不能按 loader 完成顺序决定最终 CSS；不能从 Vite hooks 直接复制 census |
+| 开发更新 | 新宿主实现 | CSS-only、schema 改变、非法输入保留／恢复分别核对；不预先承诺 React state 始终保留 |
+| Rsbuild 使用 | 初期直接注册同一插件 | 使用 Rsbuild 所携 Rspack 的兼容版本；不把某个脚手架通过外推为全部 Rspack 配置可用 |
+
+[Rspack loader context](https://rspack.rs/api/loader-api/context) 提供异步回调、依赖登记、source map 返回等接缝；这只证明存在实现入口，不证明生命周期方案已正确。缓存可能跳过 loader，故不能仅靠 loader 的内存副作用收集 CSS；具体贡献重建／缓存协调方案是首个技术核对项。Rsbuild 的 `api.transform` 也可转换代码，但仅源码转换无法独自完成全局 CSS、资源和增量生命周期，故不另写一套 Rsbuild-only 编译器。该取舍基于 [Rsbuild 插件接口](https://rsbuild.rs/plugins/dev/core) 与当前 GSS 会话契约。
+
+**建议交付顺序。**
+
+1. **确定最小配置与生命周期方案。** 固定实际测试的 Rsbuild／Rspack／React／Node 版本；给出插件入口、loader 顺序、CSS 加载方式、compiler/session 与 compilation 的关系，以及缓存命中时如何恢复完整贡献。复用 Vite 的纯逻辑前先核对依赖，不先移动整个 Vite 实现。对公共配置和 CSS 使用方式的新增选择由 owner 确认。
+2. **构建闭环。** 用同一最小 React 源码分别经原生 Rspack 和 Rsbuild 构建，验证现有字符串语法／scope schema、JS map 与诊断位置、CSS 与资源 URL、可达模块汇总；class 和 CSS 的预期来源于现有 compiler 契约及独立原生参考，不以 Vite 结果作为唯一 oracle。仅完成本步不能标记开发模式支持。
+3. **开发闭环。** 验证初次加载、只改 CSS、scope mapping 修改、非法输入→恢复、资源修改，以及增量／缓存后与干净构建一致。优先利用宿主标准更新与诊断机制，不引入跨宿主 HMR 框架。保留失败证据和既有精确图像规则。
+4. **交付两个消费入口。** 在仓库外以本地 tarball 验证 Rsbuild React 脚手架和原生 Rspack 配置，记录配置、确切版本、通过范围和限制；运行现有 React／Compiler／Vite 回归。已获准的新宿主需要最小集成测试，但不顺带扩大为 SSR、Module Federation、多环境或更多脚手架的矩阵。公开发布仍需单独授权。
+
+本轮只更新方向与方案，未安装新依赖、添加集成包或执行新宿主测试。SSR／SSG、路由框架和其他 bundler 不因“等等”自动获得支持承诺；后续按真实需求扩展。
+
 ### Preserved fallback 贡献边界
 
 [preserved-contribution.ts](../compiler/src/application/preserved-contribution.ts) 接收贡献准备已经选择的整模块 preserved 路径，生成原顺序 CSS、scope marker／schema、资源绑定、来源位置及 `GSS1104` warning。是否可进入该路径仍由贡献准备按既有 unknown effect、compatibility、`atomizationFallback`、`:global()` 和逻辑／物理冲突检查决定；该模块不决定准入，也不把 preserved 内容当成 atomic rule。

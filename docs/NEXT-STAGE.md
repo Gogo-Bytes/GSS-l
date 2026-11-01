@@ -16,11 +16,15 @@
 
 最近浏览器验证基线是 `9216360`：完整 verify **2537 项**及 lint／build／types；默认三引擎排序验收、独立 Chromium browser oracle（125／1267／38）及 Vite host／SSG／multipage 均通过。随后注释及 2026-10-31 进度整理没有重跑测试；2026-11-01 的等价重构验证另列下方。具体计数、范围和失败记录见下方历史记录与 `artifacts/conditional-atom-reuse/`；外部 SPA／SSR、Article 的历史验证不算本轮重验。
 
+## 当前目标：React 多构建工具接入
+
+owner 已指定优先支持 React + Rsbuild／Rspack，暂不新增 Vue／Svelte。具体 [接入方案与交付顺序](ARCHITECTURE-DIRECTION.md#react-多构建工具接入方向2026-11-01) 建议以一套 Rspack 集成供原生 Rspack 和 Rsbuild 复用，保留现有 React Adapter／Compiler。该架构方案待确认，当前未实现新宿主；先确定最小配置和缓存／编译生命周期，再完成构建、开发更新及两个消费入口。排序、fallback、既有 Vite 支持和发布授权边界不变。本次仅文档更新，无新增运行验证。
+
 ## 已完成：Parser／Adapter／宿主接口评估
 
 2026-11-01 owner 批准的调用链核对与 Vue／Svelte、非 Vite 宿主纸面推演已完成，基线为 `f7acf1a`。详见 [接口评估与最小调整方案](ARCHITECTURE-DIRECTION.md#接口评估与最小调整方案2026-11-01)：现有职责分离保留，未发现必须立即修改运行时的契约反例；新框架的输入阶段、模板绑定、虚拟 id、预处理依赖与 map 仍需真实需求决定。未新增框架、公共 API 或通用宿主引擎，排序／fallback 不变。
 
-既有 React 49 项及 Vite 插件／诊断定位／dev-CSS 51 项通过，日志在 `artifacts/adapter-contract-review/`；仅文档变更，未重跑全仓 verify 或浏览器。下一实施目标尚未指定；若进入框架接入，先确认框架、外部文件或内联块及作者语法，再按文档的窄路径推进，不从历史路线图自动扩能力。
+既有 React 49 项及 Vite 插件／诊断定位／dev-CSS 51 项通过，日志在 `artifacts/adapter-contract-review/`；仅文档变更，未重跑全仓 verify 或浏览器。该轮接口核对已结束；后续目标已由 owner 指定为上方 React 多构建工具接入，不自动进入 Vue／Svelte。
 
 ## 已完成：CSS 能力接入流程与策略归属
 

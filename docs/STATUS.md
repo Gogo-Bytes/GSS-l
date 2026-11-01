@@ -8,11 +8,15 @@
 
 CSS 能力接入流程与策略归属核对已按 owner 授权完成，形成三个代表属性的接入路径、文件级清单、重复项与保留项结论。GSS1206 的同轴冲突列表已集中生成，保持原白名单及诊断顺序；完整 verify 2537 项、7344 组 validator 与 14 次完整公共编译／恢复对照通过，证据在 `artifacts/css-capability-workflow/`。本轮没有新增能力或浏览器运行；详细结论见 [当前计划](NEXT-STAGE.md#已完成css-能力接入流程与策略归属)。
 
+## 当前目标：React 多构建工具接入
+
+owner 已指定优先支持 React + Rsbuild／Rspack，暂不新增 Vue／Svelte。具体 [接入方案与交付顺序](ARCHITECTURE-DIRECTION.md#react-多构建工具接入方向2026-11-01) 建议以一套 Rspack 集成供原生 Rspack 和 Rsbuild 复用，保留现有 React Adapter／Compiler。该架构方案待确认，当前未实现新宿主；先确定最小配置和缓存／编译生命周期，再完成构建、开发更新及两个消费入口。排序、fallback、既有 Vite 支持和发布授权边界不变。本次仅文档更新，无新增运行验证。
+
 ## 已完成：Parser／Adapter／宿主接口评估
 
 2026-11-01 owner 批准的调用链核对与 Vue／Svelte、非 Vite 宿主纸面推演已完成，基线为 `f7acf1a`。详见 [接口评估与最小调整方案](ARCHITECTURE-DIRECTION.md#接口评估与最小调整方案2026-11-01)：现有职责分离保留，未发现必须立即修改运行时的契约反例；新框架的输入阶段、模板绑定、虚拟 id、预处理依赖与 map 仍需真实需求决定。未新增框架、公共 API 或通用宿主引擎，排序／fallback 不变。
 
-既有 React 49 项及 Vite 插件／诊断定位／dev-CSS 51 项通过，日志在 `artifacts/adapter-contract-review/`；仅文档变更，未重跑全仓 verify 或浏览器。下一实施目标尚未指定；若进入框架接入，先确认框架、外部文件或内联块及作者语法，再按文档的窄路径推进，不从历史路线图自动扩能力。
+既有 React 49 项及 Vite 插件／诊断定位／dev-CSS 51 项通过，日志在 `artifacts/adapter-contract-review/`；仅文档变更，未重跑全仓 verify 或浏览器。该轮接口核对已结束；后续目标已由 owner 指定为上方 React 多构建工具接入，不自动进入 Vue／Svelte。
 
 ## 最近切片记录
 
