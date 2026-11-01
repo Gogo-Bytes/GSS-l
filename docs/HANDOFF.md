@@ -11,7 +11,7 @@
 
 owner 已要求按整体规划实施核心架构与属性排序目标；先读 docs/ARCHITECTURE-DIRECTION.md 和 docs/PROPERTY-ORDER-DESIGN.md。会话提交／失效、贡献准备与快照汇总已分离；scope 树、schema／导出生成、全局资源规划及关系 selector 渲染已提取为独立内部模块，membership 与 marker 语义仍由贡献规划负责；产品包已迁至 compiler/、adapters/react/、integrations/vite/ 和 types/，测试基础设施已迁至 tests/；Playground 已迁至 examples/playground，独立参考／验收仍在 tests。可原子化 pure ownership 规则内及跨规则累积的已登记逻辑／物理 longhand 对已准入，preserved 模式及其余部分组合仍可能报 GSS1206，排序目标未完成。此前核心核查和统一固定排序已交付，不把历史结果当新目标完成。Astro、Next.js、SWC、更多 Router 模式/浏览器矩阵不是自动任务，不自行新增框架或验收场景。
 
-2026-10-31 当前进度已在 NEXT-STAGE.md 顶部汇总：已批准的 border-width 展开、物理 longhand 与相同条件链复用均交付，最新实现 verify 为 2537 项，并通过默认三引擎排序及独立 Chromium 参考入口。下一建议是 CSS 能力接入流程与策略归属核对，先按文档列明的范围产出接入清单和具体重复维护点；本次进度整理不授权新语义／公共 API。不再从历史切片的“下一步”自动排队。
+2026-10-31 当前进度已在 NEXT-STAGE.md 顶部汇总：已批准的 border-width 展开、物理 longhand 与相同条件链复用均交付，最新实现 verify 为 2537 项，并通过默认三引擎排序及独立 Chromium 参考入口。2026-11-01 已完成 CSS 能力接入清单与重复维护点核对，并等价集中 GSS1206 同轴冲突列表，完整 verify 2537 项及对照通过；具体结果见当前计划。剩余准入特例及方向／effect／展开策略职责独立，不能从旧计划自动扩大新语义／公共 API。不再从历史切片的“下一步”自动排队。
 
 已确定的使用契约不要重问：静态 scope 使用编译期字符串语法糖，旧 .self 兼容；未知/动态路径保持普通 JS undefined；DOM 关系和匹配由浏览器负责，GSS 按现有准入做 marker rewrite；公共 virtual:gss.css?url 通过宿主正常 stylesheet links 使用；gss() 返回 Plugin[]，标准 plugins:[gss(...)] 不变。SSR URL 的实际有界范围见 docs/FRAMEWORK-SSR-ACCEPTANCE.md。
 

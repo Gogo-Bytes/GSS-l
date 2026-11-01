@@ -3,26 +3,18 @@ import { classifyPropertyEffect } from './property-effects.js';
 import { isPureOwnershipRule } from './rule-classification.js';
 import { getOwnershipPath, matchesOwnedTarget } from './ownership-path.js';
 
-const conflictingPhysicalProperties: Readonly<Record<string, readonly string[]>> = {
-  'margin-inline': ['margin', 'margin-left', 'margin-right'],
-  'margin-inline-start': ['margin', 'margin-left', 'margin-right'],
-  'margin-inline-end': ['margin', 'margin-left', 'margin-right'],
-  'margin-block': ['margin', 'margin-top', 'margin-bottom'],
-  'margin-block-start': ['margin', 'margin-top', 'margin-bottom'],
-  'margin-block-end': ['margin', 'margin-top', 'margin-bottom'],
-  'padding-inline': ['padding', 'padding-left', 'padding-right'],
-  'padding-inline-start': ['padding', 'padding-left', 'padding-right'],
-  'padding-inline-end': ['padding', 'padding-left', 'padding-right'],
-  'padding-block': ['padding', 'padding-top', 'padding-bottom'],
-  'padding-block-start': ['padding', 'padding-top', 'padding-bottom'],
-  'padding-block-end': ['padding', 'padding-top', 'padding-bottom'],
-  'inset-inline': ['inset', 'left', 'right'],
-  'inset-inline-start': ['inset', 'left', 'right'],
-  'inset-inline-end': ['inset', 'left', 'right'],
-  'inset-block': ['inset', 'top', 'bottom'],
-  'inset-block-start': ['inset', 'top', 'bottom'],
-  'inset-block-end': ['inset', 'top', 'bottom']
-};
+// This legacy admission whitelist is narrower than module-order-policy's
+// potential-alias relation. Preserve its families, axes and diagnostic order;
+// adding a sortable alias does not automatically add a GSS1206 rejection.
+const conflictingPhysicalProperties: Readonly<Record<string, readonly string[]>> = Object.fromEntries(
+  ['margin', 'padding', 'inset'].flatMap((family) =>
+    (['inline', 'block'] as const).flatMap((axis) => {
+      const sides = axis === 'inline' ? ['left', 'right'] : ['top', 'bottom'];
+      const physical = [family, ...sides.map((side) => family === 'inset' ? side : `${family}-${side}`)];
+      return ['', '-start', '-end'].map((suffix) => [`${family}-${axis}${suffix}`, physical]);
+    })
+  )
+);
 
 type RuleCandidate = {
   nodes: readonly { name: string; states: readonly unknown[]; attributes: readonly unknown[];

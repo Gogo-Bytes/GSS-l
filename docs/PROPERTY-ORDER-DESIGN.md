@@ -281,3 +281,53 @@ Compiler build 与已有三组定向测试 **435** 项通过：fixed-module-rank
 
 
 本项完整 `verify` **2537** 项（Compiler 1991／React 49／Vite 163／Testing 334）及 lint／build／types 通过，定向初测 159 项通过。feature-red 日志保留 9 项预期行为失败及 1 项测试本身误读嵌套 scope 的失败；后者已改为有真实独立 scope 的派生目标屏障，未修改产品逻辑兜底测试。原子化 compatibility 使用相同复用条件；preserved 输出不进入复用，失败更新／恢复保持原事务路径。浏览器执行范围与结果见当前计划，证据在 `artifacts/conditional-atom-reuse/`。
+
+## CSS 能力接入清单与策略归属（2026-11-01）
+
+本轮按 owner 授权梳理现有接入路径，以 `opacity`（独立 longhand）、`margin-left`／`margin-inline-start`（方向 longhand）、`border-width`（shorthand）为代表。以下是维护当前编译器的接入清单，不是公共注册 API，也不授权新的 CSS 语义。新属性的规范依据应在实际扩展时核实；本轮没有扩展属性或值域。
+
+### 从解析到输出的职责
+
+| 阶段／权威入口 | 负责什么 | 新属性通常要做什么／不需要做什么 |
+| --- | --- | --- |
+| `infrastructure/postcss-stylesheet-parser.ts`、`domain/parsed-stylesheet.ts` | 解析声明、selector 节点、来源、条件与 layer | 普通声明沿用现有结构，不按每个属性新增 parser 分支；只有语法／资源形状改变才另行设计 |
+| `domain/property-effects.ts` | 已登记性、确定写入／reset effects、custom-property 与 unknown 区分 | 独立属性加入独立列表；shorthand 登记完整 effects，所属 longhand 自动登记；先检查是否已由 family 覆盖，避免双重登记 |
+| `domain/module-order-policy.ts` | 潜在逻辑／物理别名、固定属性顺序、物理单 effect 判定及方向复用屏障 | 有方向映射关系才核对 directions；普通独立属性不增加方向登记。effects 不同不代表运行时一定不竞争，潜在别名也不是剪枝证明 |
+| `domain/expand-safe-box.ts` | 已批准双侧／四侧值分配与值域、别名／跨 scope 隔离 | 仅在批准安全展开时添加策略并验证完整 effects；认识 shorthand 不自动展开。复杂值沿用原处理，不添加通用值校验 |
+| `application/selector-admission.ts`、`domain/validate-declarations.ts`、`validate-logical-physical-conflicts.ts` | selector 形态、重复声明和既有 GSS1206 准入保护 | 不为新增独立属性自动拓宽 selector 形态；同属性同 importance 重复仍 GSS1204；GSS1206 白名单是单独契约，不从排序 aliases 自动生成 |
+| `domain/resolve-target-declarations.ts`、各关系 planner、`module-local-atom-ranks.ts` | 确定 effect 胜出、结构／状态关系证明和有界准入 | 现有算法消费 effects；不能把新 effect 登记当成新增关系证明，background 特例保持独立 |
+| `domain/fixed-module-ranks.ts`、`order-occurrences.ts`、`rule-order-planner.ts` | 剪枝前竞争组、语义高度、局部 rank／输出位置、完整桶复用 | 默认使用现有算法；新增属性不能自行省略 orderSlot 或越过复用屏障 |
+| `application/compatibility-analysis.ts`、`module-contribution.ts`、`preserved-contribution.ts` | 转换形状／资源／importance 检查、诊断次序和整模块 fallback | 继续检查转换是否改变属性或丢失资源；unknown 的 effect 登记会改变原 fallback 行为，属于能力变化，不是无影响补表 |
+| 专用 emitter、`readable-name.ts`、`finalize-snapshot.ts`、`css-source-map.ts` | 已规划身份、scope membership、资源编码、来源汇总、排序与 map | 常规属性不新增 emitter／命名分支；修改身份、资源或输出形状时才核对此层，保留全部 origins 与确定的 map 主来源 |
+
+实际编排由 `module-contribution.ts` 决定：解析／资源重写后，仅在既定已知 effect、非 compatibility／external 等条件下进入静态 padding 处理，并在 pure ownership 子集考虑安全展开；随后进行 selector、声明／逻辑物理检查、关系规划、compatibility 分析及 unknown fallback 选择，最后输出。诊断可能在 fallback 之前返回，不能把此表误读成任意调换阶段的许可。
+
+`classifyPropertyEffect`／`isRegisteredPropertyEffect` 才回答“是否登记”。`effectsOfProperty` 对未知名称返回 `[property]` 是效果计算的保守回退，**不能以其返回非空为准入依据**。
+
+### 三类接入示例
+
+- **opacity**：独立列表给出单 effect，`.a{opacity:0.5}.b{opacity:0.7}` 由通用规则规划两个版本；无需修改方向表、box 展开或 emitter。要支持另一个独立属性，先确认它没有隐含 reset／别名，再使用相同接入路径；不因此扩展状态组合准入。
+- **margin-left**：物理／逻辑 effects 分别登记，方向策略给出潜在别名与逻辑先／物理后的顺序；`.a{margin-inline-start:1px;margin-left:2px}` 在既有 pure ownership 范围可处理。潜在别名仍各自保留，不能互相当成确定覆盖删除。对应状态／preserved 组合是否拒绝仍看原 GSS1206 规则。
+- **border-width**：family 的四侧 effects 使其可参与覆盖；只有已批准的隔离同规则静态 px／零与物理侧竞争时才安全展开。`.a{border-width:1px 2px;border-left-width:9px}` 保留四侧写入及来源；认识该 family 不代表可处理关键词、复杂值或更宽跨 scope 展开。普通 shorthand 如 `margin:var(--space)` 继续保留原声明路径。
+
+### 重复项与保留项的处理结论
+
+| 具体位置 | 核对结论 | 本轮处理 |
+| --- | --- | --- |
+| GSS1206 表的 18 个逻辑名称 | 每族每轴的 shorthand／start／end 重复相同物理列表；消费方仍排序逻辑 key，并按物理数组顺序选首条诊断 | 集中为三族 × 两轴的生成定义，同轴共享列表，保留原名称集合、值顺序和诊断行为 |
+| GSS1206 表与 module-order-policy directions | 前者是历史有限准入白名单，后者覆盖更宽的潜在别名与 writing-mode 竞争；两者范围不同 | 保持分离。直接使用 overlap 替代白名单会扩大拒绝范围，不能作为重构实施 |
+| effects family、directions、boxExpansions 都出现 margin／border 等名字 | 分别表达确定 effects、潜在方向竞争、已证明的值分配，是不同事实 | 保持职责分离；不建一个自动派生所有能力的 registry |
+| `supportsCurrentBackgroundRanks` 与通用 rank planner | 前者由 `plan-module-relations.ts` 提供给 descendant planner，仅允许指定 background-color 状态／属性组合越过原歧义拒绝；后者负责已准入 occurrence 的排序 | 保留特例。需检查剪枝前全部相关规则及模块级 external effects；background shorthand、条件／layer、复杂关系等仍阻止放行，不能因有通用 rank 就删除此门槛 |
+| 各 planner 都消费 effects 并选择胜出 | ownership／结构／状态的目标、强度与共存证明不同 | 本轮未发现可直接合并的相同决策；不以循环形似为由建立通用 planner |
+
+特别注意 background：`.a:hover{background-color:red}.a:focus{background-color:blue}` 的有界排序资格来自该准入策略；同一模块增加写入 background-color effect 的 opaque shorthand／external 竞争者时，必须重新核对整个竞争闭包。先剪枝再检查会遗漏竞争者；把 color 等其他属性加入特例属于能力决策。
+
+### 交付前的可执行检查
+
+1. 在修改前写明新增的是 effect 知识、方向排序、上下文准入、展开还是复用；确认此前 atomic／preserved／error 行为和 owner 授权范围。附规范依据与独立字面结果，而非只从实现生成预期。
+2. 列出需要改的上表入口及无需改的入口。独立属性通常只改 effect 登记和现有回归；方向关系另核对 module-order-policy；展开另核对 boxExpansions；涉及准入必须显式检查失败路径，不能只补一个名称。
+3. 在现有 `property-effects`／`four-property-effects` 验证完整写入与 reset；在 `logical-physical-order`、`fixed-module-ranks`／`fixed-module-rank-reuse` 验证正反覆盖、语义高度、别名与桶屏障；关系准入使用 `module-local-atom-ranks` 等现有载体。
+4. 按改动核对 `compatibility-targets`、`compiler-session`／`session-convergence`、`css-source-map`／`stylesheet-assets`：unknown／兼容性 fallback、失败保留／恢复、模块插入顺序、原始来源与资源身份。未展开值和 preserved 负例不能被正例替代。
+5. 实际行为变更运行受影响的既有浏览器入口，保留 authored-native／明确 GSS 预期、精确图像和负对照。纯等价内部整理可使用完整输出前后对照及现有回归，说明未重跑的 gate；提交通过的切片并更新设计、进度和接续入口。
+
+本轮验证：完整 verify 2537 项及 lint／build／types 通过；原表与新表经 validator 的 7344 组输入（18 逻辑名称 × 17 物理／无关名称 × 3 形态 × 2 allowPureLonghands × 2 顺序 × 2 同／分规则）逐诊断对象一致，另有 14 次公共 replace／finalize／schema 完整对照，包括代表属性、失败快照与两种 compatibility 设置。证据在 `artifacts/css-capability-workflow/`。该比较证明本次列举范围的等价，不是新 CSS 支持证明；未增加浏览器矩阵或重跑浏览器。本轮接入清单和有证据的重复项处理已完成，剩余不同职责保持独立。

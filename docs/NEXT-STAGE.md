@@ -1,8 +1,8 @@
 # 当前进度与后续工作计划
 
-## 当前结论（2026-10-31）
+## 当前结论（2026-11-01）
 
-已确认的架构迁移与最近三个能力切片均已提交并推送 main；本次整理基线为 `51c12a4`，无待提交实现。整体目标已有可运行主干，不能等同于任意 CSS、所有关系或所有框架已支持。
+已确认的架构迁移与最近三个能力切片均已提交并推送 main；先前整理基线为 `51c12a4`；本轮 CSS 接入核对及等价重构见下方。整体目标已有可运行主干，不能等同于任意 CSS、所有关系或所有框架已支持。
 
 | 工作面 | 当前交付 | 保留边界 |
 | --- | --- | --- |
@@ -14,11 +14,11 @@
 | Atom 复用 | 隔离物理 longhand 连续同值 `1080947`；相同完整条件链纯 atom `9216360` | 不跨异值竞争者、不同条件链、状态／属性 selector、pseudo、ownership／结构等屏障 |
 | 身份说明 | Unicode／资源身份核对与注释修正 `51c12a4` | 不改资源编码、class 命名或公共接口 |
 
-最新实现验证基线是 `9216360`：完整 verify **2537 项**及 lint／build／types；默认三引擎排序验收、独立 Chromium browser oracle（125／1267／38）及 Vite host／SSG／multipage 均通过。后续注释与本次进度整理无运行行为变更，没有重跑测试。具体计数、范围和失败记录见下方历史记录与 `artifacts/conditional-atom-reuse/`；外部 SPA／SSR、Article 的历史验证不算本轮重验。
+最近浏览器验证基线是 `9216360`：完整 verify **2537 项**及 lint／build／types；默认三引擎排序验收、独立 Chromium browser oracle（125／1267／38）及 Vite host／SSG／multipage 均通过。随后注释及 2026-10-31 进度整理没有重跑测试；2026-11-01 的等价重构验证另列下方。具体计数、范围和失败记录见下方历史记录与 `artifacts/conditional-atom-reuse/`；外部 SPA／SSR、Article 的历史验证不算本轮重验。
 
-## 接下来建议：CSS 能力接入流程与策略归属
+## 已完成：CSS 能力接入流程与策略归属
 
-优先回到最初“未来增加 CSS 支持时容易接入”的目标，暂不继续逐族扩 shorthand 或逐类放宽复用。此次只整理进度与建议，没有开始下一实现或批准新的语义范围。
+优先回到最初“未来增加 CSS 支持时容易接入”的目标，暂不继续逐族扩 shorthand 或逐类放宽复用。2026-11-01 owner 已批准本项，现已完成 [接入清单与处理结论](PROPERTY-ORDER-DESIGN.md#css-能力接入清单与策略归属2026-11-01)。实际重构只集中 GSS1206 中同轴重复的物理冲突列表；完整 verify 2537 项、7344 组 validator 及 14 次完整公共编译／恢复结果与基线一致，证据见 `artifacts/css-capability-workflow/`。未改变 CSS 范围、排序／fallback 或公共接口，未重跑浏览器。以下保留本项执行范围和完成标准，已完成部分不重复排队。
 
 1. **梳理一条完整接入路径。** 以已支持的独立 longhand、方向 longhand、shorthand 各选一个代表，映射 property-effects、module-order-policy、selector／声明准入、expand-safe-box、输出与测试。区分“认识写入 effects”“允许该上下文”“允许展开”“允许复用”，明确每种事实的权威来源。
 2. **列出实际重复维护点与必须独立的规则。** 特别核对 `supportsCurrentBackgroundRanks` 这类有界准入为何独立存在。产出文件级变更清单、反例和当前保护，不以统一 registry 为预设答案；不能由 effect 登记自动推导全部能力。

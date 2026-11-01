@@ -15,4 +15,6 @@
 | 模块内排序和复用 | [fixed-module-ranks.ts](fixed-module-ranks.ts)、[rule-order-planner.ts](rule-order-planner.ts) | rank 保留必要的竞争顺序和 scope membership；相同值不一定可跨竞争者复用。`atomRank` 在同属性内编号，`orderSlot` 保留潜在重叠族的输出投影；二者共同约束身份，最终排序不比较局部 rank。完整竞争组只有同一已登记物理单 effect longhand 时可复用合格连续同值桶；混合属性／逻辑别名／shorthand 及状态／结构屏障仍保留；完整有序条件链相同可共享，不能推理不同查询等价或重排嵌套；后续版本不重编号。 |
 | 方向别名与准入 | [module-order-policy.ts](module-order-policy.ts)、[validate-logical-physical-conflicts.ts](validate-logical-physical-conflicts.ts) | 逻辑／物理潜在重叠与 shorthand 的确定包含关系不同；潜在别名不构成确定覆盖或删除证明。 |
 
+新增 CSS 能力或检查重复登记时，按 [CSS 能力接入清单](../../../docs/PROPERTY-ORDER-DESIGN.md#css-能力接入清单与策略归属2026-11-01) 区分 effect、方向策略、准入、展开和复用；该清单含三个代表属性、文件级变更范围、保留特例与回归入口。
+
 实施或修改这些决策时，在上述权威设计文档中同步记录原因、适用范围、反例及验证；新增功能前先核实当前准入、fallback 和资源／来源身份，避免将目标推广到尚未证明的情况。
