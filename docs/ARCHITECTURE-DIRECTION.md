@@ -314,7 +314,34 @@ import { react } from '@gss-l/react';
 2. **真实模块闭环。** 替换假模块为现有 React Adapter + Compiler；核对本轮候选和局部 schema／moduleCode 一致、错误恢复、资源引用及 source map。loader 未运行时仍从图取得贡献。不能直接搬用探针中基于普通文件系统的读法作为支持虚拟文件系统的实现。
 3. **传递与发布完善。** HTML 和 runtime 的 link 使用同一标识避免重复；新样式加载失败保留旧样式，连续更新不能让迟到回调删除较新版本；验证默认 dev server 的错误 overlay／恢复、schema 改变传播、publicPath、资源及旧产物生命周期。只在候选完整且宿主构建成功时更新已发布快照。
 
-本次保持已确认的两个入口、React 使用方式、排序及 fallback。不运行全仓 verify 或既有浏览器全套，因为产品代码未变；上述局部 Chromium 探针是新增证据，不能混入历史完整验收计数。下一项优先是 CSS loader／targets／后处理等价性核对，当前无待 owner 决策。
+本次保持已确认的两个入口、React 使用方式、排序及 fallback。不运行全仓 verify 或既有浏览器全套，因为产品代码未变；上述局部 Chromium 探针是新增证据，不能混入历史完整验收计数。后续 CSS loader／targets／后处理对照见下节，当前无待 owner 决策。
+
+#### CSS loader／targets／PostCSS 对照（2026-11-01）
+
+接续上一节完成一轮有界处理阶段核对，仍使用隔离的 Rsbuild／Rspack 2.3.0 环境，不修改产品或 workspace 依赖。结论：**asset 输出本身不足以复用 CSS 管线；实际解析后的原生处理器可以复现本次普通 CSS 对照，值得继续验证内部接入方式。** 这不是已经确定新增独立 compiler 架构，也不是任意 loader 都能抽出运行的保证。
+
+`css-stages-probe.mjs` 在开发模式关闭 minify，以同一字面 `.probe { appearance: none; color: red; }` 分别走普通 CSS import 与直接 emitAsset：
+
+| 配置 | 普通 CSS 路径 | 直接 asset 负对照 |
+| --- | --- | --- |
+| 默认 | 实际经过 Lightning CSS loader | 保留未经 loader 处理的原文 |
+| loader targets = Safari 9 | 生成 `-webkit-appearance: none` | 缺少此前缀，确认不是只差格式 |
+| 自定义 PostCSS | 独立插件加上 `--stage-oracle: passed` | 缺少该声明，确认配置没有执行 |
+
+这三组由 `css-stages.log` 保留配置与实际 loader 跟踪。不能用生产 minifier “碰巧补出相同前缀”掩盖开发模式缺失，也不能认为已输出 CSS asset 就自动运行 PostCSS。[Rsbuild 的 PostCSS 配置](https://rsbuild.rs/config/tools/postcss) 可包含函数、项目配置文件和插件对象；[Lightning CSS 配置](https://rsbuild.rs/config/tools/lightningcss-loader) 也区分 loader 与后续压缩阶段。
+
+`css-processor-probe.mjs` 从 Rsbuild `initConfigs()` 返回的配置取得**这组普通 CSS 规则实际生成的** Lightning CSS／PostCSS loader 路径、选项和顺序，交给隔离的 Rspack 原生编译执行；没有手工改用另一版本的 JS Lightning CSS 或重建 PostCSS 插件列表。三组结果分别与普通 CSS 产物去掉首尾空白后逐字相等，见 `css-processor.log`。探针按已知规则选择处理器，不能把这种 fixture-specific 查找写成“任意用户规则解析器”。
+
+`css-dependency-probe.mjs` 增加真实文件依赖：PostCSS 插件读取 `token.txt`、输出字面 token 并通过 dependency message 声明依赖。普通 CSS 和隔离处理器输出一致，且后者 `compilation.fileDependencies` 包含该文件，见 `css-dependency.log`。这只证明依赖信息可取得，**未验证主 compiler watch 自动收到该依赖**；未来若使用子处理步骤，必须把文件／目录／missing dependencies 和诊断传回主 compilation。
+
+**实施约束与下一验证顺序。**
+
+1. 复用最终解析出的配置，不只读用户配置原文；function、环境、配置文件与自定义 rule 可能改变实际处理。原生 Rspack 没有 Rsbuild 的配置约定，不能默认推断同一规则形状。GSS 内部生成的 CSS 也不应因用户 CSS Modules 命名规则被再次重命名 class。
+2. 保留阶段顺序：PostCSS 等前处理 → 有效 Lightning CSS loader 阶段 → 后续 asset minimizer。从实际适用阶段映射 Compiler compatibility targets；JS target、Browserslist 原始文本和最终 CSS target 不是同一事实。minifier 的 include/exclude 与自定义选项也必须核对，不能简单读取一个默认值。
+3. 下一项把处理步骤放进主构建候选生成阶段，验证同轮处理结果／hash、PostCSS 依赖修改触发主 watch、处理错误→保留→恢复、source map 串联及 warning/error 来源。先验证生命周期，不新增公共 hook、独立进程服务或通用 loader 执行框架。隔离编译只是探针载体，其额外编译成本没有被测量或认定为可接受性能。
+4. 聚合 CSS 的输入身份和相对资源基准需要明确定义；filename-sensitive 插件、`@import`、URL 重写和额外依赖不能凭这四个输入外推兼容。不得通过剔除 PostCSS、跳过 targets、全局关闭缓存或改变 preserved fallback 来取得通过。若实际无法在现有契约内接入，再提出具体能力范围让 owner 决定。
+
+本轮共三个阶段负对照、三个原生处理器输出对照和一个文件依赖对照通过；不把它们计入现有单元测试总数。没有新的浏览器、完整 verify 或正式 React 集成验收。上一节 CSS-only／HMR 及生产 hash 证据仍保留，不因本轮处理器对照就视为已与真实 GSS 串联。现有 React 用法、排序、fallback、两个入口及任何编译错误保留上一成功版的决策不变，当前无新增 owner 决策。
 
 ### Preserved fallback 贡献边界
 

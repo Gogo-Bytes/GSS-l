@@ -18,7 +18,9 @@
 
 ## 当前目标：React 多构建工具接入
 
-最新 [CSS 输出与更新核对](ARCHITECTURE-DIRECTION.md#css-asset-输出与更新生命周期核对2026-11-01)：两宿主的 asset／runtime 传输探针在 Chromium 通过 CSS-only 更新、失败保留、同 bytes 恢复及再次更新；生产压缩后 HTML／JS 引用与最终 CSS 文件名一致。owner 已确认启用 GSS 时任何编译错误均不发布本轮产物，采用原生 NoEmitOnErrorsPlugin 机制维护恢复链。仍是假模块和手动 HMR 探针，不是 React 集成或完整 dev server 验收。下一项核对真实 CSS loader／targets／后处理等价性，再连接 Compiler／React／资源／map；不得静默绕过处理阶段。当前无待 owner 决策。
+最新 [CSS 处理阶段对照](ARCHITECTURE-DIRECTION.md#css-loadertargetspostcss-对照2026-11-01) 已完成：直接 asset 确实跳过 loader targets 和 PostCSS；复用实际解析出的原生处理器后，默认／Safari 9／自定义 PostCSS 三组与普通 CSS 输出一致（仅去首尾空白），另确认 PostCSS 文件依赖可从处理器 compilation 取得。证据为 `artifacts/rspack-lifecycle-design/css-stages.log`、`css-processor.log`、`css-dependency.log`。仍是隔离探针，下一项验证主构建内的处理步骤、依赖回传、失败恢复及 map；不直接引入独立 compiler 架构或新公共接口。无产品变更，无新浏览器／全仓验收，当前无新增 owner 决策。
+
+最新 [CSS 输出与更新核对](ARCHITECTURE-DIRECTION.md#css-asset-输出与更新生命周期核对2026-11-01)：两宿主的 asset／runtime 传输探针在 Chromium 通过 CSS-only 更新、失败保留、同 bytes 恢复及再次更新；生产压缩后 HTML／JS 引用与最终 CSS 文件名一致。owner 已确认启用 GSS 时任何编译错误均不发布本轮产物，采用原生 NoEmitOnErrorsPlugin 机制维护恢复链。仍是假模块和手动 HMR 探针，不是 React 集成或完整 dev server 验收。CSS loader／targets／后处理对照结果见上方，随后连接主构建与 Compiler／React／资源／map；不得静默绕过处理阶段。当前无待 owner 决策。
 
 最小配置与生命周期设计已形成 [详细方案](ARCHITECTURE-DIRECTION.md#rsbuildrspack-最小配置与生命周期设计2026-11-01)。Rspack 2.3.0 的三轮 watch 探针验证缓存命中下仍可按图恢复 GSS 假模块集合；Rsbuild 2.3.0 的晚期 CSS 重建探针触发原生异常，取消重建的对照通过，失败证据保留。输出机制尚未定案，不能标记新宿主可用。owner 已确认 Rspack 核心 + Rsbuild 轻量配置封装；asset／HTML／HMR 后续探针见下方当前结果，不改变 React／排序／fallback。证据在 `artifacts/rspack-lifecycle-design/`，未改 workspace 依赖或产品代码，未跑全仓／浏览器。
 
