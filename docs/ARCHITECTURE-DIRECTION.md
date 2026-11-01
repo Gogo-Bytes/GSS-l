@@ -145,9 +145,9 @@ sequenceDiagram
 
 ### React 多构建工具接入方向（2026-11-01）
 
-owner 已明确下一产品方向为 **React + 多类脚手架／构建工具，优先 Rsbuild、Rspack**。Vue／Svelte 暂不进入实施。以下是待确认的最小架构方案，不代表已经支持 Rsbuild／Rspack；现有 React 作者语法、外部 `.gss`、Compiler 排序和 fallback 契约继续保留。
+owner 已明确下一产品方向为 **React + 多类脚手架／构建工具，优先 Rsbuild、Rspack**。Vue／Svelte 暂不进入实施。以下保留最初方案及后续修正；owner 已确认 Rspack 核心 + Rsbuild 薄封装两个入口，不代表已经支持 Rsbuild／Rspack；现有 React 作者语法、外部 `.gss`、Compiler 排序和 fallback 契约继续保留。
 
-**建议采用一套 Rspack 集成，同时供原生 Rspack 与 Rsbuild 使用。** Rsbuild 官方提供通过 `tools.rspack` 注册 Rspack 插件的方式，见 [配置 Rspack](https://rsbuild.rs/guide/configuration/rspack)。因此先提供 `integrations/rspack/`，Rsbuild 首轮使用配置接入示例；只有出现真实的 Rsbuild 专有配置重复，再加 `integrations/rsbuild/` 的轻量配置封装。不为两个入口复制编译和 React lowering，也不提前创建通用 bundler 包。包名、插件导出和选项尚未定稿，须在实施设计中给出最小可用配置后确认。
+**建议采用一套 Rspack 集成，同时供原生 Rspack 与 Rsbuild 使用。** Rsbuild 官方提供通过 `tools.rspack` 注册 Rspack 插件的方式，见 [配置 Rspack](https://rsbuild.rs/guide/configuration/rspack)。最初考虑仅提供 `integrations/rspack/` 与 Rsbuild 配置示例；后续默认 CSS／HTML 配置核对证明薄封装有明确责任，owner 已确认同时提供 `integrations/rsbuild/`，具体见下方生命周期设计。不为两个入口复制编译和 React lowering，也不提前创建通用 bundler 包。包名、插件导出和选项尚未定稿，须在实施设计中给出最小可用配置后确认。
 
 ```text
 React JS/TS/JSX/TSX + 外部 .gss
@@ -215,7 +215,7 @@ webpack 复用的依据与限制见 [Rspack 迁移说明](https://rspack.rs/guid
 
 #### Rsbuild／Rspack 最小配置与生命周期设计（2026-11-01）
 
-本轮 owner 授权推进设计，保留 React 外部 `.gss` 使用方式、排序和 fallback。以下区分**拟定契约、实测接缝和未解决实现**；不是已交付宿主。新证据修正上一节“Rsbuild 初期仅给配置示例”的建议：倾向于增加轻量 Rsbuild 封装，读取其有效 CSS／HTML 配置，共用同一 Rspack 核心；该公共入口选择待 owner 确认。
+本轮 owner 授权推进设计，保留 React 外部 `.gss` 使用方式、排序和 fallback。以下区分**拟定契约、实测接缝和未解决实现**；不是已交付宿主。新证据修正上一节“Rsbuild 初期仅给配置示例”的建议：倾向于增加轻量 Rsbuild 封装，读取其有效 CSS／HTML 配置，共用同一 Rspack 核心；owner 随后已确认采用这两个入口。
 
 **最小消费配置草案。** 原 React 源码保持 `import styles from './Card.gss'` 和 `<div className={styles.card}>`，旧 `.self`、动态／未知引用及现有诊断边界不变。拟新增的包名与函数名如下，尚未实现或发布：
 
@@ -240,7 +240,7 @@ import { react } from '@gss-l/react';
 
 原生 Rspack 片段不是完整 React 配置；插件负责内部 GSS loader 注册，应用不手配 loader 顺序。默认 HTML 生成路径目标是自动加载汇总 CSS，不要求每个 React 文件新增 CSS import。无 HTML 的库构建／自定义 SSR 入口、既有 `virtual:gss.css?url` 在新宿主中的实现另列，首个 SPA 路径未完成前不承诺这些入口。公共选项首稿仅 `adapter`；projectRoot 取 compiler.context。无法从原生 Rspack 获取有效 CSS 处理阶段时，须提供具体错误与配置方案再讨论必要选项，不能默认猜 targets 或修改 fallback。Rsbuild 封装负责使用公开配置／hooks 传递宿主信息，不通过猜测插件 constructor/name 识别内部实例。
 
-建议职责与目录（待批准后创建）：`integrations/rspack/` 放插件、内部源码／GSS loader、构建快照及输出协调；`integrations/rsbuild/` 仅放配置／HTML／targets 对接。`adapters/react/` 和 Compiler 保持原职责。两个宿主封装共用 Rspack 实现，但不从 Vite 提前抽出公共宿主框架；若要提取无宿主依赖的资产处理，先做原行为对照。
+已确认职责与目标目录（尚未创建产品包）：`integrations/rspack/` 放插件、内部源码／GSS loader、构建快照及输出协调；`integrations/rsbuild/` 仅放配置／HTML／targets 对接。`adapters/react/` 和 Compiler 保持原职责。两个宿主封装共用 Rspack 实现，但不从 Vite 提前抽出公共宿主框架；若要提取无宿主依赖的资产处理，先做原行为对照。
 
 **数据所有权与生命周期。**
 
@@ -272,9 +272,49 @@ import { react } from '@gss-l/react';
 
 下一技术核对优先评估在 GSS 汇总后通过正式 asset／HTML hooks 输出 CSS，保留宿主等价的 CSS 处理阶段，并设计可随 HMR 发布的样式引用；若需要专用 runtime，应先证明同轮 hash／CSS-only 更新／失败保留成立，再决定是否引入。另一条候选是在正常模块构建阶段完成汇总 CSS，必须解决未完成图与异步依赖发现，不能先扫描磁盘猜所有输入。两条都不得改排序或 fallback，也不能静默绕过 Rsbuild 的 Lightning CSS／自定义后处理。此次不选一个尚未通过的机制冒充可实施定案。
 
-**待 owner 决策与下一步。** 建议接受 `@gss-l/rspack` 核心 + `@gss-l/rsbuild` 轻量封装的两个配置入口，React 源码完全沿用现有方式。替代方案是只提供 Rspack 插件，由用户手动对接 Rsbuild 的 HTML 与 CSS targets，包少但接入配置更复杂。确认入口后，继续上面的输出生命周期探针；只有 build／缓存／更新机制成立才开始产品集成实现。技术异常诊断由 agent 负责，不要求 owner 选择 hook 或排查上游。
+**已确认的入口。** owner 已接受 `@gss-l/rspack` 核心 + `@gss-l/rsbuild` 轻量封装，React 源码完全沿用现有方式。无需再次询问是否提供薄封装；包尚未实现／发布。输出生命周期后续结果见下节，技术异常诊断由 agent 负责。
 
 本轮设计与探针不算新宿主通过验收。未跑全仓 verify／浏览器；未变产品代码、React 作者语法、排序、fallback 或 Vite 路径。
+
+#### CSS asset 输出与更新生命周期核对（2026-11-01）
+
+**当前结论：asset + HTML hooks + Rspack runtime 的传递路径已有有限实测依据，可继续细化；不能直接作为完整集成发布。** 沿用上节隔离环境的 Rspack／Rsbuild 2.3.0、plugin-react 2.1.1、Node 22.22.3。未修改 workspace 依赖和产品代码。
+
+本轮候选路径如下：
+
+```text
+本轮可达模块输入 → 汇总候选 CSS
+  ├─ runtime 生成样式文件引用（参与本轮 JS／HMR 生成）
+  └─ processAssets ADDITIONAL 输出带 contenthash 信息的 CSS asset
+       → 宿主 CSS minimizer → real content hash 更新引用
+       → HTML 正式 hook 注入 stylesheet link
+开发更新 → 原生 HMR runtime 更新引用 → 新 link 加载成功后移除旧 link
+```
+
+这里使用 Rspack 的 [RuntimeModule 接口](https://rspack.rs/api/javascript-api/compilation) 与 Rsbuild 的 [HTML hooks](https://rsbuild.rs/plugins/dev/hooks)，没有晚期重建 CSS 模块，也没有在生成 hash 后手工替换 bundle 字符串。探针 runtime 只是传输机制验证，不是已选定的生产 runtime；HTML／runtime 共享标识去重、快速连续更新的竞态、加载失败回滚等还需完善。
+
+**已确认的失败发布策略。** owner 明确接受：启用 GSS 的 Rsbuild／Rspack 开发构建中，**任何编译错误（包括非 GSS 的 JS／TS 错误）均不发布本轮新产物，保留上一成功版**。采用 Rspack 自带 `NoEmitOnErrorsPlugin` 的机制，不只拦 `shouldEmit`。此为新宿主的错误交付策略，不改变 CSS fallback、不将非法输入当成功，也不修改既有 Vite 行为。首次构建失败时没有成功版可保留，必须显示错误。错误仍传给宿主客户端／overlay，不能因为保留旧页面而隐藏诊断。
+
+原生机制的必要性由对照得到：只在 shouldEmit 返回 false 时，失败构建后的浏览器仍持有上一成功 hash，但恢复产物的 HMR 链没有对应请求，下一次样式更新无法完成。替换为原生 NoEmitOnErrorsPlugin 后，两宿主恢复链通过。不要用 full reload 掩盖该对照，也不要把文件未输出误认为 HMR 状态已经保留。
+
+| 本轮探针 | 观察与独立断言 | 尚未覆盖 |
+| --- | --- | --- |
+| `output-probe.mjs rspack` | Chromium 字面样式红→蓝→故意编译失败→恢复同一蓝色 bytes→红；失败保持蓝色，最后 boots=1 | React state／Fast Refresh、真正 GSS schema 变化及默认 dev-server WebSocket |
+| `output-probe.mjs rsbuild` | 同一序列和断言通过，runtime 引用经原生 HMR 更新；无页面重启 | 同上；通过 `createCompiler().watch()` 和探针 HTTP 服务，手动调用 `module.hot.check(true)`，不是完整 Rsbuild dev server 验收 |
+| `production-probe.mjs rspack` | 独立生产编译，显式 Lightning CSS minimizer；CSS bytes 确实被压缩，HTML 与 JS 引用最终 CSS 文件名 | 任意 CSS 值语义、map／资源 URL、复杂 publicPath |
+| `production-probe.mjs rsbuild` | 使用 Rsbuild 默认生产 minimizer 与 modifyHTMLTags；同样通过压缩、最终文件名及两处引用断言 | 默认 CSS loader／PostCSS 不会因 emitAsset 自动执行；生产页面未作浏览器验收 |
+
+原始通过日志为 `artifacts/rspack-lifecycle-design/output-rspack.log`、`output-rsbuild.log`、`production-rspack.log`、`production-rsbuild.log`；探针中 `.gss` loader 返回常量导出，CSS 来自字面源文本，不包含真正 Compiler／React Adapter。这是刻意隔离 CSS-only runtime 变化，不能据此宣称真实 GSS 已完成接入。浏览器使用现有 Playwright 的 Chromium，未改变仓库任何默认浏览器入口或扩为三引擎矩阵。
+
+失败记录完整保留：`output-*-initial.log` 为首次超时；诊断日志 `output-rspack-diagnostic.log` 显示额外启动编译和 HMR 请求。探针最初直接消费 FIFO 回调，可能拿到启动时的额外 build；修正为按错误状态和候选 CSS 内容匹配本轮结果。随后 `output-*-shouldemit-only.log` 仍复现恢复链断裂，证明不能只归因于 harness。最终原生 NoEmitOnErrorsPlugin 路径通过。此前晚期 CSS rebuild 的 panic 记录也保留，没有宣布根因已修复。
+
+**下一实施前必须完成的技术核对。**
+
+1. **真实 CSS 处理阶段。** `emitAsset` 可以进入 minimizer，但不自动执行 css-loader／lightningcss-loader／PostCSS。Rsbuild [Lightning CSS 配置](https://rsbuild.rs/config/tools/lightningcss-loader) 区分 loader 与 minimizer。必须把实际阶段和 targets 传入 Compiler compatibility，并为 aggregate CSS 提供等价的最终处理；不能仅从 Browserslist 猜所有阶段，也不能无声跳过用户 PostCSS。现有 Compiler 的 compatibilityTransformer 是声明／资源级处理，不可冒充完整宿主 CSS 管线。自定义阶段无法可靠镜像时先明确具体限制与影响，涉及能力／fallback 选择再找 owner。
+2. **真实模块闭环。** 替换假模块为现有 React Adapter + Compiler；核对本轮候选和局部 schema／moduleCode 一致、错误恢复、资源引用及 source map。loader 未运行时仍从图取得贡献。不能直接搬用探针中基于普通文件系统的读法作为支持虚拟文件系统的实现。
+3. **传递与发布完善。** HTML 和 runtime 的 link 使用同一标识避免重复；新样式加载失败保留旧样式，连续更新不能让迟到回调删除较新版本；验证默认 dev server 的错误 overlay／恢复、schema 改变传播、publicPath、资源及旧产物生命周期。只在候选完整且宿主构建成功时更新已发布快照。
+
+本次保持已确认的两个入口、React 使用方式、排序及 fallback。不运行全仓 verify 或既有浏览器全套，因为产品代码未变；上述局部 Chromium 探针是新增证据，不能混入历史完整验收计数。下一项优先是 CSS loader／targets／后处理等价性核对，当前无待 owner 决策。
 
 ### Preserved fallback 贡献边界
 

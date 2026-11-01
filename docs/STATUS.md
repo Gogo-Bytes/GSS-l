@@ -10,11 +10,13 @@ CSS 能力接入流程与策略归属核对已按 owner 授权完成，形成三
 
 ## 当前目标：React 多构建工具接入
 
-最小配置与生命周期设计已形成 [详细方案](ARCHITECTURE-DIRECTION.md#rsbuildrspack-最小配置与生命周期设计2026-11-01)。Rspack 2.3.0 的三轮 watch 探针验证缓存命中下仍可按图恢复 GSS 假模块集合；Rsbuild 2.3.0 的晚期 CSS 重建探针触发原生异常，取消重建的对照通过，失败证据保留。输出机制尚未定案，不能标记新宿主可用。建议新增 Rspack 核心 + Rsbuild 轻量配置封装，入口待 owner 确认；随后继续 asset／HTML／HMR 输出机制核对，不改变 React／排序／fallback。证据在 `artifacts/rspack-lifecycle-design/`，未改 workspace 依赖或产品代码，未跑全仓／浏览器。
+最新 [CSS 输出与更新核对](ARCHITECTURE-DIRECTION.md#css-asset-输出与更新生命周期核对2026-11-01)：两宿主的 asset／runtime 传输探针在 Chromium 通过 CSS-only 更新、失败保留、同 bytes 恢复及再次更新；生产压缩后 HTML／JS 引用与最终 CSS 文件名一致。owner 已确认启用 GSS 时任何编译错误均不发布本轮产物，采用原生 NoEmitOnErrorsPlugin 机制维护恢复链。仍是假模块和手动 HMR 探针，不是 React 集成或完整 dev server 验收。下一项核对真实 CSS loader／targets／后处理等价性，再连接 Compiler／React／资源／map；不得静默绕过处理阶段。当前无待 owner 决策。
+
+最小配置与生命周期设计已形成 [详细方案](ARCHITECTURE-DIRECTION.md#rsbuildrspack-最小配置与生命周期设计2026-11-01)。Rspack 2.3.0 的三轮 watch 探针验证缓存命中下仍可按图恢复 GSS 假模块集合；Rsbuild 2.3.0 的晚期 CSS 重建探针触发原生异常，取消重建的对照通过，失败证据保留。输出机制尚未定案，不能标记新宿主可用。owner 已确认 Rspack 核心 + Rsbuild 轻量配置封装；asset／HTML／HMR 后续探针见下方当前结果，不改变 React／排序／fallback。证据在 `artifacts/rspack-lifecycle-design/`，未改 workspace 依赖或产品代码，未跑全仓／浏览器。
 
 owner 已补充整体目标：先稳定 React 生态，再进入 Vue 等 UI 框架。本轮已完成 [React 生态粗规划](ARCHITECTURE-DIRECTION.md#react-生态覆盖规划2026-11-01-调研)：第一批 Vite 与 Rsbuild／Rspack；第二批评估 webpack／Parcel；React Router、TanStack Start、Next.js 和 Storybook 按上层框架／消费场景分别验证。优先级不是市场份额排名，也不是全部工具已经获准实施；进入其他 UI 框架前须有支持范围、运行证据及剩余限制结论。下一具体工作是 Rsbuild／Rspack 最小配置与生命周期设计，本轮只调研与更新规划。
 
-owner 已指定优先支持 React + Rsbuild／Rspack，暂不新增 Vue／Svelte。具体 [接入方案与交付顺序](ARCHITECTURE-DIRECTION.md#react-多构建工具接入方向2026-11-01) 建议以一套 Rspack 集成供原生 Rspack 和 Rsbuild 复用，保留现有 React Adapter／Compiler。该架构方案待确认，当前未实现新宿主；先确定最小配置和缓存／编译生命周期，再完成构建、开发更新及两个消费入口。排序、fallback、既有 Vite 支持和发布授权边界不变。本次仅文档更新，无新增运行验证。
+owner 已指定优先支持 React + Rsbuild／Rspack，暂不新增 Vue／Svelte。具体 [接入方案与交付顺序](ARCHITECTURE-DIRECTION.md#react-多构建工具接入方向2026-11-01) 建议以一套 Rspack 集成供原生 Rspack 和 Rsbuild 复用，保留现有 React Adapter／Compiler。两个入口已获确认，当前未实现新宿主；先确定最小配置和缓存／编译生命周期，再完成构建、开发更新及两个消费入口。排序、fallback、既有 Vite 支持和发布授权边界不变。本次仅文档更新，无新增运行验证。
 
 ## 已完成：Parser／Adapter／宿主接口评估
 
