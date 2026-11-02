@@ -25,3 +25,5 @@ owner 已要求按整体规划实施核心架构与属性排序目标；先读 d
 ```
 
 2026-11-02 接续补充：内部 source-loader／publication 已连接准备模块与原生生命周期；进度以 NEXT-STAGE 顶部为准。下一项为 CSS 后处理架构确认，不能把探针的独立 compiler 自动视为已批准架构。两个宿主仍无公开插件入口。
+
+最新 owner 指令：先不引入独立 compiler。已完成主构建 CSS 链调研，finishMake + addEntry 的 Rsbuild 生产与五轮 watch 通过，建议优先此方案；详见 ARCHITECTURE-DIRECTION 最新对比节。下一次按 owner 对建议的反馈推进，不能恢复旧的独立 compiler 实施建议。

@@ -514,3 +514,45 @@ owner 已要求开始推进目标；按已确认语义及这里的阶段推进�
 下一项为正式 CSS 后处理；探针使用独立原生 compiler 的方案尚未确定为产品架构，需要 owner 决定后再接通。Rsbuild 封装、资源和 HTML/runtime 完整交付仍未完成，不能公开宣称两个入口可用。
 
 本轮完整 `corepack pnpm verify` 通过：2558 项测试及 lint/build/types；日志 `artifacts/rspack-lifecycle-design/loader-publication-verify.log`。此前排序和 Vite 的完整浏览器 gate 未重跑，不把局部宿主探针合并为全浏览器验收。
+
+#### 主构建 CSS 链与独立 compiler 对比（2026-11-02）
+
+**Owner 指令：暂不引入独立 compiler，先调研主构建现有 CSS 链。结论：优先推进主构建 `finishMake + addEntry` 的有界接入验证，不采用独立 compiler 为默认方案。** 这是本轮建议与探针结果，尚非正式插件交付，也不改变排序／fallback 或 React 作者写法。
+
+之前的失败不能推导为主构建不可行。Rspack 2.3.0 [模块图阶段源码](https://raw.githubusercontent.com/web-infra-dev/rspack/v2.3.0/crates/rspack_core/src/compilation/build_module_graph/pass.rs) 明确依次执行 make、模块图构建、finishMake、finish module graph；[收尾源码](https://raw.githubusercontent.com/web-infra-dev/rspack/v2.3.0/crates/rspack_core/src/compilation/finish_module_graph/mod.rs) 在最后阶段结束 module executor 并注明此后 make artifact 应只读。[官方 hooks 文档](https://rspack.rs/api/plugin-api/compiler-hooks) 也说明 finishMake 在 make 完成后调用。因此应在用户入口图已建立、原生模块构建设施仍可用的 finishMake 添加聚合 CSS，而不是等 finishModules 再重建 CSS 模块。此为时点分析；没有宣称已修复上游 panic。
+
+建议生命周期：
+
+```text
+主构建 make：解析 React / JS 与静态、lazy 模块，准备 .gss 导出
+  → finishMake：沿本轮入口图收集可达 .gss，生成候选聚合 CSS
+  → addEntry：把内部 aggregate.css 加到主构建入口
+  → pre loader：提供本轮候选 CSS / map
+  → 现有 CSS 规则：PostCSS、Lightning CSS、css-loader / 提取
+  → 主构建统一优化、hash、HTML、输出；任何编译错误不发布
+```
+
+不是对每个 `.gss` 独立输出一份 CSS，也不是把 CSS 拆分到 lazy chunk；两者可能改变全局排序和汇总契约，本轮不采用。主构建方案仍消费全图候选。`addEntry` 是内部图接入，不要求作者新增 CSS import。正式实现要验证多入口附着与 CSS sideEffects，不把单入口成功扩大为全部入口保证。
+
+**本地证据。** `artifacts/rspack-lifecycle-design/main-chain-probe.mjs` 使用当前 Rspack／Rsbuild 2.3.0、真正 Compiler preparation／candidate，单个 JS 入口含静态和 lazy `.gss`，用占位 aggregate.css 和 pre loader 供给候选，CSS 处理规则完全来自 Rsbuild，没有抽取 loader 或另起 compiler。
+
+- `main-chain-finishMake.log`：生产输出含两模块贡献；自定义 PostCSS 把实际 red 声明改成 green，原生压缩把 blue 改成 #00f；HTML 自动引用最终带 hash 的 CSS。不是只检查 class 名中的颜色字符串。
+- `main-chain-watch.log`：同一个 compiler.watch 通过初始构建、仅修改 PostCSS 依赖 token.txt（green→purple）、移除 lazy import（blue 贡献消失）、非法 `.gss`（失败保留旧 HTML／CSS）、恢复相同输入五轮。依赖由原生 loader 链返回，无独立处理器依赖搬运。
+- `main-chain-finishModules.log`：相同 addEntry 操作移到 finishModules，原生 panic `attempt to steal from stolen value: ... ExportsInfoArtifact`，退出 134。与此前 rebuild 的 `should have event sender` 是两个失败记录，均保留，不能混为同一实测错误。
+- `main-chain-watch-old-assets-failure.log`：首次 watch 断言误把输出目录所有历史 hash 文件拼接，导致 lazy 移除判断失败。修正为读取当前已输出 HTML 实际引用的 CSS 后通过；没有删除旧文件掩盖结果。
+
+| 维度 | 主构建现有 CSS 链（建议） | 独立 compiler（保留备选，不实施） |
+| --- | --- | --- |
+| 配置与处理一致性 | aggregate.css 直接匹配宿主规则，无需复制处理器 options；仍需核对 include/exclude、issuer、资源路径与自定义规则 | 需要筛选／复制处理器、targets、resolver、FS 和 map 环境；任意自定义 loader 不保证可搬迁 |
+| 实现复杂度 | 难点集中在图完成时机、内部 CSS 身份、缓存失效和多入口附着；现有 extraction／HTML／CSS runtime 可继续复用 | 聚合时点较自由，但要维护第二个 compiler 的创建／关闭、处理结果、诊断、依赖回传及主构建输出；现有手写 link/runtime 仍需完善 |
+| 依赖与 watch | 普通 CSS loader 原生登记依赖；本轮 token 文件修改已触发重建 | 需拷贝 file/context/missing 集合，失败保留／成功替换由集成维护 |
+| 失败与恢复 | 共用主 compilation 和已批准 NoEmitOnErrorsPlugin；本轮 GSS 失败和同输入恢复通过 | 处理器失败转成主构建错误，仍需阻断主构建发布；子步骤成功不代表主构建成功 |
+| HMR／HTML | 有机会完全复用原生 CSS 链；本轮只验证输出和 watch，未验证默认 dev server／浏览器 HMR | 已有手动 HMR Chromium 探针，但需要自有 CSS link 去重、竞态和加载失败逻辑；不等于默认 dev server 已支持 |
+| 资源／map | 复用原生解析与 map 链的基础更好；聚合 CSS 的相对 URL 来源和原始 map 路径仍须正确转换 | 除同样的 URL／map 问题，还需跨 compiler 传递资源与配置；已接受原生规则级 map 限制 |
+| 执行成本 | 没有额外 compiler；探针 cacheable(false) 强制候选 loader 每轮运行，仅为正确性隔离 | 额外编译生命周期；未做 profiling，不能断言具体性能差距 |
+
+**未选择的变体。** 在早期普通 CSS loader 内等待全图候选，会让 make 等 loader、loader 又等 make 的候选，形成时序循环；单纯 VirtualModulesPlugin 写文件也不解决聚合时点。提前扫描所有源文件则重复实现宿主解析／条件／lazy 可达性，不作为本轮建议。`importModule` 是 [官方提供的 loader 内编译执行能力](https://rspack.rs/api/loader-api/context)，可替代某些 child compiler 用法，但自身不解决等待完整图的问题。
+
+**下一步建议与边界。** 在 owner 确认方向后，优先将 finishMake 单轮候选供给接到已有内部模块，复用主链，验证默认 dev server 的更新／overlay／同内容恢复，以及 PostCSS 失败恢复；然后核对内部 CSS 身份、资源／map、多入口与无 GSS 清空。不得为了接通而复制当前探针物理占位文件方案到用户项目，或修改排序／fallback。若出现具体无法保留契约的主链障碍，再以最小反例重新比较独立处理器。
+
+本轮仅调研、隔离探针与文档；没有产品实现改动，不运行全仓 verify／排序浏览器 gate，未引入独立 compiler。生产和 watch 的局部成功不等于原生 Rspack 自定义 CSS 规则、默认 dev server、Fast Refresh、CSS URL、map 或多入口已验证。
