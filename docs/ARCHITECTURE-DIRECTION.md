@@ -368,6 +368,12 @@ import { react } from '@gss-l/react';
 
 本轮没有产品代码修改；未运行全仓 verify、原排序三引擎入口或外部框架验收。以上局部 Chromium 结果不并入历史完整验收数字。所有探针失败和先前原生 panic 均保留，未宣布上游问题已修复。当前无待 owner 决策。
 
+#### Rspack 内部源码准备实现（2026-11-02）
+
+已开始产品模块实现：[source-preparation.ts](../integrations/rspack/src/source-preparation.ts) 在一个 compilation 内按规范 stylesheet ID 共享输入准备，源码／资产引用快照与局部 Compiler 结果一起保存；失败本轮不重读，后续 compilation 使用新实例恢复。源码转换沿用 React Adapter，raw specifier 经宿主 resolver 指向准备后的 schema，先 watch 后 prepare；依赖失败不执行 transform。Compiler 原始诊断 id／range 保留，preserved warning 正常返回，排序／fallback 不变。
+
+职责与反例见 [模块说明](../integrations/rspack/README.md)。新增 workspace `@gss-l/rspack` 只依赖既有 Compiler，并以 React Adapter 做内部测试；尚无插件导出（exports 为空），没有添加 Rspack runtime 依赖或宣称构建工具可用。局部准备不替代全局资源冲突检查，本轮可达候选汇总仍需后续实现。验证结果见当前进度。
+
 ### Preserved fallback 贡献边界
 
 [preserved-contribution.ts](../compiler/src/application/preserved-contribution.ts) 接收贡献准备已经选择的整模块 preserved 路径，生成原顺序 CSS、scope marker／schema、资源绑定、来源位置及 `GSS1104` warning。是否可进入该路径仍由贡献准备按既有 unknown effect、compatibility、`atomizationFallback`、`:global()` 和逻辑／物理冲突检查决定；该模块不决定准入，也不把 preserved 内容当成 atomic rule。
