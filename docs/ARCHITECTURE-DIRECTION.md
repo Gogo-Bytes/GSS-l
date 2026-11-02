@@ -661,3 +661,20 @@ Owner 要求优先复用宿主、不重复 targets、不改变 GSS 排序，先�
 失败证据保留：最初误认为 Safari 9 仍需 display:flex 前缀的断言已改成确实需前缀的 user-select 对照（`rsbuild-solutions-prefix-expectation-failure.log`）；scoped 脚本括号错误及未处理默认 splitChunks 形态分别保留（`rsbuild-scoped-syntax-failure.log`、`rsbuild-scoped-config-failure.log`）。这是探针修正，不是放宽产品断言。
 
 本轮只调研／局部探针／设计文档，未修改 fallback、宿主运行时代码或公共 API，未跑全仓 verify，未改变默认浏览器 gate。原始调研来源汇总在 `specificity-research.md`。上述推荐尚未获实施授权；不能因“宿主有 exclude 开关”就自动降低浏览器支持或全局改普通 CSS。
+
+
+#### GSS CSS 局部隔离实施（2026-11-02）
+
+Owner 已批准上一节推荐方向：仅 GSS CSS 关闭逻辑属性降级，普通 CSS、现有排序／复用与 fallback 不变，不新增 targets。逻辑属性由浏览器原生执行，不为旧浏览器自研 polyfill；此决策不授权删除 Compiler compatibility 分支，也不改变 Vite 配置。以下实施记录取代上一节的“未获授权”。
+
+内部 `integrations/rspack/src/css-isolation.ts` 使用主构建现有能力：精确匹配聚合 resource，对 builtin Lightning CSS loader 复制有效 options，只覆盖 include.logicalProperties=false／exclude.logicalProperties=true；其他 loader、targets、前缀及处理选项继续由宿主决定。递归处理 rules／oneOf 与 use callback；显式 ident 的 GSS 副本独立，避免污染普通 CSS options。生产 minimizer 同样按 GSS 资产与普通资产隔离，不能只改 loader。
+
+原生 splitChunks 提取共享 gss-l CSS，保留宿主 JS 分包设置（原先 false 时不启用默认 JS groups）。各入口使用同一全局 GSS 候选，不新增按路由拆分语义。当前内部桥接使用带 chunk 名的 CSS 文件名选择 minimizer；纯 hash 文件名会明确构建失败，不能静默遗漏隔离。它不是已发布公共配置，也不承诺任意自定义 minimizer／多处理器组合；有效 minimizer options 仍需由宿主桥接传入。
+
+**顺序反例与修复。** 直接分包会把 GSS stylesheet 放到普通 CSS 前：同一元素的 GSS 红色与普通 CSS 蓝色同强度，原本红色胜出会反转成蓝色。通过宿主 HTML hook 把聚合 GSS 恢复到普通 CSS 之后；只稳定重排 stylesheet 槽位，其他标签、属性和对象保留。原生 Rspack 使用 HtmlRspackPlugin hook；Rsbuild 使用自己的 modifyHTMLTags hook，不能以原生 hook 已注册代替实际验证。没有提高 selector 权重、手写 link runtime 或独立 compiler。
+
+**验证。** 新增 4 项回归：options／ident 隔离、HTML 属性与槽位保持、真实双入口 native CSS 编译、无可识别 chunk 名的失败保护。原主链 watch 回归仍覆盖 lazy 移除、非法输入／恢复、处理器依赖恢复及清空。全仓运行暴露其“下一个回调就是下一次编辑”的错误假设：watchRun 记录显示初始时间戳和前次编辑会产生额外轮次；测试改用构建开始时的输入快照匹配轮次，不按目标 CSS 筛选，不放宽任何输出断言。首次失败 `verify.log`、带轨迹的 `verify-trace.log`、测试上下文类型修正前 `verify-input-rounds.log` 均保留；最终 `verify-final.log` 为 **2563** 项及 lint/build/types 通过。
+
+Rsbuild 2.3.0／Rspack 2.3.0 的 production probe 使用旧 Safari targets 触发降级，在现代 Chromium 实际加载两个 HTML：GSS margin-left=2px、普通 CSS=1px，普通 CSS 前缀保留；同节点颜色为 GSS 红色，两个入口引用同一 GSS 文件且后加载。默认 React dev server 的原生 HMR 验证 GSS 红→蓝、普通 CSS 更新（outline 独立确认更新发生）不反转 GSS 覆盖、非法 GSS 保留蓝色、同输入恢复及再更新红色。见 `production-browser.log`、`dev-server-ordinary-update.log`；初次顺序失败 `production.log` 保留。不是旧 Safari 实机、任意异步样式插入或全配置证明。Vite／既有三引擎 gate 未重跑，本轮未改其实现或 Compiler。
+
+下一项是把当前探针中的 Rsbuild 配置桥接收敛到薄封装，使用宿主公开 hook 取得有效配置；同时核对原生 Rspack 的接入形式。不能要求用户重复 targets，也不能读取私有 plugin 字段猜测配置。自动资源 IO 与公开消费尚未完成，不宣称包已可公开使用。

@@ -1,7 +1,7 @@
 import { mkdtemp, readFile, rm, writeFile, access } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { rspack, type Stats, type Compiler } from '@rspack/core';
+import { rspack, type Stats, type Compiler, type Compilation } from '@rspack/core';
 import { react } from '@gss-l/react';
 import { expect, it } from 'vitest';
 import { installMainCompilation } from '../dist/main-compilation.js';
@@ -30,6 +30,14 @@ it('uses the main CSS graph across entries, lazy removal, failed input, recovery
         read: async id => ({ source: await readFile(id, 'utf8') }) });
     } }]
   });
+  // Native watch may report extra rounds for initial timestamps or the preceding edit.
+  // Select by inputs observed before compilation, never by the CSS result under test.
+  let inputs: string[] = [];
+  const roundInputs = new WeakMap<Compilation, string[]>();
+  compiler.hooks.watchRun.tapPromise('TestInputs', async () => {
+    inputs = await Promise.all([index, source, token].map(file => readFile(file, 'utf8')));
+  });
+  compiler.hooks.thisCompilation.tap('TestInputs', compilation => roundInputs.set(compilation, inputs));
   const pending: Stats[] = [];
   let deliver: ((stats: Stats) => void) | undefined;
   let rejectRun: ((error: Error) => void) | undefined;
@@ -42,10 +50,17 @@ it('uses the main CSS graph across entries, lazy removal, failed input, recovery
   const run = () => pending.length ? Promise.resolve(pending.shift()!) : new Promise<Stats>((resolve, reject) => {
     deliver = resolve; rejectRun = reject;
   });
+  const currentRun = async () => {
+    const expected = await Promise.all([index, source, token].map(file => readFile(file, 'utf8')));
+    for (;;) {
+      const stats = await run();
+      if (JSON.stringify(roundInputs.get(stats.compilation)) === JSON.stringify(expected)) return stats;
+    }
+  };
   const css = (stats: Stats) => stats.compilation.getAssets().filter(a => a.name.endsWith('.css'))
     .map(a => String(a.source.source())).join('\n');
   try {
-    const first = await run();
+    const first = await currentRun();
     expect(first.hasErrors(), first.toString({ all: false, errors: true })).toBe(false);
     expect(css(first)).toContain('color: blue');
     expect(css(first)).toContain('margin: var(--space)');
@@ -55,27 +70,27 @@ it('uses the main CSS graph across entries, lazy removal, failed input, recovery
     }
     await expect(access(path.join(root, '.gss-internal/aggregate.css'))).rejects.toThrow();
     await writeFile(index, "import a from './a.gss';console.log(a.card);");
-    const removed = await run();
+    const removed = await currentRun();
     expect(removed.hasErrors(), removed.toString({all:false,errors:true})).toBe(false);
     expect(css(removed)).not.toContain('color: blue');
     const previous = publication!.published;
     await writeFile(source, '.card {');
-    const failed = await run();
+    const failed = await currentRun();
     expect(failed.hasErrors()).toBe(true);
     expect(publication!.published).toBe(previous);
     await writeFile(source, '.card { color: green; }');
-    const recovered = await run();
+    const recovered = await currentRun();
     expect(recovered.hasErrors()).toBe(false);
     expect(css(recovered)).toContain('color: green');
     expect(css(recovered)).not.toContain('color: red');
     const processed = publication!.published;
     await writeFile(token, 'fail');
-    expect((await run()).hasErrors()).toBe(true);
+    expect((await currentRun()).hasErrors()).toBe(true);
     expect(publication!.published).toBe(processed);
     await writeFile(token, 'ok');
-    expect((await run()).hasErrors()).toBe(false);
+    expect((await currentRun()).hasErrors()).toBe(false);
     await writeFile(index, "console.log('no gss');");
-    const empty = await run();
+    const empty = await currentRun();
     expect(empty.hasErrors()).toBe(false);
     expect(css(empty)).not.toContain('color:');
     expect([...empty.compilation.fileDependencies]).not.toContain(token);

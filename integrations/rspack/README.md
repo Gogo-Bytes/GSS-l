@@ -45,3 +45,12 @@ Compiler／Adapter error 阻止代码交付；`SourceDiagnosticError.diagnostics
 当前回归使用真实 Rspack native CSS watch，覆盖两个入口、lazy 移除、非法输入保留／恢复、无 GSS 清空及 shorthand 源码覆盖；Rsbuild probe 覆盖原生 CSS extraction／PostCSS 文件依赖更新。公开配置、完整资源 IO、默认 dev server、任意 CSS 规则和最终 map 定位仍需后续验证。测试载入 dist 中真实 loader，运行本包测试前需要 build（根 verify 已按此顺序执行）。
 
 主链不意味着处理器失败会自动保留全部 watch 依赖。PostCSS 在抛错前记录的 dependency message 可能未交给 loader；实测修复 token 文件不触发重建。`afterCompile` 只读取**本轮精确 aggregate request** 对应模块的 buildInfo 依赖，交给既有 publication 状态保留／替换；不扫描全部历史模块，也不复制其他 JS 模块依赖。首次成功建立依赖后，即使失败处理器没返回消息，修复仍可触发；首次构建从未发现的隐藏依赖无法凭空推断。回归覆盖失败后同输入恢复，以及空 CSS 成功后旧 token 依赖移除。
+
+
+## GSS CSS 局部隔离
+
+`css-isolation.ts` 是内部主链桥接，与 `installMainCompilation` 配对使用。调用者先把宿主有效 minimizer options 交给 `isolatedCssMinimizers`，再安装 `installCssIsolation`，最后接主构建。仅 GSS 聚合 resource 的 builtin Lightning CSS loader 和 gss-l CSS 资产的 minimizer 禁止 logical lowering，其他选项原样继承；不从 targets 推导第二份配置，也不修改 Compiler fallback。
+
+必须同时处理 loader 和 minimizer，否则生产会再次降级并增加逻辑 atom 的 selector 权重。原生 splitChunks 使用带 gss-l 名的资产；纯 hash 文件名明确失败。当前内部桥接仅消费一份已选定有效 minimizer 配置，不承诺任意多实例／自定义处理器。公开宿主桥接应在配置阶段完成，不能反射读取 plugin 私有参数。
+
+CSS 分包会改变默认 HTML link 顺序，因此用宿主 hook 调用 `orderGssStylesheets`，保持普通 CSS 在前、全局 GSS 在后；Rsbuild 须接自己的 modifyHTMLTags，原生 HtmlRspackPlugin hook 不替代它。保留非 stylesheet 标签槽位及所有属性。不能靠重复 class 或额外 specificity 修补顺序，也不生成私有 HMR runtime。实现、独立预期、失败证据及有限浏览器范围见 [架构记录](../../docs/ARCHITECTURE-DIRECTION.md#gss-css-局部隔离实施2026-11-02)。

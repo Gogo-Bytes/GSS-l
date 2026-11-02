@@ -339,3 +339,6 @@ Compiler build 与已有三组定向测试 **435** 项通过：fixed-module-rank
 这是后处理改变排序前提的证据，不是改变物理后发规则的授权。当前未新增 targets 配置，未删除 compatibility 检查／fallback。不同属性名触发整模块 preserved 的现行规则在本轮 flex／align／复用样本中尚未找到必要性反例，但该有限结果不覆盖所有生成属性冲突、关系语义或旧引擎。后续改动须分别论证 selector/shape 保护与 property-name fallback，不把二者合并为“兼容性开关”。
 
 2026-11-02 后续方案核对：宿主现有排除 logical lowering 的能力可以保留 GSS 原 selector 和逻辑声明；where 修补、重复 class、仅排除 DirSelector 均不能作为保持既定语义的通用方案。推荐候选及旧浏览器支持代价、主构建 CSS 资产隔离证据见 [方案对比](ARCHITECTURE-DIRECTION.md#宿主-selector-权重问题的方案对比2026-11-02仅建议)。尚未改变排序、fallback 或宿主配置；分包后的原生 cascade 顺序仍须验证，不得用附加权重掩盖问题。
+
+
+2026-11-02 owner 已批准并实现内部 GSS CSS 局部隔离：只排除 GSS loader／minimizer 的 logicalProperties 降级，让浏览器原生处理方向；普通 CSS 与 Compiler fallback 不变，不新增 targets。共享 CSS 分包后的 stylesheet 顺序通过宿主 HTML hook 恢复，不能增加 selector 权重。双入口生产及默认 HMR 的同节点竞争反例通过；实施范围和证据见 [隔离实施](ARCHITECTURE-DIRECTION.md#gss-css-局部隔离实施2026-11-02)。这解决已复现的宿主 specificity 反例，不是删除 compatibility 保护或扩大语义准入的授权。
