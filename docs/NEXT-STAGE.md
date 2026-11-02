@@ -18,7 +18,9 @@
 
 ## 当前目标：React 多构建工具接入
 
-2026-11-02 主链资源交接／最终 map 的有限核对通过，见 [记录与待决](ARCHITECTURE-DIRECTION.md#主链资源map-核对与公共配置待决2026-11-02)。当前需 owner 决定原生 Rspack 是否增加显式 compatibilityTargetStages 公共选项，还是保持 adapter-only 并限制为可可靠识别的 CSS 配置。未新增该选项，自动资源解析和 Rsbuild 薄封装也未完成；主构建实现与恢复修复已提交，独立 compiler 不引入。
+2026-11-02 owner 已明确暂不新增 targets 配置，先验证宿主后置兼容语义。[核对结果](ARCHITECTURE-DIRECTION.md#宿主后置兼容转换的语义核对2026-11-02)：真实 Rsbuild 生产链将逻辑／物理 margin 的 GSS 预期 2px 改为 1px（selector 权重增加）；直接 authored CSS 也受影响，旧 GSS 路径是拒绝而非 preserved 修复。另一方面，33 行主探针中的其余 29 行、独立 68 次 flex／align／复用比较及 4 个资源输出检查未证明不同属性名 fallback 必要。既有 compatibility 30 项通过。无产品修改，原“显式 targets／限制配置二选一”暂停；下一步基于反例讨论后处理契约，不能自动删除保护或新增配置。
+
+2026-11-02 主链资源交接／最终 map 的有限核对通过，见 [记录与待决](ARCHITECTURE-DIRECTION.md#主链资源map-核对与公共配置待决2026-11-02)。当时提出的显式 compatibilityTargetStages／限制配置待决，已由上方最新 owner 指令暂停。未新增该选项，自动资源解析和 Rsbuild 薄封装也未完成；主构建实现与恢复修复已提交，独立 compiler 不引入。
 
 2026-11-02 主链处理器失败恢复已修复：afterCompile 只登记本轮精确聚合模块的原生依赖，失败保留、成功替换；回归包含修复 token 文件触发恢复及清空后移除旧依赖。默认 Rsbuild Chromium PostCSS overlay／同值恢复通过（`main-dev-postcss-fixed.log`），首次失败及 red 测试保留。完整 verify **2559** 项及 lint/build/types 再次通过，见 `main-processor-verify.log`。下一项核对资源／map 与消费入口，不引入独立 compiler。
 

@@ -31,3 +31,5 @@ owner 已要求按整体规划实施核心架构与属性排序目标；先读 d
 Owner 已批准主构建方案，内部 main-compilation／aggregate-loader 已实现，完整 verify 2559 通过，默认 Rsbuild dev server React HMR／GSS overlay 恢复通过。继续 PostCSS 失败恢复与资源／map 核对，不再询问是否采用 finishMake；当前仍未导出公开插件。
 
 最新：主构建切片 9a2b7ff、处理器依赖恢复 bd85f45 已通过 verify 2559 和对应默认 Rsbuild Chromium dev-server 探针并推送。资源／map 有限交接探针通过；公开入口前待 owner 确认原生 Rspack 的兼容阶段配置来源（显式 compatibilityTargetStages，或限制可自动识别的宿主配置），详见架构末节。不要自动新增公共选项；自动资源解析／薄封装尚未交付。
+
+最新指令覆盖上方 targets 待决：暂不新增配置。已完成后置兼容语义核对：真实主链有逻辑 margin specificity 反例（2px→1px），不同属性名 preserved 的宽泛必要性在有限样本中未证明。代码未改；详见 ARCHITECTURE-DIRECTION 的“宿主后置兼容转换的语义核对”。先讨论这个具体后处理契约，不再要求 owner 选择重复配置 targets，也不能直接删 fallback。

@@ -331,3 +331,9 @@ Compiler build 与已有三组定向测试 **435** 项通过：fixed-module-rank
 5. 实际行为变更运行受影响的既有浏览器入口，保留 authored-native／明确 GSS 预期、精确图像和负对照。纯等价内部整理可使用完整输出前后对照及现有回归，说明未重跑的 gate；提交通过的切片并更新设计、进度和接续入口。
 
 本轮验证：完整 verify 2537 项及 lint／build／types 通过；原表与新表经 validator 的 7344 组输入（18 逻辑名称 × 17 物理／无关名称 × 3 形态 × 2 allowPureLonghands × 2 顺序 × 2 同／分规则）逐诊断对象一致，另有 14 次公共 replace／finalize／schema 完整对照，包括代表属性、失败快照与两种 compatibility 设置。证据在 `artifacts/css-capability-workflow/`。该比较证明本次列举范围的等价，不是新 CSS 支持证明；未增加浏览器矩阵或重跑浏览器。本轮接入清单和有证据的重复项处理已完成，剩余不同职责保持独立。
+
+## 宿主兼容转换对排序的约束（2026-11-02 核对）
+
+同语义高度的逻辑先／物理后规则不仅依赖输出顺序，还依赖比较双方的原生 specificity 保持可比较。已复现：`.a { margin-inline-start: 1px; margin-left: 2px }` 的 GSS 原子输出在 LTR 得 2px，面向旧 Safari 的 Lightning CSS 后处理给逻辑 atom 增加方向 selector 后得 1px；Rsbuild 正式主链生产输出也复现。直接处理 authored CSS 同样得 1px，故不能假定 preserved 可修复。详情、反例与版本见 [宿主后置兼容核对](ARCHITECTURE-DIRECTION.md#宿主后置兼容转换的语义核对2026-11-02)。
+
+这是后处理改变排序前提的证据，不是改变物理后发规则的授权。当前未新增 targets 配置，未删除 compatibility 检查／fallback。不同属性名触发整模块 preserved 的现行规则在本轮 flex／align／复用样本中尚未找到必要性反例，但该有限结果不覆盖所有生成属性冲突、关系语义或旧引擎。后续改动须分别论证 selector/shape 保护与 property-name fallback，不把二者合并为“兼容性开关”。

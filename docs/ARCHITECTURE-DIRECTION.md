@@ -585,3 +585,45 @@ Owner 已确认采用 finishMake + addEntry，明确不引入独立 compiler。�
 - 保持 adapter-only：首版仅接受可从宿主公开结构可靠识别的有限 CSS 配置，无法取得实际阶段时给出错误；需要进一步确定原生 Rspack 首版允许哪些 loader/minimizer 组合，不能默默猜内部 plugin 名称或调用 raw 生成器探测。
 
 此选择影响公共 API／支持范围，按 AGENTS.md 须 owner 确认。此前主链架构、两个入口、React 用法、排序与 fallback 均已确认，不重复提问。独立 compiler 仍不引入。
+
+#### 宿主后置兼容转换的语义核对（2026-11-02）
+
+**Owner 决策：暂不新增 targets 公共配置，先验证“GSS 负责语义编译、宿主统一兼容转换”，再决定是否调整现有 compatibility fallback。** 上节要求在“显式 targets／限制配置”之间选择的待决已暂停，不再作为下一次会话的前置问题。本轮只验证和记录，不改 Compiler、排序、复用、fallback 或宿主运行时。
+
+**结论分开看：宿主后处理不能被无条件视为语义透明；但现有“生成不同属性名即整模块 preserved”也尚未在本轮找到必要性反例。** 不能把保护分支混为一谈。
+
+当前三类职责：
+
+1. `lightning-compatibility-transformer.ts` 提前转换声明及资源；并非只读取 targets。
+2. `compatibility-analysis.ts` 检查输出形状、资源和 importance。转换不再是原 selector 下的声明列表时，可失败；调用方可能先返回既有逻辑／物理冲突诊断。
+3. 同文件仅凭生成属性名不同便列入 compatibilityFallback，`module-contribution.ts` 选择整模块 preserved 或配置为 error 时拒绝。这个宽泛判断没有针对实际跨属性冲突的证明。compatibility 存在还会影响安全展开入口，不能把移除该配置理解为仅删除补前缀步骤。
+
+**真实反例：逻辑／物理固定顺序被后置转换的 specificity 改变。**
+
+```css
+.a {
+  margin-inline-start: 1px;
+  margin-left: 2px;
+}
+```
+
+在 `lang=en; dir=ltr` 的页面，当前不带 targets 的 GSS 接受输入；原子 CSS 中逻辑属性先、物理后，计算 margin-left 为 **2px**，符合已确认的同语义高度规则。Lightning CSS 1.33.0 面向 Safari 6 或 9 转换后，逻辑 atom 被改成类似 `.logical:not(:is(:lang(...))) { margin-left: 1px }` 的规则（实测还有 prefixed selector 分支），物理 atom 仍是 `.physical { margin-left: 2px }`；方向谓词增加 selector specificity，计算结果成为 **1px**。反转源码声明顺序仍由 GSS 预期 2px 变成 1px；Safari 17 targets 的该样本保留 2px；物理声明 important 的负对照仍为 2px。
+
+这不是“旧 Safari 实机”结果：运行的是现代 Chromium，消费面向旧 Safari 生成的 CSS。证明的是**生成 CSS 的覆盖关系改变**。更重要的是，同一 authored 普通 CSS 直接经过该宿主转换也得到 1px，所以不能将问题归因于 GSS atom 拆分，更不能声称把模块 preserved 就自动修复。当前提前设置旧 Safari targets 的路径对这个输入返回 GSS1206，阻止交付；它不是通过 compatibilityFallback 得到正确的 preserved 页面。
+
+[Lightning CSS 官方文档](https://lightningcss.dev/transpilation.html) 说明 logical properties 会转换到方向 selector；[Selectors Level 4 specificity](https://www.w3.org/TR/selectors-4/#specificity-rules) 规定 :is/:not 使用参数中最高 specificity，:lang 属于伪类。本地实际生成内容和浏览器读数是本次结论的直接证据，不以文档示例替代运行。
+
+**真实主构建确认。** `artifacts/host-compatibility-order/rsbuild.mjs` 使用正式内部 `installMainCompilation`、Rsbuild/Rspack 2.3.0、生产 `output.overrideBrowserslist: ['safari >= 9']`，未传 GSS targets。读取 HTML 实际引用的最终 CSS，在 Chromium 中分别挂载候选和最终产物，同一 scope class 的 margin-left 从 2px 变 1px。证据 `rsbuild.log`、`rsbuild-result.json`。因此这是公开入口前需解决或明确限制的已复现语义障碍，不能继续宣称后置兼容阶段对所有已支持排序透明。
+
+**未发现必要性反例的有界样本。**
+
+- `check.mjs`／`result.json`：11 个例子 × Safari 6/9/17 targets 共 33 行，其中上述正反声明顺序在 6/9 targets 共 4 行改变 GSS 字面预期；其余 29 行符合预期。涵盖同属性源码顺序、shorthand/longhand、var shorthand、物理 longhand 连续同值复用、异值屏障、display 前缀序列、flex-direction、flex-flow 与 important。默认先断言未经宿主转换的 GSS 满足独立字面预期；另记录 authored→host 对照，逻辑／物理反向源码不能用 native authored 作为 GSS 固定顺序 oracle。
+- 独立 `flex-independent.mjs`／`.json`：10 个 flex／align／复用输入、Safari 6/17 targets、全部非空 scope 子集，共 68 次浏览器比较，比较 authored→host 与 GSS(no targets)→host 的 10 个计算属性，含 -webkit-box-*；无不一致。此样本不含 GSS 特有 ownership 优先级，不能扩为全关系证明。
+- `prefix-resource-independent.json`：2 个 keyframe 输入 × aware/unaware 共 4 个输出检查，保留 scoped animation 名称、前缀／标准 keyframes、最终资源 URL；不是浏览器动画验收。
+- 现有 `compiler/test/compatibility-targets.test.ts` **30 项通过**，见 `existing-tests.log`。其中“预期 preserved”测试证明当前行为，不单独证明 fallback 必要。
+
+版本与证据在 `artifacts/host-compatibility-order/`：Node 22.22.3、Lightning CSS 1.33.0、Playwright 1.58.2、Chromium 145.0.7632.6。现代浏览器会支持标准分支，不能替代旧引擎对于所有 vendor-only 行为的验证。首次把同规则重复属性误作合法输入导致 GSS1204 的探针失败（`duplicate-input-failure.log`），以及独立资源探针误传未使用 binding 的失败均保留；已修正探针，未改产品准入。
+
+**建议与下一边界。** 保持只配置宿主 targets 的目标，不因本轮发现重新要求用户重复配置；也不直接删除提前语义检查。下一步应围绕这个最小反例决定兼容转换与 GSS 排序之间的契约：哪些宿主变换需要适配／验证，是否允许某些破坏 specificity 的 lowering，以及如何处理不满足条件的产物。这些都不等价于“补前缀必须由 GSS 做”。对不同属性名的一刀切 fallback，可另行以有界例子评估缩小，但当前未批准修改；不得把未找到反例包装成全量安全证明。目标仍是不改变已确认的 GSS 排序与 fallback 边界后再作明确决策。
+
+本轮无产品代码变动，未跑全仓 verify 或扩大默认浏览器矩阵；以上 Chromium probes 和 30 项定向回归是新证据，历史完整验证不算本轮重跑。
