@@ -627,3 +627,37 @@ Owner 已确认采用 finishMake + addEntry，明确不引入独立 compiler。�
 **建议与下一边界。** 保持只配置宿主 targets 的目标，不因本轮发现重新要求用户重复配置；也不直接删除提前语义检查。下一步应围绕这个最小反例决定兼容转换与 GSS 排序之间的契约：哪些宿主变换需要适配／验证，是否允许某些破坏 specificity 的 lowering，以及如何处理不满足条件的产物。这些都不等价于“补前缀必须由 GSS 做”。对不同属性名的一刀切 fallback，可另行以有界例子评估缩小，但当前未批准修改；不得把未找到反例包装成全量安全证明。目标仍是不改变已确认的 GSS 排序与 fallback 边界后再作明确决策。
 
 本轮无产品代码变动，未跑全仓 verify 或扩大默认浏览器矩阵；以上 Chromium probes 和 30 项定向回归是新证据，历史完整验证不算本轮重跑。
+
+#### 宿主 selector 权重问题的方案对比（2026-11-02，仅建议）
+
+Owner 要求优先复用宿主、不重复 targets、不改变 GSS 排序，先给建议且不修改 fallback。本轮无产品代码修改；没有批准关闭任何宿主转换或改变浏览器支持范围。
+
+**建议优先验证的实现路线：只对 GSS CSS 使用宿主 `exclude.logicalProperties`，同时覆盖 loader 和最终 minimizer，保留原生逻辑声明与 selector；其他兼容转换及压缩继续使用宿主。** 这是保持已确认排序及运行时 direction／writing-mode 的最小现成机制，但它**不提供旧浏览器的逻辑属性 polyfill**，不能静默宣称仍完整满足旧 Safari 的此类能力。若旧浏览器逻辑属性降级也是硬要求，本轮没有找到同时保留全部既定语义的现成宿主开关，应单独明确范围或等待／参与上游修复，而不是增加 GSS targets 配置。
+
+**上游与公开能力。** Lightning CSS 1.33.0 [context.rs](https://github.com/parcel-bundler/lightningcss/blob/v1.33.0/src/context.rs#L85) 的生成规则代码明确注释 `:dir/:lang raises the specificity`，实际追加方向伪类；当前公开 TransformOptions 未提供 preserveSpecificity／自动 where 开关。Rspack 的 loader 与 LightningCssMinimizerRspackPlugin 均有 `exclude.logicalProperties`／`exclude.dirSelector`；Rsbuild 对应 [tools.lightningcssLoader](https://rsbuild.rs/config/tools/lightningcss-loader) 与 [output.minify.cssOptions](https://rsbuild.rs/config/output/minify)。后者可按 CSS 资产设置不同 minimizer，不能按资产内规则选择。
+
+| 方案 | 复杂度与宿主复用 | 对既有语义及支持范围的影响 | 结论 |
+| --- | --- | --- | --- |
+| 只对 GSS 排除 logical lowering | 中：复用现有 feature flag；需要模块级 loader 配置和 GSS CSS 资产隔离 | 不增加 selector 权重，保留动态 direction／writing-mode；旧浏览器不再得到这类降级 | 优先候选，须先接受原生逻辑属性能力边界，并验证 CSS 加载顺序 |
+| 全局排除 logical lowering | 低，两阶段设置即可 | 也改变普通／第三方 CSS 的处理策略 | 不作为插件默认方案 |
+| 仅排除 DirSelector | 低 | 留下 :dir 仍增加 specificity；旧 Safari 不支持它，vertical writing 问题仍在 | 不解决问题 |
+| 将宿主新增方向条件包进 :where | 高：需准确追溯生成条件，不能包 authored 条件／整个原 selector，还需 map 与最终处理时机 | 可修复局部 specificity，但旧 Safari 不支持 where；lang 近似和竖排映射仍错 | 不作通用修复 |
+| 给其他 GSS selector 加 class／important／额外 rank 补权重 | 中到高 | 改变 GSS 与外部 CSS 的原生强度、状态及 ownership 比较；仅换声明顺序也无法击败更高 specificity | 不采用 |
+| 最终输出检查／阻止错误发布 | 中到高，需区分正常合并与真正条件变化 | 可作保护，不能恢复正确 CSS；是否拒绝某种宿主配置仍是支持边界决策 | 可作后续护栏，不替代解决方案 |
+| 上游修复或专用旧浏览器 polyfill | 高且交付时间不确定 | 理论上能扩大支持，但要解决零 specificity 条件、方向、竖排与 DOM 状态 | 不把当前任务扩大为自研 CSS 兼容引擎 |
+
+**为什么 where 不够。** [WebKit 官方 Safari 14 说明](https://webkit.org/blog/11340/new-webkit-features-in-safari-14/) 记录了 where 支持，因此不能拿它作为 Safari 6/9 的通用降级。即使只包新增方向谓词，在现代 Chromium 中修好英文 LTR 的 margin-left，本轮英文 `dir=rtl` 仍丢掉应有的右边距，阿拉伯语 `dir=ltr` 仍多出右边距；vertical-rl 的原生 margin-top=1px 被降级为水平方向后无法由 specificity 修补恢复。Lightning CSS [transpilation 文档](https://lightningcss.dev/transpilation.html) 已说明 dir→lang 是近似。公开 Selector visitor 的局部探针只看到输入的 class selectors，未看到后续生成方向谓词，不能把它当作现成的生成后修补 hook。
+
+**局部证据。** `artifacts/host-compatibility-order/solutions.mjs` 使用 Lightning CSS 1.33.0、Safari 9 targets、现代 Chromium，4 种环境（en/ltr、en/rtl、ar/ltr、en/vertical-rl）× 6 种路径（原生、默认转换、排除 logical、排除 dir、归零生成条件、首阶段排除但第二阶段不排除），共 24 组四边 margin 读数，见 `solutions-result.json`。排除 logical 的四组都与原生一致；其余方案至少在一组失败。这不是旧 Safari 实机验收或全 CSS 正确性证明。
+
+**真实 Rsbuild 两阶段与隔离探针。**
+
+- `rsbuild-solutions.mjs loaderOnly`：loader 排除 logical，但显式未排除的生产 minimizer 再次降级，GSS 最终仍为 1px。不要仅修改开发 loader 后就宣布修复。
+- 同脚本 `both`：两阶段全局排除后 GSS 为 2px，但普通 CSS 也变为原生逻辑声明／2px，证实它不是无影响的局部修改。`user-select` 前缀仍生成，证明没有整体禁用兼容转换。
+- `rsbuild-scoped-solution.mjs`：只给内部聚合模块的 builtin loader 合并 logical exclusion，利用主构建原生 splitChunks 提取单独 GSS CSS，并对该资产选用相应原生 minimizer。HTML 自动引用 `gss.*.css` 与 `index.*.css`；同页 GSS=2px，普通 CSS=1px，后者仍保留原方向 lowering 和 user-select 前缀。日志／结果为 `rsbuild-scoped-solution.log`、`rsbuild-solutions-scoped.json`。未引入独立 compiler、未复写 targets、未手写 CSS 输出或 HMR。
+
+该 scoped probe 使用已知 fixture 的规则形态，不是任意 loader rule／自定义 minimizer 的自动识别实现。原默认 splitChunks 未提供 cacheGroups，探针显式建立了 CSS cache group；正式接入必须避免顺带改变现有 JS 分包策略。现在的单入口、无普通 CSS 同节点竞争例只能证明处理范围可隔离，**不能证明分离 CSS 后所有加载顺序不变**。owner 同意该支持边界后，下一验证应覆盖普通 CSS/GSS 同节点顺序、layer、多入口、lazy、默认 dev server/HMR、map 与资源；不得用 CSS 重分包悄悄改变原生 cascade。
+
+失败证据保留：最初误认为 Safari 9 仍需 display:flex 前缀的断言已改成确实需前缀的 user-select 对照（`rsbuild-solutions-prefix-expectation-failure.log`）；scoped 脚本括号错误及未处理默认 splitChunks 形态分别保留（`rsbuild-scoped-syntax-failure.log`、`rsbuild-scoped-config-failure.log`）。这是探针修正，不是放宽产品断言。
+
+本轮只调研／局部探针／设计文档，未修改 fallback、宿主运行时代码或公共 API，未跑全仓 verify，未改变默认浏览器 gate。原始调研来源汇总在 `specificity-research.md`。上述推荐尚未获实施授权；不能因“宿主有 exclude 开关”就自动降低浏览器支持或全局改普通 CSS。

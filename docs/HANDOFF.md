@@ -33,3 +33,5 @@ Owner 已批准主构建方案，内部 main-compilation／aggregate-loader 已�
 最新：主构建切片 9a2b7ff、处理器依赖恢复 bd85f45 已通过 verify 2559 和对应默认 Rsbuild Chromium dev-server 探针并推送。资源／map 有限交接探针通过；公开入口前待 owner 确认原生 Rspack 的兼容阶段配置来源（显式 compatibilityTargetStages，或限制可自动识别的宿主配置），详见架构末节。不要自动新增公共选项；自动资源解析／薄封装尚未交付。
 
 最新指令覆盖上方 targets 待决：暂不新增配置。已完成后置兼容语义核对：真实主链有逻辑 margin specificity 反例（2px→1px），不同属性名 preserved 的宽泛必要性在有限样本中未证明。代码未改；详见 ARCHITECTURE-DIRECTION 的“宿主后置兼容转换的语义核对”。先讨论这个具体后处理契约，不再要求 owner 选择重复配置 targets，也不能直接删 fallback。
+
+最新完成 selector 权重解决方案调研：推荐候选为 GSS 局部宿主 logical exclusion（loader+minimizer、原生 CSS chunk 隔离），无重复 targets；仅 probe 验证，需 owner 接受逻辑属性依赖浏览器原生支持的边界，并验证分包顺序后才能实施。未改 fallback。详见架构末节，不把推荐自动变成已确认决策。

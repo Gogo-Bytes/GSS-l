@@ -10,6 +10,8 @@ CSS 能力接入流程与策略归属核对已按 owner 授权完成，形成三
 
 ## 当前目标：React 多构建工具接入
 
+2026-11-02 selector 权重解决方案调研已完成，见 [对比与建议](ARCHITECTURE-DIRECTION.md#宿主-selector-权重问题的方案对比2026-11-02仅建议)。优先候选是仅对 GSS 的宿主 loader／minimizer 排除 logical lowering，原生逻辑属性由浏览器执行；局部生产 probe 已隔离 GSS CSS 与普通 CSS（读数分别 2px／1px），不重复 targets。但这会放弃旧浏览器的逻辑属性降级，且 CSS 分包后顺序／多入口／HMR 尚需验证；当前只是建议，未获实施授权。where 和仅排除 DirSelector 均未解决完整方向／竖排语义。本轮仅文档与探针，fallback 和产品代码未改。
+
 2026-11-02 owner 已明确暂不新增 targets 配置，先验证宿主后置兼容语义。[核对结果](ARCHITECTURE-DIRECTION.md#宿主后置兼容转换的语义核对2026-11-02)：真实 Rsbuild 生产链将逻辑／物理 margin 的 GSS 预期 2px 改为 1px（selector 权重增加）；直接 authored CSS 也受影响，旧 GSS 路径是拒绝而非 preserved 修复。另一方面，33 行主探针中的其余 29 行、独立 68 次 flex／align／复用比较及 4 个资源输出检查未证明不同属性名 fallback 必要。既有 compatibility 30 项通过。无产品修改，原“显式 targets／限制配置二选一”暂停；下一步基于反例讨论后处理契约，不能自动删除保护或新增配置。
 
 2026-11-02 主链资源交接／最终 map 的有限核对通过，见 [记录与待决](ARCHITECTURE-DIRECTION.md#主链资源map-核对与公共配置待决2026-11-02)。当时提出的显式 compatibilityTargetStages／限制配置待决，已由上方最新 owner 指令暂停。未新增该选项，自动资源解析和 Rsbuild 薄封装也未完成；主构建实现与恢复修复已提交，独立 compiler 不引入。
