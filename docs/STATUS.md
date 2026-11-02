@@ -12,6 +12,9 @@ CSS 能力接入流程与策略归属核对已按 owner 授权完成，形成三
 
 2026-11-02 owner 已批准 GSS CSS 局部隔离，内部实现与验证已完成：仅聚合 GSS 的原生 Lightning CSS loader／minimizer 排除 logicalProperties，普通 CSS 保持宿主处理；不新增 targets，不改 Compiler 排序或 fallback。原生 splitChunks 共用 GSS 资产，HTML hook 保持普通 CSS 在前、聚合 GSS 在后。两个真实 HTML 入口及默认 Rsbuild React HMR（含普通 CSS 更新、错误保留／恢复）通过；完整 verify **2563** 项及 lint/build/types 通过。详见 [实施记录](ARCHITECTURE-DIRECTION.md#gss-css-局部隔离实施2026-11-02)，证据在 `artifacts/gss-css-isolation/`。仍是内部模块，公开入口／自动资源 IO 尚未交付；下一项连接宿主的有效 minimizer 配置与 Rsbuild 薄封装，不要求用户重复 targets。
 
+下一入口核对：`659b58d` 已推送。Rsbuild 公开 chain hook 可取得合并后的有效 minimizer options；保留宿主 targets 和自定义 errorRecovery 的双入口真实页面 probe 通过（`host-bridge.log`）。原生 Rspack 不具备同样配置层；下一步需 owner 确认使用 `gssCssMinimizers(options)` 替代原 CSS minimizer 构造（仍只配一次 targets），或先公开 Rsbuild、暂缓原生入口。详见 [入口待决](ARCHITECTURE-DIRECTION.md#有效-minimizer-配置桥接与原生入口待决2026-11-02)。未新增公共 API；本次续项仅调研／文档，不重复运行 verify。
+
+
 2026-11-02 owner 已明确暂不新增 targets 配置，先验证宿主后置兼容语义。[核对结果](ARCHITECTURE-DIRECTION.md#宿主后置兼容转换的语义核对2026-11-02)：真实 Rsbuild 生产链将逻辑／物理 margin 的 GSS 预期 2px 改为 1px（selector 权重增加）；直接 authored CSS 也受影响，旧 GSS 路径是拒绝而非 preserved 修复。另一方面，33 行主探针中的其余 29 行、独立 68 次 flex／align／复用比较及 4 个资源输出检查未证明不同属性名 fallback 必要。既有 compatibility 30 项通过。无产品修改，原“显式 targets／限制配置二选一”暂停；下一步基于反例讨论后处理契约，不能自动删除保护或新增配置。
 
 2026-11-02 主链资源交接／最终 map 的有限核对通过，见 [记录与待决](ARCHITECTURE-DIRECTION.md#主链资源map-核对与公共配置待决2026-11-02)。当时提出的显式 compatibilityTargetStages／限制配置待决，已由上方最新 owner 指令暂停。未新增该选项，自动资源解析和 Rsbuild 薄封装也未完成；主构建实现与恢复修复已提交，独立 compiler 不引入。

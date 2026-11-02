@@ -678,3 +678,17 @@ Owner 已批准上一节推荐方向：仅 GSS CSS 关闭逻辑属性降级，�
 Rsbuild 2.3.0／Rspack 2.3.0 的 production probe 使用旧 Safari targets 触发降级，在现代 Chromium 实际加载两个 HTML：GSS margin-left=2px、普通 CSS=1px，普通 CSS 前缀保留；同节点颜色为 GSS 红色，两个入口引用同一 GSS 文件且后加载。默认 React dev server 的原生 HMR 验证 GSS 红→蓝、普通 CSS 更新（outline 独立确认更新发生）不反转 GSS 覆盖、非法 GSS 保留蓝色、同输入恢复及再更新红色。见 `production-browser.log`、`dev-server-ordinary-update.log`；初次顺序失败 `production.log` 保留。不是旧 Safari 实机、任意异步样式插入或全配置证明。Vite／既有三引擎 gate 未重跑，本轮未改其实现或 Compiler。
 
 下一项是把当前探针中的 Rsbuild 配置桥接收敛到薄封装，使用宿主公开 hook 取得有效配置；同时核对原生 Rspack 的接入形式。不能要求用户重复 targets，也不能读取私有 plugin 字段猜测配置。自动资源 IO 与公开消费尚未完成，不宣称包已可公开使用。
+
+
+#### 有效 minimizer 配置桥接与原生入口待决（2026-11-02）
+
+局部隔离实现已在 `659b58d` 提交并推送。随后继续核对 Rsbuild 公开 hook：`modifyBundlerChain` 的 post handler 可通过宿主 `CHAIN_ID.MINIMIZER.CSS` 及 chain minimizer.tap 取得**已经合并**的 options，再为 GSS 注册隔离副本，普通实例排除 GSS 资产。无需反射 plugin 实例、重新计算 Browserslist 或复制 Rsbuild 的配置合并算法。原 fixture 改成该接线，保留用户 cssOptions.errorRecovery=false、宿主 targets Safari>=9，并断言取得的真实有效值；两个实际 HTML 页面均保持 margin-left=2px、红色覆盖与正确 stylesheet 顺序。证据 `artifacts/gss-css-isolation/host-bridge.mjs`／`.log`。本项是单个标准 minimizer 的配置阶段探针，尚未实现公开 Rsbuild 包，也没有证明任意多实例／tools.rspack 后续改写。
+
+原生 Rspack 没有 Rsbuild chain 层。2.3.0 的 LightningCssMinimizerRspackPlugin 实例类型暴露 `_args` 和 raw(compiler)，但没有稳定的公开 options accessor；不以私有参数或执行 raw 作为集成契约。上方仅在 plugins 中新增 `gss({ adapter })` 的草案不能据此自动取得任意既有 minimizer 的有效配置。
+
+**待 owner 选择的公开 API 草案（尚未实现）：**
+
+- 推荐：为原生 Rspack 提供 `gssCssMinimizers(options)`，替代原来的 `new LightningCssMinimizerRspackPlugin(options)`，返回普通与 GSS 两个原生实例。options 仍是宿主原来的那一份，不向 GSS Compiler 添加 targets。原生配置的 optimization.minimizer 放入 `...gssCssMinimizers(cssOptions)`，JS minimizer 保持原配置；plugins 仍放 `gss({ adapter: react() })`。Rsbuild 用户无需这个辅助函数，由薄封装在 chain 内自动连接。
+- 另一选择：先只交付 Rsbuild 的公开接入，原生 Rspack 继续作为内部核心，等后续确定原生公开 API；不增加辅助函数，但原生 Rspack 的直接消费晚于 Rsbuild。
+
+这不是重新询问排序或 fallback，也不是 targets 重复配置：待决是原生 Rspack 用户是否接受替换 CSS minimizer 构造入口。AGENTS.md 要求公共 API／作者体验变化由 owner 决策，因此暂不把任一草案导出。多实例、自定义 CSS 处理器、纯 hash 文件名的支持范围也不能借此默认扩大。其余已通过的隔离切片无需回退。

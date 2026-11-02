@@ -2,6 +2,9 @@
 
 2026-11-02 owner 已批准 GSS CSS 局部隔离，内部实现与验证已完成：仅聚合 GSS 的原生 Lightning CSS loader／minimizer 排除 logicalProperties，普通 CSS 保持宿主处理；不新增 targets，不改 Compiler 排序或 fallback。原生 splitChunks 共用 GSS 资产，HTML hook 保持普通 CSS 在前、聚合 GSS 在后。两个真实 HTML 入口及默认 Rsbuild React HMR（含普通 CSS 更新、错误保留／恢复）通过；完整 verify **2563** 项及 lint/build/types 通过。详见 [实施记录](ARCHITECTURE-DIRECTION.md#gss-css-局部隔离实施2026-11-02)，证据在 `artifacts/gss-css-isolation/`。仍是内部模块，公开入口／自动资源 IO 尚未交付；下一项连接宿主的有效 minimizer 配置与 Rsbuild 薄封装，不要求用户重复 targets。
 
+
+下一入口核对：`659b58d` 已推送。Rsbuild 公开 chain hook 可取得合并后的有效 minimizer options；保留宿主 targets 和自定义 errorRecovery 的双入口真实页面 probe 通过（`host-bridge.log`）。原生 Rspack 不具备同样配置层；下一步需 owner 确认使用 `gssCssMinimizers(options)` 替代原 CSS minimizer 构造（仍只配一次 targets），或先公开 Rsbuild、暂缓原生入口。详见 [入口待决](ARCHITECTURE-DIRECTION.md#有效-minimizer-配置桥接与原生入口待决2026-11-02)。未新增公共 API；本次续项仅调研／文档，不重复运行 verify。
+
 具体状态以 [STATUS.md](STATUS.md)、当前 Git 和 [当前计划](NEXT-STAGE.md) 为准。下述内容可直接用于接续：
 
 ```text
