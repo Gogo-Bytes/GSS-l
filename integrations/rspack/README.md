@@ -33,3 +33,13 @@ Compiler／Adapter error 阻止代码交付；`SourceDiagnosticError.diagnostics
 处理器 file／context／missing dependencies 登记到本轮 compilation；失败或未输出时保留此前恢复集合并合入本轮新发现项，成功时以本轮集合替换。不能在 compilation 的共享集合中删除旧值：其他 loader 可能也依赖同一文件。新 compilation 自有新集合，因此成功轮无需重新添加旧的 GSS 处理器依赖。宿主必须在处理器失败时也回传已发现依赖；fatal 编译器异常没有 done 时不会推进 published，但其 watcher 重启策略未验收。
 
 真实 Rspack 测试覆盖晚期非 GSS 错误、shouldEmit=false、空候选恢复和三类依赖替换。现有两宿主 Chromium 探针已消费正式 loader／发布模块，仍为手动 HMR，不代表默认 dev server、Fast Refresh、完整资源或公开插件已完成。
+
+## 主构建 CSS 接入
+
+`installMainCompilation` 是内部编排，尚非公开插件。每轮安装独立 prepare，并向 source loader 注入；finishMake 从入口沿模块图收集静态／lazy 可达 GSS，生成同一全局候选，再通过 addEntry 向每个现有入口附加同一聚合 CSS。候选仍由原有 Compiler 决定排序、fallback 和模块导出。不按入口或 lazy chunk 拆分 GSS 语义。
+
+内部 `.gss-internal/aggregate.css` 仅为原生 VirtualModulesPlugin 的内存路径，不创建用户文件，也不逐轮 writeModule。CSS/map 编码在内部 resource query 中，使每个请求自带不可变输入。pre loader 解码后交给宿主现有 CSS rules；不另起 compiler，不复制 PostCSS／Lightning CSS 配置，不自行 emit CSS／HTML／link runtime。source map 的 sources 转为项目根下绝对路径，原 Compiler map 不被修改。请求包含完整输入，可能较长；尚未做性能／请求体积优化，也不承诺任意自定义 resourceQuery／include／issuer 规则兼容。
+
+不可改回“稳定请求 + 非缓存 loader 读取当轮共享 seed”：原生 CSS 后续构建可能在 finishMake 前重建旧模块，此时当轮候选尚不存在。不可用旧 CSS 冒充当轮成功；不可变请求让旧模块只能消费自己的输入，新候选从当前图重新汇总。CSS extract 内部会构造伪 JS 请求，Adapter pre rule 排除内部 carrier，避免 React 解析器处理 CSS。
+
+当前回归使用真实 Rspack native CSS watch，覆盖两个入口、lazy 移除、非法输入保留／恢复、无 GSS 清空及 shorthand 源码覆盖；Rsbuild probe 覆盖原生 CSS extraction／PostCSS 文件依赖更新。公开配置、完整资源 IO、默认 dev server、任意 CSS 规则和最终 map 定位仍需后续验证。测试载入 dist 中真实 loader，运行本包测试前需要 build（根 verify 已按此顺序执行）。

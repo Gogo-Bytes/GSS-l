@@ -18,6 +18,8 @@
 
 ## 当前目标：React 多构建工具接入
 
+2026-11-02 已按 owner 确认实施内部主构建接入，见 [实现记录](ARCHITECTURE-DIRECTION.md#主构建接入实施2026-11-02)。finishMake 汇总 → addEntry → 原生 CSS 链；未引入独立 compiler。完整 verify **2559** 项及 lint/build/types 通过（`main-compilation-verify.log`）；Rspack native CSS watch 覆盖多入口／lazy 移除／失败恢复／清空；Rsbuild 默认 dev server 的 Chromium React 更新、错误 overlay、同输入恢复已通过（`main-dev-server.log`）。日志均在 `artifacts/rspack-lifecycle-design/`。下一项核对 PostCSS 自身失败恢复、资源／map，再连接公共入口；仍无公开插件导出。
+
 2026-11-02 owner 暂停引入独立 compiler，要求先比较主构建 CSS 链。[调研结论](ARCHITECTURE-DIRECTION.md#主构建-css-链与独立-compiler-对比2026-11-02)建议优先主构建 finishMake + addEntry：Rsbuild 生产处理／HTML 和五轮 watch（PostCSS 依赖、lazy 移除、GSS 失败保留／同输入恢复）已通过；finishModules 对照 panic 保留。仅隔离探针及文档，无产品变更；默认 dev server、资源／map、多入口仍待验证。此前独立 compiler 只是备选，不得自动实施。
 
 2026-11-02 内部 loader／发布编排已完成，见 [架构记录](ARCHITECTURE-DIRECTION.md#rspack-loader-与发布编排实现2026-11-02)。原生 loader 负责依赖和诊断返回；发布须同时满足已 emit、整轮无错及候选成功，处理器依赖失败保留／成功替换。两宿主 Chromium 手动 HMR 探针已改用正式模块并通过；完整 verify **2558** 项（Compiler 1991／React 49／Rspack 21／Vite 163／Testing 334）及 lint/build/types 通过，日志 `artifacts/rspack-lifecycle-design/loader-publication-verify.log`。下一项是 CSS 后处理架构确认及实现，然后接通 Rsbuild 封装与完整交付；仍无公共插件入口。

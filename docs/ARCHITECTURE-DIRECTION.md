@@ -556,3 +556,13 @@ owner 已要求开始推进目标；按已确认语义及这里的阶段推进�
 **下一步建议与边界。** 在 owner 确认方向后，优先将 finishMake 单轮候选供给接到已有内部模块，复用主链，验证默认 dev server 的更新／overlay／同内容恢复，以及 PostCSS 失败恢复；然后核对内部 CSS 身份、资源／map、多入口与无 GSS 清空。不得为了接通而复制当前探针物理占位文件方案到用户项目，或修改排序／fallback。若出现具体无法保留契约的主链障碍，再以最小反例重新比较独立处理器。
 
 本轮仅调研、隔离探针与文档；没有产品实现改动，不运行全仓 verify／排序浏览器 gate，未引入独立 compiler。生产和 watch 的局部成功不等于原生 Rspack 自定义 CSS 规则、默认 dev server、Fast Refresh、CSS URL、map 或多入口已验证。
+
+#### 主构建接入实施（2026-11-02）
+
+Owner 已确认采用 finishMake + addEntry，明确不引入独立 compiler。内部 `main-compilation.ts` 已连接准备、候选、source loader 和 publication；聚合 CSS 由原生主链提取／处理，无自定义 CSS asset／HTML／link runtime。两个及以上当前入口共用全局聚合，不新增按路由拆分语义。实现及重要反例见 [模块说明](../integrations/rspack/README.md#主构建-css-接入)。
+
+稳定虚拟请求配合非缓存 loader 的初始实现暴露跨轮时序问题：原生 CSS 模块可在 finishMake 前重建，不能读取尚未生成的候选。当前使用只初始化一次的虚拟 CSS carrier，resource query 自带不可变 CSS/map 数据；每个模块身份与自己的输入绑定，不保留跨轮可变 seed 注册表。不会逐轮写虚拟文件引发额外 watch。该内部请求编码不是公共配置，完整输入会增加请求长度，未做性能优化。临时 data URI + matchResource 的对照不适配 extraction 子请求，未采用；失败证据留在 artifacts。
+
+正式回归使用 Rspack 2.3.0 native CSS 的真实 watch：多入口、lazy 移除、GSS 失败／恢复、清空及 margin 源码覆盖。Rsbuild 已有五轮探针改用本模块，PostCSS 依赖更新、lazy 移除与同输入恢复通过（`main-implementation-query-watch.log`）。测试初期使用重复 compiler.run 手工写文件，无法替代 watcher 的缓存失效，因此正式回归改为真实 watch；早期 seed 和 loader 路径失败分别保留在 `main-implementation-early-seed-failure.log`、`main-implementation-loader-path-failure.log`。没有删除断言或放宽排序／fallback。
+
+本切片完整 verify **2559** 项及 lint/build/types 通过，日志 `main-compilation-verify.log`。Rsbuild 默认 dev server + pluginReact 的 Chromium 探针使用真实 import／className，原生 WebSocket/HMR 完成红→蓝→非法 GSS overlay／蓝色保留→同输入恢复→红，见 `main-dev-server.log`。没有自写 link runtime 或手动 HMR。首次 overlay 等待使用 visible，但宿主元素自身不提供可见盒，改为 attached 并检查页面计算样式；原 timeout 保留在 `main-dev-server-overlay-wait-failure.log`。该结果不承诺 React state 保留、所有配置或资源支持。测试类型错误日志亦保留；验证未修改业务语义。

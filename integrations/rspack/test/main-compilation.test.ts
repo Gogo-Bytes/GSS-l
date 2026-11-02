@@ -1,0 +1,77 @@
+import { mkdtemp, readFile, rm, writeFile, access } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { rspack, type Stats, type Compiler } from '@rspack/core';
+import { react } from '@gss-l/react';
+import { expect, it } from 'vitest';
+import { installMainCompilation } from '../dist/main-compilation.js';
+
+it('uses the main CSS graph across entries, lazy removal, failed input, recovery and empty contributions', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'gss-main-'));
+  const source = path.join(root, 'a.gss');
+  const index = path.join(root, 'index.js');
+  await writeFile(source, '.card { margin-left: 9px; margin: var(--space); color: red; }');
+  await writeFile(path.join(root, 'b.gss'), '.lazy { color: blue; }');
+  await writeFile(index, "import a from './a.gss';console.log(a.card);import('./lazy.js');");
+  await writeFile(path.join(root, 'other.js'), "console.log('other entry');");
+  await writeFile(path.join(root, 'lazy.js'), "import b from './b.gss';console.log(b.lazy);");
+  let publication: ReturnType<typeof installMainCompilation>;
+  const compiler = rspack({ context: root, mode: 'development', devtool: 'source-map',
+    entry: { index: './index.js', other: './other.js' },
+    experiments: { css: true },
+    module: { rules: [{ test: /\.css$/, type: 'css' }] },
+    output: { path: path.join(root, 'dist') },
+    plugins: [{ apply(c: Compiler) {
+      publication = installMainCompilation(c, { config: { projectRoot: root }, adapter: react(),
+        read: async id => ({ source: await readFile(id, 'utf8') }) });
+    } }]
+  });
+  const pending: Stats[] = [];
+  let deliver: ((stats: Stats) => void) | undefined;
+  let rejectRun: ((error: Error) => void) | undefined;
+  const watching = compiler.watch({ aggregateTimeout: 20 }, (error, stats) => {
+    if (error) { rejectRun?.(error); return; }
+    if (!stats) return;
+    if (deliver) { const resolve = deliver; deliver = undefined; resolve(stats); }
+    else pending.push(stats);
+  });
+  const run = () => pending.length ? Promise.resolve(pending.shift()!) : new Promise<Stats>((resolve, reject) => {
+    deliver = resolve; rejectRun = reject;
+  });
+  const css = (stats: Stats) => stats.compilation.getAssets().filter(a => a.name.endsWith('.css'))
+    .map(a => String(a.source.source())).join('\n');
+  try {
+    const first = await run();
+    expect(first.hasErrors(), first.toString({ all: false, errors: true })).toBe(false);
+    expect(css(first)).toContain('color: blue');
+    expect(css(first)).toContain('margin: var(--space)');
+    expect(css(first)).not.toContain('margin-left: 9px');
+    for (const entry of first.compilation.entrypoints.values()) {
+      expect(entry.getFiles().some(file => file.endsWith('.css'))).toBe(true);
+    }
+    await expect(access(path.join(root, '.gss-internal/aggregate.css'))).rejects.toThrow();
+    await writeFile(index, "import a from './a.gss';console.log(a.card);");
+    const removed = await run();
+    expect(removed.hasErrors(), removed.toString({all:false,errors:true})).toBe(false);
+    expect(css(removed)).not.toContain('color: blue');
+    const previous = publication!.published;
+    await writeFile(source, '.card {');
+    const failed = await run();
+    expect(failed.hasErrors()).toBe(true);
+    expect(publication!.published).toBe(previous);
+    await writeFile(source, '.card { color: green; }');
+    const recovered = await run();
+    expect(recovered.hasErrors()).toBe(false);
+    expect(css(recovered)).toContain('color: green');
+    expect(css(recovered)).not.toContain('color: red');
+    await writeFile(index, "console.log('no gss');");
+    const empty = await run();
+    expect(empty.hasErrors()).toBe(false);
+    expect(css(empty)).not.toContain('color:');
+    expect(publication!.published!.snapshot.manifest.modules).toEqual([]);
+  } finally {
+    await new Promise<void>(resolve => watching.close(resolve));
+    await new Promise<void>((resolve, reject) => compiler.close(error => error ? reject(error) : resolve()));
+    await rm(root, { recursive: true, force: true });
+  }
+});
