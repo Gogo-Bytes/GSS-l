@@ -372,7 +372,17 @@ import { react } from '@gss-l/react';
 
 已开始产品模块实现：[source-preparation.ts](../integrations/rspack/src/source-preparation.ts) 在一个 compilation 内按规范 stylesheet ID 共享输入准备，源码／资产引用快照与局部 Compiler 结果一起保存；失败本轮不重读，后续 compilation 使用新实例恢复。源码转换沿用 React Adapter，raw specifier 经宿主 resolver 指向准备后的 schema，先 watch 后 prepare；依赖失败不执行 transform。Compiler 原始诊断 id／range 保留，preserved warning 正常返回，排序／fallback 不变。
 
-职责与反例见 [模块说明](../integrations/rspack/README.md)。新增 workspace `@gss-l/rspack` 只依赖既有 Compiler，并以 React Adapter 做内部测试；尚无插件导出（exports 为空），没有添加 Rspack runtime 依赖或宣称构建工具可用。局部准备不替代全局资源冲突检查，本轮可达候选汇总仍需后续实现。验证结果见当前进度。
+职责与反例见 [模块说明](../integrations/rspack/README.md)。新增 workspace `@gss-l/rspack` 只依赖既有 Compiler，并以 React Adapter 做内部测试；尚无插件导出（exports 为空），没有添加 Rspack runtime 依赖或宣称构建工具可用。局部准备不替代全局资源冲突检查；后续实现的可达候选汇总见下一节。验证结果见当前进度。
+
+#### Rspack 可达候选快照实现（2026-11-02）
+
+[candidate-snapshot.ts](../integrations/rspack/src/candidate-snapshot.ts) 已接续源码准备实现：只接收宿主提供的当前可达规范 ID 集合，去重并确定性排序，使用准备时的同一输入在独立 session 中重放，验证完整局部 module artifact 与汇总结果一致，再 finalize。跨模块资源冲突／输入失败／artifact 不一致时拒绝整个候选；不返回部分 CSS，不修改旧候选。不再可达的缓存条目不会进入新快照；无输入得到空快照。既有资源 URL resolver、诊断和 preserved 路径沿用 Compiler 公共接口。
+
+9 项新增测试覆盖确定性重放与 shorthand 源码覆盖、移除／清空输入、全局资源冲突、失败输入、局部导出／ID 不一致、资产引用和 preserved warning。没有新增 Compiler 语义或公共接口。源码准备加候选共 20 项，完整 verify **2557** 项及 lint／build／types 通过，见 `artifacts/rspack-lifecycle-design/candidate-verify.log`。
+
+真实 React 探针已用这两个正式内部模块替换其临时准备／重放代码，原生 Rspack 与 Rsbuild 的 Chromium 红→蓝→非法 GSS→同内容恢复→红全部通过，root 启动计数为 1。日志 `modules-react-rspack.log`／`modules-react-rsbuild.log`，临时实现基线脚本保留为 `real-react-inline-baseline.mjs`。仍是手动 HMR 和探针 HTTP 服务，不升级为默认 dev server、Fast Refresh 或完整资源验收；没有重跑原排序三引擎和外部框架 gate。
+
+下一项为正式 loader／plugin 的本轮依赖与发布编排，以及已确认的原生 CSS 处理步骤和 Rsbuild 薄封装。两个入口尚未导出，package exports 继续为空；不得用该 workspace 的 build 成功宣称 Rsbuild／Rspack 已交付。模块契约入口见 [README](../integrations/rspack/README.md)。
 
 ### Preserved fallback 贡献边界
 

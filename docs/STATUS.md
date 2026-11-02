@@ -10,7 +10,9 @@ CSS 能力接入流程与策略归属核对已按 owner 授权完成，形成三
 
 ## 当前目标：React 多构建工具接入
 
-2026-11-02 源码准备内部模块已实现，见 [模块说明](../integrations/rspack/README.md) 与 [架构记录](ARCHITECTURE-DIRECTION.md#rspack-内部源码准备实现2026-11-02)。新增 `@gss-l/rspack` workspace 暂无插件导出；11 项新测试覆盖真实 React／Compiler、同轮输入、诊断及 fallback。完整 `verify` **2548** 项（Compiler 1991／React 49／Rspack 内部 11／Vite 163／Testing 334）及 lint／build／types 通过，日志 `artifacts/rspack-lifecycle-design/source-preparation-verify.log`；初始测试把空值误当必报错输入的两项失败保留，改用明确语法错误，未增加无效 CSS 兜底。下一项是本轮可达候选快照／全局校验。未新增浏览器运行，尚不表示两个宿主插件可用。
+2026-11-02 可达候选快照已接续实现，见 [架构记录](ARCHITECTURE-DIRECTION.md#rspack-可达候选快照实现2026-11-02)：仅重放当前可达输入，集中检查全局冲突和局部 artifact 一致性；失败不返回部分结果。Rspack 内部共 20 项测试，完整 verify **2557** 项及 lint/build/types 通过；两宿主真实 React Chromium 探针已改用正式内部模块并通过更新／失败／恢复。日志为 `candidate-verify.log`、`modules-react-rspack.log`、`modules-react-rsbuild.log`（均在 `artifacts/rspack-lifecycle-design/`）。下一项为 loader／plugin 的依赖与发布编排及 CSS 处理／Rsbuild 封装；没有公开插件导出，默认 dev server 和完整资源验收仍未完成。
+
+2026-11-02 源码准备内部模块已实现，见 [模块说明](../integrations/rspack/README.md) 与 [架构记录](ARCHITECTURE-DIRECTION.md#rspack-内部源码准备实现2026-11-02)。新增 `@gss-l/rspack` workspace 暂无插件导出；11 项新测试覆盖真实 React／Compiler、同轮输入、诊断及 fallback。完整 `verify` **2548** 项（Compiler 1991／React 49／Rspack 内部 11／Vite 163／Testing 334）及 lint／build／types 通过，日志 `artifacts/rspack-lifecycle-design/source-preparation-verify.log`；初始测试把空值误当必报错输入的两项失败保留，改用明确语法错误，未增加无效 CSS 兜底。后续可达候选快照／全局校验结果见上方。未新增浏览器运行，尚不表示两个宿主插件可用。
 
 2026-11-02 最新 [主构建与真实 React 闭环](ARCHITECTURE-DIRECTION.md#主构建处理与真实-react-闭环2026-11-02)：真实 Compiler CSS／map 已接入处理步骤，PostCSS 依赖修改触发主 watch、失败保留和同内容恢复通过；两个宿主的真实 React Adapter／moduleCode／CSS 原生处理／手动 HMR Chromium 探针均通过。owner 已接受首版最终 CSS map 的原生规则起点精度，Compiler 原始诊断位置保留。仍非正式插件、完整 dev server 或 Fast Refresh 验收。下一项实现 Rspack 内部源码／schema 准备及候选数据契约，再连接两个入口；资源、动态配置及完整发布仍未完成。原始证据在 `artifacts/rspack-lifecycle-design/`，产品代码未变，当前无待 owner 决策。
 
