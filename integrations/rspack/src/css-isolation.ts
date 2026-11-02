@@ -41,17 +41,20 @@ export function isolateCssLoaders(rules: readonly (RuleSetRule | false | null | 
       Reflect.deleteProperty(rule, 'loader');
       Reflect.deleteProperty(rule, 'options');
     }
-    if (rule.use) {
-      const original = rule.use;
-      const scoped: RuleSetUse = info => {
-        const use = typeof original === 'function' ? original(info) : original;
-        if (info.resource?.split('?')[0] !== aggregateId) return use;
-        return Array.isArray(use) ? use.map(adapt) : adapt(use);
-      };
-      rule.use = scoped;
-    }
     if (rule.rules) isolateCssLoaders(rule.rules, aggregateId);
     if (rule.oneOf) isolateCssLoaders(rule.oneOf, aggregateId);
+    if (rule.use) {
+      const original = rule.use;
+      const scope = (use: RuleSetUseItem | RuleSetUseItem[]) => Array.isArray(use) ? use.map(adapt) : adapt(use);
+      const scoped: RuleSetUse = typeof original === 'function' ? info => scope(original(info)) : scope(original);
+      // Keep static options static: CSS extraction's child requests resolve their native ident.
+      // A callback registers options too late for the initial native builtin reference table.
+      Reflect.deleteProperty(rule, 'use');
+      rule.rules = [{ oneOf: [
+        { resource: id => id === aggregateId, use: scoped },
+        { use: original }
+      ] }, ...(rule.rules ?? [])];
+    }
   }
 }
 

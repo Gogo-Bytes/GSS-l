@@ -3,7 +3,16 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "exports": {},
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./internal/css-isolation": {
+      "types": "./dist/css-isolation.d.ts",
+      "import": "./dist/css-isolation.js"
+    }
+  },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
@@ -16,5 +25,11 @@
     "@gss-l/react": "workspace:*",
     "@rspack/core": "2.3.0",
     "@types/node": "22"
+  },
+  "files": [
+    "dist"
+  ],
+  "peerDependencies": {
+    "@rspack/core": "2.3.0"
   }
 }

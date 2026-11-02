@@ -108,6 +108,22 @@ importers:
         specifier: ^7.3.6
         version: 7.3.6(@types/node@22.20.4)(lightningcss@1.33.0)
 
+  integrations/rsbuild:
+    dependencies:
+      '@gss-l/rspack':
+        specifier: workspace:*
+        version: link:../rspack
+    devDependencies:
+      '@gss-l/react':
+        specifier: workspace:*
+        version: link:../../adapters/react
+      '@rsbuild/core':
+        specifier: 2.3.0
+        version: 2.3.0
+      '@types/node':
+        specifier: '22'
+        version: 22.20.4
+
   integrations/rspack:
     dependencies:
       '@gss-l/compiler':
@@ -119,7 +135,7 @@ importers:
         version: link:../../adapters/react
       '@rspack/core':
         specifier: 2.3.0
-        version: 2.3.0
+        version: 2.3.0(@swc/helpers@0.5.23)
       '@types/node':
         specifier: '22'
         version: 22.20.4
@@ -1108,6 +1124,22 @@ packages:
     requiresBuild: true
     optional: true
 
+  /@rsbuild/core@2.3.0:
+    resolution: {integrity: sha512-fT7GWVOV3Rk0P/1/XpZIEg4wv/9GRggQRXpEZkGAcQsTiljjgtxYmN4KOWMVXTb/0wtukKBGc/iKf/HV86n/Zg==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    hasBin: true
+    peerDependencies:
+      core-js: '>= 3.0.0'
+    peerDependenciesMeta:
+      core-js:
+        optional: true
+    dependencies:
+      '@rspack/core': 2.3.0(@swc/helpers@0.5.23)
+      '@swc/helpers': 0.5.23
+    transitivePeerDependencies:
+      - '@module-federation/runtime-tools'
+    dev: true
+
   /@rspack/binding-darwin-arm64@2.3.0:
     resolution: {integrity: sha512-raUm1V29xRm1fPaS2R2qK4Yw5PGo3xooK6Fz2rt74pjJ+UhEUT4ED/8A9Qyf/YW16aMUl58eS5prtth8+UaJSQ==}
     cpu: [arm64]
@@ -1242,7 +1274,7 @@ packages:
       '@rspack/binding-win32-x64-msvc': 2.3.0
     dev: true
 
-  /@rspack/core@2.3.0:
+  /@rspack/core@2.3.0(@swc/helpers@0.5.23):
     resolution: {integrity: sha512-1zylQSMl3xo1f57ZqJMHAoVddRv1BSvpQQVIgWjP51AGhLyeHTAfEf0mphb0wb0bOUf5EujpvvO592X9GMf2qQ==}
     engines: {node: ^20.19.0 || >=22.12.0}
     peerDependencies:
@@ -1255,6 +1287,13 @@ packages:
         optional: true
     dependencies:
       '@rspack/binding': 2.3.0
+      '@swc/helpers': 0.5.23
+    dev: true
+
+  /@swc/helpers@0.5.23:
+    resolution: {integrity: sha512-5lSsMOTXURePglDfvuAQUqkGek9Hg2kksOYay2m0+XR++b2NWYL/4sWyuvVBIs8oKnJaxkdi9whaL/sqN13afw==}
+    dependencies:
+      tslib: 2.9.1
     dev: true
 
   /@tybys/wasm-util@0.10.4:
@@ -2501,7 +2540,6 @@ packages:
     resolution: {integrity: sha512-a4Ux9VKuIMHsOS7ENbEq6hK2ZGYIT27Rtl0E4eD9KqwxhKiQeMZE/9xb3IdYwWaSOyIBQLExhQgXDTYoiCxnWA==}
     requiresBuild: true
     dev: true
-    optional: true
 
   /type-check@0.4.0:
     resolution: {integrity: sha512-XleUoc9uwGXqjWwXaUTZAmzMcFZ5858QA2vvx1Ur5xIcixXIP+8LnFDgRplU30us6teqdlskFfu+ae4K79Ooew==}

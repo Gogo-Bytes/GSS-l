@@ -692,3 +692,17 @@ Rsbuild 2.3.0／Rspack 2.3.0 的 production probe 使用旧 Safari targets 触�
 - 另一选择：先只交付 Rsbuild 的公开接入，原生 Rspack 继续作为内部核心，等后续确定原生公开 API；不增加辅助函数，但原生 Rspack 的直接消费晚于 Rsbuild。
 
 这不是重新询问排序或 fallback，也不是 targets 重复配置：待决是原生 Rspack 用户是否接受替换 CSS minimizer 构造入口。AGENTS.md 要求公共 API／作者体验变化由 owner 决策，因此暂不把任一草案导出。多实例、自定义 CSS 处理器、纯 hash 文件名的支持范围也不能借此默认扩大。其余已通过的隔离切片无需回退。
+
+
+#### Minimizer 辅助函数与 Rsbuild 桥接实施（2026-11-02）
+
+Owner 已选择 minimizer 辅助函数，上一节的公开 API 待决结束。`@gss-l/rspack` 根入口导出 `gssCssMinimizers(options)`，返回宿主原生插件实例数组，供原生配置替换 CSS minimizer；options 沿用宿主，未新增 Compiler targets 或修改 fallback。`integrations/rsbuild` 已建立薄桥接 workspace，通过公开 chain tap 获取合并后的 options，通过自身 HTML hook 保持 stylesheet 顺序；没有复刻 Rsbuild 配置算法或读取 `_args`。当前仍没有完整公开 `gss`／`pluginGss` 插件；资源 IO 待接通。两个宿主版本固定 2.3.0，不宣称未验证版本范围。
+
+**新增实证与修复。** 关闭 CSS 压缩时发现旧隔离实现把静态 rule.use 转为 callback，使 CSS extraction 子请求的 builtin options 引用丢失；普通 CSS 未执行 targets 转换及前缀，而纯宿主对照会执行。原生初始 reference 表在动态回调注册前建立，因此需保持静态 options 静态登记。改为 native resource/oneOf 分支选择 GSS 和普通 use，保留原有嵌套规则。此修复不修改任何 CSS 排序决策。`verify.log` 为最初失败，`verify-final.log` 保留独立宿主逐字对照的 red，`static-rules-test.log` 为 green；随后测试参数类型错误记录在 `verify-static.log`，未删除断言。
+
+正式 Rsbuild 回归增加 3 项：压缩开／关各一次真实双入口构建，并与未安装 GSS 的独立普通 CSS 构建逐字比较；另验证多 minimizer 配置明确失败，避免第二个实例重新降低 GSS 逻辑属性。原生 Rspack 既有真实构建改用包根的公开 helper。单标准 minimizer 是已核对内部桥接范围，任意后置配置修改仍未保证。
+
+沿用现有 Chromium 探针，改为消费正式桥接，双入口真实 HTML、GSS 与 ordinary CSS 同节点顺序、默认 React HMR／错误保留／同输入恢复均通过：`production-static.log`、`dev-server-static.log`。完整 verify **2566** 项及 lint/build/types 通过，见 `artifacts/minimizer-entry/verify-delivery.log`。未重跑 Vite／旧排序三引擎，未改 Compiler。下一项继续资源 IO 与公开插件组合，不新增框架、targets 或 fallback 政策。
+
+
+本轮完整验证还复现 watch harness 的输入轮次边界（`verify-complete.log`）：watchRun 可能在文件事件失效到达前已读到新 bytes，模块图仍缓存旧入口。仅匹配磁盘输入不足以定位测试轮次。回归现在同时要求对应 modifiedFiles 事件与实际编译入口源码已经消费该编辑，然后执行原 CSS／发布断言；不通过等待正确 CSS 来筛掉失败输出。最终通过记录为 `verify-delivery.log`，此修正只在测试中。

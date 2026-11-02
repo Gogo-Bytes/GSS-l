@@ -54,3 +54,18 @@ Compiler／Adapter error 阻止代码交付；`SourceDiagnosticError.diagnostics
 必须同时处理 loader 和 minimizer，否则生产会再次降级并增加逻辑 atom 的 selector 权重。原生 splitChunks 使用带 gss-l 名的资产；纯 hash 文件名明确失败。当前内部桥接仅消费一份已选定有效 minimizer 配置，不承诺任意多实例／自定义处理器。公开宿主桥接应在配置阶段完成，不能反射读取 plugin 私有参数。
 
 CSS 分包会改变默认 HTML link 顺序，因此用宿主 hook 调用 `orderGssStylesheets`，保持普通 CSS 在前、全局 GSS 在后；Rsbuild 须接自己的 modifyHTMLTags，原生 HtmlRspackPlugin hook 不替代它。保留非 stylesheet 标签槽位及所有属性。不能靠重复 class 或额外 specificity 修补顺序，也不生成私有 HMR runtime。实现、独立预期、失败证据及有限浏览器范围见 [架构记录](../../docs/ARCHITECTURE-DIRECTION.md#gss-css-局部隔离实施2026-11-02)。
+
+
+## 原生 CSS minimizer 辅助函数
+
+Owner 已确认并导出 `gssCssMinimizers(options)`：用 `...gssCssMinimizers(cssOptions)` 替代原来的 `new LightningCssMinimizerRspackPlugin(cssOptions)`。它返回两个原生插件，使用同一份宿主 options；GSS 分支仅覆盖逻辑属性开关，普通分支沿用原条件并排除 GSS 资产。JS minimizer 不由此函数管理。支持版本目前固定为已验证的 Rspack 2.3.0；未发布 npm 包。
+
+```ts
+import { gssCssMinimizers } from '@gss-l/rspack';
+// optimization.minimizer 中替换原 CSS minimizer，其余 JS minimizer 保持原配置：
+const cssMinimizers = gssCssMinimizers({ minimizerOptions: { targets: ['safari >= 9'] } });
+```
+
+这个 export 不是完整 GSS 插件：公开 `gss({ adapter })` 尚未接通资源 IO，当前仍需内部主链编排。Rsbuild 配置桥接在 `integrations/rsbuild` 自动读取有效 options；用户无需手配此 helper。internal 子路径只供配套 workspace 使用。
+
+**静态规则必须保持静态。** 不要把所有 `rule.use` 包装成回调来按 resource 修改 options。Rsbuild 提取 CSS 的子请求使用原生 builtin options ident；动态注册迟于初始 references 表，可能丢失 ordinary CSS 的 targets 和前缀，而压缩器会掩盖错误。当前使用原生 resource/oneOf 分支隔离 GSS；静态 options 在初始化时登记，原有 rules／oneOf 和 ordinary use 保留。新增未压缩的普通 CSS 与纯宿主构建逐字对照，修复前失败、修复后通过。用户原有动态 use 保持动态；不承诺任意动态 loader 与 extraction 的组合。

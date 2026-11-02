@@ -1,0 +1,23 @@
+{
+  "name": "@gss-l/rsbuild",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {},
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@gss-l/rspack": "workspace:*"
+  },
+  "devDependencies": {
+    "@rsbuild/core": "2.3.0",
+    "@types/node": "22",
+    "@gss-l/react": "workspace:*"
+  },
+  "peerDependencies": {
+    "@rsbuild/core": "2.3.0"
+  }
+}

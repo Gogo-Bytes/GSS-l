@@ -2,6 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { rspack, type Compiler, type RuleSetRule, type Stats } from '@rspack/core';
+import { gssCssMinimizers } from '@gss-l/rspack';
 import { react } from '@gss-l/react';
 import { expect, it } from 'vitest';
 import { isolatedCssMinimizers, isolateCssLoaders, orderGssStylesheets } from '../src/css-isolation.js';
@@ -15,10 +16,15 @@ it('preserves host options and disables only GSS logical lowering', () => {
   isolateCssLoaders(rules, '/project/.gss-internal/aggregate.css');
   const selected = rules[0]!.oneOf![0];
   if (!selected || typeof selected !== 'object') throw new Error('Expected CSS rule');
-  const use = selected.use;
+  const branch = selected.rules?.[0];
+  if (!branch || typeof branch !== 'object') throw new Error('Expected scoped rule');
+  const gssRule = branch.oneOf?.[0];
+  const ordinaryRule = branch.oneOf?.[1];
+  if (!gssRule || typeof gssRule !== 'object' || !ordinaryRule || typeof ordinaryRule !== 'object') throw new Error('Expected resource branches');
+  const use = gssRule.use;
   if (typeof use !== 'function') throw new Error('Expected native use callback');
   const request = { resource: '/project/ordinary.css', realResource: '/project/ordinary.css', resourceQuery: '', resourceFragment: '', issuerLayer: '', issuer: '/project/index.js' };
-  expect(use(request)).toEqual([loader]);
+  expect(typeof ordinaryRule.use === 'function' && ordinaryRule.use(request)).toEqual([loader]);
   const scoped = use({ ...request, resource: '/project/.gss-internal/aggregate.css' });
   expect(scoped).toEqual([{ ident: 'host-lightning:gss-logical', loader: loader.loader, options: { targets: options.targets,
     include: { logicalProperties: false, nesting: true }, exclude: { logicalProperties: true, vendorPrefixes: true } } }]);
@@ -46,8 +52,7 @@ it.each(['[name].[contenthash].css', '[contenthash].css'])('isolates native CSS 
   await writeFile(path.join(root, 'ordinary.css'), '.ordinary { margin-inline-start: 1px; margin-left: 2px; color: blue; }');
   const compiler = rspack({ context: root, mode: 'production', entry: { index: './index.js', second: './second.js' },
     output: { path: path.join(root, 'dist'), cssFilename }, experiments: { css: true },
-    optimization: { splitChunks: false, minimizer: isolatedCssMinimizers({ minimizerOptions: config })
-      .map(options => new rspack.LightningCssMinimizerRspackPlugin(options)) },
+    optimization: { splitChunks: false, minimizer: gssCssMinimizers({ minimizerOptions: config }) },
     module: { rules: [{ test: /\.css$/, type: 'css', use: [{ loader: 'builtin:lightningcss-loader', options: config }] }] },
     plugins: [new rspack.HtmlRspackPlugin({ filename: 'index.html', chunks: ['index'] }),
       new rspack.HtmlRspackPlugin({ filename: 'second.html', chunks: ['second'] }), { apply(c: Compiler) {

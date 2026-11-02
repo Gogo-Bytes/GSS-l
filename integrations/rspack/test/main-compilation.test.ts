@@ -33,11 +33,11 @@ it('uses the main CSS graph across entries, lazy removal, failed input, recovery
   // Native watch may report extra rounds for initial timestamps or the preceding edit.
   // Select by inputs observed before compilation, never by the CSS result under test.
   let inputs: string[] = [];
-  const roundInputs = new WeakMap<Compilation, string[]>();
+  const roundInputs = new WeakMap<Compilation, { inputs: string[]; changed: Set<string> }>();
   compiler.hooks.watchRun.tapPromise('TestInputs', async () => {
     inputs = await Promise.all([index, source, token].map(file => readFile(file, 'utf8')));
   });
-  compiler.hooks.thisCompilation.tap('TestInputs', compilation => roundInputs.set(compilation, inputs));
+  compiler.hooks.thisCompilation.tap('TestInputs', compilation => roundInputs.set(compilation, { inputs, changed: new Set(compiler.modifiedFiles) }));
   const pending: Stats[] = [];
   let deliver: ((stats: Stats) => void) | undefined;
   let rejectRun: ((error: Error) => void) | undefined;
@@ -50,11 +50,18 @@ it('uses the main CSS graph across entries, lazy removal, failed input, recovery
   const run = () => pending.length ? Promise.resolve(pending.shift()!) : new Promise<Stats>((resolve, reject) => {
     deliver = resolve; rejectRun = reject;
   });
-  const currentRun = async () => {
+  const currentRun = async (changedFile?: string) => {
     const expected = await Promise.all([index, source, token].map(file => readFile(file, 'utf8')));
     for (;;) {
       const stats = await run();
-      if (JSON.stringify(roundInputs.get(stats.compilation)) === JSON.stringify(expected)) return stats;
+      const observed = roundInputs.get(stats.compilation);
+      if (JSON.stringify(observed?.inputs) !== JSON.stringify(expected) ||
+          (changedFile && !observed?.changed.has(changedFile))) continue;
+      // watchRun can read new bytes before their invalidation reaches the cached module graph.
+      // Require the entry module to have consumed this edit; never wait for the desired CSS.
+      const entry = [...stats.compilation.modules].find(module => 'resource' in module && module.resource === index);
+      if (!stats.hasErrors() && String(entry?.originalSource()?.source()) !== expected[0]!.replace('a.card', 'a.card.self')) continue;
+      return stats;
     }
   };
   const css = (stats: Stats) => stats.compilation.getAssets().filter(a => a.name.endsWith('.css'))
@@ -70,27 +77,27 @@ it('uses the main CSS graph across entries, lazy removal, failed input, recovery
     }
     await expect(access(path.join(root, '.gss-internal/aggregate.css'))).rejects.toThrow();
     await writeFile(index, "import a from './a.gss';console.log(a.card);");
-    const removed = await currentRun();
+    const removed = await currentRun(index);
     expect(removed.hasErrors(), removed.toString({all:false,errors:true})).toBe(false);
     expect(css(removed)).not.toContain('color: blue');
     const previous = publication!.published;
     await writeFile(source, '.card {');
-    const failed = await currentRun();
+    const failed = await currentRun(source);
     expect(failed.hasErrors()).toBe(true);
     expect(publication!.published).toBe(previous);
     await writeFile(source, '.card { color: green; }');
-    const recovered = await currentRun();
+    const recovered = await currentRun(source);
     expect(recovered.hasErrors()).toBe(false);
     expect(css(recovered)).toContain('color: green');
     expect(css(recovered)).not.toContain('color: red');
     const processed = publication!.published;
     await writeFile(token, 'fail');
-    expect((await currentRun()).hasErrors()).toBe(true);
+    expect((await currentRun(token)).hasErrors()).toBe(true);
     expect(publication!.published).toBe(processed);
     await writeFile(token, 'ok');
-    expect((await currentRun()).hasErrors()).toBe(false);
+    expect((await currentRun(token)).hasErrors()).toBe(false);
     await writeFile(index, "console.log('no gss');");
-    const empty = await currentRun();
+    const empty = await currentRun(index);
     expect(empty.hasErrors()).toBe(false);
     expect(css(empty)).not.toContain('color:');
     expect([...empty.compilation.fileDependencies]).not.toContain(token);
