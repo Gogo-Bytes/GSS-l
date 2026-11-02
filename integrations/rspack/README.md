@@ -66,6 +66,25 @@ import { gssCssMinimizers } from '@gss-l/rspack';
 const cssMinimizers = gssCssMinimizers({ minimizerOptions: { targets: ['safari >= 9'] } });
 ```
 
-这个 export 不是完整 GSS 插件：公开 `gss({ adapter })` 尚未接通资源 IO，当前仍需内部主链编排。Rsbuild 配置桥接在 `integrations/rsbuild` 自动读取有效 options；用户无需手配此 helper。internal 子路径只供配套 workspace 使用。
+该 helper 负责 CSS 压缩隔离；公开 `gss({ adapter })` 负责主构建与资源 IO，二者配对使用。Rsbuild 配置桥接在 `integrations/rsbuild` 自动读取有效 options；用户无需手配此 helper。internal 子路径只供配套 workspace 使用。
 
 **静态规则必须保持静态。** 不要把所有 `rule.use` 包装成回调来按 resource 修改 options。Rsbuild 提取 CSS 的子请求使用原生 builtin options ident；动态注册迟于初始 references 表，可能丢失 ordinary CSS 的 targets 和前缀，而压缩器会掩盖错误。当前使用原生 resource/oneOf 分支隔离 GSS；静态 options 在初始化时登记，原有 rules／oneOf 和 ordinary use 保留。新增未压缩的普通 CSS 与纯宿主构建逐字对照，修复前失败、修复后通过。用户原有动态 use 保持动态；不承诺任意动态 loader 与 extraction 的组合。
+
+
+## 公开主构建入口与资源 IO
+
+`gss({ adapter })` 已导出，组合既有局部隔离、main-compilation 与 publication；projectRoot 使用 compiler.context，无 targets 选项。React 用法和显式 adapter 不变。
+
+```ts
+import { gss, gssCssMinimizers } from '@gss-l/rspack';
+import { react } from '@gss-l/react';
+// 合入现有 React/SWC、CSS rules 和 HTML 配置：
+// plugins: [...existingPlugins, gss({ adapter: react() })],
+// optimization: { minimizer: [...existingJsMinimizers, ...gssCssMinimizers(cssOptions)] }
+```
+
+`stylesheet-io.ts` 从宿主 inputFileSystem 读取源码，通过已有 Compiler discovery 找 URL；相对 URL 由原生 resolver（preferRelative／url 依赖类型）相对原 stylesheet 解析，登记 file/context/missing 依赖。身份包含项目相对文件名及 query/fragment；finalize 输出原生 CSS 链可读取的绝对资源请求。资源 bytes、hash、emission、publicPath 与更新由主链处理，不另建资源服务器或 emitAsset。根路径 URL、remote/data 与单独 fragment 不受聚合目录影响，原样交给宿主；不复制 Vite 的 publicDir 读取策略，不承诺任意自定义 URL filter／预处理器。
+
+每轮 read 接收本轮 compilation，避免把依赖登记到旧轮；已有只接收 id 的内部调用仍兼容。CSS 解析失败仍交给原 Compiler 诊断，不用 IO 错误替换它。已验证嵌套目录图片、#fragment、生产 hash／真实资源文件，以及默认 Rsbuild dev server 的图片 bytes 更新和 GSS 错误恢复。根路径/publicDir、自定义 resolver 组合、完整资源语法与 workspace 外消费尚未形成完整验收，不据此宣称全部资源支持。
+
+默认提取 CSS／带 gss-l chunk 名的文件名是当前验证范围；自定义多 minimizer、纯 hash 文件名、style 注入、SSR／库构建没有升级为保证。包未发布；TypeScript 的通用 `*.gss` 声明入口仍需完成，当前不能将 Vite 专属 client 声明作为新宿主正式接入方式。

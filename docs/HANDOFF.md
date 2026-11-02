@@ -5,6 +5,8 @@
 
 2026-11-02 owner 已确认原生 minimizer 辅助函数。`@gss-l/rspack` 已导出 `gssCssMinimizers(options)`；新增 Rsbuild 内部薄桥接自动继承宿主有效配置。修复静态 loader 被回调化后 ordinary CSS options 丢失的问题，压缩开／关均与独立纯宿主输出逐字一致。完整 verify **2566** 项及 lint/build/types、正式桥接的双入口 Chromium 页面／默认 React HMR 通过。详见 [实施记录](ARCHITECTURE-DIRECTION.md#minimizer-辅助函数与-rsbuild-桥接实施2026-11-02)，证据 `artifacts/minimizer-entry/`。公开 `gss`／`pluginGss` 和自动资源 IO 尚未交付；继续接通，不再询问 helper API，不新增 targets 或改 fallback。
 
+2026-11-02 已继续接通公开 `gss({ adapter })`／`pluginGss({ adapter })` 与基础相对资源 IO：宿主 resolver／input filesystem 负责输入，主 CSS 链负责资源输出和更新，无重复 targets。完整 verify **2566** 项及 lint/build/types 通过；公开入口的双 HTML、默认 React HMR、SVG bytes 更新及错误恢复通过（`artifacts/minimizer-entry/public-*`）。详见 [入口与资源记录](ARCHITECTURE-DIRECTION.md#公开插件组合与基础资源-io2026-11-02)。尚未做 workspace 外 tarball／完整资源组合验收，未发布包。下一待决是通用 `*.gss` 声明使用 `@gss-l/types/client`，或各宿主独立 client 入口；不要要求新宿主引用 Vite 专属声明。
+
 具体状态以 [STATUS.md](STATUS.md)、当前 Git 和 [当前计划](NEXT-STAGE.md) 为准。下述内容可直接用于接续：
 
 ```text

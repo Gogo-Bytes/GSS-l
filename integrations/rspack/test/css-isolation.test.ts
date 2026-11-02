@@ -1,13 +1,11 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { rspack, type Compiler, type RuleSetRule, type Stats } from '@rspack/core';
-import { gssCssMinimizers } from '@gss-l/rspack';
+import { rspack, type RuleSetRule, type Stats } from '@rspack/core';
+import { gss, gssCssMinimizers } from '@gss-l/rspack';
 import { react } from '@gss-l/react';
 import { expect, it } from 'vitest';
 import { isolatedCssMinimizers, isolateCssLoaders, orderGssStylesheets } from '../src/css-isolation.js';
-import { installCssIsolation } from '../dist/css-isolation.js';
-import { installMainCompilation } from '../dist/main-compilation.js';
 
 it('preserves host options and disables only GSS logical lowering', () => {
   const options = { targets: ['safari >= 9'], include: { logicalProperties: true, nesting: true }, exclude: { vendorPrefixes: true } };
@@ -55,10 +53,7 @@ it.each(['[name].[contenthash].css', '[contenthash].css'])('isolates native CSS 
     optimization: { splitChunks: false, minimizer: gssCssMinimizers({ minimizerOptions: config }) },
     module: { rules: [{ test: /\.css$/, type: 'css', use: [{ loader: 'builtin:lightningcss-loader', options: config }] }] },
     plugins: [new rspack.HtmlRspackPlugin({ filename: 'index.html', chunks: ['index'] }),
-      new rspack.HtmlRspackPlugin({ filename: 'second.html', chunks: ['second'] }), { apply(c: Compiler) {
-        installCssIsolation(c, path.join(root, '.gss-internal/aggregate.css'));
-        installMainCompilation(c, { config: { projectRoot: root }, adapter: react(), read: async id => ({ source: await readFile(id, 'utf8') }) });
-      } }]
+      new rspack.HtmlRspackPlugin({ filename: 'second.html', chunks: ['second'] }), gss({ adapter: react() })]
   });
   try {
     const stats = await new Promise<Stats>((resolve, reject) => compiler.run((error, stats) => error ? reject(error) : stats ? resolve(stats) : reject(new Error('No stats'))));

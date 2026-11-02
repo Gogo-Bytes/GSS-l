@@ -12,6 +12,8 @@ CSS 能力接入流程与策略归属核对已按 owner 授权完成，形成三
 
 2026-11-02 owner 已批准 GSS CSS 局部隔离，内部实现与验证已完成：仅聚合 GSS 的原生 Lightning CSS loader／minimizer 排除 logicalProperties，普通 CSS 保持宿主处理；不新增 targets，不改 Compiler 排序或 fallback。原生 splitChunks 共用 GSS 资产，HTML hook 保持普通 CSS 在前、聚合 GSS 在后。两个真实 HTML 入口及默认 Rsbuild React HMR（含普通 CSS 更新、错误保留／恢复）通过；完整 verify **2563** 项及 lint/build/types 通过。详见 [实施记录](ARCHITECTURE-DIRECTION.md#gss-css-局部隔离实施2026-11-02)，证据在 `artifacts/gss-css-isolation/`。仍是内部模块，公开入口／自动资源 IO 尚未交付；下一项连接宿主的有效 minimizer 配置与 Rsbuild 薄封装，不要求用户重复 targets。
 
+2026-11-02 已继续接通公开 `gss({ adapter })`／`pluginGss({ adapter })` 与基础相对资源 IO：宿主 resolver／input filesystem 负责输入，主 CSS 链负责资源输出和更新，无重复 targets。完整 verify **2566** 项及 lint/build/types 通过；公开入口的双 HTML、默认 React HMR、SVG bytes 更新及错误恢复通过（`artifacts/minimizer-entry/public-*`）。详见 [入口与资源记录](ARCHITECTURE-DIRECTION.md#公开插件组合与基础资源-io2026-11-02)。尚未做 workspace 外 tarball／完整资源组合验收，未发布包。下一待决是通用 `*.gss` 声明使用 `@gss-l/types/client`，或各宿主独立 client 入口；不要要求新宿主引用 Vite 专属声明。
+
 2026-11-02 owner 已确认原生 minimizer 辅助函数。`@gss-l/rspack` 已导出 `gssCssMinimizers(options)`；新增 Rsbuild 内部薄桥接自动继承宿主有效配置。修复静态 loader 被回调化后 ordinary CSS options 丢失的问题，压缩开／关均与独立纯宿主输出逐字一致。完整 verify **2566** 项及 lint/build/types、正式桥接的双入口 Chromium 页面／默认 React HMR 通过。详见 [实施记录](ARCHITECTURE-DIRECTION.md#minimizer-辅助函数与-rsbuild-桥接实施2026-11-02)，证据 `artifacts/minimizer-entry/`。公开 `gss`／`pluginGss` 和自动资源 IO 尚未交付；继续接通，不再询问 helper API，不新增 targets 或改 fallback。
 
 

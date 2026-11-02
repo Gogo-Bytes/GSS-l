@@ -706,3 +706,16 @@ Owner 已选择 minimizer 辅助函数，上一节的公开 API 待决结束。`
 
 
 本轮完整验证还复现 watch harness 的输入轮次边界（`verify-complete.log`）：watchRun 可能在文件事件失效到达前已读到新 bytes，模块图仍缓存旧入口。仅匹配磁盘输入不足以定位测试轮次。回归现在同时要求对应 modifiedFiles 事件与实际编译入口源码已经消费该编辑，然后执行原 CSS／发布断言；不通过等待正确 CSS 来筛掉失败输出。最终通过记录为 `verify-delivery.log`，此修正只在测试中。
+
+
+#### 公开插件组合与基础资源 IO（2026-11-02）
+
+辅助函数及配置桥接 `e4a294a` 已推送后，继续实现已确认的 `gss({ adapter })`／`pluginGss({ adapter })` 入口。原生入口连接既有隔离与主构建；Rsbuild 入口通过公开 hook 组合配置桥接和原生插件。未增加配置或框架，React 源码用法不变，未改排序、fallback 或 NoEmitOnErrors 策略。
+
+源码从 compiler.inputFileSystem 读取；Compiler 已有 discovery 提供 URL，相对资源交给宿主 url resolver，以原 stylesheet 所在目录解析；file/context/missing 依赖登记到本轮 compilation。资产身份使用项目相对路径加 suffix，finalize 转为主链资源请求；原生处理器负责 bytes/hash/emission/publicPath。根路径、remote/data 和 fragment 原样保留，不擅自把 Vite publicDir 规则移植到新宿主。无独立 compiler、资源 runtime 或资源输出器。详见 [Rspack 模块说明](../integrations/rspack/README.md#公开主构建入口与资源-io)。
+
+既有两宿主真实构建回归改用包根公开入口；Rsbuild 压缩开／关案例同时验证嵌套目录中的 SVG 相对引用、fragment、hash 路径和实际输出文件内容，普通 CSS 仍与独立宿主逐字一致。完整 verify **2566** 项及 lint/build/types 通过：`artifacts/minimizer-entry/public-verify.log`。首次构建暴露 inputFileSystem nullable 的类型错误，日志 `public-build.log` 保留；未改变运行时边界来绕过类型检查。
+
+沿用现有 Chromium carrier 改为公开插件：真实双 HTML 入口通过，React 默认 HMR／ordinary 更新顺序／错误保留／同输入恢复通过；新增同一载体的相对 SVG bytes 更新确认（先读取红色 SVG，再修改文件并读取蓝色 SVG），未手动触发 HMR。日志 `public-production.log`、`public-dev.log`、`public-asset-dev.log`。不是完整资源语法／root publicDir／所有自定义 resolver 的证明；workspace 外 tarball 消费仍未验证，包未发布。
+
+**接下来的公共类型入口待决。** 现有 `@gss-l/vite/client` 同时声明 `*.gss` 与 Vite 专属 `virtual:gss.css?url`。新宿主不应要求引用 Vite client，也不能假装已实现该虚拟 URL。建议新增通用 `@gss-l/types/client`，只声明 `*.gss`，Vite 原入口继续保持兼容并引用通用声明；另一方案是分别提供 `@gss-l/rspack/client`／`@gss-l/rsbuild/client`，内部复用同一声明。两者不改变 React scope 类型或作者语法，但会确定公开 tsconfig／reference 路径，按 AGENTS.md 留给 owner 决策。当前先不导出这两种类型入口；明确不能将本轮转译／运行通过描述成外部 TypeScript 消费已验收。

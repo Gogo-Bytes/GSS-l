@@ -1,19 +1,20 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { createRsbuild, type Rspack } from '@rsbuild/core';
+import { createRsbuild } from '@rsbuild/core';
 import { react } from '@gss-l/react';
 import { expect, it } from 'vitest';
-import { installCssIsolation } from '@gss-l/rspack/internal/css-isolation';
-import { installMainCompilation } from '../../rspack/dist/main-compilation.js';
+import { pluginGss } from '@gss-l/rsbuild';
 import { cssIsolation } from '../src/css-isolation.js';
 
 it.each([true, false])('inherits host CSS configuration without enabling disabled minification: %s', async minify => {
   const root = await mkdtemp(path.join(tmpdir(), 'gss-rsbuild-'));
   let close: (() => Promise<void>) | undefined;
   try {
-    await writeFile(path.join(root, 'index.js'), "import a from './a.gss';import './ordinary.css';console.log(a.card);");
-    await writeFile(path.join(root, 'a.gss'), '.card { margin-inline-start: 1px; margin-left: 2px; }');
+    await writeFile(path.join(root, 'index.js'), "import a from './styles/a.gss';import './ordinary.css';console.log(a.card);");
+    await mkdir(path.join(root, 'styles'));
+    await writeFile(path.join(root, 'styles/image.svg'), '<svg xmlns="http://www.w3.org/2000/svg"><rect id="shape"/><!--' + 'x'.repeat(8000) + '--></svg>');
+    await writeFile(path.join(root, 'styles/a.gss'), '.card { margin-inline-start: 1px; margin-left: 2px; background-image: url("./image.svg#shape"); }');
     await writeFile(path.join(root, 'ordinary.css'), '.ordinary { margin-inline-start: 1px; margin-left: 2px; user-select: none; }');
     await writeFile(path.join(root, 'baseline.js'), "import './ordinary.css';");
     const cssOptions = { minimizerOptions: { errorRecovery: false } };
@@ -28,16 +29,9 @@ it.each([true, false])('inherits host CSS configuration without enabling disable
     const baselineHref = /href="([^"]+\.css)"/.exec(baselineHtml)![1]!;
     const baselineCss = await readFile(path.join(root, 'baseline-dist', baselineHref), 'utf8');
     const host = await createRsbuild({ cwd: root, rsbuildConfig: {
-      mode: 'production', logLevel: 'error', plugins: [cssIsolation],
+      mode: 'production', logLevel: 'error', plugins: [pluginGss({ adapter: react() })],
       source: { entry: { index: './index.js', second: './index.js' } },
-      output: { overrideBrowserslist: ['safari >= 9'], minify: { js: false, css: minify, cssOptions } },
-      tools: { rspack(config) {
-        config.plugins.push({ apply(compiler: Rspack.Compiler) {
-          installCssIsolation(compiler, path.join(root, '.gss-internal/aggregate.css'));
-          installMainCompilation(compiler, { config: { projectRoot: root }, adapter: react(),
-            read: async id => ({ source: await readFile(id, 'utf8') }) });
-        } });
-      } }
+      output: { overrideBrowserslist: ['safari >= 9'], minify: { js: false, css: minify, cssOptions } }
     } });
     const result = await host.build();
     close = result.close;
@@ -54,6 +48,11 @@ it.each([true, false])('inherits host CSS configuration without enabling disable
       const css = await readFile(path.join(root, 'dist', gss), 'utf8');
       expect(css).toMatch(/margin-inline-start:\s*1px/);
       expect(css).not.toContain(':lang');
+      expect(css).toContain('#shape');
+      expect(css).toContain('/static/svg/');
+      expect(css).not.toContain(root);
+      const asset = /url\(["']?([^"')]+)#shape/.exec(css)![1]!;
+      expect(await readFile(path.join(root, 'dist', asset), 'utf8')).toContain('id="shape"');
       if (!minify) expect(css).toContain('\n');
       const ordinary = await readFile(path.join(root, 'dist', links[0]!), 'utf8');
       expect(ordinary).toBe(baselineCss);

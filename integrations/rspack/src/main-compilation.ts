@@ -11,7 +11,7 @@ import { installPublication } from './publication.js';
 export function installMainCompilation(compiler: Compiler, options: {
   config: GssCompilerConfig;
   adapter: GssSourceAdapter;
-  read(id: string): Promise<Omit<ReplaceStylesheetInput, 'id'>>;
+  read(id: string, compilation: Compilation): Promise<Omit<ReplaceStylesheetInput, 'id'>>;
   finalize?: FinalizeGssOptions;
 }) {
   const name = 'GssMainCompilation';
@@ -27,7 +27,7 @@ export function installMainCompilation(compiler: Compiler, options: {
   const publication = installPublication(compiler);
   const rounds = new WeakMap<Compilation, { prepare: ReturnType<typeof createStylesheetPreparation>; request?: string }>();
   compiler.hooks.thisCompilation.tap(name, compilation => {
-    const prepare = createStylesheetPreparation(options.config, options.read);
+    const prepare = createStylesheetPreparation(options.config, id => options.read(id, compilation));
     rounds.set(compilation, { prepare });
     const prepareSource = createSourceLoaderPreparation(options.adapter, prepare);
     compiler.rspack.NormalModule.getCompilationHooks(compilation).loader.tap(name, context => {
