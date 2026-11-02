@@ -43,3 +43,5 @@ Compiler／Adapter error 阻止代码交付；`SourceDiagnosticError.diagnostics
 不可改回“稳定请求 + 非缓存 loader 读取当轮共享 seed”：原生 CSS 后续构建可能在 finishMake 前重建旧模块，此时当轮候选尚不存在。不可用旧 CSS 冒充当轮成功；不可变请求让旧模块只能消费自己的输入，新候选从当前图重新汇总。CSS extract 内部会构造伪 JS 请求，Adapter pre rule 排除内部 carrier，避免 React 解析器处理 CSS。
 
 当前回归使用真实 Rspack native CSS watch，覆盖两个入口、lazy 移除、非法输入保留／恢复、无 GSS 清空及 shorthand 源码覆盖；Rsbuild probe 覆盖原生 CSS extraction／PostCSS 文件依赖更新。公开配置、完整资源 IO、默认 dev server、任意 CSS 规则和最终 map 定位仍需后续验证。测试载入 dist 中真实 loader，运行本包测试前需要 build（根 verify 已按此顺序执行）。
+
+主链不意味着处理器失败会自动保留全部 watch 依赖。PostCSS 在抛错前记录的 dependency message 可能未交给 loader；实测修复 token 文件不触发重建。`afterCompile` 只读取**本轮精确 aggregate request** 对应模块的 buildInfo 依赖，交给既有 publication 状态保留／替换；不扫描全部历史模块，也不复制其他 JS 模块依赖。首次成功建立依赖后，即使失败处理器没返回消息，修复仍可触发；首次构建从未发现的隐藏依赖无法凭空推断。回归覆盖失败后同输入恢复，以及空 CSS 成功后旧 token 依赖移除。

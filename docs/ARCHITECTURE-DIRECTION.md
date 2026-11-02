@@ -566,3 +566,9 @@ Owner 已确认采用 finishMake + addEntry，明确不引入独立 compiler。�
 正式回归使用 Rspack 2.3.0 native CSS 的真实 watch：多入口、lazy 移除、GSS 失败／恢复、清空及 margin 源码覆盖。Rsbuild 已有五轮探针改用本模块，PostCSS 依赖更新、lazy 移除与同输入恢复通过（`main-implementation-query-watch.log`）。测试初期使用重复 compiler.run 手工写文件，无法替代 watcher 的缓存失效，因此正式回归改为真实 watch；早期 seed 和 loader 路径失败分别保留在 `main-implementation-early-seed-failure.log`、`main-implementation-loader-path-failure.log`。没有删除断言或放宽排序／fallback。
 
 本切片完整 verify **2559** 项及 lint/build/types 通过，日志 `main-compilation-verify.log`。Rsbuild 默认 dev server + pluginReact 的 Chromium 探针使用真实 import／className，原生 WebSocket/HMR 完成红→蓝→非法 GSS overlay／蓝色保留→同输入恢复→红，见 `main-dev-server.log`。没有自写 link runtime 或手动 HMR。首次 overlay 等待使用 visible，但宿主元素自身不提供可见盒，改为 attached 并检查页面计算样式；原 timeout 保留在 `main-dev-server-overlay-wait-failure.log`。该结果不承诺 React state 保留、所有配置或资源支持。测试类型错误日志亦保留；验证未修改业务语义。
+
+主构建接入的下一切片复现并修复处理器失败恢复：默认 Rsbuild dev server 的 PostCSS 插件读取 token 文件、输出 dependency message 后抛错；失败页面和 overlay 正确，但修复 token 后未再构建。原失败 `main-dev-postcss.log` 保留。原因是处理器中断可能使依赖消息未回传，因此原生主链仍需已确认的失败依赖保留策略。
+
+`main-compilation.ts` 在 afterCompile 读取本轮精确聚合 request 的 native buildInfo file/context/missing dependencies，交给 publication；失败保留上一成功集，成功替换，避免枚举历史聚合模块造成永久积累。现有主构建测试补处理器在登记依赖前抛错的反例：red 超时见 `main-processor-dependency-red.log`，修复后及空 CSS 移除 token 依赖通过见 `main-processor-dependency-green.log`。默认 Rsbuild Chromium dev server 同值恢复和再次更新通过，见 `main-dev-postcss-fixed.log`；没有承诺无 reload 或 React state 保留。首次失败从未被宿主发现的隐藏依赖不在此修复证明范围。
+
+处理器恢复修复完整 verify **2559** 项及 lint/build/types 通过，日志 `main-processor-verify.log`。既有默认排序／外部 Vite 浏览器 gate 未重跑；本轮仅新宿主内部编排变更。

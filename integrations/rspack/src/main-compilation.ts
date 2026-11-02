@@ -25,18 +25,18 @@ export function installMainCompilation(compiler: Compiler, options: {
     { test: (id: string) => id === aggregateId, enforce: 'pre', sideEffects: true, use: [aggregateLoader] }
   );
   const publication = installPublication(compiler);
-  const rounds = new WeakMap<Compilation, ReturnType<typeof createStylesheetPreparation>>();
+  const rounds = new WeakMap<Compilation, { prepare: ReturnType<typeof createStylesheetPreparation>; request?: string }>();
   compiler.hooks.thisCompilation.tap(name, compilation => {
     const prepare = createStylesheetPreparation(options.config, options.read);
-    rounds.set(compilation, prepare);
+    rounds.set(compilation, { prepare });
     const prepareSource = createSourceLoaderPreparation(options.adapter, prepare);
     compiler.rspack.NormalModule.getCompilationHooks(compilation).loader.tap(name, context => {
       (context as GssLoaderContext).gssPrepareSource = prepareSource;
     });
   });
   compiler.hooks.finishMake.tapPromise(name, async compilation => {
-    const prepare = rounds.get(compilation);
-    if (!prepare) return;
+    const round = rounds.get(compilation);
+    if (!round) return;
     try {
       const queue: Module[] = [];
       for (const entry of compilation.entries.values()) {
@@ -56,12 +56,13 @@ export function installMainCompilation(compiler: Compiler, options: {
           if (connection.module) queue.push(connection.module);
         }
       }
-      const candidate = await prepareCandidateSnapshot(options.config, ids, prepare, options.finalize);
+      const candidate = await prepareCandidateSnapshot(options.config, ids, round.prepare, options.finalize);
       publication.stage(compilation, candidate);
       const { css, sourceMap } = candidate.snapshot;
       const payload = JSON.stringify({ css, sourceMap: { ...structuredClone(sourceMap),
         sources: sourceMap.sources.map(id => path.resolve(options.config.projectRoot, id)) } });
       const request = `${aggregateId}?gss=${Buffer.from(payload).toString('base64url')}`;
+      round.request = request;
       // Attach the same aggregate to every current entry; do not partition global ordering by lazy chunk.
       for (const entryName of [...compilation.entries.keys()]) {
         const dependency = compiler.rspack.EntryPlugin.createDependency(request);
@@ -73,6 +74,18 @@ export function installMainCompilation(compiler: Compiler, options: {
       compilation.errors.push(error instanceof StylesheetPreparationError
         ? new SourceDiagnosticError(error.diagnostics)
         : error instanceof Error ? error : new Error(String(error)));
+    }
+  });
+  compiler.hooks.afterCompile.tap(name, compilation => {
+    const request = rounds.get(compilation)?.request;
+    if (!request) return;
+    for (const module of compilation.modules) {
+      if (!('resource' in module) || module.resource !== request) continue;
+      publication.registerDependencies(compilation, {
+        fileDependencies: module.buildInfo?.fileDependencies ?? [],
+        contextDependencies: module.buildInfo?.contextDependencies ?? [],
+        missingDependencies: module.buildInfo?.missingDependencies ?? []
+      });
     }
   });
   return publication;

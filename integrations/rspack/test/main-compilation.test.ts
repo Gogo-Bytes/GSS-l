@@ -10,6 +10,10 @@ it('uses the main CSS graph across entries, lazy removal, failed input, recovery
   const root = await mkdtemp(path.join(tmpdir(), 'gss-main-'));
   const source = path.join(root, 'a.gss');
   const index = path.join(root, 'index.js');
+  const token = path.join(root, 'token.txt');
+  const processor = path.join(root, 'processor.cjs');
+  await writeFile(token, 'ok');
+  await writeFile(processor, `const fs=require('node:fs');module.exports=function(css){if(!css.trim())return css;const token=${JSON.stringify(token)};if(fs.readFileSync(token,'utf8')==='fail')throw new Error('processor failure before dependency registration');this.addDependency(token);return css}`);
   await writeFile(source, '.card { margin-left: 9px; margin: var(--space); color: red; }');
   await writeFile(path.join(root, 'b.gss'), '.lazy { color: blue; }');
   await writeFile(index, "import a from './a.gss';console.log(a.card);import('./lazy.js');");
@@ -19,7 +23,7 @@ it('uses the main CSS graph across entries, lazy removal, failed input, recovery
   const compiler = rspack({ context: root, mode: 'development', devtool: 'source-map',
     entry: { index: './index.js', other: './other.js' },
     experiments: { css: true },
-    module: { rules: [{ test: /\.css$/, type: 'css' }] },
+    module: { rules: [{ test: /\.css$/, type: 'css', use: [processor] }] },
     output: { path: path.join(root, 'dist') },
     plugins: [{ apply(c: Compiler) {
       publication = installMainCompilation(c, { config: { projectRoot: root }, adapter: react(),
@@ -64,10 +68,17 @@ it('uses the main CSS graph across entries, lazy removal, failed input, recovery
     expect(recovered.hasErrors()).toBe(false);
     expect(css(recovered)).toContain('color: green');
     expect(css(recovered)).not.toContain('color: red');
+    const processed = publication!.published;
+    await writeFile(token, 'fail');
+    expect((await run()).hasErrors()).toBe(true);
+    expect(publication!.published).toBe(processed);
+    await writeFile(token, 'ok');
+    expect((await run()).hasErrors()).toBe(false);
     await writeFile(index, "console.log('no gss');");
     const empty = await run();
     expect(empty.hasErrors()).toBe(false);
     expect(css(empty)).not.toContain('color:');
+    expect([...empty.compilation.fileDependencies]).not.toContain(token);
     expect(publication!.published!.snapshot.manifest.modules).toEqual([]);
   } finally {
     await new Promise<void>(resolve => watching.close(resolve));
