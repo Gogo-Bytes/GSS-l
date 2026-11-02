@@ -502,3 +502,15 @@ Playground 自己的 dev、构建、预览和类型检查脚本由私有 `@gss-l
 | 验证与交付 | 依实现切片执行 | 同规则正反顺序、不同 scope、同属性多 rank、强弱 ownership／结构、LTR／RTL／writing-mode、importance／specificity／layer／条件、selector 分支、资源／map／LKG 均用受影响的既有载体和独立预期核对；保留原生 oracle 和显式 GSS oracle。运行相关检查及 `verify`，宿主／浏览器输出改变时核对实际入口并运行受影响既有 gate。 |
 
 owner 已要求开始推进目标；按已确认语义及这里的阶段推进，不逐个询问常规实现切片。超出已确认行为的 fallback 或尚未确定的语义范围仍需 owner 决策。仍不自动新增框架、演示项目或验收矩阵；Firefox Article、性能和发布边界见 [STATUS](STATUS.md)。
+
+#### Rspack loader 与发布编排实现（2026-11-02）
+
+内部 [source-loader.ts](../integrations/rspack/src/source-loader.ts) 已连接每轮源码准备与原生 loader 的依赖、诊断、代码／map 返回；[publication.ts](../integrations/rspack/src/publication.ts) 连接 NoEmitOnErrorsPlugin、afterEmit 和 done。候选成功不等于输出成功：晚期 JS 错误以及宿主 shouldEmit=false 均保留上一已发布快照。处理器依赖失败时保留恢复集合，成功时替换，不能永久积累，也不能删除宿主共享依赖。详细契约、反例与边界见 [模块说明](../integrations/rspack/README.md#loader-与发布编排)。
+
+新 workspace 增加 Rspack 2.3.0 与 Node 类型开发依赖，用真实编译生命周期验证，不新增公共配置或插件导出。Compiler／React 语法、排序、fallback 未改。原始诊断 range 作为数据保留；最终 overlay 体验和完整 map 交付未完成。
+
+本轮正式模块已替换两个宿主探针中的内联 loader，并连接发布编排；Chromium 红→蓝→非法输入→同蓝恢复→红通过。日志 `loader-react-rspack.log`、`loader-react-rsbuild.log` 位于 `artifacts/rspack-lifecycle-design/`；仍非默认 dev server／Fast Refresh。原生生命周期回归同时验证非 GSS 错误、禁止 emit、空候选、file/context/missing 依赖恢复及成功替换。
+
+下一项为正式 CSS 后处理；探针使用独立原生 compiler 的方案尚未确定为产品架构，需要 owner 决定后再接通。Rsbuild 封装、资源和 HTML/runtime 完整交付仍未完成，不能公开宣称两个入口可用。
+
+本轮完整 `corepack pnpm verify` 通过：2558 项测试及 lint/build/types；日志 `artifacts/rspack-lifecycle-design/loader-publication-verify.log`。此前排序和 Vite 的完整浏览器 gate 未重跑，不把局部宿主探针合并为全浏览器验收。

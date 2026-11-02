@@ -21,3 +21,15 @@
 `prepareCandidateSnapshot` 只消费宿主从当前模块图得到的可达 ID（含 lazy），不枚举准备缓存或 loader 执行历史。去重、按规范 ID 排序后，将同一输入快照重放到独立 Compiler session。跨模块资源冲突在这里失败；局部模块导出必须与重放得到的完整 artifact 一致，否则拒绝该候选，防止 CSS 与已构建的 JS 使用不同输入或配置。
 
 输入全集准备或重放失败时不返回部分结果，也不修改上一个候选。无输入返回空快照；减少可达输入会移除旧贡献，即使准备缓存仍持有它。宿主仍负责最终发布时机、资源 bytes、依赖集合替换和 LKG；本模块不把“候选成功”当成“构建已经发布”。生成资产 URL 通过既有 Compiler finalize resolver 传入，不新增身份或排序规则。
+
+## Loader 与发布编排
+
+`source-loader.ts` 是内部原生 loader。主 plugin 必须在每轮 NormalModule loader hook 注入 `createSourceLoaderPreparation`，与候选重放共享该轮 prepare；没有注入则明确失败。React 入口仍先解析／watch `.gss`，再取 schema 并转换。loader 应作为原始源码的 pre loader 使用，不承诺组合任意上游源码变换。没有转换时透传输入 map／附加数据；转换后使用 Adapter map，不能把旧 map 附到新代码。`.gss` JS 导出来自同轮 Compiler artifact，不假造源码映射。
+
+Compiler／Adapter error 阻止代码交付；`SourceDiagnosticError.diagnostics` 原样保留 id／UTF-16 range，warning 交给原生 emitWarning，info 交给 logger。当前错误文本包含 code／原始 id，原生 overlay 的行列展示尚待正式宿主接入，不把数据保留等同于完整 UI 定位验收。IO／resolve 异常保持原错误，不额外判断 CSS 值是否合法。
+
+`installPublication` 安装已获批准的 NoEmitOnErrorsPlugin，并区分 candidate、afterEmit 与 done。只有本轮确实经过 afterEmit、done 无任何编译错误且有候选时才推进 published；shouldEmit=false 即使没有错误也不推进。每轮候选以 Compilation 为键，结束后拒绝继续写入该轮。它不负责输出 CSS／HTML／runtime，也不代表 npm 包发布。
+
+处理器 file／context／missing dependencies 登记到本轮 compilation；失败或未输出时保留此前恢复集合并合入本轮新发现项，成功时以本轮集合替换。不能在 compilation 的共享集合中删除旧值：其他 loader 可能也依赖同一文件。新 compilation 自有新集合，因此成功轮无需重新添加旧的 GSS 处理器依赖。宿主必须在处理器失败时也回传已发现依赖；fatal 编译器异常没有 done 时不会推进 published，但其 watcher 重启策略未验收。
+
+真实 Rspack 测试覆盖晚期非 GSS 错误、shouldEmit=false、空候选恢复和三类依赖替换。现有两宿主 Chromium 探针已消费正式 loader／发布模块，仍为手动 HMR，不代表默认 dev server、Fast Refresh、完整资源或公开插件已完成。

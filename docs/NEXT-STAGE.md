@@ -18,6 +18,8 @@
 
 ## 当前目标：React 多构建工具接入
 
+2026-11-02 内部 loader／发布编排已完成，见 [架构记录](ARCHITECTURE-DIRECTION.md#rspack-loader-与发布编排实现2026-11-02)。原生 loader 负责依赖和诊断返回；发布须同时满足已 emit、整轮无错及候选成功，处理器依赖失败保留／成功替换。两宿主 Chromium 手动 HMR 探针已改用正式模块并通过；完整 verify **2558** 项（Compiler 1991／React 49／Rspack 21／Vite 163／Testing 334）及 lint/build/types 通过，日志 `artifacts/rspack-lifecycle-design/loader-publication-verify.log`。下一项是 CSS 后处理架构确认及实现，然后接通 Rsbuild 封装与完整交付；仍无公共插件入口。
+
 2026-11-02 可达候选快照已接续实现，见 [架构记录](ARCHITECTURE-DIRECTION.md#rspack-可达候选快照实现2026-11-02)：仅重放当前可达输入，集中检查全局冲突和局部 artifact 一致性；失败不返回部分结果。Rspack 内部共 20 项测试，完整 verify **2557** 项及 lint/build/types 通过；两宿主真实 React Chromium 探针已改用正式内部模块并通过更新／失败／恢复。日志为 `candidate-verify.log`、`modules-react-rspack.log`、`modules-react-rsbuild.log`（均在 `artifacts/rspack-lifecycle-design/`）。下一项为 loader／plugin 的依赖与发布编排及 CSS 处理／Rsbuild 封装；没有公开插件导出，默认 dev server 和完整资源验收仍未完成。
 
 2026-11-02 源码准备内部模块已实现，见 [模块说明](../integrations/rspack/README.md) 与 [架构记录](ARCHITECTURE-DIRECTION.md#rspack-内部源码准备实现2026-11-02)。新增 `@gss-l/rspack` workspace 暂无插件导出；11 项新测试覆盖真实 React／Compiler、同轮输入、诊断及 fallback。完整 `verify` **2548** 项（Compiler 1991／React 49／Rspack 内部 11／Vite 163／Testing 334）及 lint／build／types 通过，日志 `artifacts/rspack-lifecycle-design/source-preparation-verify.log`；初始测试把空值误当必报错输入的两项失败保留，改用明确语法错误，未增加无效 CSS 兜底。后续可达候选快照／全局校验结果见上方。未新增浏览器运行，尚不表示两个宿主插件可用。
