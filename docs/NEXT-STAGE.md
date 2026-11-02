@@ -18,6 +18,8 @@
 
 ## 当前目标：React 多构建工具接入
 
+2026-11-02 主链资源交接／最终 map 的有限核对通过，见 [记录与待决](ARCHITECTURE-DIRECTION.md#主链资源map-核对与公共配置待决2026-11-02)。当前需 owner 决定原生 Rspack 是否增加显式 compatibilityTargetStages 公共选项，还是保持 adapter-only 并限制为可可靠识别的 CSS 配置。未新增该选项，自动资源解析和 Rsbuild 薄封装也未完成；主构建实现与恢复修复已提交，独立 compiler 不引入。
+
 2026-11-02 主链处理器失败恢复已修复：afterCompile 只登记本轮精确聚合模块的原生依赖，失败保留、成功替换；回归包含修复 token 文件触发恢复及清空后移除旧依赖。默认 Rsbuild Chromium PostCSS overlay／同值恢复通过（`main-dev-postcss-fixed.log`），首次失败及 red 测试保留。完整 verify **2559** 项及 lint/build/types 再次通过，见 `main-processor-verify.log`。下一项核对资源／map 与消费入口，不引入独立 compiler。
 
 2026-11-02 已按 owner 确认实施内部主构建接入，见 [实现记录](ARCHITECTURE-DIRECTION.md#主构建接入实施2026-11-02)。finishMake 汇总 → addEntry → 原生 CSS 链；未引入独立 compiler。完整 verify **2559** 项及 lint/build/types 通过（`main-compilation-verify.log`）；Rspack native CSS watch 覆盖多入口／lazy 移除／失败恢复／清空；Rsbuild 默认 dev server 的 Chromium React 更新、错误 overlay、同输入恢复已通过（`main-dev-server.log`）。日志均在 `artifacts/rspack-lifecycle-design/`。下一项核对 PostCSS 自身失败恢复、资源／map，再连接公共入口；仍无公开插件导出。

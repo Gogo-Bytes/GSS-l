@@ -29,3 +29,5 @@ owner 已要求按整体规划实施核心架构与属性排序目标；先读 d
 最新 owner 指令：先不引入独立 compiler。已完成主构建 CSS 链调研，finishMake + addEntry 的 Rsbuild 生产与五轮 watch 通过，建议优先此方案；详见 ARCHITECTURE-DIRECTION 最新对比节。下一次按 owner 对建议的反馈推进，不能恢复旧的独立 compiler 实施建议。
 
 Owner 已批准主构建方案，内部 main-compilation／aggregate-loader 已实现，完整 verify 2559 通过，默认 Rsbuild dev server React HMR／GSS overlay 恢复通过。继续 PostCSS 失败恢复与资源／map 核对，不再询问是否采用 finishMake；当前仍未导出公开插件。
+
+最新：主构建切片 9a2b7ff、处理器依赖恢复 bd85f45 已通过 verify 2559 和对应默认 Rsbuild Chromium dev-server 探针并推送。资源／map 有限交接探针通过；公开入口前待 owner 确认原生 Rspack 的兼容阶段配置来源（显式 compatibilityTargetStages，或限制可自动识别的宿主配置），详见架构末节。不要自动新增公共选项；自动资源解析／薄封装尚未交付。

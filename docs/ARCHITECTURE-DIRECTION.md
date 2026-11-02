@@ -572,3 +572,16 @@ Owner 已确认采用 finishMake + addEntry，明确不引入独立 compiler。�
 `main-compilation.ts` 在 afterCompile 读取本轮精确聚合 request 的 native buildInfo file/context/missing dependencies，交给 publication；失败保留上一成功集，成功替换，避免枚举历史聚合模块造成永久积累。现有主构建测试补处理器在登记依赖前抛错的反例：red 超时见 `main-processor-dependency-red.log`，修复后及空 CSS 移除 token 依赖通过见 `main-processor-dependency-green.log`。默认 Rsbuild Chromium dev server 同值恢复和再次更新通过，见 `main-dev-postcss-fixed.log`；没有承诺无 reload 或 React state 保留。首次失败从未被宿主发现的隐藏依赖不在此修复证明范围。
 
 处理器恢复修复完整 verify **2559** 项及 lint/build/types 通过，日志 `main-processor-verify.log`。既有默认排序／外部 Vite 浏览器 gate 未重跑；本轮仅新宿主内部编排变更。
+
+#### 主链资源／map 核对与公共配置待决（2026-11-02）
+
+`main-map-probe.mjs` 在正式内部编排上启用 Rsbuild CSS source map，最终 map 保留 a.gss／b.gss 与原始 sourcesContent；`main-asset-map-probe.mjs` 显式提供既有 Compiler assetReferences 和 finalize URL resolver，原生主链输出带 hash 的 SVG URL，保留 #shape，最终 CSS 不泄露本地绝对文件 URL。分别见 `main-map.log`、`main-asset-map.log`。这些是资源交接和 map 保留证据，不代表自动 resolver／publicDir／资源 watch 已实现，也没有升级为逐声明映射承诺。
+
+公开入口前的待决点是**原生 Rspack 的兼容阶段配置来源**。既有最小 API 草案只有 adapter；Vite 集成的 `resolveViteCssTargets` 从统一 resolved config 读取实际 CSS 阶段，不能把这个读取方式直接移植。Rspack 2.3.0 的 LightningCssMinimizerRspackPlugin options 将 targets 放在 minimizerOptions，loader 又有自己的 targets；任意 plugin.apply 可改变资产，compiler.options.target 不是这些 CSS 阶段的统一值。阶段必须在局部 GSS 准备前已知，不能等聚合 CSS 跑完再改变 Compiler 配置，也不能默认猜 Browserslist。
+
+待 owner 选择，尚未新增公共选项：
+
+- 建议：允许原生 `gss({ adapter, compatibilityTargetStages })` 显式传入已知浏览器阶段，类型复用 Compiler 的有序浏览器版本记录数组。示例：`gss({ adapter: react(), compatibilityTargetStages: [{ safari: '9' }] })`，与宿主 Lightning CSS targets 使用同一份用户配置源。Rsbuild 薄封装仍目标保持 `pluginGss({ adapter: react() })`，通过宿主公开配置／hooks 取得有效阶段后传给核心；自动取得仍须实施验证。显式阶段不是允许任意 feature override 或自定义转换，无法镜像的策略仍需明确拒绝／单独确认，不修改 fallback。
+- 保持 adapter-only：首版仅接受可从宿主公开结构可靠识别的有限 CSS 配置，无法取得实际阶段时给出错误；需要进一步确定原生 Rspack 首版允许哪些 loader/minimizer 组合，不能默默猜内部 plugin 名称或调用 raw 生成器探测。
+
+此选择影响公共 API／支持范围，按 AGENTS.md 须 owner 确认。此前主链架构、两个入口、React 用法、排序与 fallback 均已确认，不重复提问。独立 compiler 仍不引入。
