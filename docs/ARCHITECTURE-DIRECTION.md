@@ -343,6 +343,31 @@ import { react } from '@gss-l/react';
 
 本轮共三个阶段负对照、三个原生处理器输出对照和一个文件依赖对照通过；不把它们计入现有单元测试总数。没有新的浏览器、完整 verify 或正式 React 集成验收。上一节 CSS-only／HMR 及生产 hash 证据仍保留，不因本轮处理器对照就视为已与真实 GSS 串联。现有 React 用法、排序、fallback、两个入口及任何编译错误保留上一成功版的决策不变，当前无新增 owner 决策。
 
+#### 主构建处理与真实 React 闭环（2026-11-02）
+
+**已确认 source map 边界。** owner 接受首版最终 CSS map 沿用原生处理器保留的规则起点精度；Compiler 诊断继续保留原始声明范围。此决定仅针对新 Rsbuild／Rspack 集成的最终 CSS 调试映射，不减少 Compiler 自身 map 的生成精度，也不改变 React JS map、排序、fallback 或既有 Vite 行为。不得为保留细粒度映射跳过兼容转换。
+
+本次输入 `.probe {\n  color: red;\n}` 的 Compiler map 可将生成声明对应到原始文件第 2 行、第 2 列（列从 0 开始）。经过原生 Lightning CSS 后，生成规则起点仍可追溯到该声明，但查询生成规则内部的 `color` 位置没有 mapping。保留 PostCSS、仅移除 Lightning CSS 的诊断对照仍保有声明映射。这里的“规则级”是**生成规则起点可追溯**，不承诺所有原始规则、所有声明或 DevTools 的回退定位方式都相同。去掉 Lightning CSS 的运行只作归因对照，不能成为正式配置默认值。
+
+**主构建中的处理步骤已完成有界验证。** `artifacts/rspack-lifecycle-design/integrated-processor-probe.mjs` 在主 compilation 的 finishModules 内调用原生处理步骤：输入来自真正 Compiler 的 CSS／map，loader 选项来自 Rsbuild 解析后的配置；处理器不落盘自己的 bundle，主 compilation 负责输出。
+
+- 将处理器的 file／context／missing dependencies 回传主 compilation。PostCSS 读取 `token.txt`，只改该文件即可触发主 watch；已验证红→蓝→PostCSS 故意失败→恢复同一蓝色→红。失败时已输出 CSS bytes 保持上一版，恢复成功。
+- 失败期间保留上一成功处理步骤的已知依赖，防止插件抛错前没能完整返回 dependency message，导致之后修复不再触发重建。探针采用依赖集合累积；正式实现应按成功快照替换，失败保留旧集，不能永久积累已不再使用的依赖。
+- 向 loader 传入 map 前复制并把 sources 从 Compiler 的项目相对身份转换为正确的绝对路径。处理器会处理传入的 map，不能共享原对象而让其污染 Compiler 快照。原生处理器编译还需启用 source map，不能只设置 PostCSS 的 sourceMap 选项。
+- `integrated-processor.log` 记录通过的主 watch／失败恢复及规则起点映射；`integrated-processor-map-control.log` 记录关闭 Lightning CSS 的声明级对照。没有将后者记为正式路径通过。
+
+原始失败保留在同目录：`integrated-processor-handler-error.log` 是探针假定 fatal error 时仍有 stats 的错误；`integrated-processor-map-failure.log` 是处理器 devtool 关闭导致无 map；`integrated-processor-null-position.log`／`integrated-processor-declaration-map-failure.log` 保留声明定位失败和源路径错误；`integrated-processor-color-expectation.log` 是等待 `blue`，但原生处理后实际为 `#00f` 的预期错误。随后用明确的生成声明预期判断，不能用 class 名中包含 red/blue 代替实际 CSS 值断言。没有削弱未获批准的定位要求；规则级边界由 owner 单独确认。
+
+**真实 React／Compiler 链接探针。** `real-react-probe.mjs` 将常量导出替换为 Compiler 返回的 moduleCode，并用现有 `react()` adapter 处理 JSX。宿主 loader 经 resolver 发现 `.gss`、登记依赖、准备 schema，再调用 adapter；本轮模块图可达输入集中重放到 session，并检查局部 moduleCode 与汇总重放结果一致。aggregate CSS 进入原生处理器，再沿上一节 asset／runtime 路径交付。
+
+原生 Rspack 与 Rsbuild 各自的 Chromium 输入都是原有 `import styles from './styles.gss'` 与 `className={styles.probe}`。两条路径通过红→蓝→非法 `.gss`→恢复同一蓝色输入→红；浏览器计算样式逐步符合字面预期，root 启动计数均为 1。真实 class 随声明值改变，测试通过显式 `module.hot.accept('./styles.gss', render)` 更新 React 渲染，**不据此承诺 React Fast Refresh 状态保留**。日志为 `real-react-rspack.log` 与 `real-react-rsbuild.log`，沿用 Rspack／Rsbuild 2.3.0 和现有测试工作区的 React 包。非法输入使用 Compiler 的结构化诊断内容作为构建错误，不改成成功 fallback。
+
+**证据边界与正式实现顺序。** 本次仍在 `artifacts/` 内运行；两宿主使用 compiler.watch + 探针 HTTP 服务、手动 HMR 检查，不是默认 dev server。处理器使用单独原生 compiler 作为实验载体，不能据此确定最终内部编译结构或宣称性能已验证。用于测试的 targets 显式匹配当前默认配置，动态 targets／自定义规则选择尚未产品化。
+
+下一项进入正式集成的模块实现：先将源码发现／schema 准备、候选快照与处理结果的数据契约落到 Rspack 内部模块，并以现有公共 Compiler／Adapter 契约测试；然后接通两个已确认入口的受限 build／dev 路径。正式交付前仍需解决完整资源 URL／资产 bytes、source map 交付、主依赖集合更新、无 GSS／多模块／lazy 闭包、HTML/runtime link 去重和竞态、默认 dev server overlay／恢复。普通 `.gss` 输入及副作用文件的 probe 不代表这些路径已覆盖。真实 Compiler 连接已成立，不再重复从常量模块探针开始。
+
+本轮没有产品代码修改；未运行全仓 verify、原排序三引擎入口或外部框架验收。以上局部 Chromium 结果不并入历史完整验收数字。所有探针失败和先前原生 panic 均保留，未宣布上游问题已修复。当前无待 owner 决策。
+
 ### Preserved fallback 贡献边界
 
 [preserved-contribution.ts](../compiler/src/application/preserved-contribution.ts) 接收贡献准备已经选择的整模块 preserved 路径，生成原顺序 CSS、scope marker／schema、资源绑定、来源位置及 `GSS1104` warning。是否可进入该路径仍由贡献准备按既有 unknown effect、compatibility、`atomizationFallback`、`:global()` 和逻辑／物理冲突检查决定；该模块不决定准入，也不把 preserved 内容当成 atomic rule。

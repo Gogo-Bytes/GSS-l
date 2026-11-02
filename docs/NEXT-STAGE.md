@@ -18,7 +18,9 @@
 
 ## 当前目标：React 多构建工具接入
 
-最新 [CSS 处理阶段对照](ARCHITECTURE-DIRECTION.md#css-loadertargetspostcss-对照2026-11-01) 已完成：直接 asset 确实跳过 loader targets 和 PostCSS；复用实际解析出的原生处理器后，默认／Safari 9／自定义 PostCSS 三组与普通 CSS 输出一致（仅去首尾空白），另确认 PostCSS 文件依赖可从处理器 compilation 取得。证据为 `artifacts/rspack-lifecycle-design/css-stages.log`、`css-processor.log`、`css-dependency.log`。仍是隔离探针，下一项验证主构建内的处理步骤、依赖回传、失败恢复及 map；不直接引入独立 compiler 架构或新公共接口。无产品变更，无新浏览器／全仓验收，当前无新增 owner 决策。
+2026-11-02 最新 [主构建与真实 React 闭环](ARCHITECTURE-DIRECTION.md#主构建处理与真实-react-闭环2026-11-02)：真实 Compiler CSS／map 已接入处理步骤，PostCSS 依赖修改触发主 watch、失败保留和同内容恢复通过；两个宿主的真实 React Adapter／moduleCode／CSS 原生处理／手动 HMR Chromium 探针均通过。owner 已接受首版最终 CSS map 的原生规则起点精度，Compiler 原始诊断位置保留。仍非正式插件、完整 dev server 或 Fast Refresh 验收。下一项实现 Rspack 内部源码／schema 准备及候选数据契约，再连接两个入口；资源、动态配置及完整发布仍未完成。原始证据在 `artifacts/rspack-lifecycle-design/`，产品代码未变，当前无待 owner 决策。
+
+最新 [CSS 处理阶段对照](ARCHITECTURE-DIRECTION.md#css-loadertargetspostcss-对照2026-11-01) 已完成：直接 asset 确实跳过 loader targets 和 PostCSS；复用实际解析出的原生处理器后，默认／Safari 9／自定义 PostCSS 三组与普通 CSS 输出一致（仅去首尾空白），另确认 PostCSS 文件依赖可从处理器 compilation 取得。证据为 `artifacts/rspack-lifecycle-design/css-stages.log`、`css-processor.log`、`css-dependency.log`。该轮为隔离探针；主构建处理步骤、依赖回传、失败恢复及 map 的后续结果见上方；不直接引入独立 compiler 架构或新公共接口。无产品变更，无新浏览器／全仓验收，当前无新增 owner 决策。
 
 最新 [CSS 输出与更新核对](ARCHITECTURE-DIRECTION.md#css-asset-输出与更新生命周期核对2026-11-01)：两宿主的 asset／runtime 传输探针在 Chromium 通过 CSS-only 更新、失败保留、同 bytes 恢复及再次更新；生产压缩后 HTML／JS 引用与最终 CSS 文件名一致。owner 已确认启用 GSS 时任何编译错误均不发布本轮产物，采用原生 NoEmitOnErrorsPlugin 机制维护恢复链。仍是假模块和手动 HMR 探针，不是 React 集成或完整 dev server 验收。CSS loader／targets／后处理对照结果见上方，随后连接主构建与 Compiler／React／资源／map；不得静默绕过处理阶段。当前无待 owner 决策。
 
