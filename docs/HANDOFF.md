@@ -1,6 +1,6 @@
 # 新 session 接续提示词
 
-2026-11-04 已完成 webpack 5 的有界代码／官方接口调查，见 [复用方案与待决](ARCHITECTURE-DIRECTION.md#webpack-5-有界复用调查与实施待决2026-11-04)。建议下一步仅做 React + webpack 5／MiniCssExtractPlugin／HtmlWebpackPlugin 的最小接入实验，先证明生命周期再决定共享模块；不直接复用 Rspack 原生插件、不提前提取通用宿主引擎。尚未安装或实施，新增宿主支持范围待 owner 确认；现有排序、fallback 与 targets 配置不变。
+2026-11-04 owner 已批准并完成 webpack 5 最小接入实验，见 [实验报告与下一阶段建议](WEBPACK-EXPERIMENT.md)。主构建生产双入口、CSS 顺序、资源、开发更新、错误保留／恢复和 lazy 候选移除通过；默认示例会自动整页刷新，另以原生 accept 验证无整页刷新更新，不承诺 Fast Refresh/state 保持。开发 hash CSS 文件名失败证据保留，稳定文件名通过。产品代码未变，尚无公开 webpack 包；下一待决是内部 webpack 集成 + 仅两个纯准备模块的共享层，不是再次批准实验。排序、fallback 与 targets 配置不变。下方为历史记录，以本段和实验报告为最新状态。
 
 2026-11-04 已修复相对资源路径的重复百分号解码：保持 identity 与 suffix，在交给宿主 CSS 链前转义已解析路径中的 `%`。两个宿主的错误目标文件回归、完整 verify 2566 项及 Chromium 资源／CSS 更新和错误恢复通过；宿主自身的特殊输出文件名限制独立保留。见 [资源交接记录](ARCHITECTURE-DIRECTION.md#资源路径交接修复与下一阶段2026-11-04)。接下来按整体 React 规划只调查 webpack 5 复用成本；新集成实施／架构变化仍须具体方案决策。
 

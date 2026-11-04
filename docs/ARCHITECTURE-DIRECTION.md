@@ -772,3 +772,12 @@ Owner 已确认方案一：以 `@gss-l/types/client` 作为各宿主共用的 `*
 先在隔离实验中建立第二个真实消费方，不立即移动 Rspack 实现或创建通用 bundler 引擎；证明共性后才提出共享纯模块和宿主专有代码的最终目录调整。暂不导出 `@gss-l/webpack` 公共 API，不新增 style-loader／SSR／Module Federation／CRA 配置或跨框架矩阵。用户若暂缓新宿主，保持现有三宿主能力维护即可，不启动另一项未指定的能力扩展。
 
 这一步涉及新增宿主支持，按 AGENTS.md 的产品能力／架构决策边界暂停在具体方案处；不是再次询问既有排序、fallback、React 语法或 Rspack helper。资料核对仅文档变动，不重复运行已有测试。
+
+
+#### webpack 5 最小实验完成与共享边界建议（2026-11-04）
+
+Owner 已批准上一节限定范围，实验完成，原“尚未安装／实施待决”仅为历史状态。详细结构、固定版本、成功与失败日志、恢复入口见 [webpack 实验报告](WEBPACK-EXPERIMENT.md)。真实 webpack 原语、主构建 finishMake + addEntry、标准 CSS 提取/HTML/minifier 组合可运行，不需要独立 compiler 或伪造 Rspack API。
+
+生产双入口共用 GSS CSS、普通/GSS 顺序与资源通过；开发 GSS/普通 CSS/资源更新、GSS 错误保留及同输入恢复通过。默认示例会自动整页刷新，原生模块 accept 对照证明可无整页刷新更新，未验证 Fast Refresh/state 保持。开发 contenthash CSS + clean 的失败保留，稳定开发文件名通过，生产仍为 hash。该边界不能通过修改 Compiler 排序、fallback 或添加 targets 配置绕过。
+
+建议下一阶段为内部 webpack 集成与最小共享准备层：只把 source-preparation/candidate-snapshot 放进内部 integrations/shared workspace 包；宿主 hooks、loader 类型、虚拟文件、CSS/HTML 处理继续各宿主负责，不提取通用 bundler 引擎。先验证既有宿主等价，再推进 webpack 正式类型及回归。是否采用该目录/依赖调整交 owner 决策；公开 webpack 配置/API 在内部实现之后单独明确。本轮仅实验与文档，不已交付 webpack 产品支持，不启动其他框架、发布或额外矩阵。
