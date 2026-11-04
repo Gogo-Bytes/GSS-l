@@ -1,6 +1,6 @@
 # webpack 内部宿主接线
 
-此包没有公开 exports，不可作为已交付的 `@gss-l/webpack` 插件使用。当前实现限定 webpack 5.112.2；React 分析由显式 Adapter 提供，公共准备来自 `@gss-l/integration-preparation`。不引入独立 compiler，不修改排序、fallback 或 targets。
+Owner 已确认并接通公开 `gss({ adapter })` 与 `gssCssMinimizers(options)`，未发布 npm 包。当前实现限定 webpack 5.112.2；React 分析由显式 Adapter 提供，公共准备来自 `@gss-l/integration-preparation`。不引入独立 compiler，不修改排序、fallback 或 targets。
 
 ## 调用边界
 
@@ -20,14 +20,34 @@ webpack 成功构建后将 buildInfo.file/context/missingDependencies 移到 fil
 
 测试使用 realpath 规范化后的项目 context。首次临时目录的 /var→/private/var 别名导致虚拟 CSS 在 extraction 内部重解析时找不到；该失败保留，不宣称任意 symlink context 支持。未通过创建实体 carrier 绕过虚拟文件，也未扩大资源 grammar。
 
-现有 Chromium 实验改为直接消费本包 dist；双入口生产、CSS 顺序、资源、原生 accept 更新与错误恢复通过。CSS 分包、HTML 排序与 GSS-only Lightning 排除仍由实验配置负责，**尚未形成正式配置桥接或公共 helper**。原生 accept 不等于 React Fast Refresh/state 保持。开发稳定 CSS 文件名、生产 contenthash 的已验证边界仍在。
+现有 Chromium 实验改为直接消费本包 dist；双入口生产、CSS 顺序、资源、原生 accept 更新与错误恢复通过。CSS 分包、HTML 排序由公开插件接管，GSS-only Lightning 排除由公开 helper 接管；探针已移除原来的手工接线。原生 accept 不等于 React Fast Refresh/state 保持。开发稳定 CSS 文件名、生产 contenthash 的已验证边界仍在。
 
 证据在 `artifacts/host-preparation-boundary/`：最初类型/虚拟路径/SizeOnlySource/处理器恢复失败以及后续通过均保留。完整验证见 STATUS 最新记录。无 SSR/style-loader/Module Federation/CRA、新 UI 框架或发布扩展。
 
-## 下一步公共入口草案（未实现，待 owner 决策）
+## 公开配置（owner 已确认）
 
-建议沿用现有宿主的使用形式 `gss({ adapter: react() })`，只覆盖已验证的 MiniCssExtractPlugin + HtmlWebpackPlugin 配置；插件负责主构建、GSS splitChunks 与 HTML 顺序。宿主自己的 JSX/SWC、CSS loader 和 extraction 配置保留。
+使用现有 React/SWC、CSS loader/extraction 与 HTML 配置。插件负责主构建、GSS splitChunks 和 HTML stylesheet 顺序；helper 替换一个 Lightning CSS minimizer，不替换 JS minimizer。TypeScript 使用通用 `@gss-l/types/client`。
 
-CSS 压缩建议提供 webpack 专属 `gssCssMinimizers(options)`，替代一个 CssMinimizerPlugin 的构造；限定 Lightning CSS minify，沿用同一份 options/targets 分成普通与 GSS 两支，只有 GSS 关闭逻辑降级。不接受 Rspack 原生 minimizer options 冒充 webpack options，不额外提供 Compiler targets。开发 CSS 文件名需稳定；后置 loader 不能再次降低 GSS 逻辑属性，任意自定义处理器不在首版保证内。
+```ts
+import { gss, gssCssMinimizers } from '@gss-l/webpack';
+import { react } from '@gss-l/react';
+import { browserslistToTargets } from 'lightningcss';
 
-正式 API 若获确认，先实现/回归配置桥接，再打开 exports 和核对外部打包。无需用户提前选择内部共享算法，也不默认引入 Fast Refresh 配置或替换宿主浏览器 runtime。
+// 同一份宿主配置；如果已有 cssOptions，直接传入，不另填 targets。
+const cssOptions = { minimizerOptions: { targets: browserslistToTargets(['defaults']) } };
+// 现有配置中：
+// plugins: [...existingPlugins, gss({ adapter: react() })],
+// optimization: { minimizer: ['...', ...gssCssMinimizers(cssOptions)] }
+```
+
+首版已验证 MiniCssExtractPlugin 2.10.2 + css-loader 7.1.5 + HtmlWebpackPlugin 5.6.8，CssMinimizerPlugin 8.0.0 + Lightning CSS 1.33.0。默认 helper 选择 Lightning CSS；若 options.minify 已填写，必须是 CssMinimizerPlugin.lightningCssMinify，不支持其他 minifier/数组。GssCssMinimizerOptions 使用 webpack 插件配置与 Lightning TransformOptions，而非 Rspack options。GSS 分支清除 LogicalProperties include 位并增加 exclude 位，其余值不变；普通分支保留宿主配置并排除 GSS 资产，传入对象不变。Plugin 8 的 runtime schema 支持 exclude 数组但声明仅列单 Rule，内部依据实际 schema 合并排除条件。
+
+**HtmlWebpackPlugin 必须使用同一 peer 实例。** 其 hooks 位于包内 WeakMap，两份物理安装副本的 getHooks 不互通。插件将它声明为精确版本 peer + devDependency，不私自安装第二套宿主 HTML hooks。外部消费者应直接安装该 peer；自定义依赖隔离产生双副本不在保证内。
+
+开发使用稳定的 `[name].css`，生产可 `[name].[contenthash].css`；必须保留 gss-l chunk 名（纯 hash 文件名会报错）。自定义已有 gss-l cacheGroup 明确冲突，原 splitChunks=false 不应开启默认 JS 分包。普通 CSS 原有规则不修改。后置 loader 不得再降低 GSS 逻辑属性；任意自定义 PostCSS/Lightning loader、多 minimizer、symlink context 和 Fast Refresh/state 保持仍未形成保证。
+
+公开回归 `public-entry.test.ts` 使用相同配置的独立纯宿主构建逐字对照普通 CSS；检查 GSS 逻辑属性保留、物理属性保留、双入口 HTML 顺序和 options 不被修改。原有 watch 回归继续覆盖处理器恢复与清空。公开浏览器检查只看页面/原生错误状态，不添加读取内部 publication 的公共 API。
+
+本轮证据 `artifacts/webpack-public/`：首次类型声明修正见 build.log；实验两份 HTML plugin 的排序失败见 production.log/dev.log，修正 peer/单实例后见 production-peer.log/dev-peer.log。外部 tarball 消费见 external.log 与 external-path.txt，完整 verify 见 verify-delivery.log。失败证据保留，不将默认整页刷新或未验证组合描述成全部支持。
+
+外部消费在系统临时目录安装 types/compiler/react/integration-preparation/webpack 五个本地 tarball 和固定宿主依赖；strict NodeNext 类型检查不开 skipLibCheck，双入口 production 页面与 dev 原生 accept 更新、普通 CSS 更新顺序、SVG bytes 更新、错误 overlay/保留/同输入恢复通过。`external-types.log` 为类型检查退出 0 的空日志，`external-dev.log` 记录实际开发 phases。未验证 React 组件 state 保持，不发布包或 tag。完整 verify 2568 项通过。

@@ -803,3 +803,12 @@ Owner 已同意先核对职责再决定共享，不预设所有宿主都必须�
 原生 watch 证明依赖回传不能机械复制：webpack 在成功时把 buildInfo 依赖移到 filesystem snapshot，需使用 module.addCacheDependencies 读取；否则处理器抛错后丢失 token 文件的恢复触发。修复只在 webpack 适配层；回归同时检查成功空候选移除旧依赖。虚拟 carrier 使用 canonical context，临时目录 symlink 别名失败仍记录，不能声称任意 context 支持。
 
 详细版本、失败/恢复和下一公共 API 草案见 [webpack 模块说明](../integrations/webpack/README.md)。实验 CSS/HTML 配置仍不是产品桥接。建议首版 gss({ adapter }) + webpack 专属 gssCssMinimizers(options)，限定现有 MiniCssExtractPlugin/HtmlWebpackPlugin/Lightning CSS 组合，同一宿主 targets；这是下一项使用方式决策，尚未打开 exports。完整验证结果见 STATUS 最新段。
+
+
+#### webpack 公开入口与 CSS/HTML 桥接（2026-11-04）
+
+Owner 已选择公开入口方案，上一节 API 待决结束。`@gss-l/webpack` 根入口导出 gss({ adapter }) 和 gssCssMinimizers(options)。插件连接正式主构建与资源 IO、CSS-only splitChunks、HtmlWebpackPlugin stylesheet 顺序；helper 使用宿主原 options/targets，仅 GSS 分支排除逻辑属性降级，普通 CSS 不变。不增加独立 compiler、Compiler targets 或修改排序/fallback。
+
+首版限定已验证的 MiniCssExtractPlugin/css-loader/HtmlWebpackPlugin/Lightning CSS 组合，开发稳定 CSS 文件名、生产带 chunk 名 hash。HtmlWebpackPlugin hooks 为包实例私有 WeakMap，实验跨两份安装时排序失效，故必须声明并消费宿主同一 peer 实例；不能将双副本误判为排序算法错误。完整版本与配置边界见 [webpack 公开配置](../integrations/webpack/README.md#公开配置owner-已确认)。
+
+新增真实生产回归比较普通 CSS 与独立纯宿主输出逐字一致，保留 GSS logical/physical 属性和双入口 link 顺序；公开入口浏览器/外部消费及完整验证以 STATUS 最新记录为准。仍未发布包；未验证框架、symlink context、SSR、Fast Refresh/state 保持或任意后处理配置不自动扩展。

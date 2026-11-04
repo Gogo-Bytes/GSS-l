@@ -10,6 +10,8 @@ CSS 能力接入流程与策略归属核对已按 owner 授权完成，形成三
 
 ## 当前目标：React 多构建工具接入
 
+2026-11-04 owner 已批准并接通 webpack 公开 `gss({ adapter })` / `gssCssMinimizers(options)`，API 不再待决。宿主同一份 targets，GSS-only 逻辑属性排除，普通 CSS 与独立纯宿主逐字对照；HtmlWebpackPlugin 以同一 peer 实例连接 hooks。使用说明与限制见 [webpack 模块文档](../integrations/webpack/README.md)。完整 verify 2568 项及 lint/build/types、公开配置 Chromium 生产/开发、workspace 外五包 tarball 的 strict TypeScript 配置/生产双入口/开发更新与错误恢复均通过。证据在 `artifacts/webpack-public/`；不改变排序/fallback，不发布包，不自动启动新框架或矩阵。
+
 2026-11-04 已继续实现 webpack 的内部 TypeScript loader/主编译/发布/资源 IO，公开 exports 仍为空。完整 verify 2567 项及 lint/build/types、消费正式 dist 的 Chromium 双入口生产与原生 accept 更新/恢复通过（`artifacts/host-preparation-boundary/verify-webpack-delivery.log`、`webpack-internal-*.log`）。真实 watch 发现 webpack 将处理器依赖移入 filesystem snapshot，已用原生 addCacheDependencies 修复失败后的依赖恢复；该适配仅留在 webpack。详见 [模块契约、验证与公共入口草案](../integrations/webpack/README.md)。下一待决是首版公开插件及 webpack 专属 minimizer helper 的配置形式，不是重新讨论共享层或排序。
 
 2026-11-04 已按 owner 最新方向核对宿主/公共准备边界，并将两个准备模块及既有测试迁入内部 `integrations/shared` 包；宿主仍负责批次失效、模块图、发布、CSS 链和更新。详细契约与反例见 [公共准备说明](../integrations/shared/README.md)，不是所有宿主必经层，不改排序或 fallback。完整 verify 2566 项及 lint/build/types、webpack 双入口生产/原生 accept 更新恢复、workspace 外四包 tarball 的依赖解析与准备调用均通过，见 `artifacts/host-preparation-boundary/`；正式 webpack 内部实现为下一步，公开 API 尚未确定。此段替代下方“共享边界待决”的历史状态。
