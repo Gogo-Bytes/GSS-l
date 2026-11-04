@@ -1,5 +1,7 @@
 # 新 session 接续提示词
 
+2026-11-04 已继续实现 webpack 的内部 TypeScript loader/主编译/发布/资源 IO，公开 exports 仍为空。完整 verify 2567 项及 lint/build/types、消费正式 dist 的 Chromium 双入口生产与原生 accept 更新/恢复通过（`artifacts/host-preparation-boundary/verify-webpack-delivery.log`、`webpack-internal-*.log`）。真实 watch 发现 webpack 将处理器依赖移入 filesystem snapshot，已用原生 addCacheDependencies 修复失败后的依赖恢复；该适配仅留在 webpack。详见 [模块契约、验证与公共入口草案](../integrations/webpack/README.md)。下一待决是首版公开插件及 webpack 专属 minimizer helper 的配置形式，不是重新讨论共享层或排序。
+
 2026-11-04 已按 owner 最新方向核对宿主/公共准备边界，并将两个准备模块及既有测试迁入内部 `integrations/shared` 包；宿主仍负责批次失效、模块图、发布、CSS 链和更新。详细契约与反例见 [公共准备说明](../integrations/shared/README.md)，不是所有宿主必经层，不改排序或 fallback。完整 verify 2566 项及 lint/build/types、webpack 双入口生产/原生 accept 更新恢复、workspace 外四包 tarball 的依赖解析与准备调用均通过，见 `artifacts/host-preparation-boundary/`；正式 webpack 内部实现为下一步，公开 API 尚未确定。此段替代下方“共享边界待决”的历史状态。
 
 2026-11-04 owner 已批准并完成 webpack 5 最小接入实验，见 [实验报告与下一阶段建议](WEBPACK-EXPERIMENT.md)。主构建生产双入口、CSS 顺序、资源、开发更新、错误保留／恢复和 lazy 候选移除通过；默认示例会自动整页刷新，另以原生 accept 验证无整页刷新更新，不承诺 Fast Refresh/state 保持。开发 hash CSS 文件名失败证据保留，稳定文件名通过。产品代码未变，尚无公开 webpack 包；下一待决是内部 webpack 集成 + 仅两个纯准备模块的共享层，不是再次批准实验。排序、fallback 与 targets 配置不变。下方为历史记录，以本段和实验报告为最新状态。

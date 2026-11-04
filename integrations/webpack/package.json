@@ -1,0 +1,30 @@
+{
+  "name": "@gss-l/webpack",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {},
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@gss-l/compiler": "workspace:*",
+    "@gss-l/integration-preparation": "workspace:*",
+    "webpack-virtual-modules": "0.6.2"
+  },
+  "devDependencies": {
+    "@gss-l/react": "workspace:*",
+    "@types/node": "22",
+    "webpack": "5.112.2",
+    "css-loader": "7.1.5",
+    "mini-css-extract-plugin": "2.10.2"
+  },
+  "files": [
+    "dist"
+  ],
+  "peerDependencies": {
+    "webpack": "5.112.2"
+  }
+}

@@ -794,3 +794,12 @@ Owner 已同意先核对职责再决定共享，不预设所有宿主都必须�
 参考 [Tailwind Node 编译接口](https://github.com/tailwindlabs/tailwindcss/blob/main/packages/@tailwindcss-node/src/compile.ts) 的 resolver/依赖能力接口、[vanilla-extract Vite](https://github.com/vanilla-extract-css/vanilla-extract/blob/master/packages/vite-plugin/src/index.ts) 与 [webpack](https://github.com/vanilla-extract-css/vanilla-extract/blob/master/packages/webpack-plugin/src/plugin.ts) 的专有接线，以及 [Unplugin hook 限制](https://unplugin.unjs.io/guide/#supported-hooks)。这些为职责参考，不照搬其编译器架构或承诺 hook 等价。
 
 排序、fallback、缓存失败重试边界和候选发布策略均未改变。验证结果与日志见 STATUS 最新段；下一步继续内部 webpack 的正式类型/宿主接线，不直接开放公共插件配置。
+
+
+#### webpack 内部宿主接线落地（2026-11-04）
+
+公共准备提取提交 `d422296` 后，继续建立 `integrations/webpack` 的正式 TypeScript 内部模块，直接依赖公共准备包。宿主专有 main-compilation/source-loader/aggregate-loader/publication/stylesheet-io 独立实现，不导出公共插件。React、排序、fallback、主构建 CSS 链及任何编译错误不发布的契约不变。
+
+原生 watch 证明依赖回传不能机械复制：webpack 在成功时把 buildInfo 依赖移到 filesystem snapshot，需使用 module.addCacheDependencies 读取；否则处理器抛错后丢失 token 文件的恢复触发。修复只在 webpack 适配层；回归同时检查成功空候选移除旧依赖。虚拟 carrier 使用 canonical context，临时目录 symlink 别名失败仍记录，不能声称任意 context 支持。
+
+详细版本、失败/恢复和下一公共 API 草案见 [webpack 模块说明](../integrations/webpack/README.md)。实验 CSS/HTML 配置仍不是产品桥接。建议首版 gss({ adapter }) + webpack 专属 gssCssMinimizers(options)，限定现有 MiniCssExtractPlugin/HtmlWebpackPlugin/Lightning CSS 组合，同一宿主 targets；这是下一项使用方式决策，尚未打开 exports。完整验证结果见 STATUS 最新段。
