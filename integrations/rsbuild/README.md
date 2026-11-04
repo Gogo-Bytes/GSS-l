@@ -4,7 +4,7 @@
 
 当前仅支持已核对的单个标准 CSS minimizer。宿主 chain 显式替换该实例或配置多实例时明确失败，避免漏掉后续 logical lowering。任意 `tools.rspack` 后置修改、其他处理器、注入样式模式及 SSR 不在本切片证明范围。不要通过读取 plugin 私有字段或复制 Rsbuild 配置合并算法来扩大范围。
 
-已导出 `pluginGss({ adapter })`，组合本模块与 Rspack 的公开 `gss`。`@gss-l/rspack/internal/css-isolation` 仅供两个同步版本的 workspace 包互通，不是用户配置 API。基础相对资源 IO 已连接；通用类型入口已提供，完整外部宿主消费仍需接续。
+已导出 `pluginGss({ adapter })`，组合本模块与 Rspack 的公开 `gss`。`@gss-l/rspack/internal/css-isolation` 仅供两个同步版本的 workspace 包互通，不是用户配置 API。基础相对资源 IO 已连接；通用类型入口已提供，已选版本的有限外部消费已完成，具体范围见文末消费报告。
 
 回归使用真实 Rsbuild 构建，覆盖压缩启用／关闭、共享双入口、GSS 原生逻辑属性、普通 CSS 与未安装 GSS 的独立宿主构建逐字一致。关闭压缩是必要反例：生产 minimizer 会掩盖 loader options 丢失，不能仅测压缩产物。默认 React HMR 的独立浏览器证据及设计决策见 [架构文档](../../docs/ARCHITECTURE-DIRECTION.md)。
 

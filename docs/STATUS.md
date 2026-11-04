@@ -10,6 +10,8 @@ CSS 能力接入流程与策略归属核对已按 owner 授权完成，形成三
 
 ## 当前目标：React 多构建工具接入
 
+2026-11-04 继续维护核对，已清除 Rspack／Rsbuild 模块 README 中把公开入口、默认开发更新与外部消费写为待实现的过时描述；保留精确 overlay/map、任意资源语法及 Fast Refresh 状态保持的未验边界。本次仅文档修正，不新增测试结果或扩展支持范围。
+
 2026-11-04 已修复 webpack 稳定符号链接项目目录下的虚拟 CSS 路径错误：原生 CSS 对照成功而 GSS 失败，现由宿主 FS 解析并登记 carrier 真实路径；不改用户 context、模块身份、排序或 fallback。真实/别名生产对照与别名目录完整 watch 回归、完整 verify 2569 项及 lint/build/types、现有 Chromium 生产/开发更新与错误恢复均通过；详细边界见 [webpack 模块说明](../integrations/webpack/README.md)，证据 `artifacts/webpack-linked-context/`。Parcel 继续暂缓。
 
 2026-11-04 owner 已决定**暂缓 Parcel，保持现有宿主维护**。Parcel 只读调查保留为参考，实验不再待确认，也不安装或实施。当前范围为 Vite、Rspack／Rsbuild、webpack 的既有能力维护及已复现契约问题修复；未验证组合不自动成为任务，不从历史路线图启动新宿主、框架或验收矩阵。排序、fallback、React 作者用法与单份宿主 targets 契约不变。恢复 Parcel 需新的 owner 指令。下方历史“下一步／待决”不覆盖本项最新决定。

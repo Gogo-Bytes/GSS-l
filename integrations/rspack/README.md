@@ -14,7 +14,7 @@
 
 ## 验证与下一层
 
-现有测试使用真实 Compiler 和 React Adapter，覆盖并发／跨轮输入、失败恢复、原始诊断、资产身份快照、preserved warning、别名和 no-import 路径。候选快照已实现，覆盖可达集合、全局冲突和导出一致性；后续是 Rspack loader／plugin 生命周期、CSS 后处理和 Rsbuild 封装。不新增 Compiler 公共接口。
+现有测试使用真实 Compiler 和 React Adapter，覆盖并发／跨轮输入、失败恢复、原始诊断、资产身份快照、preserved warning、别名和 no-import 路径。候选快照已实现，覆盖可达集合、全局冲突和导出一致性；准备测试现位于 integrations/shared；本包的 loader／plugin 生命周期、CSS 后处理和 Rsbuild 封装已接通，分别保留宿主回归。不新增 Compiler 公共接口。
 
 ## 候选快照
 
@@ -26,23 +26,23 @@
 
 `source-loader.ts` 是内部原生 loader。主 plugin 必须在每轮 NormalModule loader hook 注入 `createSourceLoaderPreparation`，与候选重放共享该轮 prepare；没有注入则明确失败。React 入口仍先解析／watch `.gss`，再取 schema 并转换。loader 应作为原始源码的 pre loader 使用，不承诺组合任意上游源码变换。没有转换时透传输入 map／附加数据；转换后使用 Adapter map，不能把旧 map 附到新代码。`.gss` JS 导出来自同轮 Compiler artifact，不假造源码映射。
 
-Compiler／Adapter error 阻止代码交付；`SourceDiagnosticError.diagnostics` 原样保留 id／UTF-16 range，warning 交给原生 emitWarning，info 交给 logger。当前错误文本包含 code／原始 id，原生 overlay 的行列展示尚待正式宿主接入，不把数据保留等同于完整 UI 定位验收。IO／resolve 异常保持原错误，不额外判断 CSS 值是否合法。
+Compiler／Adapter error 阻止代码交付；`SourceDiagnosticError.diagnostics` 原样保留 id／UTF-16 range，warning 交给原生 emitWarning，info 交给 logger。当前错误文本包含 code／原始 id，原生 overlay 的精确行列展示未形成完整验收，不把数据保留等同于完整 UI 定位验收。IO／resolve 异常保持原错误，不额外判断 CSS 值是否合法。
 
 `installPublication` 安装已获批准的 NoEmitOnErrorsPlugin，并区分 candidate、afterEmit 与 done。只有本轮确实经过 afterEmit、done 无任何编译错误且有候选时才推进 published；shouldEmit=false 即使没有错误也不推进。每轮候选以 Compilation 为键，结束后拒绝继续写入该轮。它不负责输出 CSS／HTML／runtime，也不代表 npm 包发布。
 
 处理器 file／context／missing dependencies 登记到本轮 compilation；失败或未输出时保留此前恢复集合并合入本轮新发现项，成功时以本轮集合替换。不能在 compilation 的共享集合中删除旧值：其他 loader 可能也依赖同一文件。新 compilation 自有新集合，因此成功轮无需重新添加旧的 GSS 处理器依赖。宿主必须在处理器失败时也回传已发现依赖；fatal 编译器异常没有 done 时不会推进 published，但其 watcher 重启策略未验收。
 
-真实 Rspack 测试覆盖晚期非 GSS 错误、shouldEmit=false、空候选恢复和三类依赖替换。现有两宿主 Chromium 探针已消费正式 loader／发布模块，仍为手动 HMR，不代表默认 dev server、Fast Refresh、完整资源或公开插件已完成。
+真实 Rspack 测试覆盖晚期非 GSS 错误、shouldEmit=false、空候选恢复和三类依赖替换。早期两宿主 Chromium 探针使用手动 HMR；随后公开插件与 Rsbuild 默认 dev server 已验证，具体范围见文末消费报告。早期证据不能用于宣称 Fast Refresh 状态保留或完整资源支持。
 
 ## 主构建 CSS 接入
 
-`installMainCompilation` 是内部编排，尚非公开插件。每轮安装独立 prepare，并向 source loader 注入；finishMake 从入口沿模块图收集静态／lazy 可达 GSS，生成同一全局候选，再通过 addEntry 向每个现有入口附加同一聚合 CSS。候选仍由原有 Compiler 决定排序、fallback 和模块导出。不按入口或 lazy chunk 拆分 GSS 语义。
+`installMainCompilation` 是公开 gss 插件调用的内部编排，不单独提供用户配置入口。每轮安装独立 prepare，并向 source loader 注入；finishMake 从入口沿模块图收集静态／lazy 可达 GSS，生成同一全局候选，再通过 addEntry 向每个现有入口附加同一聚合 CSS。候选仍由原有 Compiler 决定排序、fallback 和模块导出。不按入口或 lazy chunk 拆分 GSS 语义。
 
 内部 `.gss-internal/aggregate.css` 仅为原生 VirtualModulesPlugin 的内存路径，不创建用户文件，也不逐轮 writeModule。CSS/map 编码在内部 resource query 中，使每个请求自带不可变输入。pre loader 解码后交给宿主现有 CSS rules；不另起 compiler，不复制 PostCSS／Lightning CSS 配置，不自行 emit CSS／HTML／link runtime。source map 的 sources 转为项目根下绝对路径，原 Compiler map 不被修改。请求包含完整输入，可能较长；尚未做性能／请求体积优化，也不承诺任意自定义 resourceQuery／include／issuer 规则兼容。
 
 不可改回“稳定请求 + 非缓存 loader 读取当轮共享 seed”：原生 CSS 后续构建可能在 finishMake 前重建旧模块，此时当轮候选尚不存在。不可用旧 CSS 冒充当轮成功；不可变请求让旧模块只能消费自己的输入，新候选从当前图重新汇总。CSS extract 内部会构造伪 JS 请求，Adapter pre rule 排除内部 carrier，避免 React 解析器处理 CSS。
 
-当前回归使用真实 Rspack native CSS watch，覆盖两个入口、lazy 移除、非法输入保留／恢复、无 GSS 清空及 shorthand 源码覆盖；Rsbuild probe 覆盖原生 CSS extraction／PostCSS 文件依赖更新。公开配置、完整资源 IO、默认 dev server、任意 CSS 规则和最终 map 定位仍需后续验证。测试载入 dist 中真实 loader，运行本包测试前需要 build（根 verify 已按此顺序执行）。
+当前回归使用真实 Rspack native CSS watch，覆盖两个入口、lazy 移除、非法输入保留／恢复、无 GSS 清空及 shorthand 源码覆盖；Rsbuild probe 覆盖原生 CSS extraction／PostCSS 文件依赖更新。公开配置、基础资源 IO、Rsbuild 默认 dev server 及外部消费已形成后续证据；任意 CSS 规则、完整资源语法和更细 map 定位不因此获得保证。测试载入 dist 中真实 loader，运行本包测试前需要 build（根 verify 已按此顺序执行）。
 
 主链不意味着处理器失败会自动保留全部 watch 依赖。PostCSS 在抛错前记录的 dependency message 可能未交给 loader；实测修复 token 文件不触发重建。`afterCompile` 只读取**本轮精确 aggregate request** 对应模块的 buildInfo 依赖，交给既有 publication 状态保留／替换；不扫描全部历史模块，也不复制其他 JS 模块依赖。首次成功建立依赖后，即使失败处理器没返回消息，修复仍可触发；首次构建从未发现的隐藏依赖无法凭空推断。回归覆盖失败后同输入恢复，以及空 CSS 成功后旧 token 依赖移除。
 
@@ -85,7 +85,7 @@ import { react } from '@gss-l/react';
 
 `stylesheet-io.ts` 从宿主 inputFileSystem 读取源码，通过已有 Compiler discovery 找 URL；相对 URL 由原生 resolver（preferRelative／url 依赖类型）相对原 stylesheet 解析，登记 file/context/missing 依赖。身份包含项目相对文件名及 query/fragment；finalize 输出原生 CSS 链可读取的绝对资源请求。资源 bytes、hash、emission、publicPath 与更新由主链处理，不另建资源服务器或 emitAsset。根路径 URL、remote/data 与单独 fragment 不受聚合目录影响，原样交给宿主；不复制 Vite 的 publicDir 读取策略，不承诺任意自定义 URL filter／预处理器。
 
-每轮 read 接收本轮 compilation，避免把依赖登记到旧轮；已有只接收 id 的内部调用仍兼容。CSS 解析失败仍交给原 Compiler 诊断，不用 IO 错误替换它。已验证嵌套目录图片、#fragment、生产 hash／真实资源文件，以及默认 Rsbuild dev server 的图片 bytes 更新和 GSS 错误恢复。根路径/publicDir、自定义 resolver 组合、完整资源语法与 workspace 外消费尚未形成完整验收，不据此宣称全部资源支持。
+每轮 read 接收本轮 compilation，避免把依赖登记到旧轮；已有只接收 id 的内部调用仍兼容。CSS 解析失败仍交给原 Compiler 诊断，不用 IO 错误替换它。已验证嵌套目录图片、#fragment、生产 hash／真实资源文件，以及默认 Rsbuild dev server 的图片 bytes 更新和 GSS 错误恢复。根路径/publicDir、自定义 resolver 组合及完整资源语法尚未形成完整验收；workspace 外的有限消费证据见下文，不据此宣称全部资源支持。
 
 默认提取 CSS／带 gss-l chunk 名的文件名是当前验证范围；自定义多 minimizer、纯 hash 文件名、style 注入、SSR／库构建没有升级为保证。包未发布；TypeScript 使用 `@gss-l/types/client`，无需引用 Vite client。
 
