@@ -18,6 +18,8 @@
 
 ## 当前目标：React 多构建工具接入
 
+2026-11-04 owner 已确认并实现通用 `@gss-l/types/client`，Vite 原入口兼容且继续提供其虚拟模块；新宿主不依赖 Vite 声明。完整 verify 2566 项及 lint/build/types 通过，workspace 外 types tarball 的 NodeNext／Bundler 类型消费通过。详见 [通用类型入口](ARCHITECTURE-DIRECTION.md#通用-typescript-client-入口2026-11-04)，证据 `artifacts/common-client/`。类型入口不再待决；完整新宿主外部应用消费仍待核对，未发布包。
+
 2026-11-02 owner 已批准 GSS CSS 局部隔离，内部实现与验证已完成：仅聚合 GSS 的原生 Lightning CSS loader／minimizer 排除 logicalProperties，普通 CSS 保持宿主处理；不新增 targets，不改 Compiler 排序或 fallback。原生 splitChunks 共用 GSS 资产，HTML hook 保持普通 CSS 在前、聚合 GSS 在后。两个真实 HTML 入口及默认 Rsbuild React HMR（含普通 CSS 更新、错误保留／恢复）通过；完整 verify **2563** 项及 lint/build/types 通过。详见 [实施记录](ARCHITECTURE-DIRECTION.md#gss-css-局部隔离实施2026-11-02)，证据在 `artifacts/gss-css-isolation/`。仍是内部模块，公开入口／自动资源 IO 尚未交付；下一项连接宿主的有效 minimizer 配置与 Rsbuild 薄封装，不要求用户重复 targets。
 
 2026-11-02 已继续接通公开 `gss({ adapter })`／`pluginGss({ adapter })` 与基础相对资源 IO：宿主 resolver／input filesystem 负责输入，主 CSS 链负责资源输出和更新，无重复 targets。完整 verify **2566** 项及 lint/build/types 通过；公开入口的双 HTML、默认 React HMR、SVG bytes 更新及错误恢复通过（`artifacts/minimizer-entry/public-*`）。详见 [入口与资源记录](ARCHITECTURE-DIRECTION.md#公开插件组合与基础资源-io2026-11-02)。尚未做 workspace 外 tarball／完整资源组合验收，未发布包。下一待决是通用 `*.gss` 声明使用 `@gss-l/types/client`，或各宿主独立 client 入口；不要要求新宿主引用 Vite 专属声明。

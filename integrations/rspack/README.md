@@ -87,4 +87,7 @@ import { react } from '@gss-l/react';
 
 每轮 read 接收本轮 compilation，避免把依赖登记到旧轮；已有只接收 id 的内部调用仍兼容。CSS 解析失败仍交给原 Compiler 诊断，不用 IO 错误替换它。已验证嵌套目录图片、#fragment、生产 hash／真实资源文件，以及默认 Rsbuild dev server 的图片 bytes 更新和 GSS 错误恢复。根路径/publicDir、自定义 resolver 组合、完整资源语法与 workspace 外消费尚未形成完整验收，不据此宣称全部资源支持。
 
-默认提取 CSS／带 gss-l chunk 名的文件名是当前验证范围；自定义多 minimizer、纯 hash 文件名、style 注入、SSR／库构建没有升级为保证。包未发布；TypeScript 的通用 `*.gss` 声明入口仍需完成，当前不能将 Vite 专属 client 声明作为新宿主正式接入方式。
+默认提取 CSS／带 gss-l chunk 名的文件名是当前验证范围；自定义多 minimizer、纯 hash 文件名、style 注入、SSR／库构建没有升级为保证。包未发布；TypeScript 使用 `@gss-l/types/client`，无需引用 Vite client。
+
+
+TypeScript 项目直接依赖 `@gss-l/types`，在环境声明文件中使用 `/// <reference types="@gss-l/types/client" />`，或在 tsconfig 的 types 中加入该入口。它仅声明 `.gss`，不提供 Vite 虚拟 URL。现有 scope 类型、字符串用法与动态路径边界不变；声明不会执行任何运行时加载。

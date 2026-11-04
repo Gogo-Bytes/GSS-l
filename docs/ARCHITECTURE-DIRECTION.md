@@ -719,3 +719,14 @@ Owner 已选择 minimizer 辅助函数，上一节的公开 API 待决结束。`
 沿用现有 Chromium carrier 改为公开插件：真实双 HTML 入口通过，React 默认 HMR／ordinary 更新顺序／错误保留／同输入恢复通过；新增同一载体的相对 SVG bytes 更新确认（先读取红色 SVG，再修改文件并读取蓝色 SVG），未手动触发 HMR。日志 `public-production.log`、`public-dev.log`、`public-asset-dev.log`。不是完整资源语法／root publicDir／所有自定义 resolver 的证明；workspace 外 tarball 消费仍未验证，包未发布。
 
 **接下来的公共类型入口待决。** 现有 `@gss-l/vite/client` 同时声明 `*.gss` 与 Vite 专属 `virtual:gss.css?url`。新宿主不应要求引用 Vite client，也不能假装已实现该虚拟 URL。建议新增通用 `@gss-l/types/client`，只声明 `*.gss`，Vite 原入口继续保持兼容并引用通用声明；另一方案是分别提供 `@gss-l/rspack/client`／`@gss-l/rsbuild/client`，内部复用同一声明。两者不改变 React scope 类型或作者语法，但会确定公开 tsconfig／reference 路径，按 AGENTS.md 留给 owner 决策。当前先不导出这两种类型入口；明确不能将本轮转译／运行通过描述成外部 TypeScript 消费已验收。
+
+
+#### 通用 TypeScript client 入口（2026-11-04）
+
+Owner 已确认方案一：以 `@gss-l/types/client` 作为各宿主共用的 `*.gss` ambient 声明入口；上一节类型入口待决结束。声明归属 types 包，沿用 `GssStyles`，不改变 readonly／scope 品牌／字符串引用，不新增逐文件路径推导或运行时模块。package exports 提供 types-only 子路径，files 明确包含 client.d.ts；消费项目应直接声明 types 包依赖，避免依赖宿主传递依赖的提升行为。
+
+`@gss-l/vite/client` 引用通用入口并继续声明 `virtual:gss.css?url`，旧引用无需修改。通用入口不能声明 Vite 虚拟模块；反例由类型回归的预期错误检查保护。Rspack／Rsbuild 不新增各自 client 副本，也不要求引用 Vite。
+
+验证使用既有 types 类型测试与 Vite consumer：真实 `.gss` 导入可赋给 scope／string、readonly 约束保留、通用环境拒绝 Vite 虚拟模块。另通过 pnpm pack 生成 types tarball，在 workspace 外临时项目 npm install，只依赖该包，以 tsconfig types 加载公开入口；NodeNext／Bundler、strict／skipLibCheck=false 均通过。证据在 `artifacts/common-client/external.log`，仅类型包消费，不冒充完整外部 Rsbuild／Rspack 应用验收。初次仓库内自引用 triple-slash type lookup 和随后相对 reference lint 失败分别保留 `verify.log`／`verify-final.log`；仓库测试改由 tsconfig include 加载声明，公开 exports 由外部 tarball 证明。
+
+本轮完整 verify 2566 项及 lint/build/types 通过，记录 `verify-delivery.log`。无运行时改动，未重复浏览器 gate；排序、fallback、targets 与已验证的宿主生命周期均未修改。下一项仍是完整新宿主的外部包消费核对，不能将这次类型包验收外推为完整宿主验收。未发布 npm 包或 tag。

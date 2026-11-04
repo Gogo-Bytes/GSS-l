@@ -27,6 +27,18 @@ Playground 的 dev、构建、预览及类型检查由 `@gss-l/playground` 工�
 
 `verify` 包括 lint、build、单元测试和类型检查，**不包括浏览器验收**。其他脚本以根目录及 `tests/package.json` 为准；运行浏览器验收前先读 [验收边界](docs/STATUS.md#验收与已知边界)。
 
+## TypeScript 声明
+
+使用通用 `@gss-l/types/client` 声明 `.gss` 导入。在项目的环境声明文件中添加：
+
+```ts
+/// <reference types="@gss-l/types/client" />
+```
+
+也可以将 `@gss-l/types/client` 加入 tsconfig 的 `compilerOptions.types`。消费项目应将 `@gss-l/types` 声明为直接开发依赖；目前仓库包仍未发布，外部验证使用本地 tarball。
+
+已有 Vite 项目可继续使用 `@gss-l/vite/client`，它引用通用声明并保留 Vite 专属 `virtual:gss.css?url`。Rspack／Rsbuild 不需要引用 Vite client。通用声明沿用现有 scope 类型，不增加逐文件 scope 补全，也不产生运行时代码。
+
 ## 代码导航
 
 | 位置 | 职责 |
