@@ -8,6 +8,10 @@
 
 最近完成：webpack 公开插件/隔离 minimizer；公共准备包无效导出清理；webpack 稳定符号链接目录的虚拟 CSS 修复；Rspack/Rsbuild 文档状态核对。无待合并正式实现；具体工作区以 git status 为准。
 
+## 最新维护核查
+
+2026-11-04 owner 授权的 [React 更新链路只读核查](REACT-UPDATE-REVIEW.md)已完成。区分值/class/schema 变化、JS 更新、整页导航与组件 state；核对四宿主代码和既有证据，未确认新契约违约。没有运行新测试/浏览器或改产品，2569 项仍为原验证基线。scope 形状和通用 state 保持没有因此获得保证。
+
 ## 当前工作与授权
 
 维护现有支持范围，修复可复现契约问题，补必要回归并同步文档。Parcel/更多宿主、UI 框架、性能、Firefox Article 仍暂缓。Fast Refresh 状态保持、overlay 精度是尚未批准的候选；没有新增能力任务排队。后续执行边界见 [当前计划](NEXT-STAGE.md)。

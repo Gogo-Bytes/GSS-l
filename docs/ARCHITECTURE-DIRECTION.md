@@ -862,3 +862,10 @@ Owner 对上一节实验提案选择“暂缓 Parcel，保持现有宿主维护�
 Owner 确认暂不扩展新能力，统一支持范围、配置、证据和限制。新增 HOST-SUPPORT 作为宿主事实索引，STATUS/NEXT-STAGE/HANDOFF 只保留当前状态与授权；旧内容完整迁入同目录 *-HISTORY 文档，旧锚点链接相应更新。原始失败、检查基线和证据恢复信息保留，未将历史目标当作未完成任务。
 
 公共核心/框架 Adapter/宿主适配/可选准备算法的职责不变；阶段收尾不意味着接受全部未验证组合，也未批准 Fast Refresh/overlay 等候选。运行证据沿用各自明确基线，本次仅核对文档、包清单及链接，不重跑产品测试或浏览器。
+
+
+#### React 更新链路只读核查（2026-11-04）
+
+Owner 授权核查既有 CSS 值修改、scope/schema 修改及错误恢复路径。结果见 [核查报告](REACT-UPDATE-REVIEW.md)。scope schema 包含 class 映射，故值变化可能要求 JS 传播；Vite 以 schema 是否变化选择传播集合，而 Rspack/webpack 依赖原生模块重建，React 接收边界归宿主插件。没有从代码推断通用组件状态保持。
+
+既有 Vite 指定模板有 counter/document 断言；Rsbuild 外部样式/overlay 探针没有同等状态断言；webpack 原生 accept 只有无整页导航证据。scope 形状变化未形成完整浏览器实证。本轮没有确认当前契约违约，未改产品/测试或排序/fallback，未扩大支持范围；进一步状态保持/诊断目标仍需单独决策。
