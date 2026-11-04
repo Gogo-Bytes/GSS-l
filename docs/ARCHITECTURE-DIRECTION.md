@@ -817,3 +817,27 @@ Owner 已选择公开入口方案，上一节 API 待决结束。`@gss-l/webpack
 #### 公共准备包导出核对（2026-11-04）
 
 webpack 公开入口交付后，核对提取后的打包边界，发现 integration-preparation 的 package.json 误复制了 Rspack 的 internal/css-isolation 子路径，目标文件不存在。已移除该无效残留；实际 Rsbuild 引用的 Rspack 子路径保留。不存在可工作的公共能力被移除，排序/fallback 与宿主运行时不变。八个产品 tarball 的全部 20 个导出目标存在，公共准备 20 项测试通过；原始失败含两个缺失目标，见 artifacts/package-boundary-audit。后续按既定第二批顺序只读核对 Parcel，调查不等于授权实施新宿主。
+
+
+#### Parcel 只读可行性核对与实验待决（2026-11-04）
+
+接续 React 生态第二批顺序，在 webpack 公开入口与打包边界修复之后，只读核对 Parcel 官方接口。未安装 Parcel、未新增集成包或运行页面；以下是接口事实与设计推断，不是支持声明，也未确定版本兼容范围。
+
+[Transformer 官方接口](https://parceljs.org/plugin-system/transformer/)处理单个 asset，可返回多种子 asset，并通过 uniqueKey 建立虚拟资源依赖；支持文件变更/创建失效登记。因此 React Adapter 的源转换与单文件 GSS JS/schema 准备有接入位置，但不能把 Transformer 执行历史当成最终可达集合。
+
+[Bundler 文档](https://parceljs.org/plugin-system/bundler/)描述全 asset graph 到 bundle graph 的转换，并明确该 API 属于 experimental；[Packager 文档](https://parceljs.org/plugin-system/packager/)描述 bundle 内资源组合、URL 引用和 map 处理。这说明不能照搬 finishMake/addEntry。单个 bundle 内可枚举资源，不自动证明能得到 GSS 目前需要的完整候选、给所有相关入口交付同一份 CSS，并保留 lazy 移除/错误恢复。
+
+[CSS Transformer 源码（v2 分支，非固定版本实证）](https://github.com/parcel-bundler/parcel/blob/v2/packages/transformers/css/src/CSSTransformer.js)从 asset.env.engines 取得 targets 并调用 Lightning CSS。核对的调用位置未暴露与现有 GSS-only logical exclusion 等价的配置；不能因此断言 Parcel 完全做不到，也不能直接把全局 targets 改成现代浏览器或禁用所有 CSS 转换。后续应核对固定版本的 transformer/optimizer 两个阶段和局部 pipeline 能力。
+
+[配置组合文档](https://parceljs.org/plugin-system/configuration/)支持将多个插件通过配置包组合。这意味着最终入口可能是 Parcel 配置组合，而非强行提供 webpack 风格 gss()；当前不确定公开 API。
+
+| 已有部分 | 可复用判断 | 必须由 Parcel 证明的前提 |
+| --- | --- | --- |
+| Compiler、React Adapter | 保留算法与源码用法 | JSX 转换阶段位置、schema 依赖更新、map 交接 |
+| 公共 source preparation | 可以按明确 resolve/read/watch 接口尝试接入 | batch 生命周期、目标/环境身份与缓存失效，不使用跨 worker 全局 Map |
+| candidate snapshot | 只有宿主能提供一致完整集合时复用 | 汇总阶段、多个入口/lazy 的归属、冲突诊断与 JS/CSS 同代 |
+| CSS/HTML/资源与发布 | Parcel 专属适配 | GSS-only 逻辑降级隔离、原生资产/HTML顺序、错误恢复；不复制 webpack 原语 |
+
+**建议下一步只做有界可行性实验，须 owner 确认。** 固定实际安装版本，限定 React + HTML 入口；先验证单模块 JS/CSS 进入原生链，再以共享样式/两个入口/lazy 移除检验汇总，最后验证一次样式修改、失败及同输入恢复。已有逻辑/物理 1px/2px 反例用于检验宿主转换不破坏排序，普通 CSS 保持独立原生对照。记录实际 targets，沿用宿主配置，不新增 Compiler targets。
+
+实验停止条件：若必须改变 CSS 排序/fallback、改变 React 引用语法、另起独立 compiler，或替换默认 bundler/packager 等重大架构才能继续，先提交具体阻塞与方案，不能自行扩大范围。单文件产出成功不算完整接入；不建立 SSR/多浏览器/新框架矩阵，不发布包。另一选择是暂缓 Parcel，保持当前四个宿主入口维护；它是新增宿主能力的优先级决策，不是要求 owner 决定每个实现细节。

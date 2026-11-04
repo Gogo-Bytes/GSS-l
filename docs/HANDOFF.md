@@ -1,5 +1,7 @@
 # 新 session 接续提示词
 
+2026-11-04 Parcel 只读可行性核对完成，见 [接口边界与实验待决](ARCHITECTURE-DIRECTION.md#parcel-只读可行性核对与实验待决2026-11-04)。Transformer 可承载单文件转换，但全局候选汇总与 GSS-only CSS 兼容隔离仍需固定版本实证；不能照搬 webpack 编排。建议下一步仅做有界实验，新增宿主范围待 owner 确认；尚未安装/实施，不修改排序、fallback 或 targets，不启动矩阵。此前 webpack 与打包边界切片已完成。
+
 2026-11-04 已修正公共准备包误复制的 CSS 隔离子路径导出：原目标 JS/d.ts 不存在，且不属于共享职责；保留真正的 Rspack 内部隔离入口。八个产品包实际 tarball 的 20 个 exports 目标全部存在，公共准备 20 项测试通过，证据 `artifacts/package-boundary-audit/`。下一项依照 React 生态规划做 Parcel 接入的只读可行性核对；不安装/实施新宿主或扩大框架矩阵，形成具体方案后再决策。
 
 2026-11-04 owner 已批准并接通 webpack 公开 `gss({ adapter })` / `gssCssMinimizers(options)`，API 不再待决。宿主同一份 targets，GSS-only 逻辑属性排除，普通 CSS 与独立纯宿主逐字对照；HtmlWebpackPlugin 以同一 peer 实例连接 hooks。使用说明与限制见 [webpack 模块文档](../integrations/webpack/README.md)。完整 verify 2568 项及 lint/build/types、公开配置 Chromium 生产/开发、workspace 外五包 tarball 的 strict TypeScript 配置/生产双入口/开发更新与错误恢复均通过。证据在 `artifacts/webpack-public/`；不改变排序/fallback，不发布包，不自动启动新框架或矩阵。
