@@ -2,11 +2,9 @@
 
 GSS 的有限 MVP：框架无关的 CSS 编译核心，加上 React 源码适配器，以及 Vite、Rspack／Rsbuild 和有界 webpack 集成。当前实现覆盖编译会话、作用域映射、资源与源码映射，以及真实页面中的开发更新和生产输出。
 
-有限 MVP、已选官方脚手架、客户端路由与有界 Framework SSR 实验已交付。当前正推进[核心工作流与架构方向](docs/ARCHITECTURE-DIRECTION.md)及[属性排序目标](docs/PROPERTY-ORDER-DESIGN.md)；目标尚未全部完成。进度与边界见[当前计划](docs/NEXT-STAGE.md)，不自行新增框架或验收场景。有界实验不等于所有框架／浏览器正式支持。
+现有四宿主阶段收尾已完成，当前维护既有能力并修复可复现问题，暂不扩展更多宿主或新能力。配置要求、实际版本、验证证据和限制统一见 [宿主支持清单](docs/HOST-SUPPORT.md)；进度见 [STATUS](docs/STATUS.md)，当前授权见 [NEXT-STAGE](docs/NEXT-STAGE.md)。有界验证不等于所有 CSS、框架或浏览器支持。
 
-有限 MVP 的目标进度与本轮验证见 [MVP 进度](docs/MVP-PROGRESS.md)；当前交付状态、语义边界和已暂停事项见 [工作状态](docs/STATUS.md)。新 session 从 [接续提示词](docs/HANDOFF.md) 开始；协作规则见 [AGENTS.md](AGENTS.md)。这些文档是当前状态整理，不是恢复历史路线图。
-
-webpack 的 MiniCssExtractPlugin／HtmlWebpackPlugin 接入与限制见 [公开配置](integrations/webpack/README.md#公开配置owner-已确认)。
+核心语义与职责见 [架构方向](docs/ARCHITECTURE-DIRECTION.md)和[排序设计](docs/PROPERTY-ORDER-DESIGN.md)。新 session 从 [HANDOFF](docs/HANDOFF.md) 接续，遵循 [AGENTS.md](AGENTS.md)；历史记录仅供追溯。
 
 ## 本地运行
 

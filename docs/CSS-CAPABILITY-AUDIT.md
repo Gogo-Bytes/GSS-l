@@ -44,7 +44,7 @@
 - 复杂 `has`：已准入 residual 不再猜测 scalar specificity；每个观察分支保留完整原生 `:has(list)` 与零强度 witness，marker／source provenance 分离。修复 `div .local,.owned` 在 weaker-only 匹配时丢失 native type specificity，以及 planner 误报 GSS1205；简单已有 has 路径／准入 grammar 不变，不引入通用 specificity engine 或 DOM 推理。
 - 统一排序已确认并实现：同原生上下文与 GSS 语义高度时，逻辑属性先发、物理属性后发；同属性 tie 仍保留 authored order。五族 box、size/minmax、border/radius、overflow/overscroll 的已登记 effects 共用 overlap／priority／reuse-barrier 定义。最终属性 key 为 priority／严格包含深度／名称，保持传递性；不把潜在别名作 definite effect 剪枝，不扩 GSS1206 准入。
 
-原始输入、red/green 回归与独立 Chromium native/literal 对照保存在 `artifacts/core-consistency/2026-10-26-audit/`；详细进度见 [STATUS](STATUS.md#本轮核心一致性修复)。核查仍区分“可复现违约”“证据不足”“已接受边界”，不通过新增框架场景或无限添加 fixture 填满矩阵。
+原始输入、red/green 回归与独立 Chromium native/literal 对照保存在 `artifacts/core-consistency/2026-10-26-audit/`；详细进度见 [STATUS](STATUS-HISTORY.md#本轮核心一致性修复)。核查仍区分“可复现违约”“证据不足”“已接受边界”，不通过新增框架场景或无限添加 fixture 填满矩阵。
 
 ## 保留的能力边界（非当前开发目标）
 

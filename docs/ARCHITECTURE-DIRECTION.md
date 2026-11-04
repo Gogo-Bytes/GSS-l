@@ -1,6 +1,6 @@
 # 核心工作流与架构方向
 
-> 状态：目标与现状映射；owner 已要求开始推进。会话职责和排序器语义高度已拆分，同规则 longhand 已有有界准入；同属性 rank 与输出位置已分离，完整安全 shorthand 展开仍未完成。当前运行行为以 [STATUS](STATUS.md) 和代码为准；进度与下一步见 [NEXT-STAGE](NEXT-STAGE.md)。
+> 当前状态（2026-11-04）：已批准的核心架构切片及 Vite、Rspack／Rsbuild、webpack 接入已交付；本轮阶段收尾只统一事实，不扩展能力。宿主支持与证据以 [统一清单](HOST-SUPPORT.md)为索引，当前任务以 [NEXT-STAGE](NEXT-STAGE.md)为准。本文包含历次设计演进，旧“下一步/待决/尚未实现”按对应日期理解，不自动恢复为任务；语义决定沿用后续 owner 确认。
 
 ## 产品目标与现有边界
 
@@ -8,12 +8,12 @@ GSS 以 CSS 为输入，生成可组合的 scope 引用、原子 CSS 与必要�
 
 ## 核心工作流：当前实现
 
-1. **宿主与 Adapter**：Vite 调用 Adapter 判断源码、发现 `.gss` import；宿主解析路径、读取源码和资源并编译依赖，再提供 scope schema。React Adapter 对可证明的引用做有限 lowering，返回代码、map 和诊断；动态／未知路径、alias 与跨文件能力有既定边界。
+1. **宿主与 Adapter**：宿主集成调用 Adapter 判断源码、发现 `.gss` import；宿主解析路径、读取源码和资源并编译依赖，再提供 scope schema。React Adapter 对可证明的引用做有限 lowering，返回代码、map 和诊断；动态／未知路径、alias 与跨文件能力有既定边界。
 2. **解析与准入**：PostCSS 解析并展开 nesting，保留原始来源，按 selector 分支构造路径、状态和关系。Compiler 验证支持范围、资源、声明、条件与兼容性；当前未知 effect 可整模块 preserved，其他不安全输入拒绝，失败保留 last-known-good。
 3. **语义与规划**：绑定 scope target／source／observation，按属性 effect 确定竞争与存活声明；后代、结构、伪元素和 `:has()` 等路径分别规划，并为可证明的语义关系和模块内组合生成排序信息。普通 ownership 路径不必对应 DOM 祖先；需要状态／结构关系时生成 selector，实际匹配由浏览器负责。
 4. **marker 与 atom**：scope 导出包含 class 字符串。`gss-a` 表示声明；`gss-s`／`gss-t`／`gss-c` 表示关系来源、目标和中间节点；`gss-hs`／`gss-ho` 用于 `:has()` 的 subject／observed。marker 放入对应 scope，浏览器同时匹配 class、状态及 DOM 关系。复杂 `:has(list)` 保留原生 specificity 和分支身份。
 5. **复用与提交**：相同输出身份可在 finalize 汇总；模块内连续相同 pure occurrence 仅在既有证明条件下复用，不能跨竞争者或丢失 scope membership／来源。完整贡献及资源冲突检查成功后 session 才替换旧版本；失败不污染旧结果。
-6. **宿主交付**：Vite 开发期跟踪最新异步任务、资源与 CSS 更新；生产期按最终可达 static／lazy 图中的快照汇总 CSS、map、manifest 和资源。aggregate CSS URL 与已交付的 SSR 接入范围见 [STATUS](STATUS.md)。
+6. **宿主交付**：Vite 开发期跟踪最新异步任务、资源与 CSS 更新；生产期按最终可达 static／lazy 图中的快照汇总 CSS、map、manifest 和资源。Rspack/webpack 在主构建汇总候选，再交原生 CSS 链；Rsbuild 薄封装配置 Rspack 接线。各宿主的发布/依赖恢复机制独立，公共准备不接管生命周期。aggregate CSS URL 与 SSR 是 Vite 的有界能力，四宿主交付范围见 [支持清单](HOST-SUPPORT.md)。
 
 现状入口：[compiler-session](../compiler/src/application/compiler-session.ts)、[module-contribution](../compiler/src/application/module-contribution.ts)、[finalize-snapshot](../compiler/src/application/finalize-snapshot.ts)、[CSS parser](../compiler/src/infrastructure/postcss-stylesheet-parser.ts)、[React Adapter](../adapters/react/src/index.ts)、[Vite](../integrations/vite/src/index.ts)。
 
@@ -370,13 +370,13 @@ import { react } from '@gss-l/react';
 
 #### Rspack 内部源码准备实现（2026-11-02）
 
-已开始产品模块实现：[source-preparation.ts](../integrations/rspack/src/source-preparation.ts) 在一个 compilation 内按规范 stylesheet ID 共享输入准备，源码／资产引用快照与局部 Compiler 结果一起保存；失败本轮不重读，后续 compilation 使用新实例恢复。源码转换沿用 React Adapter，raw specifier 经宿主 resolver 指向准备后的 schema，先 watch 后 prepare；依赖失败不执行 transform。Compiler 原始诊断 id／range 保留，preserved warning 正常返回，排序／fallback 不变。
+已开始产品模块实现：[source-preparation.ts](../integrations/shared/src/source-preparation.ts) 在一个 compilation 内按规范 stylesheet ID 共享输入准备，源码／资产引用快照与局部 Compiler 结果一起保存；失败本轮不重读，后续 compilation 使用新实例恢复。源码转换沿用 React Adapter，raw specifier 经宿主 resolver 指向准备后的 schema，先 watch 后 prepare；依赖失败不执行 transform。Compiler 原始诊断 id／range 保留，preserved warning 正常返回，排序／fallback 不变。
 
 职责与反例见 [模块说明](../integrations/rspack/README.md)。新增 workspace `@gss-l/rspack` 只依赖既有 Compiler，并以 React Adapter 做内部测试；尚无插件导出（exports 为空），没有添加 Rspack runtime 依赖或宣称构建工具可用。局部准备不替代全局资源冲突检查；后续实现的可达候选汇总见下一节。验证结果见当前进度。
 
 #### Rspack 可达候选快照实现（2026-11-02）
 
-[candidate-snapshot.ts](../integrations/rspack/src/candidate-snapshot.ts) 已接续源码准备实现：只接收宿主提供的当前可达规范 ID 集合，去重并确定性排序，使用准备时的同一输入在独立 session 中重放，验证完整局部 module artifact 与汇总结果一致，再 finalize。跨模块资源冲突／输入失败／artifact 不一致时拒绝整个候选；不返回部分 CSS，不修改旧候选。不再可达的缓存条目不会进入新快照；无输入得到空快照。既有资源 URL resolver、诊断和 preserved 路径沿用 Compiler 公共接口。
+[candidate-snapshot.ts](../integrations/shared/src/candidate-snapshot.ts) 已接续源码准备实现：只接收宿主提供的当前可达规范 ID 集合，去重并确定性排序，使用准备时的同一输入在独立 session 中重放，验证完整局部 module artifact 与汇总结果一致，再 finalize。跨模块资源冲突／输入失败／artifact 不一致时拒绝整个候选；不返回部分 CSS，不修改旧候选。不再可达的缓存条目不会进入新快照；无输入得到空快照。既有资源 URL resolver、诊断和 preserved 路径沿用 Compiler 公共接口。
 
 9 项新增测试覆盖确定性重放与 shorthand 源码覆盖、移除／清空输入、全局资源冲突、失败输入、局部导出／ID 不一致、资产引用和 preserved warning。没有新增 Compiler 语义或公共接口。源码准备加候选共 20 项，完整 verify **2557** 项及 lint／build／types 通过，见 `artifacts/rspack-lifecycle-design/candidate-verify.log`。
 
@@ -492,7 +492,7 @@ Playground 自己的 dev、构建、预览和类型检查脚本由私有 `@gss-l
 
 ## 阶段与完成标准
 
-2026-10-31 核对：已批准的具体切片已交付；“完整展开／更宽复用”是能力边界，不是无限续作队列。2026-11-01 CSS 能力接入职责与重复维护点核对已完成，具体清单、等价重构及保留项见 [当前计划](NEXT-STAGE.md#已完成css-能力接入流程与策略归属)。
+2026-10-31 核对：已批准的具体切片已交付；“完整展开／更宽复用”是能力边界，不是无限续作队列。2026-11-01 CSS 能力接入职责与重复维护点核对已完成，具体清单、等价重构及保留项见 [当前计划](NEXT-STAGE-HISTORY.md#已完成css-能力接入流程与策略归属)。
 
 | 阶段 | 状态 | 完成标准 |
 | --- | --- | --- |
@@ -855,3 +855,10 @@ Owner 对上一节实验提案选择“暂缓 Parcel，保持现有宿主维护�
 仅在 webpack 宿主内部，通过 inputFileSystem.realpath 在 beforeRun/watchRun 登记稳定的真实 carrier 路径；CSS-only 分组与 loader 共用该路径。保留原 compiler.context/projectRoot、模块身份、resolver 和 immutable query payload，无独立 compiler、实体文件或跨轮可变 CSS seed。没有 realpath 能力的宿主保留原 context。此修复覆盖稳定目录别名，不承诺进程内 symlink 重定向/任意虚拟 FS。
 
 回归保留原生普通 CSS 对照、双入口 logical/physical 预期与 HTML 顺序，并让原 watch 用别名 context 覆盖 lazy 移除、GSS/处理器失败恢复及空候选依赖清理。证据 `artifacts/webpack-linked-context/`，最新完整检查见 STATUS；不扩大开发 hash 文件名、Fast Refresh、其他宿主或 fallback。
+
+
+#### 四宿主阶段收尾（2026-11-04）
+
+Owner 确认暂不扩展新能力，统一支持范围、配置、证据和限制。新增 HOST-SUPPORT 作为宿主事实索引，STATUS/NEXT-STAGE/HANDOFF 只保留当前状态与授权；旧内容完整迁入同目录 *-HISTORY 文档，旧锚点链接相应更新。原始失败、检查基线和证据恢复信息保留，未将历史目标当作未完成任务。
+
+公共核心/框架 Adapter/宿主适配/可选准备算法的职责不变；阶段收尾不意味着接受全部未验证组合，也未批准 Fast Refresh/overlay 等候选。运行证据沿用各自明确基线，本次仅核对文档、包清单及链接，不重跑产品测试或浏览器。
