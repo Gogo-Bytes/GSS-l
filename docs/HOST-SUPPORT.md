@@ -65,3 +65,5 @@ artifacts 为本机忽略目录；历史日志、独立 oracle 与首次失败�
 当前工作仅为已支持契约内的具体问题修复、必要回归与文档维护。新发现先保留反例再归因；没有反例时不从“未验证”自动扩矩阵。当前计划见 [NEXT-STAGE](NEXT-STAGE.md)，宿主专属决策维护在对应模块 README，语义决策维护在原权威设计文档。
 
 现有 React 更新链路的代码与证据核对见 [只读核查](REACT-UPDATE-REVIEW.md)：值变化可能改变 class/schema/JS；Rsbuild 样式通过不等于已断言无刷新，webpack 原生 accept 不等于 Fast Refresh。核查未产生新产品缺陷或新能力授权。
+
+诊断细节见 [诊断与定位只读核查](DIAGNOSTIC-LOCATION-REVIEW.md)：Rspack/Rsbuild/webpack 保留原始 diagnostics，但目前不将 range 转为宿主 loc/frame；overlay 存在证据不等于精确高亮证据。最终 CSS map 与错误定位分开评估。

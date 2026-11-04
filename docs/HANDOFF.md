@@ -11,3 +11,5 @@
 历史接续提示词已归档到 [HANDOFF-HISTORY](HANDOFF-HISTORY.md)，仅用于还原历史上下文，不作为当前执行提示词。旧 worktree/stash 与本机证据恢复见 [STATUS 恢复入口](STATUS.md#本机交接与证据恢复)。
 
 最近完成 [React 更新只读核查](REACT-UPDATE-REVIEW.md)：保留不同宿主/场景的证据边界，未确认新 bug。不要把核查结论当作 state 保持实施授权。
+
+最近另完成 [诊断与定位只读核查](DIAGNOSTIC-LOCATION-REVIEW.md)：Vite 的 loc/frame 与新宿主的原始 diagnostics 保留不能混同；部分 Adapter 错误无 range。记录展示差距，无新修复/能力任务，未重跑测试。

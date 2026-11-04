@@ -869,3 +869,10 @@ Owner 确认暂不扩展新能力，统一支持范围、配置、证据和限�
 Owner 授权核查既有 CSS 值修改、scope/schema 修改及错误恢复路径。结果见 [核查报告](REACT-UPDATE-REVIEW.md)。scope schema 包含 class 映射，故值变化可能要求 JS 传播；Vite 以 schema 是否变化选择传播集合，而 Rspack/webpack 依赖原生模块重建，React 接收边界归宿主插件。没有从代码推断通用组件状态保持。
 
 既有 Vite 指定模板有 counter/document 断言；Rsbuild 外部样式/overlay 探针没有同等状态断言；webpack 原生 accept 只有无整页导航证据。scope 形状变化未形成完整浏览器实证。本轮没有确认当前契约违约，未改产品/测试或排序/fallback，未扩大支持范围；进一步状态保持/诊断目标仍需单独决策。
+
+
+#### 诊断与错误定位只读核查（2026-11-04）
+
+Owner 授权核查四宿主既有定位链路，详见 [诊断报告](DIAGNOSTIC-LOCATION-REVIEW.md)。公共范围仍为输入 id 的 UTF-16 半开区间且可选；Compiler 保留 authored 来源，Adapter 对自身输入负责，宿主负责展示。Vite 将匹配输入快照的合法范围转换为 loc/frame；Rspack/webpack 当前只在错误对象保留 diagnostics，并把 code/id/message 写入文本，Rsbuild 复用此链路。React 的 GSS2107 有范围，不代表其他 alias 错误也有。
+
+已核对的实际差距是新宿主尚无同等行列/frame 转换，webpack 错误外层可显示 JSX importer；没有把这一差距误记为已经承诺的 overlay 精度回归。浏览器 overlay 出现/恢复与原生错误对象定位是不同证据，最终 CSS map 的规则起点限制也不代替诊断契约。本轮只读分析和文档更新，无产品/测试修改或新运行结果；定位能力扩展未获实施授权，保持排序与 fallback。
