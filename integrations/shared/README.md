@@ -1,6 +1,6 @@
 # 编译准备：宿主与 Compiler 之间的可选公共模块
 
-内部 workspace 包 `@gss-l/integration-preparation`，不是用户配置入口或通用构建工具插件。由 Rspack 现有模块迁入；webpack 实验消费同一实现。只依赖 Compiler，React 仅为测试依赖；不要求 Vite 或未来宿主经过这一层。
+内部 workspace 包 `@gss-l/integration-preparation`，不是用户配置入口或通用构建工具插件。由 Rspack 现有模块迁入；webpack 正式集成消费同一实现。只依赖 Compiler，React 仅为测试依赖；不要求 Vite 或未来宿主经过这一层。
 
 ## 责任边界
 
@@ -35,3 +35,7 @@ IO 异常保持原异常，Compiler 诊断保留 id/range；loader 决定如何�
 Rspack 与 Rsbuild 的专属接线不迁入本包。未来宿主可以只使用 prepareSource，或直接调用 Compiler；若无法提供稳定批次/完整集合，不能声称可复用整套快照流程。是否共享新的能力按具体需求重新判断，不预先扩大本包。
 
 测试从原 Rspack 包原样迁入，覆盖并发、失败缓存/新批恢复、别名、watch 时序、Adapter 原始 range、资产快照、集合移除/清空、冲突、重放一致性、shorthand 与 preserved。原生 loader/watch/publication 回归留在 Rspack，不能用公共单测替代宿主生命周期证据。运行记录见 docs/STATUS.md 与 artifacts/host-preparation-boundary/。
+
+## 包导出边界
+
+只提供根入口的准备算法及类型，不提供 CSS 隔离子路径。2026-11-04 打包核对发现提取时误复制 Rspack 的 `./internal/css-isolation` 导出，目标 JS/d.ts 不存在，现已移除；Rsbuild 实际依赖的 `@gss-l/rspack/internal/css-isolation` 保留。修复不改变正常调用路径或新增公共 API。八个产品包实际 tarball 的全部 exports 目标已核对；不能只检查 src 或现有 workspace 的根入口 import。原始失败与修复证据见 `artifacts/package-boundary-audit/`。

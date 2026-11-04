@@ -7,10 +7,6 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    },
-    "./internal/css-isolation": {
-      "types": "./dist/css-isolation.d.ts",
-      "import": "./dist/css-isolation.js"
     }
   },
   "scripts": {

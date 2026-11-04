@@ -812,3 +812,8 @@ Owner 已选择公开入口方案，上一节 API 待决结束。`@gss-l/webpack
 首版限定已验证的 MiniCssExtractPlugin/css-loader/HtmlWebpackPlugin/Lightning CSS 组合，开发稳定 CSS 文件名、生产带 chunk 名 hash。HtmlWebpackPlugin hooks 为包实例私有 WeakMap，实验跨两份安装时排序失效，故必须声明并消费宿主同一 peer 实例；不能将双副本误判为排序算法错误。完整版本与配置边界见 [webpack 公开配置](../integrations/webpack/README.md#公开配置owner-已确认)。
 
 新增真实生产回归比较普通 CSS 与独立纯宿主输出逐字一致，保留 GSS logical/physical 属性和双入口 link 顺序；公开入口浏览器/外部消费及完整验证以 STATUS 最新记录为准。仍未发布包；未验证框架、symlink context、SSR、Fast Refresh/state 保持或任意后处理配置不自动扩展。
+
+
+#### 公共准备包导出核对（2026-11-04）
+
+webpack 公开入口交付后，核对提取后的打包边界，发现 integration-preparation 的 package.json 误复制了 Rspack 的 internal/css-isolation 子路径，目标文件不存在。已移除该无效残留；实际 Rsbuild 引用的 Rspack 子路径保留。不存在可工作的公共能力被移除，排序/fallback 与宿主运行时不变。八个产品 tarball 的全部 20 个导出目标存在，公共准备 20 项测试通过；原始失败含两个缺失目标，见 artifacts/package-boundary-audit。后续按既定第二批顺序只读核对 Parcel，调查不等于授权实施新宿主。
