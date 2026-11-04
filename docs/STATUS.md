@@ -10,6 +10,8 @@ CSS 能力接入流程与策略归属核对已按 owner 授权完成，形成三
 
 ## 当前目标：React 多构建工具接入
 
+2026-11-04 已完成 Rsbuild／Rspack 的 workspace 外五包 tarball 消费核对：公开配置与 React TSX 类型检查、两个宿主生产构建及四个 Chromium 页面通过；外部 Rsbuild 默认 HMR、资源 bytes 更新、错误保留／恢复通过。无新产品缺陷，产品代码未变；首次样例触发既有 scope coercion 诊断的证据已保留。完整范围、版本、恢复命令见 [外部消费报告](RSPACK-RSBUILD-CONSUMPTION.md)。本轮有限消费目标完成，未发布包；未验证组合不自动成为下一任务，后续由具体需求或可复现问题驱动。
+
 2026-11-04 owner 已确认并实现通用 `@gss-l/types/client`，Vite 原入口兼容且继续提供其虚拟模块；新宿主不依赖 Vite 声明。完整 verify 2566 项及 lint/build/types 通过，workspace 外 types tarball 的 NodeNext／Bundler 类型消费通过。详见 [通用类型入口](ARCHITECTURE-DIRECTION.md#通用-typescript-client-入口2026-11-04)，证据 `artifacts/common-client/`。类型入口不再待决；完整新宿主外部应用消费仍待核对，未发布包。
 
 2026-11-02 owner 已批准 GSS CSS 局部隔离，内部实现与验证已完成：仅聚合 GSS 的原生 Lightning CSS loader／minimizer 排除 logicalProperties，普通 CSS 保持宿主处理；不新增 targets，不改 Compiler 排序或 fallback。原生 splitChunks 共用 GSS 资产，HTML hook 保持普通 CSS 在前、聚合 GSS 在后。两个真实 HTML 入口及默认 Rsbuild React HMR（含普通 CSS 更新、错误保留／恢复）通过；完整 verify **2563** 项及 lint/build/types 通过。详见 [实施记录](ARCHITECTURE-DIRECTION.md#gss-css-局部隔离实施2026-11-02)，证据在 `artifacts/gss-css-isolation/`。仍是内部模块，公开入口／自动资源 IO 尚未交付；下一项连接宿主的有效 minimizer 配置与 Rsbuild 薄封装，不要求用户重复 targets。

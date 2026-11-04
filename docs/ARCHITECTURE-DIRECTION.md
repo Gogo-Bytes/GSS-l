@@ -730,3 +730,10 @@ Owner 已确认方案一：以 `@gss-l/types/client` 作为各宿主共用的 `*
 验证使用既有 types 类型测试与 Vite consumer：真实 `.gss` 导入可赋给 scope／string、readonly 约束保留、通用环境拒绝 Vite 虚拟模块。另通过 pnpm pack 生成 types tarball，在 workspace 外临时项目 npm install，只依赖该包，以 tsconfig types 加载公开入口；NodeNext／Bundler、strict／skipLibCheck=false 均通过。证据在 `artifacts/common-client/external.log`，仅类型包消费，不冒充完整外部 Rsbuild／Rspack 应用验收。初次仓库内自引用 triple-slash type lookup 和随后相对 reference lint 失败分别保留 `verify.log`／`verify-final.log`；仓库测试改由 tsconfig include 加载声明，公开 exports 由外部 tarball 证明。
 
 本轮完整 verify 2566 项及 lint/build/types 通过，记录 `verify-delivery.log`。无运行时改动，未重复浏览器 gate；排序、fallback、targets 与已验证的宿主生命周期均未修改。下一项仍是完整新宿主的外部包消费核对，不能将这次类型包验收外推为完整宿主验收。未发布 npm 包或 tag。
+
+
+#### 外部包消费完成（2026-11-04）
+
+在 `9a0f30f` 上完成五个 GSS tarball 的 workspace 外安装、公开 TypeScript 配置与 React 源码检查，以及两宿主各双入口的实际生产页面。外部 Rsbuild 默认 HMR、资源 bytes 更新、错误保留及同输入恢复通过。完整版本、字面预期、首次样例失败、安装锁文件及恢复命令见 [消费报告](RSPACK-RSBUILD-CONSUMPTION.md)。没有新增产品实现或放宽准入，未发布包。
+
+此次关闭的是前述“完整新宿主外部应用消费待核对”的所列有限目标，不代表所有宿主配置或 CSS 资源组合支持。此前已确认的功能与当前已记录限制继续适用；下一目标尚需具体需求或可复现契约问题，不自动启动其他框架、更多矩阵、性能或发布。

@@ -91,3 +91,6 @@ import { react } from '@gss-l/react';
 
 
 TypeScript 项目直接依赖 `@gss-l/types`，在环境声明文件中使用 `/// <reference types="@gss-l/types/client" />`，或在 tsconfig 的 types 中加入该入口。它仅声明 `.gss`，不提供 Vite 虚拟 URL。现有 scope 类型、字符串用法与动态路径边界不变；声明不会执行任何运行时加载。
+
+
+2026-11-04 已通过已选版本的 workspace 外 tarball 消费；类型、生产双入口及浏览器范围、Rsbuild 开发更新证据见 [消费报告](../../docs/RSPACK-RSBUILD-CONSUMPTION.md)。此记录覆盖此前外部消费待验项的有限范围，不扩大自定义配置或资源语法保证。

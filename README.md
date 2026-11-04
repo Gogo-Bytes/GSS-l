@@ -64,3 +64,5 @@ React Router Framework Mode 的真实 SSR 外部验收：`corepack pnpm framewor
 同一模块的多个 scope 可以组合。不同模块在同一个节点上的优先级仍不受支持；React 适配器对可证明的组合发出非阻塞警告 `GSS2107`，不移除 class。
 
 仓库尚未发布包；发布、release 和 tag 都需要单独授权。
+
+Rsbuild／Rspack 的公开入口与 workspace 外 tarball 有限消费结果见 [新宿主消费报告](docs/RSPACK-RSBUILD-CONSUMPTION.md)，包含最小配置、TypeScript 声明、实际验证及保留边界；包尚未发布。
