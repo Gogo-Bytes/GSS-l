@@ -748,3 +748,27 @@ Owner 已确认方案一：以 `@gss-l/types/client` 作为各宿主共用的 `*
 初步 `#` 文件名对照中普通 CSS 与 GSS 均失败（`probe.log`），未据此扩大 URL grammar 支持。字面 `%` 对照均通过（`percent.log`）；双解码反例的普通成功／GSS 失败见 `double.log`。额外宿主边界保持记录：Rsbuild 默认输出文件名保留 `%20` 时，普通 CSS 的最终 URL 也有歧义，针对本反例改用现有 hash-only SVG 文件名配置隔离源文件交接问题；这不是修改默认输出或掩盖 GSS 失败。首次验证的 fragment 假设、输出文件路径假设失败分别保留 `verify.log`／`verify-final.log`，详细边界见模块 README。
 
 下一项按原 React 生态规划进行 webpack 5 接入的有界可行性调查：只核对现有纯逻辑可复用部分、宿主生命周期／CSS 输出差异和最小 API，不安装新集成或新增框架验收矩阵。是否实施及必要架构变化在具体方案形成后交 owner 决策；不自动推进 Parcel、Vue、SSR 或发布。
+
+
+#### webpack 5 有界复用调查与实施待决（2026-11-04）
+
+在 `405f736` 修复资源路径交接后，按既定 React 生态第二批顺序完成代码／官方接口层面的调查。尚未安装 webpack、创建集成包或运行 webpack 构建，不将接口相似视为运行等价。
+
+| 当前模块 | 可复用判断 | webpack 侧实际责任 |
+| --- | --- | --- |
+| source-preparation、candidate-snapshot | 当前运行时只依赖 Compiler，准备缓存／诊断／候选重放可保留 | 由新宿主提供 canonical ID、源码和依赖集合，不复制语义编译 |
+| source-loader、aggregate-loader | 行为可复用，但当前类型依赖 @rspack/core，需真实 loader 验证 | map、异步回调、原始诊断及不可变 payload；不得伪造 compiler.rspack |
+| main-compilation、publication | 主流程可作迁移参照；已有 hooks 的名字不证明缓存与错误恢复相同 | 替换 EntryPlugin／NormalModule／NoEmitOnErrorsPlugin，核对 moduleGraph、afterEmit/done 和处理器依赖 |
+| VirtualModulesPlugin carrier | 当前明确依赖 Rspack experiments，不能直接使用 | 实验中选择现成 webpack carrier 后验证缓存命中和恢复；不回到跨轮共享可变 seed |
+| css-isolation | 标签稳定排序的纯逻辑可复用；builtin Lightning loader／minimizer 与 HtmlRspackPlugin 不可直接移植 | 宿主原 CSS 链、CSS 提取／分包、HTML 顺序与生产压缩各自接线 |
+| stylesheet-io | 身份／URL 交接规则复用；宿主 FS／resolver 类型仍须核对 | 按原 source 目录解析、登记依赖、由宿主输出资源，保留本轮百分号修复 |
+
+官方 [compiler hooks](https://webpack.js.org/api/compiler-hooks/#finishmake) 明确 finishMake 在入口及依赖加入之后执行；[compilation.addEntry](https://webpack.js.org/api/compilation-object/#addentry) 提供入口追加接口。因此现有主构建方向值得做 webpack 实验，但这里没有给出运行成功结论。
+
+[MiniCssExtractPlugin](https://github.com/webpack/mini-css-extract-plugin#readme) 说明初始 CSS 需要 HTML link 交付，并提供 webpack 5 的 CSS HMR 支持；因此实验建议采用提取 CSS 和 HtmlWebpackPlugin 的标准路径，不为此引入自己的浏览器 CSS runtime。[CssMinimizerPlugin](https://github.com/webpack/css-minimizer-webpack-plugin#readme) 支持多种 minifier，包括 Lightning CSS。不能将现有 Rspack 原生插件实例或其 options 类型当成 webpack 通用插件；若实验使用 Lightning CSS，需要核对其实际 feature/targets 格式并保持 GSS-only logical exclusion，不新增用户 targets。宿主任意自定义 PostCSS／minifier 组合不在首个实验范围。
+
+**建议 owner 确认的下一项：只实施 webpack 5 的最小接入实验。** 范围为现有 React 作者语法、MiniCssExtractPlugin + css-loader、HtmlWebpackPlugin、单个确定的 CSS minimizer；固定实际依赖版本，复用现有 Compiler/Adapter。先证明主构建生产输出和普通 CSS/GSS 顺序，再验证真实 watch／HMR、错误保留／同输入恢复与资源交接。具体版本在实验安装时记录，不把在线文档主分支当作固定版本运行证据。
+
+先在隔离实验中建立第二个真实消费方，不立即移动 Rspack 实现或创建通用 bundler 引擎；证明共性后才提出共享纯模块和宿主专有代码的最终目录调整。暂不导出 `@gss-l/webpack` 公共 API，不新增 style-loader／SSR／Module Federation／CRA 配置或跨框架矩阵。用户若暂缓新宿主，保持现有三宿主能力维护即可，不启动另一项未指定的能力扩展。
+
+这一步涉及新增宿主支持，按 AGENTS.md 的产品能力／架构决策边界暂停在具体方案处；不是再次询问既有排序、fallback、React 语法或 Rspack helper。资料核对仅文档变动，不重复运行已有测试。

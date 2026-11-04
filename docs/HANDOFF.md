@@ -1,5 +1,7 @@
 # 新 session 接续提示词
 
+2026-11-04 已完成 webpack 5 的有界代码／官方接口调查，见 [复用方案与待决](ARCHITECTURE-DIRECTION.md#webpack-5-有界复用调查与实施待决2026-11-04)。建议下一步仅做 React + webpack 5／MiniCssExtractPlugin／HtmlWebpackPlugin 的最小接入实验，先证明生命周期再决定共享模块；不直接复用 Rspack 原生插件、不提前提取通用宿主引擎。尚未安装或实施，新增宿主支持范围待 owner 确认；现有排序、fallback 与 targets 配置不变。
+
 2026-11-04 已修复相对资源路径的重复百分号解码：保持 identity 与 suffix，在交给宿主 CSS 链前转义已解析路径中的 `%`。两个宿主的错误目标文件回归、完整 verify 2566 项及 Chromium 资源／CSS 更新和错误恢复通过；宿主自身的特殊输出文件名限制独立保留。见 [资源交接记录](ARCHITECTURE-DIRECTION.md#资源路径交接修复与下一阶段2026-11-04)。接下来按整体 React 规划只调查 webpack 5 复用成本；新集成实施／架构变化仍须具体方案决策。
 
 2026-11-04 已完成 Rsbuild／Rspack 的 workspace 外五包 tarball 消费核对：公开配置与 React TSX 类型检查、两个宿主生产构建及四个 Chromium 页面通过；外部 Rsbuild 默认 HMR、资源 bytes 更新、错误保留／恢复通过。无新产品缺陷，产品代码未变；首次样例触发既有 scope coercion 诊断的证据已保留。完整范围、版本、恢复命令见 [外部消费报告](RSPACK-RSBUILD-CONSUMPTION.md)。本轮有限消费目标完成，未发布包；未验证组合不自动成为下一任务，后续由具体需求或可复现问题驱动。
