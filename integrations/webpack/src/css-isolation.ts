@@ -5,7 +5,7 @@ export const GSS_CSS_CHUNK = 'gss-l';
 export const gssCssAsset = /(?:^|\/)gss-l(?:\.[^/]*)?\.css$/;
 
 /** Pair with isolatedCssMinimizers in the host configuration before creating the compiler. */
-export function installCssIsolation(compiler: Compiler, aggregateId: string): void {
+export function installCssIsolation(compiler: Compiler, aggregateId: () => string): void {
   const previous = compiler.options.optimization.splitChunks;
   if (previous && previous.cacheGroups?.[GSS_CSS_CHUNK]) throw new Error('GSS CSS chunk name is already configured.');
   compiler.options.optimization.splitChunks = {
@@ -15,7 +15,7 @@ export function installCssIsolation(compiler: Compiler, aggregateId: string): vo
       ...(!previous ? { default: false, defaultVendors: false } : previous.cacheGroups),
       [GSS_CSS_CHUNK]: { name: GSS_CSS_CHUNK, chunks: 'all', enforce: true, priority: 100,
         test: (module: Module) => (module.type === 'css/mini-extract' || module.type === 'css') &&
-          module.identifier().includes(aggregateId) }
+          module.identifier().includes(aggregateId()) }
     }
   };
   compiler.hooks.thisCompilation.tap('GssCssIsolation', compilation => {

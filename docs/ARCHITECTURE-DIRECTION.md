@@ -846,3 +846,12 @@ webpack 公开入口交付后，核对提取后的打包边界，发现 integrat
 #### Parcel 暂缓与当前维护范围（2026-11-04 owner 决定）
 
 Owner 对上一节实验提案选择“暂缓 Parcel，保持现有宿主维护”。因此调查结论保留，但实验未获实施授权，不再作为待执行下一项；恢复须新的明确指令。当前维护 Vite、Rspack／Rsbuild、webpack，优先处理已复现的契约违反与必要回归，不把未测试组合自动视为 bug 或扩展任务。不改变排序、fallback、React 用法或 targets，不自行开启新框架/验收矩阵/发布。此决定取代上节实验建议的待决状态。本次仅同步计划文档，无产品代码修改或新运行证据。
+
+
+#### webpack 稳定符号链接目录修复（2026-11-04）
+
+按现有宿主维护方向复查已记录的 carrier 路径失败。真实目录和显式符号链接的成对生产回归表明：同样 context 下原生 CSS 可以构建，GSS 的虚拟聚合 CSS 在提取器再次解析真实路径时找不到。根因是别名登记与真实路径解析不一致，不是 Compiler 排序或 CSS 语义。
+
+仅在 webpack 宿主内部，通过 inputFileSystem.realpath 在 beforeRun/watchRun 登记稳定的真实 carrier 路径；CSS-only 分组与 loader 共用该路径。保留原 compiler.context/projectRoot、模块身份、resolver 和 immutable query payload，无独立 compiler、实体文件或跨轮可变 CSS seed。没有 realpath 能力的宿主保留原 context。此修复覆盖稳定目录别名，不承诺进程内 symlink 重定向/任意虚拟 FS。
+
+回归保留原生普通 CSS 对照、双入口 logical/physical 预期与 HTML 顺序，并让原 watch 用别名 context 覆盖 lazy 移除、GSS/处理器失败恢复及空候选依赖清理。证据 `artifacts/webpack-linked-context/`，最新完整检查见 STATUS；不扩大开发 hash 文件名、Fast Refresh、其他宿主或 fallback。

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import MiniCssExtractPlugin from 'mini-css-extract-plugin';
 import { createRequire } from 'node:module';
-import { mkdtemp, readFile, rm, writeFile, access, realpath } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile, access, realpath, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { webpack, type Stats, type Compiler, type Compilation } from 'webpack';
@@ -13,6 +13,8 @@ const require = createRequire(import.meta.url);
 
 it('uses the main CSS graph across entries, lazy removal, failed input, recovery and empty contributions', async () => {
   const root = await realpath(await mkdtemp(path.join(tmpdir(), 'gss-main-')));
+  const alias = `${root}-alias`;
+  await symlink(root, alias, 'dir');
   const source = path.join(root, 'a.gss');
   const index = path.join(root, 'index.js');
   const token = path.join(root, 'token.txt');
@@ -25,12 +27,12 @@ it('uses the main CSS graph across entries, lazy removal, failed input, recovery
   await writeFile(path.join(root, 'other.js'), "console.log('other entry');");
   await writeFile(path.join(root, 'lazy.js'), "import b from './b.gss';console.log(b.lazy);");
   let publication: ReturnType<typeof installMainCompilation>;
-  const compiler = webpack({ context: root, mode: 'development', devtool: 'source-map',
+  const compiler = webpack({ context: alias, mode: 'development', devtool: 'source-map',
     entry: { index: './index.js', other: './other.js' },
     module: { rules: [{ test: /\.css$/, use: [MiniCssExtractPlugin.loader, require.resolve('css-loader'), processor] }] },
     output: { path: path.join(root, 'dist') },
     plugins: [new MiniCssExtractPlugin(), { apply(c: Compiler) {
-      publication = installMainCompilation(c, { config: { projectRoot: root }, adapter: react(),
+      publication = installMainCompilation(c, { config: { projectRoot: alias }, adapter: react(),
         read: async id => ({ source: await readFile(id, 'utf8') }) });
     } }]
   });
@@ -111,6 +113,7 @@ it('uses the main CSS graph across entries, lazy removal, failed input, recovery
   } finally {
     await new Promise<void>((resolve, reject) => watching.close(error => error ? reject(error) : resolve()));
     await new Promise<void>((resolve, reject) => compiler.close(error => error ? reject(error) : resolve()));
+    await rm(alias, { force: true });
     await rm(root, { recursive: true, force: true });
   }
 }, 15000);

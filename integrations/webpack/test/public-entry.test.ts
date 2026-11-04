@@ -1,4 +1,4 @@
-import { mkdtemp, realpath, writeFile, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, realpath, writeFile, readFile, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
@@ -26,8 +26,10 @@ async function build(config: Configuration): Promise<Stats> {
   }
 }
 
-it('isolates GSS lowering through public configuration while ordinary CSS matches the native host', async () => {
+it.each([false, true])('isolates GSS lowering and preserves native CSS with linked context=%s', async linked => {
   const root = await realpath(await mkdtemp(path.join(tmpdir(), 'gss-webpack-public-')));
+  const alias = `${root}-alias`;
+  if (linked) await symlink(root, alias, 'dir');
   const options = { parallel: false, minimizerOptions: { targets: browserslistToTargets(['safari 9']), include: Features.LogicalProperties } };
   const before = structuredClone(options);
   try {
@@ -36,7 +38,7 @@ it('isolates GSS lowering through public configuration while ordinary CSS matche
     await writeFile(path.join(root, 'entry.js'), "import './ordinary.css';import a from './a.gss';console.log(a.card);");
     await writeFile(path.join(root, 'native.js'), "import './ordinary.css';");
     const config = (native: boolean): Configuration => ({
-      context: root, mode: 'production', devtool: 'source-map',
+      context: linked ? alias : root, mode: 'production', devtool: 'source-map',
       entry: native ? { index: './native.js' } : { index: './entry.js', second: './entry.js' },
       output: { path: path.join(root, native ? 'native' : 'gss'), publicPath: '/' },
       module: { rules: [{ test: /\.css$/, use: [MiniCssExtractPlugin.loader, require.resolve('css-loader')] }] },
@@ -47,8 +49,8 @@ it('isolates GSS lowering through public configuration while ordinary CSS matche
         ...['index', ...(native ? [] : ['second'])].map(name => new HtmlWebpackPlugin({ filename: `${name}.html`, chunks: [name] })),
         ...(native ? [] : [gss({ adapter: react() })])]
     });
-    await build(config(false));
     await build(config(true));
+    await build(config(false));
     expect(options).toEqual(before);
     const generated = await readFile(path.join(root, 'gss/gss-l.css'), 'utf8');
     expect(generated).toContain('margin-inline-start:1px');
@@ -61,5 +63,5 @@ it('isolates GSS lowering through public configuration while ordinary CSS matche
       expect(html.indexOf(`href="/${name}.css"`)).toBeGreaterThan(-1);
       expect(html.indexOf('href="/gss-l.css"')).toBeGreaterThan(html.indexOf(`href="/${name}.css"`));
     }
-  } finally { await rm(root, { recursive: true, force: true }); }
+  } finally { await rm(alias, { force: true }); await rm(root, { recursive: true, force: true }); }
 });

@@ -16,10 +16,30 @@ export function installMainCompilation(compiler: Compiler, options: {
   finalize?: FinalizeGssOptions;
 }) {
   const name = 'GssMainCompilation';
-  const aggregateId = path.join(compiler.context, '.gss-internal', 'aggregate.css');
+  let aggregateId = path.join(compiler.context, '.gss-internal', 'aggregate.css');
   const sourceLoader = fileURLToPath(new URL('./source-loader.js', import.meta.url));
   const aggregateLoader = fileURLToPath(new URL('./aggregate-loader.js', import.meta.url));
-  new VirtualModulesPlugin({ [aggregateId]: '' }).apply(compiler);
+  const virtualModules = new VirtualModulesPlugin();
+  virtualModules.apply(compiler);
+  let registered = false;
+  const registerCarrier = async () => {
+    if (registered) return;
+    const fs = compiler.inputFileSystem;
+    // Resolve only the internal carrier root through the host filesystem. Extraction
+    // resolves symlinks again; an alias-only virtual path disappears on that second pass.
+    const root = fs?.realpath ? await new Promise<string>((resolve, reject) => {
+      fs.realpath!(compiler.context, (error, resolved) => {
+        if (error) reject(error);
+        else if (resolved === undefined) reject(new Error('GSS could not resolve its carrier directory.'));
+        else resolve(resolved.toString());
+      });
+    }) : compiler.context;
+    aggregateId = path.join(root, '.gss-internal', 'aggregate.css');
+    virtualModules.writeModule(aggregateId, '');
+    registered = true;
+  };
+  compiler.hooks.beforeRun.tapPromise(name, registerCarrier);
+  compiler.hooks.watchRun.tapPromise(name, registerCarrier);
   compiler.options.module.rules.push(
     { test: /\.gss$/, type: 'javascript/auto', use: [sourceLoader] },
     { test: (id: string) => !id.startsWith(aggregateId) && !id.startsWith('data:') && options.adapter.supports(id), enforce: 'pre', use: [sourceLoader] },
@@ -92,5 +112,6 @@ export function installMainCompilation(compiler: Compiler, options: {
       publication.registerDependencies(compilation, { fileDependencies, contextDependencies, missingDependencies });
     }
   });
-  return publication;
+  return { ...publication, get published() { return publication.published; },
+    get aggregateId() { return aggregateId; } };
 }

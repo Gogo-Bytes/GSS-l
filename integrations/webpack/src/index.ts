@@ -1,4 +1,3 @@
-import path from 'node:path';
 import type { GssSourceAdapter } from '@gss-l/compiler';
 import type { WebpackPluginInstance } from 'webpack';
 import CssMinimizerPlugin from 'css-minimizer-webpack-plugin';
@@ -36,9 +35,9 @@ export type GssOptions = { adapter: GssSourceAdapter };
 export function gss({ adapter }: GssOptions): WebpackPluginInstance {
   if (!adapter) throw new Error('gss({ adapter }) requires an explicit framework Adapter.');
   return { apply(compiler) {
-    installCssIsolation(compiler, path.join(compiler.context, '.gss-internal/aggregate.css'));
-    installMainCompilation(compiler, { config: { projectRoot: compiler.context }, adapter,
+    const main = installMainCompilation(compiler, { config: { projectRoot: compiler.context }, adapter,
       read: (id, compilation) => readStylesheetInput(compiler, compilation, id),
       finalize: { resolveAssetUrl: identity => stylesheetAssetUrl(compiler.context, identity) } });
+    installCssIsolation(compiler, () => main.aggregateId);
   } };
 }

@@ -18,6 +18,8 @@
 
 ## 当前目标：React 多构建工具接入
 
+2026-11-04 已修复 webpack 稳定符号链接项目目录下的虚拟 CSS 路径错误：原生 CSS 对照成功而 GSS 失败，现由宿主 FS 解析并登记 carrier 真实路径；不改用户 context、模块身份、排序或 fallback。真实/别名生产对照与别名目录完整 watch 回归、完整 verify 2569 项及 lint/build/types、现有 Chromium 生产/开发更新与错误恢复均通过；详细边界见 [webpack 模块说明](../integrations/webpack/README.md)，证据 `artifacts/webpack-linked-context/`。Parcel 继续暂缓。
+
 2026-11-04 owner 已决定**暂缓 Parcel，保持现有宿主维护**。Parcel 只读调查保留为参考，实验不再待确认，也不安装或实施。当前范围为 Vite、Rspack／Rsbuild、webpack 的既有能力维护及已复现契约问题修复；未验证组合不自动成为任务，不从历史路线图启动新宿主、框架或验收矩阵。排序、fallback、React 作者用法与单份宿主 targets 契约不变。恢复 Parcel 需新的 owner 指令。下方历史“下一步／待决”不覆盖本项最新决定。
 
 2026-11-04 已修正公共准备包误复制的 CSS 隔离子路径导出：原目标 JS/d.ts 不存在，且不属于共享职责；保留真正的 Rspack 内部隔离入口。八个产品包实际 tarball 的 20 个 exports 目标全部存在，公共准备 20 项测试通过，证据 `artifacts/package-boundary-audit/`。下一项依照 React 生态规划做 Parcel 接入的只读可行性核对；不安装/实施新宿主或扩大框架矩阵，形成具体方案后再决策。

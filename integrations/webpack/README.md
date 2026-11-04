@@ -18,7 +18,9 @@ webpack 成功构建后将 buildInfo.file/context/missingDependencies 移到 fil
 
 `test/main-compilation.test.ts` 使用真实 webpack + MiniCssExtractPlugin 2.10.2 + css-loader 7.1.5 watch，覆盖双入口、lazy 移除、GSS 失败/恢复、处理器失败/依赖文件修复、无 GSS 清空和旧依赖移除，保留 `margin-left` 在未展开 `margin: var()` 前被覆盖的断言。测试读取实际输出文件，避免成功构建后 SizeOnlySource 不再包含源码的问题。
 
-测试使用 realpath 规范化后的项目 context。首次临时目录的 /var→/private/var 别名导致虚拟 CSS 在 extraction 内部重解析时找不到；该失败保留，不宣称任意 symlink context 支持。未通过创建实体 carrier 绕过虚拟文件，也未扩大资源 grammar。
+首次临时目录的 /var→/private/var 别名导致虚拟 CSS 在 extraction 内部重解析时找不到，原失败保留。2026-11-04 已复现并修复稳定目录符号链接：原生 CSS 成功而 GSS 失败，原因是虚拟 carrier 仅登记别名路径，提取器再次解析后请求真实路径。现在 beforeRun/watchRun 通过宿主 inputFileSystem.realpath 解析内部 carrier 根目录，只登记一次空虚拟文件；payload 仍在每个不可变 query 中，不逐轮写 CSS seed。loader 匹配与 CSS 分组读取同一个解析后 carrier 路径。不改 compiler.context、全局 resolve.symlinks、Compiler projectRoot 或模块/资源身份。宿主没有 realpath 能力时保留其 context，不改用 Node 原生 FS 绕过宿主。
+
+生产回归以同一真实目录与显式符号链接分别运行，普通 CSS 对照先成功，再核对 GSS 输出和 HTML 顺序；原有完整 watch 回归改为从别名 context 启动，覆盖 lazy 移除、错误恢复及处理器依赖清理。未创建实体 carrier；构建进程中重定向符号链接或任意自定义虚拟 FS 仍未验证，不能外推为所有 symlink 行为支持。
 
 现有 Chromium 实验改为直接消费本包 dist；双入口生产、CSS 顺序、资源、原生 accept 更新与错误恢复通过。CSS 分包、HTML 排序由公开插件接管，GSS-only Lightning 排除由公开 helper 接管；探针已移除原来的手工接线。原生 accept 不等于 React Fast Refresh/state 保持。开发稳定 CSS 文件名、生产 contenthash 的已验证边界仍在。
 
@@ -44,10 +46,12 @@ const cssOptions = { minimizerOptions: { targets: browserslistToTargets(['defaul
 
 **HtmlWebpackPlugin 必须使用同一 peer 实例。** 其 hooks 位于包内 WeakMap，两份物理安装副本的 getHooks 不互通。插件将它声明为精确版本 peer + devDependency，不私自安装第二套宿主 HTML hooks。外部消费者应直接安装该 peer；自定义依赖隔离产生双副本不在保证内。
 
-开发使用稳定的 `[name].css`，生产可 `[name].[contenthash].css`；必须保留 gss-l chunk 名（纯 hash 文件名会报错）。自定义已有 gss-l cacheGroup 明确冲突，原 splitChunks=false 不应开启默认 JS 分包。普通 CSS 原有规则不修改。后置 loader 不得再降低 GSS 逻辑属性；任意自定义 PostCSS/Lightning loader、多 minimizer、symlink context 和 Fast Refresh/state 保持仍未形成保证。
+开发使用稳定的 `[name].css`，生产可 `[name].[contenthash].css`；必须保留 gss-l chunk 名（纯 hash 文件名会报错）。自定义已有 gss-l cacheGroup 明确冲突，原 splitChunks=false 不应开启默认 JS 分包。普通 CSS 原有规则不修改。后置 loader 不得再降低 GSS 逻辑属性；任意自定义 PostCSS/Lightning loader、多 minimizer、运行中重定向 symlink 和 Fast Refresh/state 保持仍未形成保证。
 
 公开回归 `public-entry.test.ts` 使用相同配置的独立纯宿主构建逐字对照普通 CSS；检查 GSS 逻辑属性保留、物理属性保留、双入口 HTML 顺序和 options 不被修改。原有 watch 回归继续覆盖处理器恢复与清空。公开浏览器检查只看页面/原生错误状态，不添加读取内部 publication 的公共 API。
 
 本轮证据 `artifacts/webpack-public/`：首次类型声明修正见 build.log；实验两份 HTML plugin 的排序失败见 production.log/dev.log，修正 peer/单实例后见 production-peer.log/dev-peer.log。外部 tarball 消费见 external.log 与 external-path.txt，完整 verify 见 verify-delivery.log。失败证据保留，不将默认整页刷新或未验证组合描述成全部支持。
 
 外部消费在系统临时目录安装 types/compiler/react/integration-preparation/webpack 五个本地 tarball 和固定宿主依赖；strict NodeNext 类型检查不开 skipLibCheck，双入口 production 页面与 dev 原生 accept 更新、普通 CSS 更新顺序、SVG bytes 更新、错误 overlay/保留/同输入恢复通过。`external-types.log` 为类型检查退出 0 的空日志，`external-dev.log` 记录实际开发 phases。未验证 React 组件 state 保持，不发布包或 tag。完整 verify 2568 项通过。
+
+稳定符号链接目录修复证据：`artifacts/webpack-linked-context/red.log` 为原生成功/GSS 失败，`green.log`/`watch.log` 为修复后生产与 watch，浏览器与完整 verify 见同目录。本轮仅修复内部 carrier 路径，既有排序、fallback 和稳定开发 CSS 文件名契约不变。
