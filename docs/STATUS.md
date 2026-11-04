@@ -10,7 +10,7 @@ CSS 能力接入流程与策略归属核对已按 owner 授权完成，形成三
 
 ## 当前目标：React 多构建工具接入
 
-2026-11-04 Parcel 只读可行性核对完成，见 [接口边界与实验待决](ARCHITECTURE-DIRECTION.md#parcel-只读可行性核对与实验待决2026-11-04)。Transformer 可承载单文件转换，但全局候选汇总与 GSS-only CSS 兼容隔离仍需固定版本实证；不能照搬 webpack 编排。建议下一步仅做有界实验，新增宿主范围待 owner 确认；尚未安装/实施，不修改排序、fallback 或 targets，不启动矩阵。此前 webpack 与打包边界切片已完成。
+2026-11-04 owner 已决定**暂缓 Parcel，保持现有宿主维护**。Parcel 只读调查保留为参考，实验不再待确认，也不安装或实施。当前范围为 Vite、Rspack／Rsbuild、webpack 的既有能力维护及已复现契约问题修复；未验证组合不自动成为任务，不从历史路线图启动新宿主、框架或验收矩阵。排序、fallback、React 作者用法与单份宿主 targets 契约不变。恢复 Parcel 需新的 owner 指令。下方历史“下一步／待决”不覆盖本项最新决定。
 
 2026-11-04 已修正公共准备包误复制的 CSS 隔离子路径导出：原目标 JS/d.ts 不存在，且不属于共享职责；保留真正的 Rspack 内部隔离入口。八个产品包实际 tarball 的 20 个 exports 目标全部存在，公共准备 20 项测试通过，证据 `artifacts/package-boundary-audit/`。下一项依照 React 生态规划做 Parcel 接入的只读可行性核对；不安装/实施新宿主或扩大框架矩阵，形成具体方案后再决策。
 
