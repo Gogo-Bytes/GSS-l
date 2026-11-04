@@ -18,6 +18,8 @@
 
 ## 当前目标：React 多构建工具接入
 
+2026-11-04 已按 owner 最新方向核对宿主/公共准备边界，并将两个准备模块及既有测试迁入内部 `integrations/shared` 包；宿主仍负责批次失效、模块图、发布、CSS 链和更新。详细契约与反例见 [公共准备说明](../integrations/shared/README.md)，不是所有宿主必经层，不改排序或 fallback。完整 verify 2566 项及 lint/build/types、webpack 双入口生产/原生 accept 更新恢复、workspace 外四包 tarball 的依赖解析与准备调用均通过，见 `artifacts/host-preparation-boundary/`；正式 webpack 内部实现为下一步，公开 API 尚未确定。此段替代下方“共享边界待决”的历史状态。
+
 2026-11-04 owner 已批准并完成 webpack 5 最小接入实验，见 [实验报告与下一阶段建议](WEBPACK-EXPERIMENT.md)。主构建生产双入口、CSS 顺序、资源、开发更新、错误保留／恢复和 lazy 候选移除通过；默认示例会自动整页刷新，另以原生 accept 验证无整页刷新更新，不承诺 Fast Refresh/state 保持。开发 hash CSS 文件名失败证据保留，稳定文件名通过。产品代码未变，尚无公开 webpack 包；下一待决是内部 webpack 集成 + 仅两个纯准备模块的共享层，不是再次批准实验。排序、fallback 与 targets 配置不变。下方为历史记录，以本段和实验报告为最新状态。
 
 2026-11-04 已修复相对资源路径的重复百分号解码：保持 identity 与 suffix，在交给宿主 CSS 链前转义已解析路径中的 `%`。两个宿主的错误目标文件回归、完整 verify 2566 项及 Chromium 资源／CSS 更新和错误恢复通过；宿主自身的特殊输出文件名限制独立保留。见 [资源交接记录](ARCHITECTURE-DIRECTION.md#资源路径交接修复与下一阶段2026-11-04)。接下来按整体 React 规划只调查 webpack 5 复用成本；新集成实施／架构变化仍须具体方案决策。

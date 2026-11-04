@@ -1,7 +1,7 @@
 import { dirname } from 'node:path';
 import type { GssSourceAdapter, SourceAdapterDiagnostic } from '@gss-l/compiler';
 import type { LoaderContext, LoaderDefinition } from '@rspack/core';
-import { prepareSource, StylesheetPreparationError, type PreparedStylesheet } from './source-preparation.js';
+import { prepareSource, StylesheetPreparationError, type PreparedStylesheet } from '@gss-l/integration-preparation';
 
 export class SourceDiagnosticError extends Error {
   constructor(readonly diagnostics: readonly SourceAdapterDiagnostic[]) {

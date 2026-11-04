@@ -4,8 +4,8 @@ import path from 'node:path';
 import { rspack, type Compilation, type Stats } from '@rspack/core';
 import { expect, it } from 'vitest';
 import { installPublication } from '../src/publication.js';
-import { prepareCandidateSnapshot } from '../src/candidate-snapshot.js';
-import { createStylesheetPreparation } from '../src/source-preparation.js';
+import { prepareCandidateSnapshot } from '@gss-l/integration-preparation';
+import { createStylesheetPreparation } from '@gss-l/integration-preparation';
 
 it('publishes only emitted successful rounds and replaces recovery dependencies after success', async () => {
   const root = await mkdtemp(path.join(tmpdir(), 'gss-publication-'));

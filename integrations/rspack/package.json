@@ -19,7 +19,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@gss-l/compiler": "workspace:*"
+    "@gss-l/compiler": "workspace:*",
+    "@gss-l/integration-preparation": "workspace:*"
   },
   "devDependencies": {
     "@gss-l/react": "workspace:*",

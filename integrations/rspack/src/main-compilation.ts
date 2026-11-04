@@ -2,8 +2,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { GssCompilerConfig, GssSourceAdapter, ReplaceStylesheetInput, FinalizeGssOptions } from '@gss-l/compiler';
 import type { Compilation, Compiler, Module } from '@rspack/core';
-import { prepareCandidateSnapshot } from './candidate-snapshot.js';
-import { createStylesheetPreparation, StylesheetPreparationError } from './source-preparation.js';
+import { prepareCandidateSnapshot } from '@gss-l/integration-preparation';
+import { createStylesheetPreparation, StylesheetPreparationError } from '@gss-l/integration-preparation';
 import { createSourceLoaderPreparation, SourceDiagnosticError, type GssLoaderContext } from './source-loader.js';
 import { installPublication } from './publication.js';
 

@@ -1,5 +1,5 @@
 import type { Compilation, Compiler } from '@rspack/core';
-import type { CandidateSnapshot } from './candidate-snapshot.js';
+import type { CandidateSnapshot } from '@gss-l/integration-preparation';
 
 const dependencyKeys = ['fileDependencies', 'contextDependencies', 'missingDependencies'] as const;
 export type ProcessingDependencies = Record<typeof dependencyKeys[number], Iterable<string>>;

@@ -6,6 +6,8 @@ Owner 已批准 React + webpack 5 + MiniCssExtractPlugin + HtmlWebpackPlugin 的
 
 本轮实验文件位于忽略目录 `artifacts/webpack-experiment/`，不属于已发布产品。使用仓库已构建 Compiler／React Adapter；不是 workspace 外 tarball 消费。正式架构与公开 API 仍待下一阶段决定。
 
+当前补充：公共准备模块已按 owner 后续边界要求迁入 `integrations/shared`。实验 prepare.py 改为直接引用该包 dist，不再从 Rspack 复制两个准备模块；最新复验见 `artifacts/host-preparation-boundary/`。下述首次实验结构与日志作为历史证据保留。
+
 ## 实验结构
 
 `prepare.py` 复制现有 Rspack dist 中 source-preparation、candidate-snapshot、source-loader、aggregate-loader、publication、stylesheet-io、main-compilation。只将宿主原语改为真实 `compiler.webpack`，虚拟文件使用 webpack-virtual-modules；未伪造 `compiler.rspack`，未引入独立 compiler。该复制只用于证明，不建议作为正式双份实现长期维护。
@@ -49,7 +51,7 @@ node artifacts/webpack-experiment/dev-accept.mjs
 
 这些脚本使用同一 fixture，必须顺序运行。失败日志保留，恢复命令不会覆盖既有日志。artifact 未进 Git，恢复依赖当前工作区保留；版本与结论在本报告留档。
 
-## 下一阶段建议（待 owner 决策）
+## 实验后的原建议（后续边界决策见架构文档）
 
 建议将实验推进为**内部 webpack 集成 + 最小共享准备层**，先不承诺公共配置：
 

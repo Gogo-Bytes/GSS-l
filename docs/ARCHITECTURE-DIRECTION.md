@@ -781,3 +781,16 @@ Owner 已批准上一节限定范围，实验完成，原“尚未安装／实�
 生产双入口共用 GSS CSS、普通/GSS 顺序与资源通过；开发 GSS/普通 CSS/资源更新、GSS 错误保留及同输入恢复通过。默认示例会自动整页刷新，原生模块 accept 对照证明可无整页刷新更新，未验证 Fast Refresh/state 保持。开发 contenthash CSS + clean 的失败保留，稳定开发文件名通过，生产仍为 hash。该边界不能通过修改 Compiler 排序、fallback 或添加 targets 配置绕过。
 
 建议下一阶段为内部 webpack 集成与最小共享准备层：只把 source-preparation/candidate-snapshot 放进内部 integrations/shared workspace 包；宿主 hooks、loader 类型、虚拟文件、CSS/HTML 处理继续各宿主负责，不提取通用 bundler 引擎。先验证既有宿主等价，再推进 webpack 正式类型及回归。是否采用该目录/依赖调整交 owner 决策；公开 webpack 配置/API 在内部实现之后单独明确。本轮仅实验与文档，不已交付 webpack 产品支持，不启动其他框架、发布或额外矩阵。
+
+
+#### 宿主适配与公共准备边界落地（2026-11-04）
+
+Owner 已同意先核对职责再决定共享，不预设所有宿主都必须经过同一层。调用方向是宿主 plugin/loader 接收构建事件，调用框架 Adapter 分析源码及 Compiler 生成样式，再把结果交回宿主 CSS/资源处理链；Rsbuild 是 Rspack 外层配置桥接。React Adapter 与构建宿主适配是两种独立职责。
+
+源码核对发现两个准备模块只依赖 Compiler，通过明确 resolve/read/watch/finalize 能力传入宿主行为；它们不操作模块图、hooks 或输出。但缓存隐含“稳定输入批次”，候选隐含“完整选定集合”，不能把无宿主 import 等同于适合所有宿主。闭包创建/失效、配置稳定性、可达集合与发布决定归宿主；公共代码接受能力回调，不接受整个 compilation，不识别 hostType。
+
+据此采用内部 `integrations/shared` workspace 包 `@gss-l/integration-preparation`，仅迁移 source-preparation/candidate-snapshot 与既有测试。理由是 webpack 实验已有第二个真实消费方，且跨目录源码引用不符合现有 rootDir/独立构建边界；并非为未来假想宿主建立通用引擎。Rspack 原生 loader/publication/main-compilation 改为依赖该包，算法未变；React 仅为公共包测试依赖。详见 [附近契约与反例](../integrations/shared/README.md)。Vite 保持原实现；未来宿主可以部分复用或直接调用 Compiler。
+
+参考 [Tailwind Node 编译接口](https://github.com/tailwindlabs/tailwindcss/blob/main/packages/@tailwindcss-node/src/compile.ts) 的 resolver/依赖能力接口、[vanilla-extract Vite](https://github.com/vanilla-extract-css/vanilla-extract/blob/master/packages/vite-plugin/src/index.ts) 与 [webpack](https://github.com/vanilla-extract-css/vanilla-extract/blob/master/packages/webpack-plugin/src/plugin.ts) 的专有接线，以及 [Unplugin hook 限制](https://unplugin.unjs.io/guide/#supported-hooks)。这些为职责参考，不照搬其编译器架构或承诺 hook 等价。
+
+排序、fallback、缓存失败重试边界和候选发布策略均未改变。验证结果与日志见 STATUS 最新段；下一步继续内部 webpack 的正式类型/宿主接线，不直接开放公共插件配置。

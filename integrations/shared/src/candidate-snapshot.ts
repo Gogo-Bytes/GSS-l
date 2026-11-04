@@ -13,7 +13,11 @@ export type CandidateSnapshot = {
   readonly snapshot: FinalizedGssSnapshot;
 };
 
-/** The host supplies this compilation's reachable IDs, including lazy imports, not a loader history. */
+/**
+ * The caller supplies the complete selected set (including reachable lazy imports for bundlers),
+ * never a loader history. Preparation and replay must use the same stable inputs/config.
+ * This function has no module graph or publication authority; success is only a candidate.
+ */
 export async function prepareCandidateSnapshot(
   config: GssCompilerConfig,
   reachableIds: Iterable<string>,

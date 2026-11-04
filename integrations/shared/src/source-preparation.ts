@@ -21,7 +21,12 @@ export class StylesheetPreparationError extends Error {
   }
 }
 
-/** One instance per compilation. IDs have already been canonicalized by the host. */
+/**
+ * One instance per stable input batch, scoped by the caller (a compilation in webpack/Rspack).
+ * Canonical IDs and config must stay stable for its lifetime. Successes AND failures are cached;
+ * changed inputs require a new instance. This module never observes or invalidates host state.
+ * See ../README.md for the host/preparation boundary.
+ */
 export function createStylesheetPreparation(
   config: GssCompilerConfig,
   read: (id: string) => Promise<Omit<ReplaceStylesheetInput, 'id'>>
@@ -47,7 +52,7 @@ export function createStylesheetPreparation(
       if (!result.module) throw new Error(`Committed GSS input has no module artifact: ${id}.`);
       return { input, module: result.module, diagnostics: result.diagnostics };
     });
-    // Rejections belong to this compilation too. Recovery starts with a new instance.
+    // Rejections belong to this input batch too. Recovery starts with a new instance.
     inputs.set(id, pending);
     return pending;
   };

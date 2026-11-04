@@ -1,6 +1,6 @@
 # Rspack 集成内部模块
 
-当前实现源码／stylesheet 准备和可达候选快照，尚无可消费的 `gss()` 插件入口；package exports 为空，不能将 workspace 包存在解释为 Rspack／Rsbuild 已支持。总体方向与已确认决策见 [架构文档](../../docs/ARCHITECTURE-DIRECTION.md#主构建处理与真实-react-闭环2026-11-02)。
+当前已提供 `gss({ adapter })` 与 `gssCssMinimizers(options)`，Rsbuild 通过薄封装接入。以下按职责说明内部实现；历史验证范围以文末及 docs/STATUS.md 最新记录为准。公共准备算法迁至 [integration-preparation](../shared/README.md)，本包保留原生宿主生命周期。
 
 ## 每轮输入契约
 

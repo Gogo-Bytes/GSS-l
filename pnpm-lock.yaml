@@ -129,6 +129,9 @@ importers:
       '@gss-l/compiler':
         specifier: workspace:*
         version: link:../../compiler
+      '@gss-l/integration-preparation':
+        specifier: workspace:*
+        version: link:../shared
     devDependencies:
       '@gss-l/react':
         specifier: workspace:*
@@ -136,6 +139,19 @@ importers:
       '@rspack/core':
         specifier: 2.3.0
         version: 2.3.0(@swc/helpers@0.5.23)
+      '@types/node':
+        specifier: '22'
+        version: 22.20.4
+
+  integrations/shared:
+    dependencies:
+      '@gss-l/compiler':
+        specifier: workspace:*
+        version: link:../../compiler
+    devDependencies:
+      '@gss-l/react':
+        specifier: workspace:*
+        version: link:../../adapters/react
       '@types/node':
         specifier: '22'
         version: 22.20.4
