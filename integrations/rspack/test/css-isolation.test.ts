@@ -44,14 +44,16 @@ it('moves only stylesheet slots, retaining ordinary order and all tag attributes
 it.each(['[name].[contenthash].css', '[contenthash].css'])('isolates native CSS or rejects unnamed CSS assets: %s', async (cssFilename) => {
   const root = await mkdtemp(path.join(tmpdir(), 'gss-isolation-'));
   const config = { targets: ['safari >= 9'] };
+  await writeFile(path.join(root, 'image %20.svg'), '<svg id="correct-asset"/>');
+  await writeFile(path.join(root, 'image  .svg'), '<svg id="wrong-asset"/>');
   await writeFile(path.join(root, 'index.js'), "import a from './a.gss';import './ordinary.css';console.log(a.a);");
   await writeFile(path.join(root, 'second.js'), "import a from './a.gss';import './ordinary.css';console.log(a.a);");
-  await writeFile(path.join(root, 'a.gss'), '.a { margin-inline-start: 1px; margin-left: 2px; color: red; }');
-  await writeFile(path.join(root, 'ordinary.css'), '.ordinary { margin-inline-start: 1px; margin-left: 2px; color: blue; }');
+  await writeFile(path.join(root, 'a.gss'), '.a { margin-inline-start: 1px; margin-left: 2px; color: red; background-image: url("./image%20%2520.svg#shape"); }');
+  await writeFile(path.join(root, 'ordinary.css'), '.ordinary { margin-inline-start: 1px; margin-left: 2px; color: blue; background-image: url("./image%20%2520.svg#shape"); }');
   const compiler = rspack({ context: root, mode: 'production', entry: { index: './index.js', second: './second.js' },
     output: { path: path.join(root, 'dist'), cssFilename }, experiments: { css: true },
     optimization: { splitChunks: false, minimizer: gssCssMinimizers({ minimizerOptions: config }) },
-    module: { rules: [{ test: /\.css$/, type: 'css', use: [{ loader: 'builtin:lightningcss-loader', options: config }] }] },
+    module: { rules: [{ test: /\.svg$/, type: 'asset/resource' }, { test: /\.css$/, type: 'css', use: [{ loader: 'builtin:lightningcss-loader', options: config }] }] },
     plugins: [new rspack.HtmlRspackPlugin({ filename: 'index.html', chunks: ['index'] }),
       new rspack.HtmlRspackPlugin({ filename: 'second.html', chunks: ['second'] }), gss({ adapter: react() })]
   });
@@ -66,10 +68,15 @@ it.each(['[name].[contenthash].css', '[contenthash].css'])('isolates native CSS 
     const assets = stats.compilation.getAssets();
     const gss = assets.find(asset => /^gss-l\..*\.css$/.test(asset.name))!;
     expect(gss).toBeDefined();
+    const svg = assets.filter(asset => asset.name.endsWith('.svg'));
+    expect(svg).toHaveLength(1);
+    expect(String(svg[0]!.source.source())).toContain('correct-asset');
     expect(String(gss.source.source())).toContain('margin-inline-start:1px');
     expect(String(gss.source.source())).not.toContain(':lang');
     const ordinary = assets.filter(asset => asset.name.endsWith('.css') && asset !== gss);
     expect(ordinary.length).toBeGreaterThan(0);
+    expect(String(gss.source.source()).match(/url\([^)]+\)/)?.[0])
+      .toBe(String(ordinary[0]!.source.source()).match(/url\([^)]+\)/)?.[0]);
     expect(ordinary.every(asset => String(asset.source.source()).includes(':lang'))).toBe(true);
     for (const name of ['index.html', 'second.html']) {
       const html = String(assets.find(asset => asset.name === name)!.source.source());

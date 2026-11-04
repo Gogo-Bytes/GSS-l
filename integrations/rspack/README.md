@@ -94,3 +94,10 @@ TypeScript 项目直接依赖 `@gss-l/types`，在环境声明文件中使用 `/
 
 
 2026-11-04 已通过已选版本的 workspace 外 tarball 消费；类型、生产双入口及浏览器范围、Rsbuild 开发更新证据见 [消费报告](../../docs/RSPACK-RSBUILD-CONSUMPTION.md)。此记录覆盖此前外部消费待验项的有限范围，不扩大自定义配置或资源语法保证。
+
+
+### 资源路径的解码边界
+
+已解析文件路径是文件系统数据，不是可直接重新解释的 URL。`image%20%2520.svg` 指向字面文件 `image %20.svg`；finalize 把原路径直接写进 CSS，会被宿主再次解码成另一个文件 `image  .svg`。`stylesheetAssetUrl` 现在仅将已解析路径中的 `%` 转回 `%25`，再拼接原 query/fragment；资源 identity 与 Compiler 不变。不要对完整 URL（含 suffix）再次 decode/encode，也不要在 Compiler 内处理宿主文件路径。
+
+两个宿主回归均放入内容不同的空格文件，防止成功构建却引用错图；Rsbuild 还与普通 CSS 独立构建比较。此修复不改变宿主输出文件名规则。Rsbuild 默认 SVG 文件名含字面百分号时，普通 CSS 的最终 URL 也存在歧义；针对本反例的 HTTP/HMR 验证使用宿主现有 `output.filename.svg: '[contenthash].svg'`。原生 Rspack 测试配置的最终 fragment 行为也遵循其普通 CSS 输出，不用 GSS 补写另一套规则。证据见 `artifacts/asset-url-boundary/`。

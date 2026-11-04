@@ -737,3 +737,14 @@ Owner 已确认方案一：以 `@gss-l/types/client` 作为各宿主共用的 `*
 在 `9a0f30f` 上完成五个 GSS tarball 的 workspace 外安装、公开 TypeScript 配置与 React 源码检查，以及两宿主各双入口的实际生产页面。外部 Rsbuild 默认 HMR、资源 bytes 更新、错误保留及同输入恢复通过。完整版本、字面预期、首次样例失败、安装锁文件及恢复命令见 [消费报告](RSPACK-RSBUILD-CONSUMPTION.md)。没有新增产品实现或放宽准入，未发布包。
 
 此次关闭的是前述“完整新宿主外部应用消费待核对”的所列有限目标，不代表所有宿主配置或 CSS 资源组合支持。此前已确认的功能与当前已记录限制继续适用；下一目标尚需具体需求或可复现契约问题，不自动启动其他框架、更多矩阵、性能或发布。
+
+
+#### 资源路径交接修复与下一阶段（2026-11-04）
+
+接续整体架构，先完成已有宿主边界的一处具体修复：URL 路径在宿主 resolver 前解码后，finalize 直接输出文件路径，使宿主 CSS loader 再次解码字面百分号序列。`image%20%2520.svg` 的普通 CSS 可以正确构建，而 GSS 会查找 `image  .svg`；存在该文件时会静默选择错误内容。只在 `stylesheetAssetUrl` 对已解析路径的百分号重新转义；不改资源 identity、suffix、Compiler、排序／fallback 或普通 CSS。
+
+现有两宿主真实构建载体加入不同内容的错误目标文件，按资源内容检查；Rsbuild 保留独立普通 CSS 对照，原生 Rspack 比较原生最终 URL。red 记录 `artifacts/asset-url-boundary/red.log`；完整 verify 2566 项及 lint/build/types 通过（`verify-delivery.log`）。现有 Chromium dev carrier 使用含字面 `%20` 的源文件，确认正确文件 bytes 更新、CSS HMR、错误保留／同输入恢复通过（`dev.log`）。未重跑无代码变更的 Vite gate。
+
+初步 `#` 文件名对照中普通 CSS 与 GSS 均失败（`probe.log`），未据此扩大 URL grammar 支持。字面 `%` 对照均通过（`percent.log`）；双解码反例的普通成功／GSS 失败见 `double.log`。额外宿主边界保持记录：Rsbuild 默认输出文件名保留 `%20` 时，普通 CSS 的最终 URL 也有歧义，针对本反例改用现有 hash-only SVG 文件名配置隔离源文件交接问题；这不是修改默认输出或掩盖 GSS 失败。首次验证的 fragment 假设、输出文件路径假设失败分别保留 `verify.log`／`verify-final.log`，详细边界见模块 README。
+
+下一项按原 React 生态规划进行 webpack 5 接入的有界可行性调查：只核对现有纯逻辑可复用部分、宿主生命周期／CSS 输出差异和最小 API，不安装新集成或新增框架验收矩阵。是否实施及必要架构变化在具体方案形成后交 owner 决策；不自动推进 Parcel、Vue、SSR 或发布。

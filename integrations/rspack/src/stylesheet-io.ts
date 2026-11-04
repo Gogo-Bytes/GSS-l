@@ -37,5 +37,7 @@ export async function readStylesheetInput(compiler: Compiler, compilation: Compi
 /** The native CSS pipeline owns bytes, hashes, emission and asset updates. */
 export function stylesheetAssetUrl(projectRoot: string, identity: string): string {
   const [, file, suffix] = JSON.parse(identity) as [string, string, string];
-  return resolve(projectRoot, file) + suffix;
+  // The host CSS loader decodes URL paths again. Preserve literal percent sequences
+  // in the resolved filename; the authored query/fragment is already URL text.
+  return resolve(projectRoot, file).replaceAll('%', '%25') + suffix;
 }

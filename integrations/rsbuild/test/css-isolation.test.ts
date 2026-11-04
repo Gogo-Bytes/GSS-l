@@ -13,15 +13,19 @@ it.each([true, false])('inherits host CSS configuration without enabling disable
   try {
     await writeFile(path.join(root, 'index.js'), "import a from './styles/a.gss';import './ordinary.css';console.log(a.card);");
     await mkdir(path.join(root, 'styles'));
-    await writeFile(path.join(root, 'styles/image.svg'), '<svg xmlns="http://www.w3.org/2000/svg"><rect id="shape"/><!--' + 'x'.repeat(8000) + '--></svg>');
-    await writeFile(path.join(root, 'styles/a.gss'), '.card { margin-inline-start: 1px; margin-left: 2px; background-image: url("./image.svg#shape"); }');
-    await writeFile(path.join(root, 'ordinary.css'), '.ordinary { margin-inline-start: 1px; margin-left: 2px; user-select: none; }');
+    const filename = minify ? 'image.svg' : 'image %20.svg';
+    const assetUrl = minify ? 'image.svg' : 'image%20%2520.svg';
+    // A second decode must not silently select this different, existing asset.
+    await writeFile(path.join(root, 'styles/image  .svg'), '<svg id="wrong-asset"/>');
+    await writeFile(path.join(root, 'styles', filename), '<svg xmlns="http://www.w3.org/2000/svg"><rect id="shape"/><!--' + 'x'.repeat(8000) + '--></svg>');
+    await writeFile(path.join(root, 'styles/a.gss'), `.card { margin-inline-start: 1px; margin-left: 2px; background-image: url("./${assetUrl}#shape"); }`);
+    await writeFile(path.join(root, 'ordinary.css'), `.ordinary { margin-inline-start: 1px; margin-left: 2px; user-select: none; background-image: url("./styles/${assetUrl}#shape"); }`);
     await writeFile(path.join(root, 'baseline.js'), "import './ordinary.css';");
     const cssOptions = { minimizerOptions: { errorRecovery: false } };
     const original = structuredClone(cssOptions);
     const baseline = await createRsbuild({ cwd: root, rsbuildConfig: {
       mode: 'production', logLevel: 'error', source: { entry: { baseline: './baseline.js' } },
-      output: { distPath: { root: 'baseline-dist' }, overrideBrowserslist: ['safari >= 9'], minify: { js: false, css: minify, cssOptions } }
+      output: { filename: { svg: '[contenthash].svg' }, distPath: { root: 'baseline-dist' }, overrideBrowserslist: ['safari >= 9'], minify: { js: false, css: minify, cssOptions } }
     } });
     const baselineResult = await baseline.build();
     await baselineResult.close();
@@ -31,7 +35,7 @@ it.each([true, false])('inherits host CSS configuration without enabling disable
     const host = await createRsbuild({ cwd: root, rsbuildConfig: {
       mode: 'production', logLevel: 'error', plugins: [pluginGss({ adapter: react() })],
       source: { entry: { index: './index.js', second: './index.js' } },
-      output: { overrideBrowserslist: ['safari >= 9'], minify: { js: false, css: minify, cssOptions } }
+      output: { filename: { svg: '[contenthash].svg' }, overrideBrowserslist: ['safari >= 9'], minify: { js: false, css: minify, cssOptions } }
     } });
     const result = await host.build();
     close = result.close;

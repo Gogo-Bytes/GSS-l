@@ -18,6 +18,8 @@
 
 ## 当前目标：React 多构建工具接入
 
+2026-11-04 已修复相对资源路径的重复百分号解码：保持 identity 与 suffix，在交给宿主 CSS 链前转义已解析路径中的 `%`。两个宿主的错误目标文件回归、完整 verify 2566 项及 Chromium 资源／CSS 更新和错误恢复通过；宿主自身的特殊输出文件名限制独立保留。见 [资源交接记录](ARCHITECTURE-DIRECTION.md#资源路径交接修复与下一阶段2026-11-04)。接下来按整体 React 规划只调查 webpack 5 复用成本；新集成实施／架构变化仍须具体方案决策。
+
 2026-11-04 已完成 Rsbuild／Rspack 的 workspace 外五包 tarball 消费核对：公开配置与 React TSX 类型检查、两个宿主生产构建及四个 Chromium 页面通过；外部 Rsbuild 默认 HMR、资源 bytes 更新、错误保留／恢复通过。无新产品缺陷，产品代码未变；首次样例触发既有 scope coercion 诊断的证据已保留。完整范围、版本、恢复命令见 [外部消费报告](RSPACK-RSBUILD-CONSUMPTION.md)。本轮有限消费目标完成，未发布包；未验证组合不自动成为下一任务，后续由具体需求或可复现问题驱动。
 
 2026-11-04 owner 已确认并实现通用 `@gss-l/types/client`，Vite 原入口兼容且继续提供其虚拟模块；新宿主不依赖 Vite 声明。完整 verify 2566 项及 lint/build/types 通过，workspace 外 types tarball 的 NodeNext／Bundler 类型消费通过。详见 [通用类型入口](ARCHITECTURE-DIRECTION.md#通用-typescript-client-入口2026-11-04)，证据 `artifacts/common-client/`。类型入口不再待决；完整新宿主外部应用消费仍待核对，未发布包。
