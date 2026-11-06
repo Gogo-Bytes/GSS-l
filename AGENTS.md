@@ -9,3 +9,9 @@
 - Work directly on the existing `main` checkout. Creating branches or worktrees requires owner approval. If another session is writing or unrelated changes are present, stop and coordinate rather than overwrite, reset or automatically stash. Old uncommitted work and removed-worktree evidence are preserved as described in `docs/STATUS.md`.
 - Keep the compiler domain framework-agnostic. React/JSX analysis belongs in the React Adapter behind explicit ports.
 - Treat the sibling legacy GSS project as read-only reference material; copy and adapt useful code here without editing that project.
+
+## GitHub 开发流程
+
+涉及功能规划、问题反馈、开始/恢复开发、PR 或交付验收时，先读取 [github-workflow Skill](.agents/skills/github-workflow/SKILL.md)。当前 session 能修复并验证闭环的小问题直接处理；跨轮、延期、阻塞或后续验收任务才使用 Issue，大功能确认范围后再建 Issue；批量反馈先分类查重，同根因合并。
+
+本仓库原有分支、提交、推送、验证和授权规则优先，Skill 不额外授予权限，尤其不改变当前 main 分支工作及并发写入协调规则。未迁移任务保留现有进度入口；获准采用 Issue 的工程任务只在 Issue/已有 Projects 维护动态状态，设计契约留在文档。阶段完成、阻塞或范围变化时同步获准的 Issue/PR，未同步须报告；不自动迁移历史待办，合并不等于发布或人工验收。
