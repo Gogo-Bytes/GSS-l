@@ -1,8 +1,8 @@
 # GSS 当前状态
 
-## 当前摘要（2026-11-04）
+## 当前摘要（2026-11-06）
 
-阶段收尾完成：已有 Vite、Rspack、Rsbuild、webpack 四个宿主入口，统一事实与证据见 [宿主支持清单](HOST-SUPPORT.md)。产品代码基线 `eb47522`；随后 `f5dcc01` 修正文档。本次仅整理文档，不产生新的产品或浏览器验证结果。文档核对通过：293 个本地链接/锚点、三份历史记录完整保留、所列关键证据路径及 git diff --check。
+阶段收尾完成：已有 Vite、Rspack、Rsbuild、webpack 四个宿主入口，统一事实与证据见 [宿主支持清单](HOST-SUPPORT.md)。产品代码基线 `eb47522`。2026-11-06 按 owner 要求清理已被替代的历史进度、交接与调研材料；有效的 React 引用契约并入架构文档，验证边界及本机恢复入口独立保留。本次仅文档清理，不产生新的产品或浏览器验证结果。
 
 已确认的目录分层、Compiler 阶段拆分、只读 selector nodes/派生路径、rank/orderSlot 分离、有界 shorthand 展开与 atom 复用、React Adapter 边界及多宿主接入均已有实现。不是完整 CSS、全部 React 生态或通用构建工具支持；更宽能力不自动成为尾项。
 
@@ -32,8 +32,8 @@ Compiler 保持框架/宿主无关；React Adapter 负责 JSX 引用分析；各
 
 ## 本机交接与证据恢复
 
-直接使用现有 main；不相关改动先协调。旧 worktree、stash 备份与历史证据的原始位置完整保留在 [恢复记录](STATUS-HISTORY.md#本机交接与证据恢复)，恢复到隔离位置，不覆盖当前源码。artifacts 和外部临时 consumer 不保证存在于其他机器。
+直接使用现有 main；不相关改动先协调。旧 worktree、stash 备份与历史证据的原始位置完整保留在 [恢复记录](VALIDATION-EVIDENCE.md#本机交接与证据恢复)，恢复到隔离位置，不覆盖当前源码。artifacts 和外部临时 consumer 不保证存在于其他机器。
 
-## 历史入口
+## 文档与追溯
 
-[状态历史](STATUS-HISTORY.md)保留原始切片、检查计数、语义演进与失败记录；其“当前/下一步/待决”是历史文本。[计划历史](NEXT-STAGE-HISTORY.md)不再作为任务队列。新 session 使用 [当前交接](HANDOFF.md)。
+当前任务见 [NEXT-STAGE](NEXT-STAGE.md)，新 session 使用 [HANDOFF](HANDOFF.md)。过期快照和研究过程不再在工作树维护；需要追溯时可用 `git show 266a87c:docs/<原文件名>` 读取清理前版本，不恢复为当前待办。

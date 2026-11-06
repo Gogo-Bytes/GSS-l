@@ -4,7 +4,7 @@ GSS 的有限 MVP：框架无关的 CSS 编译核心，加上 React 源码适配
 
 现有四宿主阶段收尾已完成，当前维护既有能力并修复可复现问题，暂不扩展更多宿主或新能力。配置要求、实际版本、验证证据和限制统一见 [宿主支持清单](docs/HOST-SUPPORT.md)；进度见 [STATUS](docs/STATUS.md)，当前授权见 [NEXT-STAGE](docs/NEXT-STAGE.md)。有界验证不等于所有 CSS、框架或浏览器支持。
 
-核心语义与职责见 [架构方向](docs/ARCHITECTURE-DIRECTION.md)和[排序设计](docs/PROPERTY-ORDER-DESIGN.md)。新 session 从 [HANDOFF](docs/HANDOFF.md) 接续，遵循 [AGENTS.md](AGENTS.md)；历史记录仅供追溯。
+核心语义与职责见 [架构方向](docs/ARCHITECTURE-DIRECTION.md)和[排序设计](docs/PROPERTY-ORDER-DESIGN.md)。新 session 从 [HANDOFF](docs/HANDOFF.md) 接续，遵循 [AGENTS.md](AGENTS.md)；必要验证及本机恢复信息见 [证据入口](docs/VALIDATION-EVIDENCE.md)，过期过程文档通过 Git 历史追溯。
 
 ## 本地运行
 

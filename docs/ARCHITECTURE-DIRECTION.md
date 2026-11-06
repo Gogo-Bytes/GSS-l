@@ -91,6 +91,14 @@ Vite 当前将 transform 的原始 `id` 与源码交给 adapter；对发现的 s
 
 现有 Vite 测试用简单 `.view` 假 adapter 证明 schema 可在宿主与非 React adapter 间传递，并不是 Vue／Svelte 解析、模板绑定、插件顺序、虚拟子模块 id、HMR 或 source map 组合的验证。当前接口是同步 transform，依赖发现通过字符串 specifier；这些约束是否适合某个框架，需要按真实输入和宿主生命周期验证。owner 已确认将 `range?: GssSourceRange` 加入公开 `SourceAdapterDiagnostic`：它是相对于 `id` 所指源码的零起始 UTF-16 半开区间。React 可继续提供范围，Vite 在范围有效且属于当前源码时生成位置和代码框；缺失、无效或不属于当前源码的范围仍不生成定位。该可选类型扩展不改变运行时行为，不代表 Vue／Svelte 已接入；其他 adapter 协议扩展仍需结合具体需求决定。
 
+#### React 引用与 TypeScript 契约
+
+Owner 已采用“编译期语法糖 + 轻量 TS 兼容类型”：直接静态路径可省略 `.self`，React Adapter 在运行前将验证过的引用转换为 class 字符串；旧 `.self` 保持兼容。[GssScope](../types/src/index.ts) 使用带 brand 的 `string & children` 来源类型，目标是让普通 `className?: string` 消费不报错，不承诺逐文件精确补全。类型检查通过不等于任意未转换表达式都具备正确运行时语义。
+
+父组件 `<Child className={styles.title} />` 在父文件完成 lowering，子组件接收普通字符串；这不需要跨文件 scope 推导。普通函数、DOM API、模板字符串的直接静态引用以及已支持的不可变条件 alias 有既有回归；可变 alias、未知／动态路径、跨文件传播继续按当前实现边界处理，不能扩大成完整数据流分析或任意 namespace 逃逸支持。不可证明的动态／未知路径保留已确认的普通 JS 行为，不新增拒绝规则。
+
+未采用双 Symbol 作为公共语义：内部键分离不能让同一个未转换的 `styles.card` 同时成为 primitive string 和任意子树。`Symbol.toPrimitive` 也不会把对象类型变成字符串；`string & children` 不自动解决 `length` 等成员冲突。原调研中的 Proxy、动态 resolver、精确声明交付、freeze 等建议不属于已批准能力。实现边界以 [Adapter](../adapters/react/src/index.ts)、[转换测试](../adapters/react/test/transform-react-gss-usage.test.ts)和 [类型测试](../types/test)为准；宿主使用 [通用 client 入口](../types/client.d.ts)。
+
 #### 接口评估与最小调整方案（2026-11-01）
 
 owner 本轮批准的是现有接口评估和新框架／非 Vite 宿主的纸面推演，不是新框架实施。以 `f7acf1a` 的实现为基线，结论是：当前职责分离可以保留，没有从所查调用链与既有测试中找到必须立即修改运行时的契约反例；接口的可替换性不等于所有输入阶段均可接入。
@@ -492,7 +500,7 @@ Playground 自己的 dev、构建、预览和类型检查脚本由私有 `@gss-l
 
 ## 阶段与完成标准
 
-2026-10-31 核对：已批准的具体切片已交付；“完整展开／更宽复用”是能力边界，不是无限续作队列。2026-11-01 CSS 能力接入职责与重复维护点核对已完成，具体清单、等价重构及保留项见 [当前计划](NEXT-STAGE-HISTORY.md#已完成css-能力接入流程与策略归属)。
+2026-10-31 核对：已批准的具体切片已交付；“完整展开／更宽复用”是能力边界，不是无限续作队列。2026-11-01 CSS 能力接入职责与重复维护点核对已完成，具体清单、等价重构及保留项见 [属性设计接入清单](PROPERTY-ORDER-DESIGN.md#css-能力接入清单与策略归属2026-11-01)。
 
 | 阶段 | 状态 | 完成标准 |
 | --- | --- | --- |
@@ -859,7 +867,7 @@ Owner 对上一节实验提案选择“暂缓 Parcel，保持现有宿主维护�
 
 #### 四宿主阶段收尾（2026-11-04）
 
-Owner 确认暂不扩展新能力，统一支持范围、配置、证据和限制。新增 HOST-SUPPORT 作为宿主事实索引，STATUS/NEXT-STAGE/HANDOFF 只保留当前状态与授权；旧内容完整迁入同目录 *-HISTORY 文档，旧锚点链接相应更新。原始失败、检查基线和证据恢复信息保留，未将历史目标当作未完成任务。
+Owner 确认暂不扩展新能力，统一支持范围、配置、证据和限制。新增 HOST-SUPPORT 作为宿主事实索引，STATUS/NEXT-STAGE/HANDOFF 只保留当前状态与授权；当时旧内容曾迁入历史快照。2026-11-06 按 owner 清理要求删除这些冗余快照，仍有效的验证和恢复信息归入 [证据入口](VALIDATION-EVIDENCE.md)，长期契约保留在对应设计文档；旧逐轮记录由 Git 历史追溯，不再保留第二套任务清单。
 
 公共核心/框架 Adapter/宿主适配/可选准备算法的职责不变；阶段收尾不意味着接受全部未验证组合，也未批准 Fast Refresh/overlay 等候选。运行证据沿用各自明确基线，本次仅核对文档、包清单及链接，不重跑产品测试或浏览器。
 

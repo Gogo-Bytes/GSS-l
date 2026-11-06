@@ -47,9 +47,9 @@ Rspack/webpack helper 沿用宿主同一份 CSS options/targets，Rsbuild 读取
 | `405f736` 资源交接 | `artifacts/asset-url-boundary/`，Rspack README 资源解码边界 | 百分号双解码 red/green、2566 项及资源更新；宿主输出文件名的原生 URL 限制另记 |
 | Vite 外部模板/路由 | [模板报告](VITE-TEMPLATE-ACCEPTANCE.md)，`artifacts/vite-template/2026-10-26T09-05-50.220Z/` | Vite 8.3.5、React 19.3.1、指定 Router 的 Chromium 有界路径；不是本次新验收 |
 | Vite Framework SSR | [SSR 报告](FRAMEWORK-SSR-ACCEPTANCE.md)，`artifacts/framework-ssr/2026-10-26T09-05-07.674Z/` | React Router 8.5.0、请求级 SSR、无 JS 样式/资源、hydration、负对照；不覆盖任意 streaming/server graph |
-| 核心浏览器历史 | [历史浏览器证据](STATUS-HISTORY.md#浏览器证据) | 独立 oracle 125 fixtures/1267 comparisons/38 controls 及指定三引擎排序检查；Firefox Article 历史失败不因此通过 |
+| 核心浏览器历史 | [历史浏览器证据](VALIDATION-EVIDENCE.md#浏览器证据) | 独立 oracle 125 fixtures/1267 comparisons/38 controls 及指定三引擎排序检查；Firefox Article 历史失败不因此通过 |
 
-artifacts 为本机忽略目录；历史日志、独立 oracle 与首次失败需保留，Git 文档不等于完整证据已上传。外部临时目录按报告中的 root.txt/external-path.txt 恢复；旧 worktree/stash 备份位置见 [本机恢复记录](STATUS-HISTORY.md#本机交接与证据恢复)。重跑会改 fixture 的脚本应顺序执行并另存新日志；版本、环境、脚本事实以专项报告和实际入口为准。
+artifacts 为本机忽略目录；历史日志、独立 oracle 与首次失败需保留，Git 文档不等于完整证据已上传。外部临时目录按报告中的 root.txt/external-path.txt 恢复；旧 worktree/stash 备份位置见 [本机恢复记录](VALIDATION-EVIDENCE.md#本机交接与证据恢复)。重跑会改 fixture 的脚本应顺序执行并另存新日志；版本、环境、脚本事实以专项报告和实际入口为准。
 
 ## 已接受限制与当前政策
 

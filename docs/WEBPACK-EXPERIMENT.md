@@ -4,7 +4,7 @@
 
 Owner 已批准 React + webpack 5 + MiniCssExtractPlugin + HtmlWebpackPlugin 的最小实验。基于 `27807b8`，主构建 `finishMake + addEntry` 在该组合下可运行：生产双入口、普通 CSS/GSS 顺序、资源、开发更新与错误恢复通过。没有修改 Compiler、排序、fallback、React 作者语法或新增 targets 配置，也没有交付公开 webpack 包。
 
-本轮实验文件位于忽略目录 `artifacts/webpack-experiment/`，不属于已发布产品。使用仓库已构建 Compiler／React Adapter；不是 workspace 外 tarball 消费。正式架构与公开 API 仍待下一阶段决定。
+本轮实验文件位于忽略目录 `artifacts/webpack-experiment/`，不属于已发布产品。使用仓库已构建 Compiler／React Adapter；不是 workspace 外 tarball 消费。当时尚未确定正式架构与公开 API；当前状态见文末实现入口。
 
 当前补充：公共准备模块已按 owner 后续边界要求迁入 `integrations/shared`。实验 prepare.py 改为直接引用该包 dist，不再从 Rspack 复制两个准备模块；最新复验见 `artifacts/host-preparation-boundary/`。下述首次实验结构与日志作为历史证据保留。
 
@@ -51,13 +51,6 @@ node artifacts/webpack-experiment/dev-accept.mjs
 
 这些脚本使用同一 fixture，必须顺序运行。失败日志保留，恢复命令不会覆盖既有日志。artifact 未进 Git，恢复依赖当前工作区保留；版本与结论在本报告留档。
 
-## 实验后的原建议（后续边界决策见架构文档）
+## 当前实现入口
 
-建议将实验推进为**内部 webpack 集成 + 最小共享准备层**，先不承诺公共配置：
-
-- `integrations/shared` 作为内部 workspace 包，只承载 source-preparation、candidate-snapshot 及其类型，依赖 Compiler；不依赖 webpack/Rspack，也不变成通用宿主引擎。已有包 rootDir 为 src，不能直接跨包引用散落源码；内部包需要随消费包纳入构建/打包依赖验证。
-- `integrations/webpack` 保留真实 webpack 类型的 loader、主编译与发布、虚拟文件、资源 IO 和 CSS/HTML 接线；Rspack 保留自己的原生接线。当前实验只证明运行时共性，不能跳过正式 TypeScript 编译与回归。
-- 原子身份、排序和语义会话继续属于 Compiler；React 分析继续属于 Adapter。先迁移两个纯准备模块并验证 Rspack/Rsbuild 不回退，再将实验转为内部 webpack 实现和回归。
-- 稳定开发 CSS 文件名作为已验证配置边界，生产 contenthash；热更新边界由宿主配置承担。公开插件/minimizer API、peer 范围与打包方式在内部实现验证后另行给出具体方案，不直接复制 Rspack options。
-
-另一方案是先只正式化 webpack 内部实现并复制准备代码，短期文件移动少，但会让候选重放、诊断与缓存语义出现两份维护点。由于本次已经有第二个真实消费方，建议选择上述有界共享；不共享整套 hooks 编排，也不提前覆盖 Parcel/Vue。
+上述为首次实验事实；后续正式集成、共享边界与公开 API 已交付，当前以 [webpack 模块契约](../integrations/webpack/README.md)、[公共准备边界](../integrations/shared/README.md)和 [宿主支持清单](HOST-SUPPORT.md)为准。原实验后的推进建议已被这些实现替代，不再作为待办。
