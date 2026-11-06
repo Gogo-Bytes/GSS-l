@@ -23,16 +23,25 @@ Owner 再授权的 [诊断与错误定位只读核查](DIAGNOSTIC-LOCATION-REVIE
 
 当前没有另一项已批准、尚未完成的能力实施。新产品目标需要明确范围；不要从历史路线图自动挑选任务。
 
-## 需要新决策的候选
+## 已迁入 GitHub 的跟踪事项
 
-React Fast Refresh 状态保持、诊断 overlay 精度可作为未来开发体验目标；先提出具体触发场景、用户收益及验收范围，再决定是否实施。它们没有因本次收尾获得授权。跨模块优先级、更多 CSS/React 静态分析能力、公开 API 或 fallback 改动同样需要具体决策。
+2026-11-06 owner 要求使用 Issue 维护后续目标与问题，并确认保留 main 直提、暂不采用分支/PR。以下只保留任务映射，动态阶段、阻塞和下一步以对应 Issue 正文为准，不在文档维护第二套进度表。创建 Issue 不等于批准能力扩展或恢复暂缓工作。
 
-## 暂缓或不自动启动
+| 原文档事项 | 跟踪入口 | 设计／证据 |
+| --- | --- | --- |
+| 新宿主诊断位置展示 | [#32](https://github.com/Gogo-Bytes/GSS-l/issues/32) | [诊断核查](DIAGNOSTIC-LOCATION-REVIEW.md) |
+| React 更新与状态保持目标 | [#33](https://github.com/Gogo-Bytes/GSS-l/issues/33) | [更新核查](REACT-UPDATE-REVIEW.md) |
+| Firefox Article 导航历史失败 | [#34](https://github.com/Gogo-Bytes/GSS-l/issues/34) | [验证证据](VALIDATION-EVIDENCE.md) |
+| 编译器性能评估线索 | [#35](https://github.com/Gogo-Bytes/GSS-l/issues/35) | [测量与恢复](VALIDATION-EVIDENCE.md#性能记录暂缓) |
 
-更多宿主（含 Parcel）、其他 UI 框架/上层框架、新 demo/验收矩阵、性能、Firefox Article 历史问题保持暂停。已有受限 shorthand/复用切片已完成，完整覆盖不是自动续作队列。包尚未发布，发布/release/tag 需要显式指令。
+没有创建新的 Projects/标签体系；当前凭据缺少 Projects 读取权限，本轮未同步看板。后续实现关联 Issue 和 commit，阶段完成、阻塞或范围变化时同步 Issue；PR 流程须另行获准。
+
+## 未迁移的范围限制
+
+更多宿主（含 Parcel）、其他 UI 框架/上层框架、新 demo/验收矩阵仍不自动启动。跨模块优先级、更多 CSS/React 静态分析能力及公开 API/fallback 扩展需具体决策，尚未形成明确工程任务，不批量建 Issue。已有受限 shorthand/复用切片及清理已完成，不补造 Issue/PR。包尚未发布，发布/release/tag 需要显式指令。
 
 ## 完成标准与参考
 
 维护切片以具体反例关闭、相关检查通过、证据保留、文档准确和提交推送为完成标准。约束不变：排序、fallback、React 用法以及宿主单份 targets。支持范围以 [统一清单](HOST-SUPPORT.md)为准，语义以原设计文档为准。
 
-2026-11-06 owner 授权的仓库文档清理已完成：删除过期进度／交接／研究过程，保留设计决定、测试载体和原始失败证据。没有迁移历史待办到 Issue，也没有新增能力任务。旧逐轮记录通过 Git 历史追溯。
+2026-11-06 owner 授权的仓库文档清理已完成：删除过期进度／交接／研究过程，保留设计决定、测试载体和原始失败证据。清理本身未新增能力任务；随后获准迁移的四项跟踪入口见上表。其余旧逐轮记录通过 Git 历史追溯。
