@@ -26,9 +26,9 @@ describe('stylesheet input snapshots', () => {
     const expected = createGssCompilerSession(config).replaceStylesheet({ id, source: css });
     expect(expected.committed).toBe(false);
     const prepare = createStylesheetPreparation(config, read);
-    await expect(prepare(id)).rejects.toMatchObject({ diagnostics: expected.diagnostics });
+    await expect(prepare(id)).rejects.toMatchObject({ diagnostics: expected.diagnostics, input: { id, source: css } });
     css = '.card { color: red; }';
-    await expect(prepare(id)).rejects.toBeInstanceOf(StylesheetPreparationError);
+    await expect(prepare(id)).rejects.toMatchObject({ input: { id, source: '.card { color: red;' } });
     expect(read).toHaveBeenCalledTimes(1);
     expect((await createStylesheetPreparation(config, read)(id)).module.scopeSchema.exports.card).toBeDefined();
   });

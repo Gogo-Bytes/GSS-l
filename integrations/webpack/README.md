@@ -8,6 +8,8 @@ Owner 已确认并接通公开 `gss({ adapter })` 与 `gssCssMinimizers(options)
 
 `source-loader` 使用 webpack 的 LoaderContext/LoaderDefinition；原始 JSX 交给 React Adapter，Compiler/Adapter 诊断保留范围。`stylesheet-io` 使用宿主 input filesystem/resolver，保留已确认的百分号交接规则；CSS 链负责资源 bytes/hash。`publication` 使用原生 NoEmitOnErrorsPlugin，仅成功输出后推进 published，失败保留上一版及恢复依赖。类型看似相近不能复用 Rspack 编排：webpack EntryPlugin.createDependency 需要 options，loader context 泛型也不同。
 
+对于 JSX 导入的 `.gss` 编译失败，有可靠范围时终端错误包含 CSS 文件、从 1 开始的行列和首行代码框。位置只从该次失败的不可变输入快照及匹配 id 的合法 UTF-16 range 计算；缺少或无效的范围只显示原诊断，不读取新磁盘内容猜测位置。代码框限长，多行范围只展示起始行；webpack 外层仍可能标记 JSX importer。该目标不承诺 overlay 高亮、编辑器跳转、React 诊断或其他宿主同等展示。
+
 ## 已复现的依赖差异
 
 webpack 成功构建后将 buildInfo.file/context/missingDependencies 移到 filesystem snapshot。照搬 Rspack 的 buildInfo 读取会漏掉此前成功的处理器依赖：处理器在登记 token.txt 前抛错，随后修复 token 文件不再触发恢复。

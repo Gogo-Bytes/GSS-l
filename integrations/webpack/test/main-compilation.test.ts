@@ -8,6 +8,7 @@ import { webpack, type Stats, type Compiler, type Compilation } from 'webpack';
 import { react } from '@gss-l/react';
 import { expect, it } from 'vitest';
 import { installMainCompilation } from '../dist/main-compilation.js';
+import { SourceDiagnosticError } from '../dist/source-loader.js';
 
 const require = createRequire(import.meta.url);
 
@@ -92,6 +93,10 @@ it('uses the main CSS graph across entries, lazy removal, failed input, recovery
     await writeFile(source, '.card {');
     const failed = await currentRun(source);
     expect(failed.hasErrors()).toBe(true);
+    const message = failed.toString({ all: false, errors: true, errorDetails: true });
+    expect(message).toContain(`${source}:1:1`);
+    expect(message).toContain('1 | .card {');
+    expect(message).toContain('^');
     expect(publication!.published).toBe(previous);
     await writeFile(source, '.card { color: green; }');
     const recovered = await currentRun(source);
@@ -117,3 +122,15 @@ it('uses the main CSS graph across entries, lazy removal, failed input, recovery
     await rm(root, { recursive: true, force: true });
   }
 }, 15000);
+
+it('formats only valid ranges against the matching failure snapshot', () => {
+  const input = { id: '/style.gss', source: '😀\n.card {\r\n  color: red;\r\n}' };
+  const diagnostic = { id: input.id, code: 'GSS1001', message: 'bad', phase: 'parse' as const, severity: 'error' as const, range: { start: 14, end: 19 } };
+  const formatted = new SourceDiagnosticError([diagnostic], input).message;
+  expect(formatted).toContain('/style.gss:3:3');
+  expect(formatted).toContain('3 |   color: red;');
+  expect(new SourceDiagnosticError([diagnostic], { ...input, id: '/other.gss' }).message).not.toContain(' | ');
+  expect(new SourceDiagnosticError([{ ...diagnostic, range: { start: 1, end: 2 } }], input).message).not.toContain(' | ');
+  const withoutRange = { id: input.id, code: diagnostic.code, message: diagnostic.message, phase: diagnostic.phase, severity: diagnostic.severity };
+  expect(new SourceDiagnosticError([withoutRange], input).message).not.toContain(' | ');
+});

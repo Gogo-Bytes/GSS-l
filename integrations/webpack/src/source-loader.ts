@@ -1,11 +1,30 @@
 import { dirname } from 'node:path';
-import type { GssSourceAdapter, SourceAdapterDiagnostic } from '@gss-l/compiler';
+import type { GssSourceAdapter, SourceAdapterDiagnostic, ReplaceStylesheetInput } from '@gss-l/compiler';
 import type { LoaderContext, LoaderDefinition } from 'webpack';
 import { prepareSource, StylesheetPreparationError, type PreparedStylesheet } from '@gss-l/integration-preparation';
 
 export class SourceDiagnosticError extends Error {
-  constructor(readonly diagnostics: readonly SourceAdapterDiagnostic[]) {
-    super(diagnostics.map(d => `[${d.code}] ${d.id}: ${d.message}`).join('\n'));
+  constructor(readonly diagnostics: readonly SourceAdapterDiagnostic[], input?: Readonly<ReplaceStylesheetInput>) {
+    super(diagnostics.map(d => {
+      const base = `[${d.code}] ${d.id}: ${d.message}`;
+      const range = d.range;
+      if (!input || input.id !== d.id || !range) return base;
+      const { source } = input;
+      const boundary = (n: number) => Number.isInteger(n) && n >= 0 && n <= source.length &&
+        !(n > 0 && /[\uD800-\uDBFF]/.test(source[n - 1]!) && /[\uDC00-\uDFFF]/.test(source[n] ?? ''));
+      if (!boundary(range.start) || !boundary(range.end) || range.end < range.start) return base;
+      const lineStart = range.start === 0 ? 0 : source.lastIndexOf('\n', range.start - 1) + 1;
+      const lineEnd = source.indexOf('\n', range.start);
+      const line = source.slice(lineStart, lineEnd < 0 ? source.length : lineEnd).replace(/\r$/, '');
+      const lineNumber = source.slice(0, lineStart).split('\n').length;
+      const column = range.start - lineStart;
+      const sliceStart = Math.max(0, column - 60);
+      const prefix = sliceStart ? '…' : '';
+      const display = line.slice(sliceStart, sliceStart + 160);
+      const padding = line.slice(sliceStart, column).replace(/[^\t]/g, ' ');
+      const carets = '^'.repeat(Math.max(1, Math.min(range.end - range.start, 160 - padding.length)));
+      return `${base}\n${d.id}:${lineNumber}:${column + 1}\n${lineNumber} | ${prefix}${display}${sliceStart + 160 < line.length ? '…' : ''}\n${' '.repeat(String(lineNumber).length)} | ${' '.repeat(prefix.length)}${padding}${carets}`;
+    }).join('\n'));
     this.name = 'GssSourceDiagnosticError';
   }
 }
@@ -51,7 +70,7 @@ export function createSourceLoaderPreparation(
       if (output.transformed) report(output.transformed.diagnostics);
       return output.transformed;
     } catch (error) {
-      if (error instanceof StylesheetPreparationError) throw new SourceDiagnosticError(error.diagnostics);
+      if (error instanceof StylesheetPreparationError) throw new SourceDiagnosticError(error.diagnostics, error.input);
       throw error;
     }
   };

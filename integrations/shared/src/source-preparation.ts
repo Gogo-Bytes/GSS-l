@@ -15,7 +15,7 @@ export type PreparedStylesheet = {
 
 /** Internal error carrier: the loader must report these original diagnostics, not replace their ranges. */
 export class StylesheetPreparationError extends Error {
-  constructor(readonly diagnostics: readonly GssDiagnostic[]) {
+  constructor(readonly diagnostics: readonly GssDiagnostic[], readonly input?: Readonly<ReplaceStylesheetInput>) {
     super(diagnostics.map(({ message }) => message).join('\n'));
     this.name = 'StylesheetPreparationError';
   }
@@ -48,7 +48,7 @@ export function createStylesheetPreparation(
       if (input.assetReferences) Object.freeze(input.assetReferences);
       Object.freeze(input);
       const result = createGssCompilerSession(config).replaceStylesheet(input);
-      if (!result.committed) throw new StylesheetPreparationError(result.diagnostics);
+      if (!result.committed) throw new StylesheetPreparationError(result.diagnostics, input);
       if (!result.module) throw new Error(`Committed GSS input has no module artifact: ${id}.`);
       return { input, module: result.module, diagnostics: result.diagnostics };
     });

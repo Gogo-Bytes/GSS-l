@@ -10,6 +10,8 @@
 
 ## 最新维护核查
 
+Owner 已批准并实现 [#32](https://github.com/Gogo-Bytes/GSS-l/issues/32) 的 webpack 有界切片：JSX 导入 `.gss` 编译失败时，终端展示匹配失败快照的文件、行列和首行代码框；不承诺 overlay 或其他宿主。具体契约及验证载体见 [webpack 接线说明](../integrations/webpack/README.md#调用边界)，Issue 保留其余范围决定。
+
 2026-11-04 owner 授权的 [React 更新链路只读核查](REACT-UPDATE-REVIEW.md)已完成。区分值/class/schema 变化、JS 更新、整页导航与组件 state；核对四宿主代码和既有证据，未确认新契约违约。没有运行新测试/浏览器或改产品，2569 项仍为原验证基线。scope 形状和通用 state 保持没有因此获得保证。
 
 2026-11-04 owner 授权的 [诊断与定位只读核查](DIAGNOSTIC-LOCATION-REVIEW.md)已完成：Vite 有原生 loc/frame 断言；Rspack/Rsbuild/webpack 保留诊断范围但未转换为同等展示，部分 React 错误本来无范围。核查记录实际差距与证据层级，未确认新契约违约；没有新增产品或运行验证。
