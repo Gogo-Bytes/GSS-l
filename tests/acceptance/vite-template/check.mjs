@@ -1,4 +1,4 @@
-/* global window, document, getComputedStyle, Image, URL, fetch, setTimeout, performance */
+/* global window, document, getComputedStyle, Image, URL, Blob, fetch, setTimeout, performance */
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -229,6 +229,73 @@ try {
   expectedError = false;
   assert.equal(await page.getByRole('button', { name: 'Count 2', exact: true }).count(), 1);
   assert.equal((await observe('recovery-same-document-state-preserved')).className, initial.className);
+  // Add a scope while keeping all existing references valid; inspect the actual new export.
+  await page.evaluate(async () => {
+    const { createHotContext } = await import('/@vite/client');
+    window.__gssAppUpdates = 0;
+    createHotContext('/gss-test-observer').on('vite:afterUpdate', (payload) => {
+      if (payload.updates.some((update) => update.path === '/src/App.tsx')) window.__gssAppUpdates += 1;
+    });
+  });
+  const reshaped = original + '\n.extra { color: rgb(12, 34, 56); }\n';
+  await writeFile(sheet, reshaped);
+  await page.waitForFunction(() => window.__gssAppUpdates >= 1);
+  await page.waitForFunction(async () => {
+    const response = await fetch('/src/App.gss?import');
+    return (await response.text()).includes('const extra =');
+  });
+  const addedScope = await page.evaluate(async () => {
+    const source = await (await fetch('/src/App.gss?import')).text();
+    const url = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
+    const styles = (await import(url)).default;
+    URL.revokeObjectURL(url);
+    const node = document.createElement('div');
+    node.className = styles.extra.self;
+    document.body.append(node);
+    const result = { className: node.className, color: getComputedStyle(node).color };
+    node.remove();
+    return result;
+  });
+  assert.match(addedScope.className, /gss-/);
+  await page.waitForFunction((className) => {
+    const node = document.createElement('div'); node.className = className; document.body.append(node);
+    const color = getComputedStyle(node).color; node.remove(); return color === 'rgb(12, 34, 56)';
+  }, addedScope.className);
+  await color('rgb(180, 20, 30)');
+  assert.equal(await page.evaluate(() => window.__consumerDocument), 'invalid-lkg');
+  assert.equal(await page.getByRole('button', { name: 'Count 2', exact: true }).count(), 1);
+  const scopeAdded = await observe('scope-added-state-preserved');
+  assert.notEqual(scopeAdded.className, initial.className);
+  report.addedScope = addedScope;
+  expectedError = true;
+  await writeFile(sheet, reshaped + '\n.invalid { color: red; color: blue; }\n');
+  await page.locator('vite-error-overlay').waitFor({ state: 'attached' });
+  await color('rgb(180, 20, 30)');
+  assert.equal(await page.evaluate((className) => {
+    const node = document.createElement('div'); node.className = className; document.body.append(node);
+    const result = getComputedStyle(node).color; node.remove(); return result;
+  }, addedScope.className), 'rgb(12, 34, 56)');
+  assert.equal(await page.evaluate(() => window.__consumerDocument), 'invalid-lkg');
+  assert.equal(await page.getByRole('button', { name: 'Count 2', exact: true }).count(), 1);
+  await writeFile(sheet, reshaped);
+  await page.locator('vite-error-overlay').waitFor({ state: 'detached' });
+  await color('rgb(180, 20, 30)');
+  assert.equal(await page.evaluate((className) => {
+    const node = document.createElement('div'); node.className = className; document.body.append(node);
+    const result = getComputedStyle(node).color; node.remove(); return result;
+  }, addedScope.className), 'rgb(12, 34, 56)');
+  expectedError = false;
+  assert.equal(await page.evaluate(() => window.__consumerDocument), 'invalid-lkg');
+  assert.equal(await page.getByRole('button', { name: 'Count 2', exact: true }).count(), 1);
+  await observe('scope-recovery-state-preserved');
+  const priorUpdates = await page.evaluate(() => window.__gssAppUpdates);
+  await writeFile(sheet, original);
+  await page.waitForFunction((previous) => window.__gssAppUpdates > previous, priorUpdates);
+  await page.waitForFunction(async () => !(await (await fetch('/src/App.gss?import')).text()).includes('const extra ='));
+  await color('rgb(180, 20, 30)');
+  assert.equal(await page.evaluate(() => window.__consumerDocument), 'invalid-lkg');
+  assert.equal(await page.getByRole('button', { name: 'Count 2', exact: true }).count(), 1);
+  assert.equal((await observe('scope-removed-state-preserved')).className, initial.className);
   await deepLinks('dev');
   await stop();
   await run('corepack', ['pnpm', 'build'], app);

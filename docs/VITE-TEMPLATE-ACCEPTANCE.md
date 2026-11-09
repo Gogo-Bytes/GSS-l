@@ -58,6 +58,12 @@ corepack pnpm vite-template:check
 
 本模板的 React plugin 接受更新，因此本次没有 reload／state reset。**这不是新增 state-preserving HMR 的公共保证**；旧集成中 class-map 修改允许 reload 的契约和验收不变。
 
+## scope 形状更新（owner 授权）
+
+在同一 Vite 8.3.5／plugin-react 6.1.2／React 19.3.1／Chromium 模板中，向原文件添加未被 JSX 引用的 `.extra` scope，再移除它。脚本等待 App 的 Vite `afterUpdate`，验证新生成模块的 `extra.self`、独立 literal 色值、既有 title 的最终 class／样式、document marker 与 counter；无效重复声明期间检查旧样式及状态，恢复到相同新增 scope 后再次检查。最终移除时验证导出消失、原 class／样式与状态恢复。浏览器过程中观察到中间短暂样式变化，断言只保证更新完成后的结果，不保证无闪烁。
+
+该检查不覆盖已被引用 scope 的重命名、嵌套形状修改、其他 React 插件／宿主或浏览器，也不改变既有允许 reload 的通用契约。通过证据为 `artifacts/vite-template/2026-11-09T03-04-54.833Z/`；探针最初使用固定模块 URL 时命中浏览器缓存的失败记录 `2026-11-09T03-01-15.526Z/` 和 `2026-11-09T03-03-01.524Z/` 同样保留。
+
 ## 客户端路由验收（后续 owner 授权）
 
 直接扩展同一 template fixture／gate，不另复制 harness。`App` 使用 `BrowserRouter`、`Routes`、`Route` 和 `Link`，Home 为 `/`，React.lazy Detail 为 `/details/:id`，以 `useParams` 展示 id；父级 counter、跨文件 `className: string` 仍保留。测试运行实际 Vite CLI dev 和 build 后的 preview，不用 memory router／模拟历史记录。
