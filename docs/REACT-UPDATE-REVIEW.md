@@ -63,3 +63,17 @@
 4. scope 名称/形状变化的 React 浏览器结果证据不足；已有准备/转换机制不能替代运行证据。这是未验证组合，不自动构成产品 bug。
 
 本轮没有确认新的当前契约违约，因此不修改实现或增加测试。保持既有排序、class 身份、fallback 与恢复策略。若 owner 后续选择 state 保持或 schema 编辑体验，应先选定宿主/React 插件与具体编辑场景，分别断言样式、导出、document 与 component state；本核查不授权该新目标。
+
+## Vite HMR 绘制调查（2026-11-09）
+
+Owner 同意以“限定场景避免用户可见失样式，保持最终正确性与失败恢复，不通过强制刷新或改变 atom 身份掩盖问题”为调查目标。本轮只调查，未批准或实施发布协议变更。
+
+复用既有外部 Vite 8.3.5／plugin-react 6.1.2／React 19.3.1 consumer 与原始 tarball，Chromium 145.0.7632.6 headless；固定三轮新增／移除未引用 `.extra`，共六次编辑，无网络降速或故意延迟。逐 requestAnimationFrame 记录 computed color／class，记录 Vite beforeUpdate／afterUpdate 与 DOM class mutation，同时保存 CDP screencast 的实际合成帧。
+
+六次均捕获标题由红色变为默认深色再恢复的合成画面，最终 document marker 与 counter=1 均保留。错误颜色连续 RAF 样本跨度为 17–34ms；异常合成帧至下一恢复合成帧的时间间隔约 25–42ms。这是带仪器的 headless 样本，不是最坏延迟、人眼感知或所有设备的时间保证。
+
+首轮相对写入时间：CSS beforeUpdate +22ms，CSS afterUpdate +55ms 时标题已失样式且 class 仍旧；JS afterUpdate +76ms 仍未恢复；DOM class mutation +94ms 后恢复红色。由此确认该场景存在旧 DOM class 与已更新 CSS 的交接空档，且 JS afterUpdate 不能单独证明 React 已提交 DOM。具体修复方案仍待决定，不能仅用固定延时回收旧 CSS。没有确认所有样式变化都具有相同根因或表现。
+
+证据：`artifacts/hmr-paint-investigation/2026-11-09T09-53-30.456Z/`（result.json 时间线、13 张合成帧、server.log）；探针为同目录上层 `probe.mjs`，运行命令 `node artifacts/hmr-paint-investigation/probe.mjs`。使用的外部 consumer 与 tarball 哈希记录在 result.json；运行后已恢复外部输入、关闭浏览器和本轮 server。实际源码／构建产物仍来自原 Vite 模板运行，不冒充本轮重新打包验证。
+
+候选方向是先评估宿主现有更新完成信号与发布顺序，再评估有界的新旧 CSS 交接；任何双版本方案必须证明同名规则竞争、资源回收、失败恢复及多个 importer 的行为。未引入自定义 HMR runtime，也未改变 class 身份、排序或 fallback。动态进度见 [#33](https://github.com/Gogo-Bytes/GSS-l/issues/33)。
