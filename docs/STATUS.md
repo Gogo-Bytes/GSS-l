@@ -20,6 +20,8 @@ Owner 已批准并实现 [#32](https://github.com/Gogo-Bytes/GSS-l/issues/32) �
 
 ## 当前工作与授权
 
+Owner 已确定仍被引用的 .gss 删除时保留上一成功版并明确报错、文件恢复后自动恢复的目标；当前尚未实现，见 [架构决定](ARCHITECTURE-DIRECTION.md#文件删除与恢复目标2026-11-09-owner-决定待实现) 和 [#33](https://github.com/Gogo-Bytes/GSS-l/issues/33)。
+
 维护现有支持范围，修复可复现契约问题，补必要回归并同步文档。2026-11-06 owner 已批准将诊断定位、React 更新目标、Firefox Article 和性能线索迁入 Issues；[任务映射](NEXT-STAGE.md#已迁入-github-的跟踪事项)指向各自唯一动态状态。迁移不批准新能力或恢复暂缓事项。保持 main 直提，暂不采用 PR；其他能力边界仍按设计文档与 owner 授权。
 
 ## 语义与职责
