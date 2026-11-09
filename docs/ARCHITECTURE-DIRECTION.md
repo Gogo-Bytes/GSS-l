@@ -883,6 +883,6 @@ Owner 授权核查既有 CSS 值修改、scope/schema 修改及错误恢复路�
 
 Owner 授权核查四宿主既有定位链路，详见 [诊断报告](DIAGNOSTIC-LOCATION-REVIEW.md)。公共范围仍为输入 id 的 UTF-16 半开区间且可选；Compiler 保留 authored 来源，Adapter 对自身输入负责，宿主负责展示。Vite 将匹配输入快照的合法范围转换为 loc/frame；Rspack/webpack 当前只在错误对象保留 diagnostics，并把 code/id/message 写入文本，Rsbuild 复用此链路。React 的 GSS2107 有范围，不代表其他 alias 错误也有。
 
-后续 owner 已批准 webpack JSX 导入 `.gss` 失败的终端定位：失败准备携带原始输入快照，webpack 对匹配 id 的合法范围展示一基行列及有界首行代码框；无可靠范围不猜测。详见 [webpack 接线说明](../integrations/webpack/README.md#调用边界)。以上 2026-11-04 核查保留为历史基线；其他宿主及 overlay 不因此获得同等保证。
+后续 owner 已批准 webpack、Rspack／Rsbuild 中 JSX 导入 `.gss` 失败的终端定位：失败准备携带原始输入快照，宿主对匹配 id 的合法范围展示一基行列及有界首行代码框；无可靠范围不猜测。详见 [webpack](../integrations/webpack/README.md#调用边界) 与 [Rspack／Rsbuild](../integrations/rspack/README.md#loader-与发布编排) 接线说明。以上 2026-11-04 核查保留为历史基线；overlay 不因此获得同等保证。
 
 已核对的实际差距是新宿主尚无同等行列/frame 转换，webpack 错误外层可显示 JSX importer；没有把这一差距误记为已经承诺的 overlay 精度回归。浏览器 overlay 出现/恢复与原生错误对象定位是不同证据，最终 CSS map 的规则起点限制也不代替诊断契约。本轮只读分析和文档更新，无产品/测试修改或新运行结果；定位能力扩展未获实施授权，保持排序与 fallback。

@@ -1,6 +1,6 @@
 # 现有诊断与错误定位链路核查
 
-> 后续变更：owner 已批准 webpack 中 JSX 导入 `.gss` 失败时的终端文件、行列和代码框目标；当前实现与限制见 [webpack 接线说明](../integrations/webpack/README.md#调用边界)。下文保留 2026-11-04 的核查基线，不代表该变更后的 webpack 现状。
+> 后续变更：owner 已批准 webpack、Rspack／Rsbuild 中 JSX 导入 `.gss` 失败时的终端文件、行列和代码框目标；当前实现与限制见 [webpack](../integrations/webpack/README.md#调用边界) 与 [Rspack／Rsbuild](../integrations/rspack/README.md#loader-与发布编排) 接线说明。下文保留 2026-11-04 的核查基线，不代表上述变更后的现状。
 
 2026-11-04，owner 授权只读核查。核对基线为 `4408ab1`（产品代码仍为 `eb47522`），仅更新文档，没有改产品、测试或运行浏览器。既有检查基线见 [支持清单](HOST-SUPPORT.md)。本报告区分源码定位能力、宿主展示和实际运行证据，不新增 overlay 精度承诺。
 

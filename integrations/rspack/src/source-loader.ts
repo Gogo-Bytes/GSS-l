@@ -1,11 +1,11 @@
 import { dirname } from 'node:path';
-import type { GssSourceAdapter, SourceAdapterDiagnostic } from '@gss-l/compiler';
+import type { GssSourceAdapter, SourceAdapterDiagnostic, ReplaceStylesheetInput } from '@gss-l/compiler';
 import type { LoaderContext, LoaderDefinition } from '@rspack/core';
-import { prepareSource, StylesheetPreparationError, type PreparedStylesheet } from '@gss-l/integration-preparation';
+import { formatDiagnosticMessages, prepareSource, StylesheetPreparationError, type PreparedStylesheet } from '@gss-l/integration-preparation';
 
 export class SourceDiagnosticError extends Error {
-  constructor(readonly diagnostics: readonly SourceAdapterDiagnostic[]) {
-    super(diagnostics.map(d => `[${d.code}] ${d.id}: ${d.message}`).join('\n'));
+  constructor(readonly diagnostics: readonly SourceAdapterDiagnostic[], input?: Readonly<ReplaceStylesheetInput>) {
+    super(formatDiagnosticMessages(diagnostics, input));
     this.name = 'GssSourceDiagnosticError';
   }
 }
@@ -51,7 +51,7 @@ export function createSourceLoaderPreparation(
       if (output.transformed) report(output.transformed.diagnostics);
       return output.transformed;
     } catch (error) {
-      if (error instanceof StylesheetPreparationError) throw new SourceDiagnosticError(error.diagnostics);
+      if (error instanceof StylesheetPreparationError) throw new SourceDiagnosticError(error.diagnostics, error.input);
       throw error;
     }
   };

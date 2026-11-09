@@ -10,7 +10,7 @@
 
 ## 最新维护核查
 
-Owner 已批准并实现 [#32](https://github.com/Gogo-Bytes/GSS-l/issues/32) 的 webpack 有界切片：JSX 导入 `.gss` 编译失败时，终端展示匹配失败快照的文件、行列和首行代码框；不承诺 overlay 或其他宿主。具体契约及验证载体见 [webpack 接线说明](../integrations/webpack/README.md#调用边界)，Issue 保留其余范围决定。
+Owner 已批准并实现 [#32](https://github.com/Gogo-Bytes/GSS-l/issues/32) 的 webpack、Rspack／Rsbuild 有界切片：JSX 导入 `.gss` 编译失败且有可靠范围时，终端展示匹配失败快照的文件、行列和首行代码框；不承诺 overlay。契约及验证载体见 [webpack](../integrations/webpack/README.md#调用边界) 与 [Rspack／Rsbuild](../integrations/rspack/README.md#loader-与发布编排) 接线说明。
 
 2026-11-04 owner 授权的 [React 更新链路只读核查](REACT-UPDATE-REVIEW.md)已完成。区分值/class/schema 变化、JS 更新、整页导航与组件 state；核对四宿主代码和既有证据，未确认新契约违约。没有运行新测试/浏览器或改产品，2569 项仍为原验证基线。scope 形状和通用 state 保持没有因此获得保证。
 
@@ -28,7 +28,7 @@ Compiler 保持框架/宿主无关；React Adapter 负责 JSX 引用分析；各
 
 ## 验收与已知边界
 
-最近代码验证：完整 verify **2569 项及 lint/build/types**，日志 `artifacts/webpack-linked-context/verify.log`；同轮 Chromium 生产/开发更新与错误恢复另有日志。verify 不包含浏览器。其他专项的基线、版本和限制见 [验证账本](HOST-SUPPORT.md#验证账本与恢复入口)，旧证据不能冒充当前提交重验。
+最近代码验证：Rspack／Rsbuild 终端定位变更运行完整 `corepack pnpm verify`（lint、build、单元测试和类型检查）；Rspack watch 与 Rsbuild 构建覆盖失败定位及恢复。verify 不包含浏览器。同轮未重跑浏览器；历史 Chromium 生产/开发更新与错误恢复证据及其他专项的基线、版本和限制见 [验证账本](HOST-SUPPORT.md#验证账本与恢复入口)，旧证据不能冒充当前提交重验。
 
 浏览器脚本保留默认引擎范围，运行前检查实际入口。Firefox Article 暂缓不改变其他脚本默认值。保留独立 oracle、精确图片比较和失败证据。已接受限制与未验证范围分列于 [支持清单](HOST-SUPPORT.md#已接受限制与当前政策)，不把缺少证据当作新缺陷。
 

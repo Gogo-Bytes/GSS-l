@@ -76,3 +76,35 @@ it('does not silently leave a second host minimizer lowering GSS CSS', async () 
     output: { minify: { cssOptions: [{}, {}] } } } });
   await expect(host.initConfigs()).rejects.toThrow('single native Rsbuild CSS minimizer');
 });
+
+it('reports the imported GSS failure location and builds after correction', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'gss-rsbuild-diagnostic-'));
+  const source = path.join(root, 'card.gss');
+  try {
+    await writeFile(path.join(root, 'index.js'), "import card from './card.gss'; console.log(card.card);");
+    await writeFile(source, '.card {');
+    const host = await createRsbuild({ cwd: root, rsbuildConfig: {
+      mode: 'development', logLevel: 'silent', plugins: [pluginGss({ adapter: react() })],
+      source: { entry: { index: './index.js' } }
+    } });
+    const compiler = await host.createCompiler();
+    try {
+      const run = () => new Promise<{ hasErrors(): boolean; toString(options: { all: boolean; errors: boolean; errorDetails?: boolean }): string }>((resolve, reject) => {
+        compiler.run((error, stats) => error ? reject(error) : stats ? resolve(stats) : reject(new Error('No stats')));
+      });
+      const failed = await run();
+      expect(failed.hasErrors()).toBe(true);
+      const message = failed.toString({ all: false, errors: true, errorDetails: true });
+      expect(message).toContain(`${source}:1:1`);
+      expect(message).toContain('1 | .card {');
+      expect(message).toContain('^');
+      await writeFile(source, '.card { color: green; }');
+      const recovered = await run();
+      expect(recovered.hasErrors(), recovered.toString({ all: false, errors: true })).toBe(false);
+    } finally {
+      await new Promise<void>((resolve, reject) => compiler.close(error => error ? reject(error) : resolve()));
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

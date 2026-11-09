@@ -84,6 +84,10 @@ it('uses the main CSS graph across entries, lazy removal, failed input, recovery
     await writeFile(source, '.card {');
     const failed = await currentRun(source);
     expect(failed.hasErrors()).toBe(true);
+    const message = failed.toString({ all: false, errors: true, errorDetails: true });
+    expect(message).toContain(`${source}:1:1`);
+    expect(message).toContain('1 | .card {');
+    expect(message).toContain('^');
     expect(publication!.published).toBe(previous);
     await writeFile(source, '.card { color: green; }');
     const recovered = await currentRun(source);

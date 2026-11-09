@@ -72,7 +72,7 @@ export function installMainCompilation(compiler: Compiler, options: {
       }
     } catch (error) {
       compilation.errors.push(error instanceof StylesheetPreparationError
-        ? new SourceDiagnosticError(error.diagnostics)
+        ? new SourceDiagnosticError(error.diagnostics, error.input)
         : error instanceof Error ? error : new Error(String(error)));
     }
   });
