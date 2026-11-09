@@ -9,7 +9,7 @@
 - 该阶段 Browser oracle：125 fixtures、1267 comparisons、38 controls；Vite host、SSG hydration、multipage lazy/hydration/state controls 通过。
 - Task-board 三引擎真实用户路径：每引擎 76 phases、13 exact image pairs、dev HMR/LKG/recovery、父子 implicit `className`、production lazy/CSS census 通过。删除 `.gss` 不属于当前支持契约：独立实验发现 Chromium/Firefox/WebKit 的 overlay/LKG 行为不一致，因此当前只承诺文件修改、非法输入 LKG、恢复和显式重建；删除场景的失败 artifact 保留在 `artifacts/cross-browser-rendering/task-board/2026-10-23T04-10-04.608Z/`，不宣称删除重建已通过。
 - 统一固定排序：原 atom-ranks gate 默认三引擎通过，逻辑／物理 carrier 仍为 418 simple／55 semantic、每引擎 2772 paired readings，额外保留 800 次原始 authored-native 断言。原生预期未被改成 GSS 结果：同 fixture 独立记录 raw CSS 值与显式 GSS physical-priority oracle；精确图像和 order corruption controls 保留。
-- Article 受扩展 border 复用屏障影响，atomic census 131→132：form／field 的 identical border 不再跨 rank 合并。业务 CSS 未改；现有 per-engine 入口 Chromium／WebKit 各 82 phases／22 exact image pairs 与负对照通过。默认三引擎 Article script 未改，Firefox Article 未运行。更早的 147→131／字节数结果只能按对应 Git 历史和日志引用。
+- Article 受扩展 border 复用屏障影响，atomic census 131→132：form／field 的 identical border 不再跨 rank 合并。业务 CSS 未改；现有 per-engine 入口 Chromium／WebKit 各 82 phases／22 exact image pairs 与负对照通过。默认三引擎 Article script 未改，Firefox Article 未运行。旧输出缩减数字不再作为当前收益依据。
 - 统一排序阶段证据：`artifacts/unified-order-core/`（red、transitivity red、verify/browser/playground、Article 两引擎、census delta）；最终三引擎 rank 产物在 `artifacts/rank-integration/browser/`。首次 rank 全套因 300s wrapper 预算不足中断，后一次因 child 1800s session 上限中断，原始产物均已备份；增加有界预算后同入口全套通过，不是 readiness 缺陷修复。
 - 安全复用交付：独立审查接受 **Chromium／WebKit** 范围；Article 每引擎 82 phases／22 对精确图像。Firefox Article 的 dev→production 导航问题由 owner 暂缓，不宣称已修复。
 - rank 验收曾因两引擎加载器入口失配，意外跑了原三引擎 gate 并通过。已披露执行范围偏差；这不能消除 Article 的历史 Firefox 失败。
@@ -24,18 +24,9 @@
 
 owner 已要求先记录、以后再看；不启动 profiling、排序优化或 no-op 快路径。
 
-测量源码为 `dc9ad13`，当时在独立测量分支，不是 main 上的新性能验收。36 场景 × 3 样本，共 108/108，另有 smoke；共享主机、预热 public-session 调用，非 SLA 或最坏情况证明。
+旧编译耗时表及输出缩减数据已按 owner 要求从当前文档移除。当前没有普通 CSS 与 GSS 在等价生产构建下的原始／gzip／Brotli 体积收益结论；后续重新实验，不能用规则数量或原子化覆盖率代替传输体积收益。
 
-| 场景 | replace + finalize 中位数 |
-| --- | --- |
-| Article | 9.39ms |
-| Task-board | 8.80ms |
-| 单模块 500 条不同 width 声明 | 78.72ms |
-| 单模块 1000 条不同 width 声明 | 248.40ms（样本范围 241.40–403.36ms） |
-| 100 模块中修改一个 5 声明模块 | 3.86ms |
-| 250 声明 no-op 替换 | 25.17ms |
-
-大型单模块成本、重复值仍有 replace 成本、no-op 重建都是后续研究线索，不是已确认热点。macOS 测量采用 native normal-pressure guard；最初仅凭空闲页的 guard 停止不代表内存耗尽。RSS 派生结果以 `corrected-derived` 为准：未采样／zero-only 记为 null，不当成零值观测；原始数据及所有耗时统计保持不变。
+历史原始测量、修正说明与失败证据仍按下方恢复入口保留，不作为当前性能结论；编译器 profiling／优化仍暂缓。本次仅清理文档，没有启动测量或改变命名与排序。
 
 ## 会话与资源核查证据
 
