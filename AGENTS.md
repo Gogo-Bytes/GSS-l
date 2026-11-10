@@ -1,17 +1,41 @@
-# Repository agent instructions
+# 仓库智能体协作规范
 
-- On session handoff or delivery planning, read `README.md` and `docs/STATUS.md` for the merged implementation, semantic contracts, validation boundaries, deferred work, and local evidence recovery. `docs/HANDOFF.md` contains the next-session prompt. Current documentation is a concise owner-requested handoff, not a restored historical roadmap.
-- Project design documentation: before changing compiler semantics, ordering, atom identity/reuse, markers, parser/adapter boundaries, fallback, or another established design, read the relevant design document and nearby module guidance; start with `compiler/src/domain/README.md` for compiler-domain work and `docs/ARCHITECTURE-DIRECTION.md` for the end-to-end workflow. Record owner decisions and their rationale in the existing authoritative design document alongside the implementation; create a focused document near the module only when no suitable one exists. State the contract, important counterexamples and constraints, current implementation versus target, and the regression evidence or remaining validation. Update affected links and status when the design or implementation changes; keep prior decisions accurate rather than duplicating conflicting rules. Do this as part of the change, not as a separate follow-up.
-- Complete the requested task and run relevant checks. Historical unfinished roadmap/Pilot work is not an autonomous task queue, but normal implementation work within the current product contract may proceed without asking the owner to choose each technical slice. Ask the owner when the next goal is genuinely unspecified. Escalate decisions that change product capability, architecture, user-facing authoring experience, public API/configuration, syntax, semantic boundaries, or fallback policy; routine coverage expansion, bug fixes, registry additions, diagnostics, tests, and implementation sequencing are agent-owned unless they cross those decision boundaries.
-- Current direction: maintain existing capabilities and fix reproducible contract violations; do not add frameworks, demo apps, or acceptance matrices without a new owner request. Necessary regression tests for real bugs belong in existing test carriers. Follow `docs/NEXT-STAGE.md` for the current progress and bounded next goal; untested combinations are not automatically bugs or tasks.
-- Performance optimization/profiling and the historical Firefox Article issue are deferred. Existing browser scripts retain their default engine scope; verify the actual entry point before an owner-scoped run. Preserve independent oracles, exact image comparisons and failed-run evidence.
-- Commit and push coherent passing changes without further approval. Keep incomplete or knowingly failing work unpushed. Report branch, commit, checks and push result. Package publication, releases and tags require an explicit owner request.
-- Work directly on the existing `main` checkout. Creating branches or worktrees requires owner approval. If another session is writing or unrelated changes are present, stop and coordinate rather than overwrite, reset or automatically stash. Old uncommitted work and removed-worktree evidence are preserved as described in `docs/STATUS.md`.
-- Keep the compiler domain framework-agnostic. React/JSX analysis belongs in the React Adapter behind explicit ports.
-- Treat the sibling legacy GSS project as read-only reference material; copy and adapt useful code here without editing that project.
+## 上下文与任务入口
+
+- 会话交接或规划交付时，先读 [项目说明](README.md)和[当前状态](docs/STATUS.md)，了解已合入实现、语义契约、验证边界、暂缓事项及本机证据恢复方式。[交接说明](docs/HANDOFF.md)提供后续会话入口。
+- 当前进度与限定目标见[当前计划](docs/NEXT-STAGE.md)；已迁入 GitHub 的任务按其中链接读取对应 Issue 的最新状态。当前文档用于简洁交接，历史路线图及试点遗留项不构成自动执行队列。
+
+## 执行范围与决策边界
+
+- 完成用户请求并运行相关检查。现有产品契约内的常规实现可以自主推进，无需让负责人逐项选择技术切片；下一目标确实不明确时再询问。
+- 改变产品能力、架构、用户编写体验、公共 API／配置、语法、语义边界或回退策略前，须由负责人确认。常规覆盖补充、缺陷修复、注册表补充、诊断、测试及实施顺序由智能体负责，除非跨越上述边界。
+- 当前方向是维护现有能力、修复可复现的契约违约。新增框架、演示应用或验收矩阵需要新的负责人请求；真实缺陷的必要回归应加入现有测试载体。未测试组合不自动成为缺陷或任务。
+- 编译器领域层保持框架无关；React／JSX 分析由 React 适配器通过明确接口承担。
+- 同级旧版 GSS 项目仅作只读参考；可复制并适配有用代码到本仓库，不修改旧项目。
+
+## 设计文档维护
+
+- 修改编译器语义、排序、原子身份／复用、标记、解析器／适配器边界、回退策略或其他既定设计前，先读相关设计文档和模块说明。编译器领域工作从[领域设计入口](compiler/src/domain/README.md)开始，端到端流程从[架构方向](docs/ARCHITECTURE-DIRECTION.md)开始。
+- 实现时同步将负责人决定及理由写入现有权威设计文档；只有缺少合适载体时，才在模块附近新建专题文档。
+- 写清契约、关键反例与约束、当前实现与目标的差异、回归证据或待验证范围。设计或实现变化时同步更新相关链接和状态，保持既有决定准确，避免重复或冲突规则；文档维护属于本次变更，不另留后续任务。
+
+## 验证与证据
+
+- 性能优化／性能分析和 Firefox Article 历史问题仍暂缓。
+- 保持现有浏览器脚本的默认引擎范围；按负责人限定范围运行前，核实实际入口。
+- 保留独立预期判定依据、精确图像比较和失败运行证据，不将历史通过记录当作当前提交的重新验证。
+
+## 工作区、提交与交付
+
+- 直接使用现有 `main` 工作区；创建分支或额外工作树须经负责人批准。
+- 如有其他会话正在写入，或发现无关改动，先暂停并协调，不覆盖、重置或自动将这些改动存入 Git 储藏区。旧未提交工作和已移除工作树的证据按[当前状态](docs/STATUS.md)中的恢复入口保留。
+- 完整且检查通过的变更直接提交并推送，无需再次确认；未完成或已知检查失败的工作不推送。
+- 交付时报告分支、提交、实际检查及推送结果。包发布、创建发布版本和标签需要负责人明确请求。
 
 ## GitHub 开发流程
 
-涉及功能规划、问题反馈、开始/恢复开发、PR 或交付验收时，先读取 [github-workflow Skill](.agents/skills/github-workflow/SKILL.md)。当前 session 能修复并验证闭环的小问题直接处理；跨轮、延期、阻塞或后续验收任务才使用 Issue，大功能确认范围后再建 Issue；批量反馈先分类查重，同根因合并。
-
-本仓库原有分支、提交、推送、验证和授权规则优先，Skill 不额外授予权限，尤其不改变当前 main 分支工作及并发写入协调规则。未迁移任务保留现有进度入口；获准采用 Issue 的工程任务只在 Issue/已有 Projects 维护动态状态，设计契约留在文档。阶段完成、阻塞或范围变化时同步获准的 Issue/PR，未同步须报告；不自动迁移历史待办，合并不等于发布或人工验收。
+- 涉及功能规划、问题反馈、开始／恢复开发、拉取请求（PR）或交付验收时，先读 [GitHub 工作流技能](.agents/skills/github-workflow/SKILL.md)。
+- 本会话能修复并验证闭环的小问题直接处理；跨会话、延期、阻塞或需要后续验收的任务使用议题（Issue）。大功能先确认范围再建 Issue；批量反馈先分类查重，同根因合并。
+- 本仓库的分支、提交、推送、验证和授权规则优先；技能不额外授予权限，也不改变 `main` 直提及并发写入协调规则。
+- 未迁移任务保留现有进度入口；获准采用 Issue 的工程任务只在 Issue／已有项目看板（Projects）维护动态状态，长期设计契约保留在文档。
+- 阶段完成、阻塞或范围变化时，同步获准的 Issue／PR；未同步须报告。不自动迁移历史待办，合并不等于发布或人工验收。
