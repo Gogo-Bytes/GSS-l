@@ -591,7 +591,7 @@ type SourceSpanReader = (node: postcss.Node) => SourceSpan;
 function toDeclaration(declaration: Declaration, spanOf: SourceSpanReader): ParsedDeclaration {
   return {
     source: spanOf(declaration),
-    property: declaration.prop.toLowerCase(),
+    property: declaration.prop.startsWith('--') ? declaration.prop : declaration.prop.toLowerCase(),
     value: declaration.value.trim(),
     important: declaration.important === true
   };

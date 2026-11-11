@@ -10,6 +10,36 @@ function generatedPosition(css: string, token: string, occurrence = 0) {
   return { line: lines.length, column: lines.at(-1)!.length };
 }
 
+it.each(['atomic', 'preserved'] as const)('preserves custom property case and declaration origins in %s CSS', mode => {
+  const session = createGssCompilerSession({ projectRoot: '/project' });
+  const source = '.card { --Brand: red; --brand: red; COLOR: var(--Brand);' +
+    (mode === 'preserved' ? ' future-paint: blue;' : '') + ' }';
+  const result = session.replaceStylesheet({ id: '/project/vars.gss', source });
+  expect(result.module?.compilationMode).toBe(mode);
+  const snapshot = session.finalize();
+  for (const property of ['--Brand', '--brand']) {
+    const declaration = property + ': red;';
+    expect(originalPositionFor(new TraceMap(snapshot.sourceMap), generatedPosition(snapshot.css, declaration)))
+      .toMatchObject({ source: 'vars.gss', line: 1, column: source.indexOf(declaration) });
+  }
+  expect(snapshot.css).toContain('color: var(--Brand);');
+  if (mode === 'atomic') {
+    const rules = snapshot.manifest.rules.filter(rule => rule.property.startsWith('--'));
+    expect(new Set(rules.map(rule => rule.className)).size).toBe(2);
+  }
+});
+
+it('matches case-sensitive custom property names in registrations and keyframes', () => {
+  const session = createGssCompilerSession({ projectRoot: '/project' });
+  const source = '@property --Brand { syntax: "<color>"; inherits: true; initial-value: red; } ' +
+    '@keyframes tint { to { --Brand: blue; } } .card { color: var(--Brand); }';
+  expect(session.replaceStylesheet({ id: '/project/vars.gss', source }).committed).toBe(true);
+  const { css } = session.finalize();
+  expect(css).toContain('@property --Brand {');
+  expect(css).toContain('--Brand: blue;');
+  expect(css).toContain('color: var(--Brand);');
+});
+
 it('orders distinct Unicode Module origins independent of registration order', () => {
   const ids = ['caf\u00e9.gss', 'cafe\u0301.gss'] as const;
   const origins = (order: readonly string[]) => {
