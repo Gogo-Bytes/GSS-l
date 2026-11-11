@@ -27,30 +27,17 @@ export function preparePreservedContribution(input: {
   resources: readonly PlannedResource[];
 }): ModuleContribution {
   const roots = new Map<string, MutableScopeNode>();
-  for (const rule of input.rules) {
-    const authoredPath = getOwnershipPath(rule.nodes);
-    for (let index = 0; index < rule.nodes.length; index += 1) {
-      const path = authoredPath.slice(0, index + 1);
-      ensureScopePath(roots, path).classNames.add(input.nameAllocator.createScopeMarker(input.moduleId, path));
-    }
-    for (const observation of rule.nodes.flatMap(node => node.hasConditions.flatMap(group => group.alternatives))) {
-      if (!observation.observedClass) continue;
-      const path = [observation.observedClass];
-      ensureScopePath(roots, path).classNames.add(input.nameAllocator.createScopeMarker(input.moduleId, path));
-    }
-  }
-
-  const exports = Object.fromEntries(
-    [...roots.entries()].map(([name, scope]) => [name, toScopeSchema(scope)])
-  );
   const bindings = new Map((input.input.assetReferences ?? []).map(({ url, identity }) => [url, identity]));
   const preservedBlocks = [...input.rules]
     .sort((left, right) => left.sourceOrdinal - right.sourceOrdinal)
     .map((rule) => {
-      const { css, declarationOffsets } = renderPreservedRule(rule, input.moduleId, input.nameAllocator, input.compatibility);
+      const { css, declarationOffsets } = renderPreservedRule(rule, input.moduleId, input.nameAllocator, roots, input.compatibility);
       return { moduleId: input.moduleId, source: rule.source, declarationOffsets, css,
         ...bindCssAssets(css, bindings) };
     });
+  const exports = Object.fromEntries(
+    [...roots.entries()].map(([name, scope]) => [name, toScopeSchema(scope)])
+  );
   const fallbackReasons = [
     ...input.fallbackProperties.map((property) => ({ property, reason: 'property-effect-not-registered' as const })),
     ...(input.fallbackCompatibilityProperties ?? []).map((property) =>
@@ -93,23 +80,20 @@ function renderPreservedRule(
   rule: ParsedStyleRule,
   moduleId: string,
   nameAllocator: NameAllocatorPort,
+  roots: Map<string, MutableScopeNode>,
   compatibility?: CompatibilityTransformer
 ): { css: string; declarationOffsets: readonly number[] } {
   const authoredPath = getOwnershipPath(rule.nodes);
   const selector = selectorParser((root) => {
     for (const branch of root.nodes) {
       let pathIndex = 0;
-      for (const node of branch.nodes) {
-        if (node.type === 'class') {
-          pathIndex += 1;
-          node.value = nameAllocator.createScopeMarker(moduleId, authoredPath.slice(0, pathIndex));
-          continue;
-        }
-        if (node.type !== 'pseudo' || node.value !== ':has') continue;
-        node.walkClasses((observed) => {
-          observed.value = nameAllocator.createScopeMarker(moduleId, [observed.value]);
-        });
-      }
+      // Admission excludes explicit globals. Only direct classes advance the ownership path.
+      branch.walkClasses(node => {
+        const path = node.parent === branch ? authoredPath.slice(0, ++pathIndex) : [node.value];
+        const marker = nameAllocator.createScopeMarker(moduleId, path);
+        ensureScopePath(roots, path).classNames.add(marker);
+        node.value = marker;
+      });
     }
   }).processSync(rule.selector);
   const physical = rule.declarations.flatMap((declaration) =>

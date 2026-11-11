@@ -655,6 +655,24 @@ describe('GssCompilerSession', () => {
     );
   });
 
+  it.each(['is(.flag)', 'where(.flag)', 'not(.flag)', 'nth-child(1 of .flag)', 'has(.flag.other)'])(
+    'exports each local class used by preserved :%s at the right ownership path', pseudo => {
+      const session = createGssCompilerSession({ projectRoot: '/project' });
+      const id = '/project/card.gss';
+      const source = `.root .card:${pseudo} { color: red }`;
+      expect(session.replaceStylesheet({ id, source }).module?.compilationMode).toBe('atomic');
+      const preserved = session.replaceStylesheet({ id, source: source.replace('color: red', 'color: red; all: unset') });
+      expect(preserved.module?.compilationMode).toBe('preserved');
+      const scopes = preserved.module!.scopeSchema.exports;
+      const argument = pseudo.replace(/\.(flag|other)/g, (_, name: string) => '.' + scopes[name]!.selfClassName);
+      expect(scopes.card).toBeUndefined();
+      expect(session.finalize().css).toContain(
+        `.${scopes.root!.selfClassName} .${scopes.root!.targets.card!.selfClassName}:${argument}`
+      );
+      expect(session.replaceStylesheet({ id, source }).module?.compilationMode).toBe('atomic');
+    }
+  );
+
   it('preserves descendant scope paths without changing the GSS export contract', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 
