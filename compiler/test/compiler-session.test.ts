@@ -322,6 +322,24 @@ describe('GssCompilerSession', () => {
     expect(compiler.finalize().css).toBe(snapshot.css);
   });
 
+  it.each([['a', 'b'], ['b', 'a']])('orders shared fonts by their latest source when registering %s then %s', (first, second) => {
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    const broad = '@font-face { font-family: Probe; src: local("Courier New"); unicode-range: U+0000-007F; }';
+    const narrow = '@font-face { font-family: Probe; src: local("Arial"); unicode-range: U+0069; }';
+    const replace = (name: string, source: string) =>
+      expect(session.replaceStylesheet({ id: `/project/${name}.gss`, source }).committed).toBe(true);
+    const fonts = () => [...session.finalize().css.matchAll(/src: local\("([^"]+)"\)/g)].map(match => match[1]);
+
+    for (const name of [first, second]) replace(name, name === 'a' ? broad + narrow : narrow + broad);
+    expect(fonts()).toEqual(['Arial', 'Courier New']);
+    replace('b', broad + narrow);
+    expect(fonts()).toEqual(['Courier New', 'Arial']);
+    replace('b', broad + narrow + broad);
+    expect(fonts()).toEqual(['Arial', 'Courier New']);
+    session.invalidate('/project/b.gss');
+    expect(fonts()).toEqual(['Courier New', 'Arial']);
+  });
+
   it('emits @font-face intact and reports its URL dependencies', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 

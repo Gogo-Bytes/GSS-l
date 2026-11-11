@@ -86,9 +86,21 @@ export function finalizeSnapshot(
     [...origins].sort(compareOrigins).map(({ moduleId, offset, end }) =>
       [JSON.stringify([moduleId, offset, end]), { moduleId, range: { start: offset, end } }] as const)
   ).values()];
+  // Shared fonts occupy their last authored position in canonical module order.
+  // Keep the manifest's identity order and other resources' CSS slots stable.
+  const fontsInCssOrder = orderedResources
+    .filter(({ resource }) => resource.kind === 'font-face')
+    .map(entry => ({
+      entry,
+      last: entry.origins.reduce((a, b) => compareOrigins(a, b) > 0 ? a : b)
+    }))
+    .sort((a, b) => compareOrigins(a.last, b.last));
+  let nextFont = 0;
+  const cssResources = orderedResources.map(entry => entry.resource.kind === 'font-face'
+    ? fontsInCssOrder[nextFont++]!.entry : entry);
   const sections: CssMapBlock[][] = [
     layerPrelude ? [{ css: layerPrelude }] : [],
-    orderedResources.map(({ resource, origins }) => ({
+    cssResources.map(({ resource, origins }) => ({
       css: resource.renderCss?.(resolve) ?? resource.css, origin: primary(origins)
     })),
     orderedPreservedBlocks.map(({ css, renderCss, moduleId, source, declarationOffsets }) => ({
