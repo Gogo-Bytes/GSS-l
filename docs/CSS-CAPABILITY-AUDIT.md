@@ -39,6 +39,7 @@
 本轮结果：
 
 - Registry：`mask` 补齐已登记 mask-border 的六个 reset-only effects；`corner-shape` 改为四个 physical corner longhands 的 shorthand，partial winner 与 importance 保留。MDN 的 [mask reset-only 列表](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/mask)／[corner-shape 构成](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/corner-shape) 为独立依据。
+- `font` 和 `font-variant` 包含 `font-variant-emoji` 的重置；`animation-composition` 独立于 `animation`。两种书写顺序及 importance 由原有覆盖模型处理。Chromium、Firefox 和 WebKit 中 `animation: 1s linear none` 都保留先写的 `animation-composition: add`；本机 WebKit 未返回 `font-variant-emoji` 的计算值，字体重置由 Chromium、Firefox 验证。[CSS Fonts](https://drafts.csswg.org/css-fonts-4/#font-variant-prop)、[CSS Animations](https://drafts.csswg.org/css-animations-2/#animation-shorthand)
 - 排除误报：CSSWG [view-timeline](https://drafts.csswg.org/scroll-animations-1/#view-timeline-shorthand) 明确包括 inset；[compositing](https://drafts.csswg.org/compositing-1/#background-blend-mode) 明确 background reset blend-mode，原 registry 不修改。
 - Marker／文本：所有 state suffix 共用 snapshot AST rewrite，修复 nth global compound、runtime-source 漏改、嵌套 global 遗留；移除 serialized CSS 空白正则和 JSON attribute 编码。只清理 AST formatting 字段，保留 quoted whitespace、CSS escape 与 escaped terminal identifier space。
 - 复杂 `has`：已准入 residual 不再猜测 scalar specificity；每个观察分支保留完整原生 `:has(list)` 与零强度 witness，marker／source provenance 分离。修复 `div .local,.owned` 在 weaker-only 匹配时丢失 native type specificity，以及 planner 误报 GSS1205；简单已有 has 路径／准入 grammar 不变，不引入通用 specificity engine 或 DOM 推理。

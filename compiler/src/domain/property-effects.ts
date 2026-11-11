@@ -143,6 +143,7 @@ const families: readonly PropertyFamily[] = [
     'font-variant-east-asian',
     'font-variant-alternates',
     'font-variant-position',
+    'font-variant-emoji',
     'font-weight',
     'font-stretch',
     'font-size',
@@ -167,7 +168,8 @@ const families: readonly PropertyFamily[] = [
     'font-variant-numeric',
     'font-variant-east-asian',
     'font-variant-alternates',
-    'font-variant-position'
+    'font-variant-position',
+    'font-variant-emoji'
   ]],
   ['transition', [
     'transition-property',
@@ -190,7 +192,6 @@ const families: readonly PropertyFamily[] = [
     'animation-direction',
     'animation-fill-mode',
     'animation-play-state',
-    'animation-composition',
     'animation-timeline',
     'animation-range-start',
     'animation-range-end'
@@ -275,7 +276,7 @@ export const PROPERTY_EFFECT_INDEPENDENT_PROPERTIES = [
   'overscroll-behavior-inline',
   'overscroll-behavior-block',
   'font-palette',
-  'font-variant-emoji',
+  'animation-composition',
   'text-indent',
   'word-spacing',
   'hyphens',

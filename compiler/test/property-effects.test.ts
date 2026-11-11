@@ -74,16 +74,16 @@ const registeredShorthandEffects = {
   'list-style': ['list-style-position', 'list-style-image', 'list-style-type'],
   outline: ['outline-width', 'outline-style', 'outline-color'],
   'text-decoration': ['text-decoration-line', 'text-decoration-style', 'text-decoration-color', 'text-decoration-thickness'],
-  font: ['font-style', 'font-variant-caps', 'font-variant-ligatures', 'font-variant-numeric', 'font-variant-east-asian', 'font-variant-alternates', 'font-variant-position', 'font-weight', 'font-stretch', 'font-size', 'line-height', 'font-family', 'font-size-adjust', 'font-language-override', 'font-optical-sizing', 'font-kerning', 'font-feature-settings', 'font-variation-settings'],
+  font: ['font-style', 'font-variant-caps', 'font-variant-ligatures', 'font-variant-numeric', 'font-variant-east-asian', 'font-variant-alternates', 'font-variant-position', 'font-variant-emoji', 'font-weight', 'font-stretch', 'font-size', 'line-height', 'font-family', 'font-size-adjust', 'font-language-override', 'font-optical-sizing', 'font-kerning', 'font-feature-settings', 'font-variation-settings'],
   'scroll-timeline': ['scroll-timeline-name', 'scroll-timeline-axis'],
   'view-timeline': ['view-timeline-name', 'view-timeline-axis', 'view-timeline-inset'],
   'position-try': ['position-try-order', 'position-try-fallbacks'],
   'text-box': ['text-box-trim', 'text-box-edge'],
   'text-wrap': ['text-wrap-mode', 'text-wrap-style'],
   'font-synthesis': ['font-synthesis-weight', 'font-synthesis-style', 'font-synthesis-small-caps', 'font-synthesis-position'],
-  'font-variant': ['font-variant-ligatures', 'font-variant-caps', 'font-variant-numeric', 'font-variant-east-asian', 'font-variant-alternates', 'font-variant-position'],
+  'font-variant': ['font-variant-ligatures', 'font-variant-caps', 'font-variant-numeric', 'font-variant-east-asian', 'font-variant-alternates', 'font-variant-position', 'font-variant-emoji'],
   transition: ['transition-property', 'transition-duration', 'transition-timing-function', 'transition-delay', 'transition-behavior'],
-  animation: ['animation-name', 'animation-duration', 'animation-timing-function', 'animation-delay', 'animation-iteration-count', 'animation-direction', 'animation-fill-mode', 'animation-play-state', 'animation-composition', 'animation-timeline', 'animation-range-start', 'animation-range-end'],
+  animation: ['animation-name', 'animation-duration', 'animation-timing-function', 'animation-delay', 'animation-iteration-count', 'animation-direction', 'animation-fill-mode', 'animation-play-state', 'animation-timeline', 'animation-range-start', 'animation-range-end'],
   mask: ['mask-image', 'mask-mode', 'mask-position', 'mask-size', 'mask-repeat', 'mask-origin', 'mask-clip', 'mask-composite',
     'mask-border-source', 'mask-border-slice', 'mask-border-width', 'mask-border-outset', 'mask-border-repeat', 'mask-border-mode'],
   'mask-border': ['mask-border-source', 'mask-border-slice', 'mask-border-width', 'mask-border-outset', 'mask-border-repeat', 'mask-border-mode']
@@ -173,7 +173,8 @@ describe('PropertyEffectRegistry', () => {
       'font-variant-numeric',
       'font-variant-east-asian',
       'font-variant-alternates',
-      'font-variant-position'
+      'font-variant-position',
+      'font-variant-emoji'
     ]));
   });
 
