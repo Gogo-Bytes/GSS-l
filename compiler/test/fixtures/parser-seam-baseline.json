@@ -25,7 +25,7 @@
             }
           }
         },
-        "moduleCode": "const card = { self: \"gss-a--layer_unlayered--condition_base--state_self--property_color--value_red--importance_normal\", \"icon\": { self: \"gss-a--layer_unlayered--condition_base--state_self--property_width--value_1px--importance_normal\" } };\nconst other = { self: \"gss-a--layer_unlayered--condition_base--state_self--property_color--value_red--importance_normal\" };\nexport default { card, other };\n",
+        "moduleCode": "const card = { $class: \"gss-a--layer_unlayered--condition_base--state_self--property_color--value_red--importance_normal\", \"icon\": { $class: \"gss-a--layer_unlayered--condition_base--state_self--property_width--value_1px--importance_normal\" } };\nconst other = { $class: \"gss-a--layer_unlayered--condition_base--state_self--property_color--value_red--importance_normal\" };\nexport default { card, other };\n",
         "declarationCode": "import type { GssScope } from '@gss-l/types';\ndeclare const styles: {\n  readonly \"card\": GssScope<{ readonly \"icon\": GssScope<{}>; }>;\n  readonly \"other\": GssScope<{}>;\n};\nexport default styles;\n",
         "dependencies": [],
         "compilationMode": "atomic",
@@ -100,7 +100,7 @@
             }
           }
         },
-        "moduleCode": "const card = { self: \"gss-a--layer_unlayered--condition_base--state_self--property_animation--value_gss_2d_k_2d__2d_module_5f_card_5f_2e_5f_gss_2d__2d_name_5f_pulse_20_1s--importance_normal\" };\nexport default { card };\n",
+        "moduleCode": "const card = { $class: \"gss-a--layer_unlayered--condition_base--state_self--property_animation--value_gss_2d_k_2d__2d_module_5f_card_5f_2e_5f_gss_2d__2d_name_5f_pulse_20_1s--importance_normal\" };\nexport default { card };\n",
         "declarationCode": "import type { GssScope } from '@gss-l/types';\ndeclare const styles: {\n  readonly \"card\": GssScope<{}>;\n};\nexport default styles;\n",
         "dependencies": [],
         "compilationMode": "atomic",
@@ -172,7 +172,7 @@
             }
           }
         },
-        "moduleCode": "const card = { self: \"gss-s--module_card_2e_gss--path_card\" };\nexport default { card };\n",
+        "moduleCode": "const card = { $class: \"gss-s--module_card_2e_gss--path_card\" };\nexport default { card };\n",
         "declarationCode": "import type { GssScope } from '@gss-l/types';\ndeclare const styles: {\n  readonly \"card\": GssScope<{}>;\n};\nexport default styles;\n",
         "dependencies": [
           "demo.woff2"

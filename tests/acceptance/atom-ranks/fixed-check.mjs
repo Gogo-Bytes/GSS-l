@@ -23,8 +23,8 @@ async function compile(fixture) {
   const classes = (path) => {
     let value = exports, node = {targets:schema.exports};
     for (const part of path.split('.')) { value = value?.[part]; node = node?.targets[part]; }
-    assert.equal(value?.self,node?.selfClassName);
-    return value?.self ?? '';
+    assert.equal(value?.$class,node?.selfClassName);
+    return value?.$class ?? '';
   };
   const snapshot = session.finalize();
   if (fixture.sharedScopes) assert.equal(classes(fixture.sharedScopes[0]), classes(fixture.sharedScopes[1]));

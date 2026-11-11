@@ -40,7 +40,7 @@ describe('GssCompilerSession', () => {
             }
           }
         },
-        moduleCode: `const button = { self: "${colorRedClass}" };\nexport default { button };\n`
+        moduleCode: `const button = { $class: "${colorRedClass}" };\nexport default { button };\n`
       }
     });
 
@@ -73,7 +73,7 @@ describe('GssCompilerSession', () => {
     });
 
     expect(replacement.module?.moduleCode).toMatch(
-      /^const __gss_scope_0 = \{ self: "[^"]+" \};\nexport default \{ "button-primary": __gss_scope_0 \};\n$/
+      /^const __gss_scope_0 = \{ \$class: "[^"]+" \};\nexport default \{ "button-primary": __gss_scope_0 \};\n$/
     );
   });
 
@@ -86,9 +86,9 @@ describe('GssCompilerSession', () => {
 
     expect(result.committed).toBe(true);
     const code = result.module!.moduleCode;
-    const styles = new Function(`${code.replace('export default', 'return')}`)() as Record<string, { self: string }>;
+    const styles = new Function(`${code.replace('export default', 'return')}`)() as Record<string, { $class: string }>;
     expect(Object.keys(styles).sort()).toEqual(['__gss_scope_2', 'default', 'z-bad']);
-    expect(new Set(Object.values(styles).map(({ self }) => self)).size).toBe(3);
+    expect(new Set(Object.values(styles).map(({ $class }) => $class)).size).toBe(3);
   });
 
   it('preserves prototype-named root and nested scopes as own exported properties', () => {
@@ -106,14 +106,33 @@ describe('GssCompilerSession', () => {
 
     const code = result.module!.moduleCode;
     const styles = new Function(code.replace('export default', 'return'))() as Record<string, {
-      self: string; __proto__: { self: string };
+      $class: string; __proto__: { $class: string };
     }>;
     expect(Object.hasOwn(styles, '__proto__')).toBe(true);
     expect(Object.hasOwn(styles, 'constructor')).toBe(true);
     expect(Object.hasOwn(styles.card!, '__proto__')).toBe(true);
-    expect(styles.__proto__!.self).toBe(schema.__proto__!.selfClassName);
-    expect(styles.card!.__proto__!.self).toBe(schema.card!.targets.__proto__!.selfClassName);
+    expect(styles.__proto__!.$class).toBe(schema.__proto__!.selfClassName);
+    expect(styles.card!.__proto__!.$class).toBe(schema.card!.targets.__proto__!.selfClassName);
     expect(compiler.finalize().css).toContain('color: green;');
+  });
+
+  it.each([
+    '.card .\\$class { color: green; }',
+    '.card .\\24 class .title { future-paint: green; }'
+  ])('rejects a decoded reserved child before committing atomic or preserved output: %s', rule => {
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    const id = '/project/Card.gss';
+    const source = '.card { color: red; }\n';
+    const previous = session.replaceStylesheet({ id, source });
+    expect(previous.committed).toBe(true);
+    const snapshot = session.finalize();
+    const result = session.replaceStylesheet({ id, source: source + rule });
+    expect(result).toMatchObject({
+      committed: false, generation: previous.generation,
+      diagnostics: [{ code: 'GSS1105', reason: 'reserved-scope-target',
+        range: { start: source.length, end: source.length + rule.length } }]
+    });
+    expect(session.finalize()).toEqual(snapshot);
   });
 
   it('emits declarations using the public branded scope object type', () => {
@@ -2524,7 +2543,7 @@ describe('GssCompilerSession', () => {
       }
     });
     expect(replacement.module?.moduleCode).toBe(
-      `const father = { self: "${displayBlockClass}", "son": { self: "${colorRedClass}" } };\n` +
+      `const father = { $class: "${displayBlockClass}", "son": { $class: "${colorRedClass}" } };\n` +
       'export default { father };\n'
     );
   });

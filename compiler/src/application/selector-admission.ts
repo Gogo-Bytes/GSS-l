@@ -1,3 +1,4 @@
+import { scopeClassField } from './scope-exports.js';
 import selectorParser from 'postcss-selector-parser';
 import type { ParsedStyleRule } from '../domain/parsed-stylesheet.js';
 import type { GssDiagnostic } from '../public-types.js';
@@ -9,6 +10,18 @@ import { isAncestorStateRule, isAncestorAttributeRule, isObservedRule, isStructu
 export function prepareSelectorContexts(id: string, semanticRules: readonly ParsedStyleRule[]):
   { context: { externalRules: ParsedStyleRule[]; sameNodeRules: ParsedStyleRule[]; localRules: ParsedStyleRule[]; hasExplicitGlobal: boolean } } |
   { diagnostics: readonly GssDiagnostic[] } {
+  const collision = semanticRules.find(rule =>
+    rule.nodes.some((node, index) => index > 0 && node.name === scopeClassField)
+  );
+  if (collision) {
+    const { start, end } = collision.source;
+    return { diagnostics: [{
+      code: 'GSS1105', severity: 'error', phase: 'validate', id, range: { start, end },
+      reason: 'reserved-scope-target',
+      message: `Nested scope name ${scopeClassField} is reserved for the generated class string.`,
+      suggestion: 'Rename this child scope.'
+    }] };
+  }
   const externalRules = semanticRules.filter((rule) => rule.externalTarget !== undefined);
   const sameNodeRules = semanticRules.filter((rule) => rule.externalCondition !== undefined);
   const hasExplicitGlobal = semanticRules.some((rule) => {

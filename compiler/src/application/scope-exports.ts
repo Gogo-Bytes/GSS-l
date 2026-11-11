@@ -2,6 +2,8 @@ import type { ScopeNodeSchema } from '../public-types.js';
 
 // Marker and atom membership is decided by contribution planning. This module
 // only collects that membership and renders the existing public scope shape.
+export const scopeClassField = '$class';
+
 export type MutableScopeNode = {
   classNames: Set<string>;
   targets: Map<string, MutableScopeNode>;
@@ -62,7 +64,7 @@ export function renderModuleCode(exports: Readonly<Record<string, ScopeNodeSchem
 }
 
 function renderScopeObject(scope: ScopeNodeSchema): string {
-  const fields = [`self: ${JSON.stringify(scope.selfClassName)}`];
+  const fields = [`${scopeClassField}: ${JSON.stringify(scope.selfClassName)}`];
   for (const name of Object.keys(scope.targets).sort()) {
     // A quoted __proto__ key in an object literal changes its prototype instead
     // of defining the authored target. A computed key always creates an own field.

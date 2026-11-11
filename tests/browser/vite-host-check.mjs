@@ -41,9 +41,9 @@ export async function checkViteHostCompatibility(browser) {
       <script type="module" src="/main.ts"></script></body></html>`);
     await writeFile(join(root, 'main.ts'), `import styles from './Card.gss';
       import fallback from './Fallback.gss'; import motion from './Motion.gss';
-      document.getElementById('gss')!.className = styles.card.self;
-      document.getElementById('fallback')!.className = fallback.fallback.self;
-      document.getElementById('motion')!.className = motion.motion.self;`);
+      document.getElementById('gss')!.className = styles.card;
+      document.getElementById('fallback')!.className = fallback.fallback;
+      document.getElementById('motion')!.className = motion.motion;`);
     await writeFile(join(root, 'Fallback.gss'),
       '.fallback { display: flex; flex-direction: column; background-image: url("./icon.svg"); }');
     await writeFile(join(root, 'Motion.gss'), `
@@ -222,10 +222,10 @@ export async function checkViteSsgHydration(browser) {
     await writeFile(join(root, 'App.tsx'), `import React, { useEffect } from 'react'; import styles from './Card.gss';
       export function App() {
         useEffect(() => {
-          (window as any).__GSS_CLIENT_CLASS__ = styles.card.self;
+          (window as any).__GSS_CLIENT_CLASS__ = styles.card;
           (window as any).__GSS_HYDRATED__ = true;
         }, []);
-        return <div className={styles.card.self + ' external'}>Hello</div>;
+        return <div className={[styles.card, 'external'].join(' ')}>Hello</div>;
       }`);
     await writeFile(join(root, 'entry-server.tsx'), `export { App } from './App';`);
     await writeFile(join(root, 'main.tsx'), `import React from 'react'; import { hydrateRoot } from 'react-dom/client';

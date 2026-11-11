@@ -250,7 +250,7 @@ try {
     const styles = (await import(url)).default;
     URL.revokeObjectURL(url);
     const node = document.createElement('div');
-    node.className = styles.extra.self;
+    node.className = styles.extra.$class;
     document.body.append(node);
     const result = { className: node.className, color: getComputedStyle(node).color };
     node.remove();

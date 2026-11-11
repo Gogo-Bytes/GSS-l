@@ -305,7 +305,7 @@ it('keeps HMR source responses transformed and their virtual dependency URLs cac
     name: 'default-pre-transform', config: () => ({ server: { preTransformRequests: true } })
   }], true, true);
   await writeFile(join(root, 'entry.ts'),
-    `import styles from './Card.gss'; document.body.className = styles.card.self; if (import.meta.hot) import.meta.hot.accept();`);
+    `import styles from './Card.gss'; document.body.className = styles.card; if (import.meta.hot) import.meta.hot.accept();`);
   const origin = server.resolvedUrls!.local[0]!;
   const initial = await (await fetch(new URL('entry.ts', origin))).text();
   expect(initial).toContain('__vite__createHotContext');
@@ -337,7 +337,7 @@ it('never injects the dev stylesheet URL into production HTML', async () => {
   await writeFile(join(root, 'index.html'),
     '<!doctype html><html><head></head><body><script type="module" src="/entry.ts"></script></body></html>');
   await writeFile(join(root, 'entry.ts'),
-    `import styles from './Card.gss'; document.body.className = styles.card.self;`);
+    `import styles from './Card.gss'; document.body.className = styles.card;`);
   const result = await build({
     root, configFile: false, plugins: [gss({ adapter: react() })],
     logLevel: 'silent', build: { write: false }

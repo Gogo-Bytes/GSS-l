@@ -170,7 +170,7 @@ it('never emits a superseded asynchronous failure or its old frame', async () =>
 
 it('recovers an unchanged scope through CSS only without reloading its JS importer', async () => {
   const { root, id, server } = await fixture('.card { color:blue; }');
-  await writeFile(`${root}/main.ts`, `import styles from './Card.gss'; document.body.className = styles.card.self;`);
+  await writeFile(`${root}/main.ts`, `import styles from './Card.gss'; document.body.className = styles.card;`);
   const entry = (await server.transformRequest('/main.ts'))!.code;
   const dependency = entry.match(/from ["']([^"']*\/@id\/[^"']+)["']/)![1]!;
   await server.transformRequest(dependency.replace('/@id/__x00__', '\0').replace('?import', ''));
@@ -189,7 +189,7 @@ it('recovers an unchanged scope through CSS only without reloading its JS import
 it.each(['.card { color:green; }', '.panel { color:blue; }', null])(
   'still propagates changed scope or deletion to a JS importer (%j)', async (next) => {
     const { root, id, server } = await fixture('.card { color:blue; }');
-    await writeFile(`${root}/main.ts`, `import styles from './Card.gss'; document.body.className = styles.card.self;`);
+    await writeFile(`${root}/main.ts`, `import styles from './Card.gss'; document.body.className = styles.card;`);
     await server.transformRequest('/main.ts');
     const send = vi.spyOn(server.environments.client.hot, 'send');
     if (next === null) await rm(id);
@@ -249,13 +249,13 @@ it('surfaces same-element module mixing as a located warning in dev/build and re
   const source = `import styles from './Card.gss';
 import other from './Other.gss';
 const React = { createElement: (_tag, props) => props };
-export const classes = [styles.card.self, other.other.self];
-export const Card = () => <div className={styles.card.self + ' ' + other.other.self} />;`;
+export const classes = [styles.card, other.other];
+export const Card = () => <div className={[styles.card, other.other].join(' ')} />;`;
   await writeFile(`${root}/Card.tsx`, source);
   const warn = vi.spyOn(server.config.logger, 'warn');
   const send = vi.spyOn(server.environments.client.hot, 'send');
   const transformed = await server.transformRequest('/Card.tsx');
-  expect(transformed!.code).toContain('styles.card.self + " " + other.other.self');
+  expect(transformed!.code).toContain('[styles.card.$class, other.other.$class].join(" ")');
   expect(warn.mock.calls.some(([message]) => message.includes('[GSS2107]'))).toBe(true);
   expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'error' }));
   const runtime = await server.ssrLoadModule('/Card.tsx');
@@ -272,7 +272,7 @@ export const Card = () => <div className={styles.card.self + ' ' + other.other.s
   expect(mixing[0]).toMatchObject({
     id: `${root}/Card.tsx`, pluginCode: 'GSS2107', severity: 'warning',
     loc: { file: `${root}/Card.tsx`, line: 5, column: 31 },
-    frame: expect.stringContaining("className={styles.card.self + ' ' + other.other.self}")
+    frame: expect.stringContaining("className={[styles.card, other.other].join(' ')}")
   });
   if (Array.isArray(output) || !('output' in output)) throw new Error('Expected one build output.');
   const chunk = output.output.find((item) => item.type === 'chunk')!;

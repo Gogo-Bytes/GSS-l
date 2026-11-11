@@ -10,6 +10,8 @@
 
 ## 最新维护核查
 
+嵌套 `self` 与父节点字符串的导出冲突已修复。React 业务源码直接使用静态路径；升级和保留名称规则见[React 引用契约](ARCHITECTURE-DIRECTION.md#react-引用与-typescript-契约)，验收与提交记录见 [#53](https://github.com/Gogo-Bytes/GSS-l/issues/53)。
+
 Owner 已授权 [#33](https://github.com/Gogo-Bytes/GSS-l/issues/33) 的 Vite 模板有界验证：新增／移除未引用 scope、失败与同输入恢复，检查导出、最终样式、document 和组件状态。范围与证据见 [模板验收](VITE-TEMPLATE-ACCEPTANCE.md#scope-形状更新owner-授权)；不推及嵌套形状或其他宿主。
 
 Owner 已批准并实现 [#32](https://github.com/Gogo-Bytes/GSS-l/issues/32) 的 webpack、Rspack／Rsbuild 有界切片：JSX 导入 `.gss` 编译失败且有可靠范围时，终端展示匹配失败快照的文件、行列和首行代码框；不承诺 overlay。契约及验证载体见 [webpack](../integrations/webpack/README.md#调用边界) 与 [Rspack／Rsbuild](../integrations/rspack/README.md#loader-与发布编排) 接线说明。

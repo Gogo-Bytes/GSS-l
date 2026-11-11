@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import styles from './Live.gss';
 
-// Keep this in JSX: stock React TSX types do not accept scope objects.
 export function ImplicitDemo() {
   const [alternate, setAlternate] = useState(false);
   const branch = alternate ? styles.alternate : styles.card;

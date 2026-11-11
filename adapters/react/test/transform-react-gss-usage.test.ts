@@ -35,12 +35,12 @@ styles.card.hasOwnProperty("self");`;
     const declared = transform({ moduleId: 'Card.gss', exports: {
       constructor: special, card: { selfClassName: 'card', targets: { constructor: special } }
     } });
-    expect(declared.code).toContain('styles.constructor.child.self;');
-    expect(declared.code).toContain('styles.card.constructor.child.self;');
+    expect(declared.code).toContain('styles.constructor.child.$class;');
+    expect(declared.code).toContain('styles.card.constructor.child.$class;');
     expect(declared.diagnostics).toEqual([]);
   });
 
-  it('retains the alias diagnostic when a child also occupies the self field', () => {
+  it('lowers an alias for an authored self child', () => {
     const result = transformReactGssUsage({
       id: '/project/App.tsx',
       source: `import styles from './Card.gss'; const cls = styles.card.self;
@@ -49,13 +49,27 @@ export const App = () => <div className={cls}/>;`,
         card: { selfClassName: 'parent', targets: { self: { selfClassName: 'child', targets: {} } } }
       } })
     });
-    expect(result.diagnostics.map(d => d.code)).toEqual(['GSS2104']);
+    expect(result.diagnostics).toEqual([]);
+    expect(result.code).toContain('const cls = styles.card.self.$class');
+  });
+
+  it('reads both an immutable alias and its self child without author suffixes', () => {
+    const result = transformReactGssUsage({
+      id: '/project/Card.tsx',
+      source: `import styles from './Card.gss';
+const card = styles.card;
+const view = <div className={card}><span className={card.self} /></div>;`,
+      resolveScopeSchema: () => ({ exports: { card: { targets: { self: { targets: {} } } } } })
+    });
+    expect(result.diagnostics).toEqual([]);
+    expect(result.code).toContain('const card = styles.card;');
+    expect(result.code).toContain('<div className={card.$class}><span className={styles.card.self.$class} /></div>');
   });
 
   it.each([
-    'styles.card.self',
-    'active ? styles.card.self : styles.panel.self',
-    'active ? styles.card.self : "plain"'
+    'styles.card.$class',
+    'active ? styles.card.$class : styles.panel.$class',
+    'active ? styles.card.$class : "plain"'
   ])('keeps an explicit class string alias as a string: %s', (initializer) => {
     const source = `import styles from './Card.gss';
 const cls = ${initializer};
@@ -67,7 +81,7 @@ export const App = () => <div className={cls}/>;`;
     expect(result.code).toBe(source);
   });
 
-  it('lowers a direct GSS scope reference in JSX className to self', () => {
+  it('lowers a direct GSS scope reference in JSX className to its class string', () => {
     const result = transformReactGssUsage({
       id: '/project/src/Card.tsx',
       source: `import styles from './Card.gss';\nexport const Card = () => <div className={styles.card} />;`,
@@ -79,7 +93,7 @@ export const App = () => <div className={cls}/>;`;
     expect(result.diagnostics).toEqual([]);
     expect(result.code).toBe(
       `import styles from './Card.gss';\n` +
-      `export const Card = () => <div className={styles.card.self} />;`
+      `export const Card = () => <div className={styles.card.$class} />;`
     );
     expect(result.map).toBeDefined();
   });
@@ -104,7 +118,7 @@ export const Parent = () => <Card className={styles.card} />;`,
     });
 
     expect(parent.diagnostics).toEqual([]);
-    expect(parent.code).toContain('<Card className={styles.card.self} />');
+    expect(parent.code).toContain('<Card className={styles.card.$class} />');
     expect(child.diagnostics).toEqual([]);
     expect(child.code).toBe(childSource);
   });
@@ -121,8 +135,8 @@ useClassName(styles.card.icon);`;
 
     expect(result.diagnostics).toEqual([]);
     expect(result.code).toBe(`import styles from './Card.gss';
-window.document.title = styles.card.self;
-useClassName(styles.card.icon.self);`);
+window.document.title = styles.card.$class;
+useClassName(styles.card.icon.$class);`);
   });
 
   it('lowers a nested static target path', () => {
@@ -132,7 +146,7 @@ useClassName(styles.card.icon.self);`);
       resolveScopeSchema() { return cardScope; }
     });
 
-    expect(result.code).toContain('className={styles.card.icon.self}');
+    expect(result.code).toContain('className={styles.card.icon.$class}');
     expect(result.diagnostics).toEqual([]);
   });
 
@@ -146,7 +160,7 @@ useClassName(styles.card.icon.self);`);
     });
 
     expect(result.code).toContain(
-      'className={cx(styles.card.self, active && styles.card.icon.self, external)}'
+      'className={cx(styles.card.$class, active && styles.card.icon.$class, external)}'
     );
     expect(result.diagnostics).toEqual([]);
   });
@@ -160,7 +174,7 @@ useClassName(styles.card.icon.self);`);
       resolveScopeSchema() { return cardScope; }
     });
 
-    expect(result.code).toContain('className={active ? styles.card.self : fallback}');
+    expect(result.code).toContain('className={active ? styles.card.$class : fallback}');
     expect(result.diagnostics).toEqual([]);
   });
 
@@ -174,7 +188,7 @@ useClassName(styles.card.icon.self);`);
     });
 
     expect(result.code).toContain('className={card}');
-    expect(result.code).toContain('const card = styles.card.self;');
+    expect(result.code).toContain('const card = styles.card.$class;');
     expect(result.diagnostics).toEqual([]);
   });
 
@@ -188,7 +202,7 @@ useClassName(styles.card.icon.self);`);
       resolveScopeSchema() { return cardScope; }
     });
 
-    expect(result.code).toContain('const branch = active ? styles.card.self : styles.panel.self;');
+    expect(result.code).toContain('const branch = active ? styles.card.$class : styles.panel.$class;');
     expect(result.code).toContain('className={branch}');
     expect(result.diagnostics).toEqual([]);
   });
@@ -204,7 +218,7 @@ const view = <span className={branch.title} />;`;
     });
 
     expect(result.diagnostics).toEqual([]);
-    expect(result.code).toContain('className={active ? styles.card.title.self : styles.panel.title.self}');
+    expect(result.code).toContain('className={active ? styles.card.title.$class : styles.panel.title.$class}');
   });
 
   it('lowers a renamed property-destructured scope alias', () => {
@@ -216,7 +230,7 @@ const view = <span className={branch.title} />;`;
       resolveScopeSchema() { return cardScope; }
     });
 
-    expect(result.code).toContain('className={glyph.self}');
+    expect(result.code).toContain('className={glyph.$class}');
     expect(result.diagnostics).toEqual([]);
   });
 
@@ -231,7 +245,7 @@ const view = <span className={branch.title} />;`;
       resolveScopeSchema() { return cardScope; }
     });
 
-    expect(result.code).toContain('const branch = active ? styles.card.self : fallback;');
+    expect(result.code).toContain('const branch = active ? styles.card.$class : fallback;');
     expect(result.diagnostics).toMatchObject([{
       code: 'GSS2104',
       phase: 'transform',
@@ -249,7 +263,7 @@ const view = <span className={branch.title} />;`;
       resolveScopeSchema() { return cardScope; }
     });
 
-    expect(result.code).toContain('let card = styles.card.self;');
+    expect(result.code).toContain('let card = styles.card.$class;');
     expect(result.diagnostics).toMatchObject([{
       code: 'GSS2103',
       phase: 'transform',
@@ -267,7 +281,7 @@ const view = <span className={branch.title} />;`;
       resolveScopeSchema() { return cardScope; }
     });
 
-    expect(result.code).toContain('className={cx(scope.self, className)}');
+    expect(result.code).toContain('className={cx(scope.$class, className)}');
     expect(result.diagnostics).toEqual([]);
   });
 
@@ -281,7 +295,7 @@ const view = <span className={branch.title} />;`;
       resolveScopeSchema() { return cardScope; }
     });
 
-    expect(result.code).toContain('className={scope.self}');
+    expect(result.code).toContain('className={scope.$class}');
     expect(result.diagnostics).toEqual([]);
   });
 
@@ -306,7 +320,7 @@ const view = <span className={branch.title} />;`;
 
     expect(parent.code).toBe(parentSource);
     expect(parent.diagnostics).toEqual([]);
-    expect(child.code).toContain('className={scope.self}');
+    expect(child.code).toContain('className={scope.$class}');
     expect(child.diagnostics).toEqual([]);
   });
 
@@ -320,7 +334,7 @@ const view = <span className={branch.title} />;`;
       resolveScopeSchema() { return cardScope; }
     });
 
-    expect(result.code).toContain('className={props.scope.self}');
+    expect(result.code).toContain('className={props.scope.$class}');
     expect(result.code).toContain('{props.title}');
     expect(result.diagnostics).toEqual([]);
   });
@@ -360,7 +374,7 @@ const view = <span className={branch.title} />;`;
       resolveScopeSchema() { return cardScope; }
     });
 
-    expect(result.code).toContain('`prefix ${styles.card.self}`');
+    expect(result.code).toContain('`prefix ${styles.card.$class}`');
     expect(result.diagnostics).toEqual([]);
   });
 
@@ -373,7 +387,7 @@ export const Card = ({ active, fallback }) => { const branch = active ? styles.c
       resolveScopeSchema() { return cardScope; }
     });
 
-    expect(result.code).toContain('const branch = active ? styles.card.self : fallback;');
+    expect(result.code).toContain('const branch = active ? styles.card.$class : fallback;');
     expect(result.diagnostics).toMatchObject([{
       code: 'GSS2104',
       phase: 'transform',
@@ -396,9 +410,9 @@ export const Card = ({ active, fallback }) => { const branch = active ? styles.c
     }]);
   });
 
-  it('allows explicit self in a non-className string context', () => {
+  it('allows generated class field in a non-className string context', () => {
     const source = `import styles from './Card.gss';\n` +
-      `export const className = \`prefix \${styles.card.self}\`;`;
+      `export const className = \`prefix \${styles.card.$class}\`;`;
     const result = transformReactGssUsage({
       id: '/project/src/Card.tsx',
       source,
@@ -409,8 +423,8 @@ export const Card = ({ active, fallback }) => { const branch = active ? styles.c
     expect(result.diagnostics).toEqual([]);
   });
 
-  it('keeps an explicit self reference unchanged', () => {
-    const source = `import styles from './Card.gss';\nexport const Card = () => <div className={styles.card.self} />;`;
+  it('keeps an generated class field reference unchanged', () => {
+    const source = `import styles from './Card.gss';\nexport const Card = () => <div className={styles.card.$class} />;`;
     const result = transformReactGssUsage({
       id: '/project/src/Card.tsx',
       source,

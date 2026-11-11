@@ -8,8 +8,6 @@ declare const GSS_SCOPE: unique symbol;
  * responsible for validating actual paths against ScopeSchema.
  */
 export type GssScope<TTargets extends object = Record<never, never>> = string & {
-  /** Backward-compatible explicit terminal access. */
-  readonly self: string;
   readonly [GSS_SCOPE]: true;
 } & TTargets;
 

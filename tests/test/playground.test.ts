@@ -43,13 +43,13 @@ describe('MVP playground catalog', () => {
       const { default: adapter } = await server.ssrLoadModule('virtual:playground-adapter');
       expect(adapter).toHaveLength(15);
       expect(adapter.every((entry: { id: string }) => typeof adapterTitles[entry.id] === 'string')).toBe(true);
-      expect(adapter.find((entry: { id: string }) => entry.id === 'direct').code).toContain('styles.card.title.self');
+      expect(adapter.find((entry: { id: string }) => entry.id === 'direct').code).toContain('styles.card.title.$class');
       expect(adapter.find((entry: { id: string }) => entry.id === 'mutable-alias').diagnostics[0].code).toBe('GSS2103');
       const mixing = adapter.find((entry: { id: string }) => entry.id === 'cross-module-warning');
       expect(mixing.diagnostics).toMatchObject([{ code: 'GSS2107', severity: 'warning' }]);
-      expect(mixing.code).toBe(mixing.source);
-      expect(mixing.code).toContain("styles.card.self + ' ' + other.badge.self");
-      expect(adapter.find((entry: { id: string }) => entry.id === 'alias-member').code).toContain('styles.card.title.self');
+      expect(mixing.source).toContain("[styles.card, other.badge].join(' ')");
+      expect(mixing.code).toContain("[styles.card.$class, other.badge.$class].join(' ')");
+      expect(adapter.find((entry: { id: string }) => entry.id === 'alias-member').code).toContain('styles.card.title.$class');
     } finally { await server.close(); }
   });
 });

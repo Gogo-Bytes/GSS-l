@@ -66,7 +66,7 @@ it('compiles on demand before dependency load and lowers TSX before Vite esbuild
   await writeFile(join(root, 'Card.tsx'),
     `import styles from './Card.gss'; export const Card = () => <div className={styles.card} />;`);
   const result = await server.transformRequest('/Card.tsx');
-  expect(result?.code).toContain('className: styles.card.self');
+  expect(result?.code).toContain('className: styles.card.$class');
   expect(result?.code).not.toContain('<div');
   expect(result?.map).toBeDefined();
 });
@@ -194,13 +194,13 @@ it('compiles root-external imports, aliases and symlinks with one relative logic
     logLevel: 'silent', optimizeDeps: { noDiscovery: true, include: [] }
   });
   servers.push(server);
-  expect((await server.transformRequest('/Card.tsx'))?.code).toContain('styles.card.self');
+  expect((await server.transformRequest('/Card.tsx'))?.code).toContain('styles.card.$class');
   const container = server.environments.client.pluginContainer;
   for (const specifier of ['../shared/Card.gss', '@shared/Card.gss', './Linked.gss']) {
     expect((await container.resolveId(specifier, `${root}/Card.tsx`))?.id).toBe(`\0gss-l:${physicalId}`);
   }
   expect(await container.load(`\0gss-l:${physicalId}`)).toBe(
-    'const card = { self: "gss-s--module__2e__2e__2f_shared_2f_Card_2e_gss--path_card" };\n' +
+    'const card = { $class: "gss-s--module__2e__2e__2f_shared_2f_Card_2e_gss--path_card" };\n' +
     'export default { card };\n'
   );
 });

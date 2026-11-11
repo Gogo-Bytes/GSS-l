@@ -12,7 +12,7 @@ Playground 是交互式能力演示／调试台，也是一个有真实 React/Vi
 
 | 范围 | 案例／断言与本轮结果 |
 | --- | --- |
-| 六组可视化演示 | 状态与别名、hover／键盘 focus／disabled、结构与 observed 关系、外部 class、资源与 lazy、JSX 隐式 self；dev 和 preview 均通过 |
+| 六组可视化演示 | 状态与别名、hover／键盘 focus／disabled、结构与 observed 关系、外部 class、资源与 lazy、JSX 静态路径取值；dev 和 preview 均通过 |
 | 场景生命周期 | 验证切换后旧场景卸载而不是隐藏；reset 恢复指定状态；源码面板默认收起／按需展开 |
 | 资源与生产集成 | 图片 decode 为 72×40；仅一个 GSS stylesheet link；lazy 组件可加载，生产 manifest v2 包含 Lazy.gss |
 | 浏览器 fixture 浏览器 | dev、preview 各全跑 123 个案例／1260 项对比并通过；包含 phase 选择、搜索、无匹配时保留选择 |

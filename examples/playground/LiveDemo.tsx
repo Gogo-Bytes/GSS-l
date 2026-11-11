@@ -35,12 +35,12 @@ const scenes = [
   { id: 'implicit', label: 'JSX 引用', title: '在 JSX 中使用静态 scope 引用',
     description: '切换分支，观察直接引用、局部 alias 和解构引用的效果。',
     expected: '主标题从红色变为绿色；解构引用继续保留自己的红色样式。',
-    concept: '这里是 JSX 的隐式 lowering。TSX 示例显式用 .self；alias 成员读取的已知限制可在 React 转换页查看。', file: 'ImplicitDemo.jsx', source: implicitSource }
+    concept: '这里是 JSX 的隐式 lowering。JSX 和 TSX 都直接使用样式路径。', file: 'ImplicitDemo.jsx', source: implicitSource }
 ] as const;
 type SceneId = typeof scenes[number]['id'];
-type TitleProps = { scope: typeof styles.card };
+type TitleProps = { scope: typeof styles.card.title };
 function Title({ scope }: TitleProps) {
-  return <span data-testid="live-title" className={scope.title.self + ' sample-title'}>一份声明，三种状态。</span>;
+  return <span data-testid="live-title" className={[scope, 'sample-title'].join(' ')}>一份声明，三种状态。</span>;
 }
 
 export function LiveDemo() {
@@ -69,36 +69,36 @@ export function LiveDemo() {
         <button className="text-button" onClick={reset} data-testid="reset-demo">↺ 重置</button></div>
       <div className="scene-layout"><div className="demo-column" key={resetVersion}>
         {scene === 'states' ? <>
-          <div className="preview-canvas"><div className={branch.self + ' sample-card'} data-active={active ? 'yes' : 'no'}>
+          <div className="preview-canvas"><div className={[branch, 'sample-card'].join(' ')} data-active={active ? 'yes' : 'no'}>
             <div className="sample-card-top"><span className="sample-avatar">G</span><span className="sample-kicker">一张由 .gss 驱动的卡片</span></div>
-            <Title scope={branch} /><p className="sample-description">结构不变，让声明和状态决定外观。</p>
+            <Title scope={alternate ? styles.alternate.title : styles.card.title} /><p className="sample-description">结构不变，让声明和状态决定外观。</p>
             <span className="sample-state">{alternate ? '另一组样式' : active ? '已选中' : '基础状态'}</span>
           </div></div>
           <div className="demo-controls"><button className="button primary" disabled={alternate} title={alternate ? '另一组样式没有选中规则，返回基础样式后可用' : undefined} aria-pressed={active} onClick={() => setActive(!active)} data-testid="toggle-active">{active ? '取消选中态' : '切换选中态'}</button>
             <button className="button" aria-pressed={alternate} onClick={() => { setAlternate(!alternate); setActive(false); }} data-testid="toggle-alias">{alternate ? '返回基础样式' : '换一组样式'}</button>{alternate ? <span className="control-hint">这组样式不含选中规则</span> : null}</div>
         </> : null}
         {scene === 'interactions' ? <>
-          <div className="preview-canvas"><div className="interaction-stack"><button data-testid="state-action" className={styles.action.self + ' state-action'} disabled={disabled}>试试悬停或按 Tab 聚焦</button>
-            <input className={styles.field.self + ' demo-input'} placeholder="这段占位文字来自 ::placeholder" aria-label="Placeholder example" />
-            <p className={styles.decoration.self + ' decoration-sample'}>这是正文</p></div></div>
+          <div className="preview-canvas"><div className="interaction-stack"><button data-testid="state-action" className={[styles.action, 'state-action'].join(' ')} disabled={disabled}>试试悬停或按 Tab 聚焦</button>
+            <input className={[styles.field, 'demo-input'].join(' ')} placeholder="这段占位文字来自 ::placeholder" aria-label="Placeholder example" />
+            <p className={[styles.decoration, 'decoration-sample'].join(' ')}>这是正文</p></div></div>
           <div className="demo-controls"><button className="button" data-testid="toggle-disabled" aria-pressed={disabled} onClick={() => setDisabled(!disabled)}>{disabled ? '启用按钮' : '禁用按钮'}</button></div>
         </> : null}
         {scene === 'relations' ? <div className="preview-canvas"><div className="relation-grid">
-          <div className="relation-example"><span className="sample-kicker">直接子元素</span><div className={relations.parent.self}><span className={relations.parent.child.self}>只有 child 命中这个背景</span></div></div>
-          <div className="relation-example"><span className="sample-kicker">相邻兄弟 · +</span><div><input id="relation-check" type="checkbox" className={relations.check.self} /><label htmlFor="relation-check" data-testid="relation-label" className={relations.check.label.self}>勾选后，标签变蓝</label></div></div>
-          <div className="relation-example"><span className="sample-kicker">容器观察 · :has()</span><div className={relations.observer.self} data-testid="observer-node"><label><input type="checkbox" data-testid="observer-check" aria-label="观察容器中的复选框" />勾选后，容器变绿</label></div></div>
-          <div className="relation-example"><span className="sample-kicker">后续兄弟 · ~</span><div><span className={relations.source.self}>来源 → </span><span className={relations.source.target.self}>被匹配的目标</span></div></div>
+          <div className="relation-example"><span className="sample-kicker">直接子元素</span><div className={relations.parent}><span className={relations.parent.child}>只有 child 命中这个背景</span></div></div>
+          <div className="relation-example"><span className="sample-kicker">相邻兄弟 · +</span><div><input id="relation-check" type="checkbox" className={relations.check} /><label htmlFor="relation-check" data-testid="relation-label" className={relations.check.label}>勾选后，标签变蓝</label></div></div>
+          <div className="relation-example"><span className="sample-kicker">容器观察 · :has()</span><div className={relations.observer} data-testid="observer-node"><label><input type="checkbox" data-testid="observer-check" aria-label="观察容器中的复选框" />勾选后，容器变绿</label></div></div>
+          <div className="relation-example"><span className="sample-kicker">后续兄弟 · ~</span><div><span className={relations.source}>来源 → </span><span className={relations.source.target}>被匹配的目标</span></div></div>
         </div></div> : null}
         {scene === 'external' ? <>
-          <div className="preview-canvas"><div data-testid="external-node" className={external.editor.self + ' editor-sample' + (focused ? ' focused' : '')}>
+          <div className="preview-canvas"><div data-testid="external-node" className={[external.editor, focused ? 'editor-sample focused' : 'editor-sample'].join(' ')}>
             <div className="editor-bar"><span aria-hidden="true">● ● ●</span><span>示例编辑器</span></div><div className="editor-content">外部类名可以参与样式，<br />无需接管它的生命周期。</div>
           </div></div>
           <div className="demo-controls"><button className="button primary" data-testid="toggle-external" aria-pressed={focused} onClick={() => setFocused(!focused)}>{focused ? '移除 focused 类名' : '添加 focused 类名'}</button></div>
         </> : null}
         {scene === 'resources' ? <>
-          <div className="preview-canvas resource-canvas"><div className="resource-items"><div><span className="sample-kicker">本地 SVG</span><div data-testid="asset" className={resources.asset.self} aria-label="Local SVG Asset" /></div>
-            <div className={resources.provider.self}><span className="sample-kicker">原生变量继承</span><span className={resources.provider.inherited.self}>我继承了蓝色</span></div>
-            <div><span className="sample-kicker">暂停在起点的动画</span><div className={resources.motion.self + ' motion-block'} /><small>opacity: 0.25</small></div></div>
+          <div className="preview-canvas resource-canvas"><div className="resource-items"><div><span className="sample-kicker">本地 SVG</span><div data-testid="asset" className={resources.asset} aria-label="Local SVG Asset" /></div>
+            <div className={resources.provider}><span className="sample-kicker">原生变量继承</span><span className={resources.provider.inherited}>我继承了蓝色</span></div>
+            <div><span className="sample-kicker">暂停在起点的动画</span><div className={[resources.motion, 'motion-block'].join(' ')} /><small>opacity: 0.25</small></div></div>
             <Suspense fallback={<p className="subtle">正在加载组件…</p>}>{loaded ? <LazyCard /> : <div className="lazy-placeholder">↓ 组件尚未挂载，点击下方按钮加载</div>}</Suspense>
           </div>
           <div className="demo-controls"><button className="button primary" data-testid="load-lazy" onClick={() => setLoaded(true)} disabled={loaded}>{loaded ? '组件已加载' : '加载 React 组件'}</button></div>
@@ -107,6 +107,6 @@ export function LiveDemo() {
       </div><aside className="expectation-panel"><span className="expectation-icon" aria-hidden="true">↳</span><h3>你应该看到</h3><p>{current.expected}</p><details className="concept-details" key={scene}><summary>了解对应的技术能力</summary><p className="subtle">{current.concept}</p></details><span className="scope-label">真实 React / Vite 消费</span></aside></div>
     </div>
     <details className="inspector" data-testid="live-source" key={scene}><summary><span>查看这个场景的源码</span><span className="summary-meta">{current.file}</span></summary><div className="inspector-content"><pre>{current.source}</pre>
-      <p className="subtle">可在本地编辑对应文件。修改样式后保存，检查原生 Vite 更新；制造编译错误时应保留旧样式，修复后恢复。依赖变化可能触发 reload，不承诺 React state 永久保持。TSX 使用显式 .self，不扩大 React 的原生 className 类型。</p></div></details>
+      <p className="subtle">可在本地编辑对应文件。修改样式后保存，检查原生 Vite 更新；制造编译错误时应保留旧样式，修复后恢复。依赖变化可能触发 reload，不承诺 React state 永久保持。</p></div></details>
   </section>;
 }

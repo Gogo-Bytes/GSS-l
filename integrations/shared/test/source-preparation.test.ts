@@ -69,7 +69,7 @@ describe('source preparation', () => {
     expect(resolve).toHaveBeenCalledWith('./Card.gss', '/project/Card.tsx');
     expect(watch).toHaveBeenCalledWith(id);
     expect(output?.dependencies).toEqual([id]);
-    expect(output?.transformed?.code).toContain('className={styles.card.self}');
+    expect(output?.transformed?.code).toContain('className={styles.card.$class}');
     expect(output?.transformed?.map?.sourcesContent).toEqual([source]);
     expect(output?.transformed?.diagnostics).toEqual([]);
   });
@@ -83,8 +83,8 @@ describe('source preparation', () => {
     });
     expect(read).toHaveBeenCalledTimes(1);
     expect(output?.dependencies).toEqual([id]);
-    expect(output?.transformed?.code).toContain('className={a.card.self}');
-    expect(output?.transformed?.code).toContain('className={b.card.self}');
+    expect(output?.transformed?.code).toContain('className={a.card.$class}');
+    expect(output?.transformed?.code).toContain('className={b.card.$class}');
   });
 
   it('registers a failed dependency before preparation and never calls transform with an old schema', async () => {

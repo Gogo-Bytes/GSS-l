@@ -93,11 +93,13 @@ Vite 当前将 transform 的原始 `id` 与源码交给 adapter；对发现的 s
 
 #### React 引用与 TypeScript 契约
 
-Owner 已采用“编译期语法糖 + 轻量 TS 兼容类型”：直接静态路径可省略 `.self`，React Adapter 在运行前将验证过的引用转换为 class 字符串；旧 `.self` 保持兼容。[GssScope](../types/src/index.ts) 使用带 brand 的 `string & children` 来源类型，目标是让普通 `className?: string` 消费不报错，不承诺逐文件精确补全。类型检查通过不等于任意未转换表达式都具备正确运行时语义。
+用户在 React 源码直接写 `styles.card` 或 `styles.card.title`。适配器按 schema 验证静态路径，在支持的字符串消费位置自动读取节点的内部 `$class` 字段。[GssScope](../types/src/index.ts) 用带 brand 的 `string & children` 描述源码引用，允许传给普通 `className?: string`，不承诺逐文件精确补全。
 
 父组件 `<Child className={styles.title} />` 在父文件完成 lowering，子组件接收普通字符串；这不需要跨文件 scope 推导。普通函数、DOM API、模板字符串的直接静态引用以及已支持的不可变条件 alias 有既有回归；可变 alias、未知／动态路径、跨文件传播继续按当前实现边界处理，不能扩大成完整数据流分析或任意 namespace 逃逸支持。不可证明的动态／未知路径保留已确认的普通 JS 行为，不新增拒绝规则。
 
-验证路径时，每一段都必须是当前 schema 节点自身声明的成员。显式声明的 `constructor` 等名字可以使用，原型链上的同名成员不能证明路径成立。当子 scope 没有占用 `self` 键时，已验证路径的显式 `.self` 可直接赋给字符串别名；条件分支都是字符串时也按字符串处理。scope 与字符串混用仍按既有别名诊断处理。
+验证路径时，每一段都必须是当前 schema 自有的成员；显式声明的 `constructor`、`self` 等名字遵循同一规则。组合 class 时可写 `className={[styles.card, 'external'].join(' ')}`。既有的隐式字符串强制转换诊断仍适用。旧的生成对象把父节点字符串和名为 `self` 的子节点写到了同一个键，导致父元素收到对象。现在 `.card .self` 对应源码 `styles.card.self`，父节点仍使用 `styles.card`。已有项目中用于读取当前节点字符串的旧后缀 `.self` 应移除。混合类型的别名仍按既有规则处理，例如可将条件直接写在 JSX 的 `className` 中。
+
+编译器只保留 ownership 路径第二段及以后、CSS 转义解码后精确为 `$class` 的名称。命中时在原规则范围报告 `GSS1105`，本次替换失败；同一规则适用于 atomic 与 preserved 输出。顶层 `.\$class`、其他 `$` 前缀及外部类不占用子节点的内部字段。schema 保留 `selfClassName` 与 `targets` 两个独立成员；生成模块和适配器通过 `.$class` 读取自身字符串，业务源码继续使用静态路径。
 
 未采用双 Symbol 作为公共语义：内部键分离不能让同一个未转换的 `styles.card` 同时成为 primitive string 和任意子树。`Symbol.toPrimitive` 也不会把对象类型变成字符串；`string & children` 不自动解决 `length` 等成员冲突。原调研中的 Proxy、动态 resolver、精确声明交付、freeze 等建议不属于已批准能力。实现边界以 [Adapter](../adapters/react/src/index.ts)、[转换测试](../adapters/react/test/transform-react-gss-usage.test.ts)和 [类型测试](../types/test)为准；宿主使用 [通用 client 入口](../types/client.d.ts)。
 
@@ -227,7 +229,7 @@ webpack 复用的依据与限制见 [Rspack 迁移说明](https://rspack.rs/guid
 
 本轮 owner 授权推进设计，保留 React 外部 `.gss` 使用方式、排序和 fallback。以下区分**拟定契约、实测接缝和未解决实现**；不是已交付宿主。新证据修正上一节“Rsbuild 初期仅给配置示例”的建议：倾向于增加轻量 Rsbuild 封装，读取其有效 CSS／HTML 配置，共用同一 Rspack 核心；owner 随后已确认采用这两个入口。
 
-**最小消费配置草案。** 原 React 源码保持 `import styles from './Card.gss'` 和 `<div className={styles.card}>`，旧 `.self`、动态／未知引用及现有诊断边界不变。拟新增的包名与函数名如下，尚未实现或发布：
+**最小消费配置草案。** 原 React 源码保持 `import styles from './Card.gss'` 和 `<div className={styles.card}>`，动态／未知引用及现有诊断边界沿用 React 契约。拟新增的包名与函数名如下，尚未实现或发布：
 
 ```ts
 // rsbuild.config.ts：React 插件仍由应用配置，GSS 不替代它。

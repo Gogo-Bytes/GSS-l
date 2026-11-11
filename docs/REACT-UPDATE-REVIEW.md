@@ -8,7 +8,7 @@
 
 “只修改 CSS 源码”不等于“只有 CSS 产物变化”。例如红→蓝的 atom class 可以改变；scope 的 `selfClassName` 属于 schema，schema 又决定导出的 JS。即使 scope 名称/树形完全不变，也可能需要传播 JS 更新。
 
-[scope-exports](../compiler/src/application/scope-exports.ts)把规划的 class 写入 schema，再生成 `.self` 导出。已有 Vite 官方模板检查明确断言修改颜色后 DOM class 与修改前不同。不能为了避免 reload，直接吞掉这类 JS 更新或稳定化 class 身份；那将改变既有身份/复用契约。
+[scope-exports](../compiler/src/application/scope-exports.ts)把规划的 class 写入 schema，再生成供适配器读取的节点导出。已有 Vite 官方模板检查明确断言修改颜色后 DOM class 与修改前不同。不能为了避免 reload，直接吞掉这类 JS 更新或稳定化 class 身份；那将改变既有身份/复用契约。
 
 还要区分三个层次：原生 CSS 更新、JS HMR 接受后重新渲染、React 组件状态保持。页面没有整页导航不能证明组件未重挂载；要证明 state 保留必须有组件状态断言。这里“schema 变化”分为 class 映射变化与 scope 名称/嵌套形状变化，不能用前者的证据覆盖后者。
 

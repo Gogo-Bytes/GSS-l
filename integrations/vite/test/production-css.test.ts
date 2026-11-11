@@ -21,7 +21,7 @@ async function fixture(files: Record<string, string> = {}) {
   roots.push(root);
   for (const [name, source] of Object.entries({
     'index.html': '<!doctype html><html><head><meta name="preserve-me" content="yes"></head><body><script type="module" src="/main.ts"></script></body></html>',
-    'main.ts': `import styles from './Card.gss'; document.body.className = styles.card.self;`,
+    'main.ts': `import styles from './Card.gss'; document.body.className = styles.card;`,
     'Card.gss': '.card { color: red; }',
     ...files
   })) {
@@ -76,7 +76,7 @@ it('links a Vite-managed SSG React render to the same production CSS and class n
   const root = await fixture({
     'index.html': '<!doctype html><html><head></head><body><div id="app"><!--ssg--></div><script type="module" src="/main.tsx"></script></body></html>',
     'App.tsx': `import React from 'react'; import styles from './Card.gss';
-      export function App() { return <div className={styles.card.self + ' external'}>Hello</div>; }`,
+      export function App() { return <div className={[styles.card, 'external'].join(' ')}>Hello</div>; }`,
     'entry-server.tsx': `export { App } from './App';`,
     'main.tsx': `import React from 'react'; import { hydrateRoot } from 'react-dom/client';
       import { App } from './App'; hydrateRoot(document.getElementById('app')!, <App />);`
@@ -111,7 +111,7 @@ it('repeats target-aware production CSS, manifest and emitted Asset bytes across
     'Card.gss': '@property --tone { syntax: "<color>"; inherits: false; initial-value: red; } .card { background-image: url(./icon.svg); display: flex; }',
     'Fallback.gss': '.other { flex-direction: column; color: blue; }',
     'main.ts': `import card from './Card.gss'; import fallback from './Fallback.gss';
-      document.body.className = card.card.self + ' ' + fallback.other.self;`
+      document.body.className = card.card + ' ' + fallback.other;`
   });
   const config: InlineConfig = { build: { minify: true, cssTarget: 'safari6' } };
   const first = await bundle(root, config);
@@ -265,7 +265,7 @@ it('keeps transformed resources and bound Assets in the Vite target-aware final 
 
 it('keeps compatibility fallback isolated while a second Module remains atomic with an Asset', async () => {
   const root = await fixture({
-    'main.ts': `import card from './Card.gss'; import other from './Other.gss'; document.body.className = card.card.self + ' ' + other.other.self;`,
+    'main.ts': `import card from './Card.gss'; import other from './Other.gss'; document.body.className = card.card + ' ' + other.other;`,
     'Card.gss': '.card { flex-direction: column; color: red; }',
     'Other.gss': '.other { display: flex; background-image: url("./icon.svg"); }',
     'icon.svg': '<svg xmlns="http://www.w3.org/2000/svg" width="3" height="2"/>'
@@ -289,8 +289,8 @@ it('keeps compatibility fallback isolated while a second Module remains atomic w
 
 it('includes lazy Modules in one asset and exports matching manifest/report snapshots', async () => {
   const root = await fixture({
-    'main.ts': `import styles from './Card.gss'; document.body.className = styles.card.self; document.body.onclick = () => import('./lazy');`,
-    'lazy.ts': `import styles from './Lazy.gss'; export const lazyClass = styles.lazy.self;`,
+    'main.ts': `import styles from './Card.gss'; document.body.className = styles.card; document.body.onclick = () => import('./lazy');`,
+    'lazy.ts': `import styles from './Lazy.gss'; export const lazyClass = styles.lazy;`,
     'Lazy.gss': '.lazy { future-paint: blue; }'
   });
   const output = await bundle(root);
@@ -335,7 +335,7 @@ it.each([
 ])('shares one asset across MPA entries with base "$base" and custom asset names', async ({ base, rootPrefix, nestedPrefix }) => {
   const root = await fixture({
     'nested/page.html': '<!doctype html><html><head></head><body><script type="module" src="../secondary.ts"></script></body></html>',
-    'secondary.ts': `import styles from './Other.gss'; document.body.className = styles.other.self;`,
+    'secondary.ts': `import styles from './Other.gss'; document.body.className = styles.other;`,
     'Other.gss': '.other { display: flex; }'
   });
   const output = await bundle(root, { base, build: { rollupOptions: {
@@ -359,7 +359,7 @@ it.each([
 
 it('excludes precompiled type-only imports that are absent from the Rollup census', async () => {
   const output = await bundle(await fixture({
-    'main.ts': `import type ghost from './Ghost.gss'; import styles from './Card.gss'; const card: typeof ghost.ghost = styles.card; document.body.className = card.self;`,
+    'main.ts': `import type ghost from './Ghost.gss'; import styles from './Card.gss'; const card: typeof ghost.ghost = styles.card; document.body.className = card;`,
     'Ghost.gss': '.ghost { color: blue; }'
   }));
   const manifest = JSON.parse(asset(output, 'gss-manifest.json'));
@@ -409,7 +409,7 @@ it('keeps CSS and both JSON artifacts byte-stable across workspace relocation', 
   for (let index = 0; index < 2; index += 1) {
     const workspace = await fixture({
       'app/index.html': '<html><head></head><body><script type="module" src="/main.ts"></script></body></html>',
-      'app/main.ts': `import styles from '../shared/Card.gss'; document.body.className = styles.card.self;`,
+      'app/main.ts': `import styles from '../shared/Card.gss'; document.body.className = styles.card;`,
       'shared/Card.gss': '.card { future-paint: blue; }'
     });
     const output = await bundle(`${workspace}/app`);
@@ -511,7 +511,7 @@ it('rebuilds target-derived compatibility CSS from the current watch census', as
 
 it('rebuilds compatibility fallback and bound Assets from the current watch census', async () => {
   const root = await fixture({
-    'main.ts': `import a from './Card.gss'; import b from './Other.gss'; document.body.className = a.card.self + b.other.self;`,
+    'main.ts': `import a from './Card.gss'; import b from './Other.gss'; document.body.className = a.card + b.other;`,
     'Card.gss': '.card { flex-direction: column; background-image: url("./icon.svg"); }',
     'Other.gss': '.other { display: flex; }',
     'icon.svg': '<svg xmlns="http://www.w3.org/2000/svg"/>'
@@ -544,7 +544,7 @@ it('rebuilds compatibility fallback and bound Assets from the current watch cens
   expect(initial).toEqual(await cleanSnapshot());
 
   const changed = nextWatchBuild(watcher);
-  await writeFile(join(root, 'main.ts'), `import b from './Other.gss'; document.body.className = b.other.self;`);
+  await writeFile(join(root, 'main.ts'), `import b from './Other.gss'; document.body.className = b.other;`);
   await changed;
   const remaining = await readSnapshot();
   expect(remaining.manifest.compiler.modules).toEqual(['Other.gss']);
@@ -555,30 +555,30 @@ it('rebuilds compatibility fallback and bound Assets from the current watch cens
   expect(remaining).toEqual(await cleanSnapshot());
 
   const restored = nextWatchBuild(watcher);
-  await writeFile(join(root, 'main.ts'), `import a from './Card.gss'; import b from './Other.gss'; document.body.className = a.card.self + b.other.self;`);
+  await writeFile(join(root, 'main.ts'), `import a from './Card.gss'; import b from './Other.gss'; document.body.className = a.card + b.other;`);
   await restored;
   expect(await readSnapshot()).toEqual(initial);
   expect(await readSnapshot()).toEqual(await cleanSnapshot());
 }, 15000);
 
 it('converges a shared lazy Module across direct and React HTML entries during watch removal and restoration', async () => {
-  const directWithLazy = `import card from './Card.gss'; document.body.className = card.card.self;
+  const directWithLazy = `import card from './Card.gss'; document.body.className = card.card;
     document.body.onclick = () => import('./lazy');`;
-  const directWithoutLazy = `import card from './Card.gss'; document.body.className = card.card.self;`;
+  const directWithoutLazy = `import card from './Card.gss'; document.body.className = card.card;`;
   const reactWithLazy = `import React from 'react'; import { createRoot } from 'react-dom/client';
     import shell from './Shell.gss'; const Lazy = React.lazy(() => import('./LazyPane'));
-    createRoot(document.getElementById('app')!).render(<section className={shell.shell.self + ' external'}>
+    createRoot(document.getElementById('app')!).render(<section className={[shell.shell, 'external'].join(' ')}>
       <React.Suspense fallback={<span>Loading</span>}><Lazy /></React.Suspense></section>);`;
   const reactWithoutLazy = `import React from 'react'; import { createRoot } from 'react-dom/client';
     import shell from './Shell.gss';
-    createRoot(document.getElementById('app')!).render(<section className={shell.shell.self + ' external'}>Ready</section>);`;
+    createRoot(document.getElementById('app')!).render(<section className={[shell.shell, 'external'].join(' ')}>Ready</section>);`;
   const root = await fixture({
     'main.ts': directWithLazy,
     'other.html': '<!doctype html><html><head></head><body><div id="app"></div><script type="module" src="/react-entry.tsx"></script></body></html>',
     'react-entry.tsx': reactWithLazy,
-    'lazy.ts': `import lazy from './Lazy.gss'; export const className = lazy.lazy.self;`,
+    'lazy.ts': `import lazy from './Lazy.gss'; export const className = lazy.lazy;`,
     'LazyPane.tsx': `import React from 'react'; import lazy from './Lazy.gss';
-      export default function LazyPane() { return <div className={lazy.lazy.self + ' external-lazy'}>Lazy</div>; }`,
+      export default function LazyPane() { return <div className={[lazy.lazy, 'external-lazy'].join(' ')}>Lazy</div>; }`,
     'Card.gss': '.card { color: red; }',
     'Shell.gss': '.shell { color: green; }',
     'Lazy.gss': '.lazy { color: blue; }'
@@ -656,7 +656,7 @@ it('converges a shared lazy Module across direct and React HTML entries during w
 
 it('rebuilds from the current census without retaining removed contributions', async () => {
   const root = await fixture({
-    'main.ts': `import a from './Card.gss'; import b from './Other.gss'; document.body.className = a.card.self + b.other.self;`,
+    'main.ts': `import a from './Card.gss'; import b from './Other.gss'; document.body.className = a.card + b.other;`,
     'Card.gss': '.card { future-paint: red; }',
     'Other.gss': '.other { color: blue; }'
   });
@@ -669,7 +669,7 @@ it('rebuilds from the current census without retaining removed contributions', a
   await nextWatchBuild(watcher);
   expect(JSON.parse(await readFile(join(root, 'dist/gss-report.json'), 'utf8')).compiler.modules).toBe(2);
   const next = nextWatchBuild(watcher);
-  await writeFile(join(root, 'main.ts'), `import styles from './Card.gss'; document.body.className = styles.card.self;`);
+  await writeFile(join(root, 'main.ts'), `import styles from './Card.gss'; document.body.className = styles.card;`);
   await next;
   const manifest = JSON.parse(await readFile(join(root, 'dist/gss-manifest.json'), 'utf8'));
   expect(manifest.compiler.modules).toEqual(['Card.gss']);

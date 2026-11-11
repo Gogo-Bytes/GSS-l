@@ -122,7 +122,7 @@ it('recovers a missing asset from an initial failed import without a stylesheet 
   await writeFile(join(root, 'missing.svg'), '<svg xmlns="http://www.w3.org/2000/svg"/>');
   server.watcher.emit('add', `${root}/missing.svg`);
   await vi.waitFor(async () => expect(await css(server)).toContain('missing.svg'));
-  expect((await server.transformRequest('/Card.tsx'))?.code).toContain('s.card.self');
+  expect((await server.transformRequest('/Card.tsx'))?.code).toContain('s.card.$class');
 });
 
 it('keeps native host/CORS checks and rechecks file permissions on snapshot requests', async () => {

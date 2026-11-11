@@ -18,7 +18,7 @@ async function fixture(files: Record<string, string> = {}) {
   roots.push(root);
   for (const [name, source] of Object.entries({
     'index.html': '<html><head></head><body><script type="module" src="/main.ts"></script></body></html>',
-    'main.ts': `import styles from './Card.gss'; document.body.className = styles.card.self;`,
+    'main.ts': `import styles from './Card.gss'; document.body.className = styles.card;`,
     'Card.gss': '.card { background-image: url(./icon.svg); }',
     'icon.svg': '<svg xmlns="http://www.w3.org/2000/svg"/>',
     ...files
@@ -44,7 +44,7 @@ function asset(output: Rollup.RollupOutput, name: string): string {
 
 it('emits distinct local resources for same-spelling URLs in different source directories without inlining', async () => {
   const root = await fixture({
-    'main.ts': `import a from './a/Card.gss'; import b from './b/Card.gss'; document.body.className = a.card.self + b.card.self;`,
+    'main.ts': `import a from './a/Card.gss'; import b from './b/Card.gss'; document.body.className = a.card + b.card;`,
     'a/Card.gss': '.card { background-image: url(./icon.svg); }',
     'b/Card.gss': '.card { background-image: url(./icon.svg); }',
     'a/icon.svg': '<svg xmlns="http://www.w3.org/2000/svg"><rect fill="red"/></svg>',
@@ -122,8 +122,8 @@ it('rejects root URLs when publicDir is disabled', async () => {
 
 it('emits lazy font resources but excludes assets belonging only to speculative Modules', async () => {
   const root = await fixture({
-    'main.ts': `import a from './Card.gss'; document.body.className = a.card.self; document.body.onclick = () => import('./lazy');`,
-    'lazy.ts': `import a from './Font.gss'; export const font = a.text.self;`,
+    'main.ts': `import a from './Card.gss'; document.body.className = a.card; document.body.onclick = () => import('./lazy');`,
+    'lazy.ts': `import a from './Font.gss'; export const font = a.text;`,
     'Font.gss': '@font-face { font-family: "Demo"; src: url(./demo.woff2) format("woff2"); } .text { font-family: "Demo"; }',
     'demo.woff2': 'font-fixture-bytes',
     'Ghost.gss': '.ghost { background-image: url(./ghost.svg); }',
@@ -155,7 +155,7 @@ it('emits the asset bytes captured during Module loading, not later filesystem c
 
 it('fails instead of choosing between inconsistent snapshots of one physical asset', async () => {
   const root = await fixture({
-    'main.ts': `import a from './a.gss'; import b from './b.gss'; document.body.className = a.card.self + b.card.self;`,
+    'main.ts': `import a from './a.gss'; import b from './b.gss'; document.body.className = a.card + b.card;`,
     'a.gss': '.card { background-image: url(./icon.svg); }',
     'b.gss': '.card { background-image: url(./icon.svg); }'
   });
@@ -173,7 +173,7 @@ it('fails instead of choosing between inconsistent snapshots of one physical ass
 
 it('deduplicates canonical file aliases without putting asset bytes into JavaScript', async () => {
   const root = await fixture({
-    'main.ts': `import a from './Card.gss'; import b from './Other.gss'; document.body.className = a.card.self + b.card.self;`,
+    'main.ts': `import a from './Card.gss'; import b from './Other.gss'; document.body.className = a.card + b.card;`,
     'Other.gss': '.card { background-image: url(./alias.svg); }'
   });
   await symlink(join(root, 'icon.svg'), join(root, 'alias.svg'));
@@ -190,7 +190,7 @@ it('keeps root-external asset names and outputs stable across workspace relocati
   for (let index = 0; index < 2; index += 1) {
     const root = await fixture({
       'app/index.html': '<html><head></head><body><script type="module" src="/main.ts"></script></body></html>',
-      'app/main.ts': `import a from './Card.gss'; document.body.className = a.card.self;`,
+      'app/main.ts': `import a from './Card.gss'; document.body.className = a.card;`,
       'app/Card.gss': '.card { background-image: url(../shared/icon.svg); }',
       'shared/icon.svg': '<svg xmlns="http://www.w3.org/2000/svg"/>'
     });
@@ -238,7 +238,7 @@ it('converges shared registration owners across watched replacement and clean bu
   const bRule = '.b { color: var(--tone); }';
   const root = await fixture({
     'main.ts': `import a from './A.gss'; import b from './B.gss';
-      document.body.className = a.a.self + ' ' + b.b.self;`,
+      document.body.className = a.a + ' ' + b.b;`,
     'A.gss': `${registration} ${aRule}`,
     'B.gss': `${registration} ${bRule}`
   });
@@ -296,10 +296,10 @@ it('converges shared font owners and Module-local keyframes through watch resour
     @keyframes pulse { from { opacity: ${frames[0]}; } to { opacity: ${frames[1]}; } }
     .${scope} { font-family: "Demo"; animation-name: pulse; animation-duration: 1s; }`;
   const bothEntries = `import card from './Card.gss'; import a from './A.gss'; import b from './B.gss';
-    document.body.className = card.card.self + a.a.self + b.b.self;`;
+    document.body.className = card.card + a.a + b.b;`;
   const onlyB = `import card from './Card.gss'; import b from './B.gss';
-    document.body.className = card.card.self + b.b.self;`;
-  const onlyCard = `import card from './Card.gss'; document.body.className = card.card.self;`;
+    document.body.className = card.card + b.b;`;
+  const onlyCard = `import card from './Card.gss'; document.body.className = card.card;`;
   const root = await fixture({
     'main.ts': bothEntries,
     'Card.gss': '.card { color: black; }',

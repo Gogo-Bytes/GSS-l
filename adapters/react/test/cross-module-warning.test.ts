@@ -17,7 +17,7 @@ function fixture(expression: string) {
 }
 
 it('warns once for definite same-node module composition without changing explicit classes or source map', () => {
-  const { result, source, session } = fixture("styles.card.self + ' ' + other.other.self + ' ' + styles.panel.self");
+  const { result, source, session } = fixture("styles.card.$class + ' ' + other.other.$class + ' ' + styles.panel.$class");
   expect(result.diagnostics).toEqual([{
     code: 'GSS2107', severity: 'warning', phase: 'transform', id: '/project/View.tsx',
     reason: 'cross-module-class-composition',
@@ -37,8 +37,8 @@ it('warns once for definite same-node module composition without changing explic
 });
 
 it.each([
-  ['`external ${styles.card.self} ${other.other.self}`', '`external ${styles.card.self} ${other.other.self}`'],
-  ["[styles.card, other.other, 'external'].join(' ')", "[styles.card.self, other.other.self, 'external'].join(' ')"]
+  ['`external ${styles.card.$class} ${other.other.$class}`', '`external ${styles.card.$class} ${other.other.$class}`'],
+  ["[styles.card, other.other, 'external'].join(' ')", "[styles.card.$class, other.other.$class, 'external'].join(' ')"]
 ])('warns for known simultaneous composition %s and preserves lowering', (expression, lowered) => {
   const { result, source } = fixture(expression!);
   expect(result.diagnostics.map(({ code, severity }) => [code, severity])).toEqual([['GSS2107', 'warning']]);
@@ -47,20 +47,20 @@ it.each([
 });
 
 it.each([
-  "styles.card.self + ' ' + styles.panel.self",
-  "styles.card.self + ' ' + duplicate.card.self",
-  "styles.card.self + ' external'",
-  'active ? styles.card.self : other.other.self',
-  "(active ? styles.card.self : other.other.self) + ' external'",
-  "(active && styles.card.self) + ' ' + other.other.self",
-  'cx(styles.card.self, other.other.self)',
+  "styles.card.$class + ' ' + styles.panel.$class",
+  "styles.card.$class + ' ' + duplicate.card.$class",
+  "styles.card.$class + ' external'",
+  'active ? styles.card.$class : other.other.$class',
+  "(active ? styles.card.$class : other.other.$class) + ' external'",
+  "(active && styles.card.$class) + ' ' + other.other.$class",
+  'cx(styles.card.$class, other.other.$class)',
   'choose(styles.card, other.other)',
-  "[styles.card.self, other.other.self, dynamic].join(' ')",
-  "[styles.card.self, other.other.self, ...rest].join(' ')",
-  "[styles.card.self, other.other.self, call()].join(' ')",
-  "[styles.card.self, other.other.self].join(',')",
-  "[styles.card.self, other.other.self].filter(Boolean).join(' ')",
-  '<><div className={styles.card.self} /><div className={other.other.self} /></>'
+  "[styles.card.$class, other.other.$class, dynamic].join(' ')",
+  "[styles.card.$class, other.other.$class, ...rest].join(' ')",
+  "[styles.card.$class, other.other.$class, call()].join(' ')",
+  "[styles.card.$class, other.other.$class].join(',')",
+  "[styles.card.$class, other.other.$class].filter(Boolean).join(' ')",
+  '<><div className={styles.card.$class} /><div className={other.other.$class} /></>'
 ])('does not infer definite cross-module co-occurrence for %s', (expression) => {
   expect(fixture(expression).result.diagnostics).toEqual([]);
 });
@@ -70,11 +70,11 @@ it('does not guess identities for legacy minimal schema callers', () => {
   const result = transformReactGssUsage({ id: '/View.tsx', source,
     resolveScopeSchema: () => ({ exports: { card: { targets: {} } } }) });
   expect(result.diagnostics).toEqual([]);
-  expect(result.code).toContain("[a.card.self, b.card.self].join(' ')");
+  expect(result.code).toContain("[a.card.$class, b.card.$class].join(' ')");
 });
 
 it('retains prior alias errors alongside the nonblocking warning', () => {
-  const { source, session } = fixture("styles.card.self + ' ' + other.other.self + mutable + ambiguous");
+  const { source, session } = fixture("styles.card.$class + ' ' + other.other.$class + mutable + ambiguous");
   const result = transformReactGssUsage({ id: '/project/View.tsx',
     source: source.replace('const view', "let mutable = styles.card; const ambiguous = active ? styles.card : 'external'; const view"),
     resolveScopeSchema: (id) => session.getScopeSchema(id === './Other.gss' ? '/project/Other.gss' : '/project/Card.gss') });
@@ -85,14 +85,14 @@ it('retains prior alias errors alongside the nonblocking warning', () => {
 
 it('does not suppress existing implicit string-coercion errors', () => {
   const { result } = fixture("styles.card + ' ' + other.other");
-  expect(result.code).toContain("styles.card.self + ' ' + other.other.self");
+  expect(result.code).toContain("styles.card.$class + ' ' + other.other.$class");
   expect(result.diagnostics.map(({ code, severity }) => [code, severity])).toEqual([
     ['GSS2107', 'warning'], ['GSS2105', 'error'], ['GSS2105', 'error']
   ]);
 });
 
 it.each(['Component', 'UI.Component'])('does not infer DOM forwarding through opaque %s components', (tag) => {
-  const { source, session } = fixture("styles.card.self + ' ' + other.other.self");
+  const { source, session } = fixture("styles.card.$class + ' ' + other.other.$class");
   const componentSource = source.replace('<div ', `<${tag} `);
   const result = transformReactGssUsage({ id: '/project/View.tsx', source: componentSource,
     resolveScopeSchema: (id) => session.getScopeSchema(id === './Other.gss' ? '/project/Other.gss' : '/project/Card.gss') });

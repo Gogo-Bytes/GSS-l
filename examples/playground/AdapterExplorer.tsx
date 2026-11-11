@@ -5,14 +5,14 @@ import { adapterTitles } from './presentation.js';
 const cases = payload as ReturnType<typeof transformPlaygroundCases>;
 
 function OutputCode({ code }: { code: string }) {
-  return <pre>{code.split('.self').map((part, index) => <React.Fragment key={index}>{index ? <mark>.self</mark> : null}{part}</React.Fragment>)}</pre>;
+  return <pre>{code.split('.$class').map((part, index) => <React.Fragment key={index}>{index ? <mark>.$class</mark> : null}{part}</React.Fragment>)}</pre>;
 }
 export default function AdapterExplorer() {
   const [id, setId] = useState('direct');
   const entry = cases.find((item) => item.id === id)!;
   return <section>
     <div className="page-heading"><span className="eyebrow">REACT 转换 / SOURCE TRANSFORM</span><h1>scope 引用，如何变成 class<span className="heading-dot">.</span></h1>
-      <p>左边是输入，右边是转换结果。GSS 的静态路径会在运行前变成 class 字符串；旧的 .self 写法仍兼容。</p></div>
+      <p>左边是输入，右边是转换结果。GSS 的静态路径会在运行前变成 class 字符串。</p></div>
     <div className="catalog-toolbar"><label className="wide-choice">选择写法<select data-testid="adapter-select" value={id} onChange={(event) => setId(event.target.value)}>{cases.map((item) => <option key={item.id} value={item.id}>{adapterTitles[item.id] ?? item.title}</option>)}</select></label><span className="filter-hint">{cases.length} 个转换与边界案例</span></div>
     <div className="result-panel"><div className="result-heading"><div><span className="panel-kicker">源码转换 · 不执行渲染</span><h2>{adapterTitles[entry.id] ?? entry.title}</h2></div>
       <span className="result-status" data-testid="adapter-status" data-state={entry.passed ? 'passed' : 'failed'}>{entry.diagnostics.length ? '✓ 已产生预期诊断' : '✓ 转换符合预期'}</span></div>

@@ -60,7 +60,7 @@ it('uses the main CSS graph across entries, lazy removal, failed input, recovery
       // watchRun can read new bytes before their invalidation reaches the cached module graph.
       // Require the entry module to have consumed this edit; never wait for the desired CSS.
       const entry = [...stats.compilation.modules].find(module => 'resource' in module && module.resource === index);
-      if (!stats.hasErrors() && String(entry?.originalSource()?.source()) !== expected[0]!.replace('a.card', 'a.card.self')) continue;
+      if (!stats.hasErrors() && String(entry?.originalSource()?.source()) !== expected[0]!.replace('a.card', 'a.card.$class')) continue;
       return stats;
     }
   };

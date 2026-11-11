@@ -29,7 +29,7 @@ export async function checkViteMultipageLazy(browser) {
     await writeFile(join(root, 'index.html'), html('first.ts', 'red'));
     await writeFile(join(root, 'second.html'), html('second.tsx', 'blue', true));
     const entry = (name) => `import styles from './${name}.gss';
-      document.getElementById('main')!.className = styles.main.self;
+      document.getElementById('main')!.className = styles.main;
       document.getElementById('load')!.addEventListener('click', async () => {
         const { mount } = await import('./lazy.ts'); mount();
       });
@@ -41,10 +41,10 @@ export async function checkViteMultipageLazy(browser) {
       export function App() {
         const [show, setShow] = useState(false);
         useEffect(() => {
-          (window as any).__CLIENT_MAIN_CLASS__ = styles.main.self + ' external';
+          (window as any).__CLIENT_MAIN_CLASS__ = styles.main + ' external';
           (window as any).__READY__ = true;
         }, []);
-        return <><div id="main" className={styles.main.self + ' external'}>React main</div>
+        return <><div id="main" className={[styles.main, 'external'].join(' ')}>React main</div>
           {show ? <Suspense fallback={<div id="lazy" />}><Lazy /></Suspense> : <div id="lazy" />}
           <button id="load" onClick={() => setShow(true)}>Load React lazy route</button></>;
       }`);
@@ -59,12 +59,12 @@ export async function checkViteMultipageLazy(browser) {
       (window as any).__LAZY_EXECUTED__ = true;
       export default function LazyComponent() {
         useEffect(() => { (window as any).__LAZY_MOUNTED__ = true; }, []);
-        return <div id="lazy" className={styles.lazy.self + ' external'}>React lazy</div>;
+        return <div id="lazy" className={[styles.lazy, 'external'].join(' ')}>React lazy</div>;
       }`);
     await writeFile(join(root, 'lazy.ts'), `import styles from './Lazy.gss';
       (window as any).__LAZY_EXECUTED__ = true;
       export function mount() {
-        document.getElementById('lazy')!.className = styles.lazy.self;
+        document.getElementById('lazy')!.className = styles.lazy;
         (window as any).__LAZY_MOUNTED__ = true;
       }`);
     await writeFile(join(root, 'First.gss'), '.main { color: red; } .main[data-active="yes"] { color: purple; }');

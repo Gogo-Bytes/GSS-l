@@ -107,7 +107,10 @@ export function transformReactGssUsage(
     Identifier(path) {
       if (!path.isReferencedIdentifier()) return;
       const binding = path.scope.getBinding(path.node.name);
-      if (binding && stringAliasBindings.has(binding)) stringAliasReferences.add(path.node);
+      // Aliases used for child reads retain their scope object at initialization.
+      if (binding && stringAliasBindings.has(binding) && !aliasMemberBindings.has(binding)) {
+        stringAliasReferences.add(path.node);
+      }
     }
   });
 
@@ -141,7 +144,7 @@ export function transformReactGssUsage(
         if (t.isMemberExpression(parent) && parent.object === expression) return;
         const aliasKind = aliasReferences.get(expression);
         if (aliasKind === 'scope' && !stringAliasReferences.has(expression)) {
-          if (expression.end != null) output.appendLeft(expression.end, '.self');
+          if (expression.end != null) output.appendLeft(expression.end, '.$class');
         } else if (aliasKind === 'mutable') {
           diagnostics.push({
             code: 'GSS2103',
@@ -150,7 +153,7 @@ export function transformReactGssUsage(
             message: `Mutable GSS scope alias ${expression.name} cannot be lowered safely.`,
             id: input.id,
             reason: 'mutable-scope-alias',
-            suggestion: 'Use a const scope alias or pass an explicit .self string.'
+            suggestion: 'Use a const scope alias or use the imported path directly in className.'
           });
         } else if (aliasKind === 'ambiguous') {
           diagnostics.push({
@@ -170,7 +173,7 @@ export function transformReactGssUsage(
 
       const typedPropKind = typedPropReferences.get(expression);
       if (typedPropKind === 'scope' && expression.end != null) {
-        output.appendLeft(expression.end, '.self');
+        output.appendLeft(expression.end, '.$class');
         return;
       }
       if (typedPropKind === 'mutable') {
@@ -190,11 +193,9 @@ export function transformReactGssUsage(
       if (!binding) return;
       const reference = readStaticReference(expression);
       if (!reference) return;
-      const hasExplicitSelf = reference.path.at(-1) === 'self';
-      const scopePath = hasExplicitSelf ? reference.path.slice(0, -1) : reference.path;
-      if (!resolveScopePath(binding.schema, scopePath)) return;
-      if (!hasExplicitSelf && expression.end != null) {
-        output.appendLeft(expression.end, '.self');
+      if (!resolveScopePath(binding.schema, reference.path)) return;
+      if (expression.end != null) {
+        output.appendLeft(expression.end, '.$class');
       }
     });
   });
@@ -246,11 +247,9 @@ export function transformReactGssUsage(
       if (!binding) return;
       const reference = readStaticReference(expression);
       if (!reference) return;
-      const hasExplicitSelf = reference.path.at(-1) === 'self';
-      const scopePath = hasExplicitSelf ? reference.path.slice(0, -1) : reference.path;
-      if (!resolveScopePath(binding.schema, scopePath)) return;
-      if (!hasExplicitSelf && expression.end != null) {
-        output.appendLeft(expression.end, '.self');
+      if (!resolveScopePath(binding.schema, reference.path)) return;
+      if (expression.end != null) {
+        output.appendLeft(expression.end, '.$class');
         loweredReferences.add(expression);
       }
     }
@@ -280,7 +279,7 @@ function definiteClassModules(
   if (t.isMemberExpression(expression)) {
     const binding = bindings.get(expression);
     const reference = readStaticReference(expression);
-    const path = reference?.path.at(-1) === 'self' ? reference.path.slice(0, -1) : reference?.path;
+    const path = reference && isScopeClassRead(reference.path) ? reference.path.slice(0, -1) : reference?.path;
     if (binding?.schema.moduleId && path && resolveScopePath(binding.schema, path)) {
       return new Set([binding.schema.moduleId]);
     }
@@ -384,7 +383,7 @@ function diagnoseScopeStringCoercions(
       message: 'A GSS scope object is being coerced to a string.',
       id,
       reason: 'scope-string-coercion',
-      suggestion: 'Use the explicit .self class string.'
+      suggestion: 'Pass the imported scope path to className or combine class names with an array joined by a space.'
     });
   };
   traverse(ast, {
@@ -395,12 +394,10 @@ function diagnoseScopeStringCoercions(
       if (
         !binding ||
         !reference ||
-        reference.path.at(-1) === 'self' ||
+        isScopeClassRead(reference.path) ||
         !isStringCoercionPath(path)
       ) return;
-      // Direct static references in string contexts are lowered by the
-      // general path pass above; only aliases still need coercion diagnostics.
-      if (binding && loweredReferences.has(path.node)) return;
+      if (loweredReferences.has(path.node)) return;
       report(path.node);
     },
     Identifier(path) {
@@ -635,8 +632,7 @@ function expandAliasTarget(
   source: string,
   verifiedBindings: WeakMap<t.MemberExpression, GssBinding>
 ): string | undefined {
-  const hasExplicitSelf = targetPath.at(-1) === 'self';
-  const targets = hasExplicitSelf ? targetPath.slice(0, -1) : targetPath;
+  const targets = targetPath.at(-1) === '$class' ? targetPath.slice(0, -1) : targetPath;
   if (targets.length === 0) return undefined;
   if (t.isMemberExpression(expression)) {
     const verified = readVerifiedScopeExpression(expression, verifiedBindings);
@@ -645,7 +641,7 @@ function expandAliasTarget(
     }
     const text = expression.start != null && expression.end != null
       ? source.slice(expression.start, expression.end) : undefined;
-    return text ? `${text}.${targets.join('.')}.self` : undefined;
+    return text ? `${text}.${targets.join('.')}.$class` : undefined;
   }
   if (t.isConditionalExpression(expression)) {
     const consequent = expandAliasTarget(expression.consequent, targets, source, verifiedBindings);
@@ -667,10 +663,9 @@ function classifyScopeExpression(
     const reference = readStaticReference(expression);
     if (!reference) return 'ambiguous';
     const path = reference.path;
-    if (path.at(-1) === 'self') {
+    if (isScopeClassRead(path)) {
       const parent = resolveScopePath(binding.schema, path.slice(0, -1));
-      // A declared child named self collides with the terminal field (#53).
-      return parent && !Object.hasOwn(parent.targets, 'self') ? 'non-scope' : 'ambiguous';
+      return parent ? 'non-scope' : 'ambiguous';
     }
     return resolveScopePath(binding.schema, path) ? 'scope' : 'ambiguous';
   }
@@ -692,10 +687,15 @@ function readVerifiedScopeExpression(
   if (
     !binding ||
     !reference ||
-    reference.path.at(-1) === 'self' ||
+    isScopeClassRead(reference.path) ||
     !resolveScopePath(binding.schema, reference.path)
   ) return undefined;
   return { binding, path: reference.path };
+}
+
+// The module root may itself export an authored scope named $class.
+function isScopeClassRead(path: readonly string[]): boolean {
+  return path.length > 1 && path.at(-1) === '$class';
 }
 
 function readStaticReference(

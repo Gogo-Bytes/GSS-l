@@ -2,14 +2,12 @@ import styles from './Card.gss';
 import type { GssScope, GssUnknownScope } from '@gss-l/types';
 
 const card: GssScope = styles.card;
-const self: string = styles.card.self;
 const nested: GssUnknownScope = styles.card.icon.label;
-const nestedSelf: string = nested.self;
+const label: string = nested;
 // Broad types intentionally allow undeclared paths; the React Adapter validates them.
 const unknown: GssScope = styles.notDeclared;
 void card;
-void self;
-void nestedSelf;
+void label;
 void unknown;
 
 const className: string = styles.card;
