@@ -77,3 +77,19 @@ Owner 同意以“限定场景避免用户可见失样式，保持最终正确�
 证据：`artifacts/hmr-paint-investigation/2026-11-09T09-53-30.456Z/`（result.json 时间线、13 张合成帧、server.log）；探针为同目录上层 `probe.mjs`，运行命令 `node artifacts/hmr-paint-investigation/probe.mjs`。使用的外部 consumer 与 tarball 哈希记录在 result.json；运行后已恢复外部输入、关闭浏览器和本轮 server。实际源码／构建产物仍来自原 Vite 模板运行，不冒充本轮重新打包验证。
 
 候选方向是先评估宿主现有更新完成信号与发布顺序，再评估有界的新旧 CSS 交接；任何双版本方案必须证明同名规则竞争、资源回收、失败恢复及多个 importer 的行为。未引入自定义 HMR runtime，也未改变 class 身份、排序或 fallback。动态进度见 [#33](https://github.com/Gogo-Bytes/GSS-l/issues/33)。
+
+## Vite 开发时文件缺失与移除引用
+
+以 `d7cd393` 重新构建的工作区包测试：Vite 7.3.6、React 19.3.0、GSS React adapter、Chromium 145.0.7632.6。临时应用仅有一个 JSX 文件导入 `Card.gss`，没有 Fast Refresh 插件。通过真实文件系统和 Vite watcher 更新；浏览器读取节点的实际颜色与错误浮层，另通过 HTTP 读取中央 CSS。两次独立运行得到相同结果。
+
+| 编辑（同一次运行中依次执行） | 页面与中央 CSS |
+| --- | --- |
+| 初始 `.card` 设置为红色 | 节点为预期红色，中央 CSS 有红色规则。 |
+| 仅删除 `Card.gss`，保留 JSX import | Vite 整页重载并显示缺失依赖；节点不再挂载，中央 CSS 变空。 |
+| 原路径恢复，写入重复的 color 声明 | 错误变为 GSS1204；节点仍未挂载，中央 CSS 仍为空。 |
+| 不手动刷新，修成有效蓝色 | 错误消失，节点和中央 CSS 均变蓝。 |
+| 文件还在，移除 JSX 的最后一个 import 和 class 引用 | 节点恢复默认黑色，但中央 CSS 仍返回蓝色规则。 |
+
+删除文件和移除引用不能共用同一个清理信号。前者可能仍有消费者，后者即使文件未动也可能需要清理。回归应分别检查页面、中央 CSS 及模块导出；本次没有单独请求缺失时的导出，不能从 DOM 消失推断导出内容。清理需以成功更新后的引用关系为依据，并保留其他消费者仍需要的样式。
+
+本机探针、日志与逐阶段快照位于 `artifacts/issue-33-vite-deletion/`；运行 `node artifacts/issue-33-vite-deletion/probe.mjs` 会创建独立临时应用。未测试其他宿主、首次启动、生产缺失、重命名或原子保存；不据此承诺组件状态保持。行为目标见[架构决定](ARCHITECTURE-DIRECTION.md#文件删除与恢复目标2026-11-09-owner-决定待实现)，实施范围在 [#33](https://github.com/Gogo-Bytes/GSS-l/issues/33) 确定。
