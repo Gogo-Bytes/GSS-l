@@ -34,6 +34,30 @@ const view = <Child scope={styles.card} onHover={named}
       'currentTarget.className = styles.card.$class;').replace('className={styles.card}', 'className={styles.card.$class}'));
   });
 
+  it('resolves type aliases at the parameter and typeof values at the annotation', () => {
+    const source = `import styles from './Card.gss';
+type Props = { scope: typeof styles.card };
+function Outer(props: Props) {
+  type Props = { scope: string };
+  const Nested = (p: Props) => <span className={p.scope} />;
+  return <div className={props.scope} />;
+}
+function Local() {
+  const styles = { card: 'plain' };
+  type Own = { scope: typeof styles.card };
+  const Inline = ({scope}: {scope: typeof styles.card}) => <b className={scope} />;
+  const Named = ({scope}: Own) => <b className={scope} />;
+}
+const Generic = <Props extends { scope: string },>(props: Props) => <b className={props.scope} />;
+const Real = ({ scope }: Props) => <i className={scope} />;`;
+    const result = transformReactGssUsage({
+      id: '/project/card.tsx', source, resolveScopeSchema: () => cardScope
+    });
+    expect(result.diagnostics).toEqual([]);
+    expect(result.code).toBe(source.replace('<div className={props.scope}', '<div className={props.scope.$class}')
+      .replace('<i className={scope}', '<i className={scope.$class}'));
+  });
+
   it('uses only declared schema keys, including explicitly declared prototype names', () => {
     const source = `import styles from './Card.gss';
 styles.constructor.child;

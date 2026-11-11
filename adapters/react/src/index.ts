@@ -3,6 +3,7 @@ import { parse } from '@babel/parser';
 import traverseModule, {
   type Binding,
   type NodePath,
+  type Scope,
   type TraverseOptions
 } from '@babel/traverse';
 import * as t from '@babel/types';
@@ -78,8 +79,9 @@ export function transformReactGssUsage(
   const diagnostics: ReactGssDiagnostic[] = [];
   const bindings = collectGssBindings(ast.program, input, diagnostics);
   const verifiedBindings = resolveReferenceBindings(ast, bindings);
-  const aliasReferences = resolveAliasReferences(ast, bindings, verifiedBindings);
-  const typedPropReferences = resolveTypedPropMemberReferences(ast, bindings);
+  const typedProperties = collectTypedScopeProperties(ast, bindings);
+  const aliasReferences = resolveAliasReferences(ast, bindings, verifiedBindings, typedProperties);
+  const typedPropReferences = resolveTypedPropMemberReferences(ast, bindings, typedProperties);
   const output = new MagicString(input.source);
   const loweredReferences = new WeakSet<t.MemberExpression>();
   const stringAliasBindings = new WeakSet<Binding>();
@@ -357,6 +359,7 @@ function resolveReferenceBindings(
 
 type ScopePropKind = 'scope' | 'optional-scope';
 type ScopeProperties = ReadonlyMap<string, ScopePropKind>;
+type LocalTypes = WeakMap<t.Node, Map<string, ScopeProperties | undefined>>;
 type AliasKind = ScopePropKind | 'mutable' | 'ambiguous';
 
 type ScopeExpressionKind = 'scope' | 'non-scope' | 'ambiguous';
@@ -424,9 +427,9 @@ function isStringCoercionPath(path: NodePath): boolean {
 
 function resolveTypedPropMemberReferences(
   ast: t.File,
-  gssBindings: ReadonlyMap<string, GssBinding>
+  gssBindings: ReadonlyMap<string, GssBinding>,
+  typedProperties: LocalTypes
 ): WeakMap<t.MemberExpression, ScopePropKind | 'mutable'> {
-  const typedProperties = collectTypedScopeProperties(ast, gssBindings);
   const propsBindings = new Map<Binding, ScopeProperties>();
   traverse(ast, {
     Function(path) {
@@ -434,6 +437,7 @@ function resolveTypedPropMemberReferences(
         if (!t.isIdentifier(parameter)) continue;
         const properties = resolveTypedScopeProperties(
           parameter.typeAnnotation,
+          path,
           typedProperties,
           gssBindings
         );
@@ -463,7 +467,8 @@ function resolveTypedPropMemberReferences(
 function resolveAliasReferences(
   ast: t.File,
   gssBindings: ReadonlyMap<string, GssBinding>,
-  verifiedBindings: WeakMap<t.MemberExpression, GssBinding>
+  verifiedBindings: WeakMap<t.MemberExpression, GssBinding>,
+  typedProperties: LocalTypes
 ): WeakMap<t.Identifier, AliasKind> {
   const aliases = new Map<Binding, AliasKind>();
   traverse(ast, {
@@ -499,13 +504,13 @@ function resolveAliasReferences(
     }
   });
 
-  const typedProperties = collectTypedScopeProperties(ast, gssBindings);
   traverse(ast, {
     Function(path) {
       for (const parameter of path.node.params) {
         if (!t.isObjectPattern(parameter)) continue;
         const scopeProperties = resolveTypedScopeProperties(
           parameter.typeAnnotation,
+          path,
           typedProperties,
           gssBindings
         );
@@ -543,38 +548,56 @@ function resolveAliasReferences(
 function collectTypedScopeProperties(
   ast: t.File,
   gssBindings: ReadonlyMap<string, GssBinding>
-): ReadonlyMap<string, ScopeProperties> {
-  const aliases = new Map<string, ScopeProperties>();
+): LocalTypes {
+  const aliases: LocalTypes = new WeakMap();
+  function declare(path: NodePath, name: string, properties?: ScopeProperties) {
+    const container = path.findParent(p =>
+      p.isProgram() || p.isBlockStatement() || p.isTSModuleBlock() || p.isSwitchStatement());
+    if (!container) return;
+    let names = aliases.get(container.node);
+    if (!names) aliases.set(container.node, names = new Map());
+    names.set(name, properties);
+  }
   traverse(ast, {
     TSTypeAliasDeclaration(path) {
-      if (!t.isTSTypeLiteral(path.node.typeAnnotation)) return;
-      const properties = readScopePropertiesFromLiteral(
-        path.node.typeAnnotation,
-        gssBindings
-      );
-      if (properties.size > 0) aliases.set(path.node.id.name, properties);
-    }
+      const type = path.node.typeAnnotation;
+      declare(path, path.node.id.name, t.isTSTypeLiteral(type)
+        ? readScopePropertiesFromLiteral(type, path.scope, gssBindings) : undefined);
+    },
+    TSInterfaceDeclaration(path) { declare(path, path.node.id.name); },
+    TSEnumDeclaration(path) { declare(path, path.node.id.name); },
+    ClassDeclaration(path) { if (path.node.id) declare(path, path.node.id.name); }
   });
   return aliases;
 }
 
 function resolveTypedScopeProperties(
   annotation: t.Noop | t.TypeAnnotation | t.TSTypeAnnotation | null | undefined,
-  aliases: ReadonlyMap<string, ScopeProperties>,
+  owner: NodePath<t.Function>,
+  aliases: LocalTypes,
   gssBindings: ReadonlyMap<string, GssBinding>
 ): ScopeProperties | undefined {
   if (!annotation || !t.isTSTypeAnnotation(annotation)) return undefined;
   const type = annotation.typeAnnotation;
   if (t.isTSTypeReference(type) && t.isIdentifier(type.typeName)) {
-    return aliases.get(type.typeName.name);
+    const name = type.typeName.name;
+    for (let current: NodePath | null = owner; current; current = current.parentPath) {
+      const node = current.node;
+      if ('typeParameters' in node && t.isTSTypeParameterDeclaration(node.typeParameters) &&
+        node.typeParameters.params.some(parameter => parameter.name === name)) return undefined;
+      const names = aliases.get(node);
+      if (names?.has(name)) return names.get(name);
+    }
+    return undefined;
   }
   return t.isTSTypeLiteral(type)
-    ? readScopePropertiesFromLiteral(type, gssBindings)
+    ? readScopePropertiesFromLiteral(type, owner.scope, gssBindings)
     : undefined;
 }
 
 function readScopePropertiesFromLiteral(
   literal: t.TSTypeLiteral,
+  scope: Scope,
   gssBindings: ReadonlyMap<string, GssBinding>
 ): ScopeProperties {
   const properties = new Map<string, ScopePropKind>();
@@ -587,7 +610,7 @@ function readScopePropertiesFromLiteral(
         : undefined;
     if (
       propertyName &&
-      isGssScopeTypeQuery(member.typeAnnotation.typeAnnotation, gssBindings)
+      isGssScopeTypeQuery(member.typeAnnotation.typeAnnotation, scope, gssBindings)
     ) properties.set(propertyName, member.optional ? 'optional-scope' : 'scope');
   }
   return properties;
@@ -595,6 +618,7 @@ function readScopePropertiesFromLiteral(
 
 function isGssScopeTypeQuery(
   type: t.TSType,
+  scope: Scope,
   gssBindings: ReadonlyMap<string, GssBinding>
 ): boolean {
   if (!t.isTSTypeQuery(type)) return false;
@@ -603,7 +627,8 @@ function isGssScopeTypeQuery(
   if (!path) return false;
   const [bindingName, ...scopePath] = path;
   const binding = bindingName ? gssBindings.get(bindingName) : undefined;
-  return Boolean(binding && resolveScopePath(binding.schema, scopePath));
+  return Boolean(bindingName && binding && scope.getBinding(bindingName)?.path.node === binding.importNode &&
+    resolveScopePath(binding.schema, scopePath));
 }
 
 function readTypeEntityPath(entity: t.TSEntityName): readonly string[] | undefined {

@@ -72,15 +72,22 @@ it('builds a same-rule logical and physical longhand pair in fixed order', async
   expect(css.indexOf('margin-inline-start: 1px')).toBeLessThan(css.indexOf('margin-left: 2px'));
 });
 
-it('omits optional className and reads supplied scopes in both typed prop forms', async () => {
+it('renders optional scopes and shadowed string props using their lexical types', async () => {
   const root = await fixture({
     'App.tsx': `import React from 'react'; import styles from './Card.gss';
       type Props = { scope?: typeof styles.card };
       const Member = (props: Props) => <div className={props.scope} />;
       const Destructured = ({ scope: value }: Props) => <div className={value} />;
       export const expected = styles.card;
+      function Plain() {
+        const styles = { card: 'plain' };
+        type Props = { scope: typeof styles.card };
+        const Named = (p: Props) => <b className={p.scope} />;
+        const Inline = ({scope}: {scope: typeof styles.card}) => <i className={scope} />;
+        return <><Named scope={styles.card} /><Inline scope={styles.card} /></>;
+      }
       export function App() {
-        return <><Member /><Destructured /><Member scope={styles.card} /><Destructured scope={styles.card} /></>;
+        return <><Member /><Destructured /><Member scope={styles.card} /><Destructured scope={styles.card} /><Plain /></>;
       }`
   });
   await symlink(join(process.cwd(), 'node_modules'), join(root, 'node_modules'), 'dir');
@@ -90,7 +97,8 @@ it('omits optional className and reads supplied scopes in both typed prop forms'
     const { App, expected } = await server.ssrLoadModule('/App.tsx');
     expect(expected).toMatch(/^gss-/);
     expect(renderToString(createElement(App))).toBe(
-      '<div></div><div></div>' + `<div class="${expected}"></div>`.repeat(2));
+      '<div></div><div></div>' + `<div class="${expected}"></div>`.repeat(2) +
+      '<b class="plain"></b><i class="plain"></i>');
   } finally {
     await server.close();
   }
