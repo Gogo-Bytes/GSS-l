@@ -7,7 +7,7 @@
 以下为核心一致性／统一排序阶段的历史结果，不能当作当前提交重验。
 
 - 该阶段 Browser oracle：125 fixtures、1267 comparisons、38 controls；Vite host、SSG hydration、multipage lazy/hydration/state controls 通过。
-- Task-board 三引擎真实用户路径：每引擎 76 phases、13 exact image pairs、dev HMR/LKG/recovery、父子 implicit `className`、production lazy/CSS census 通过。删除 `.gss` 不属于当前支持契约：独立实验发现 Chromium/Firefox/WebKit 的 overlay/LKG 行为不一致，因此当前只承诺文件修改、非法输入 LKG、恢复和显式重建；删除场景的失败 artifact 保留在 `artifacts/cross-browser-rendering/task-board/2026-10-23T04-10-04.608Z/`，不宣称删除重建已通过。
+- Task-board 三引擎真实用户路径：每引擎 76 phases、13 exact image pairs、dev HMR/LKG/recovery、父子 implicit `className`、production lazy/CSS census 通过。当时独立删除实验发现 Chromium/Firefox/WebKit 的 overlay/LKG 行为不一致。后续有界修复见 [Vite 开发删除与恢复](REACT-UPDATE-REVIEW.md#vite-开发时文件缺失与移除引用)。原删除场景的失败 artifact 保留在 `artifacts/cross-browser-rendering/task-board/2026-10-23T04-10-04.608Z/`，不宣称删除重建已通过。
 - 统一固定排序：原 atom-ranks gate 默认三引擎通过，逻辑／物理 carrier 仍为 418 simple／55 semantic、每引擎 2772 paired readings，额外保留 800 次原始 authored-native 断言。原生预期未被改成 GSS 结果：同 fixture 独立记录 raw CSS 值与显式 GSS physical-priority oracle；精确图像和 order corruption controls 保留。
 - Article 受扩展 border 复用屏障影响，atomic census 131→132：form／field 的 identical border 不再跨 rank 合并。业务 CSS 未改；现有 per-engine 入口 Chromium／WebKit 各 82 phases／22 exact image pairs 与负对照通过。默认三引擎 Article script 未改，Firefox Article 未运行。旧输出缩减数字不再作为当前收益依据。
 - 统一排序阶段证据：`artifacts/unified-order-core/`（red、transitivity red、verify/browser/playground、Article 两引擎、census delta）；最终三引擎 rank 产物在 `artifacts/rank-integration/browser/`。首次 rank 全套因 300s wrapper 预算不足中断，后一次因 child 1800s session 上限中断，原始产物均已备份；增加有界预算后同入口全套通过，不是 readiness 缺陷修复。

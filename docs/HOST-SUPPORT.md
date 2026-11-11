@@ -55,7 +55,7 @@ artifacts 为本机忽略目录；历史日志、独立 oracle 与首次失败�
 
 - CSS 排序保持原生强度/上下文及已证明语义优先；同语义高度逻辑先、物理后。同属性 atomRank 与跨属性 orderSlot 分离；未安全展开 shorthand 保持既有源码覆盖。范围详见 [排序设计](PROPERTY-ORDER-DESIGN.md)。
 - unknown effect 的 preserved/error 与现有 fallback 不放宽；不承诺通用无效 CSS 兜底。跨模块同节点统一优先级未支持，保留 GSS2107 非阻塞诊断；动态引用/alias 保持既有静态分析边界。
-- `.gss` 删除不属当前支持契约；文件修改、非法输入保留及恢复仍需正确。Rspack/Rsbuild/webpack 已接受任何编译错误均不发布本轮产物的策略。
+- Vite 开发模式支持 React 组件直接静态导入的 `.gss` 在缺失时报错并保留上一成功版，原路径恢复成功后自动更新，最后一个引用移除时清理。实测 Vite 7.3.6／Chromium。Rspack、Rsbuild、webpack 开发构建仍按任何编译错误均保留上一成功版的策略处理。[Vite 验证记录](REACT-UPDATE-REVIEW.md#vite-开发时文件缺失与移除引用)
 - 新宿主标准 CSS 提取配置之外的 style 注入、多 minimizer、任意后置处理器、纯 hash CSS 文件名和通用 SSR 不在保证内。普通 CSS 的后处理不能悄然改成 GSS 规则。
 - 特殊资源 URL、root/publicDir 与自定义 resolver 依专项范围，不承诺任意组合；规则级最终 CSS map 的接受不意味着放弃 Compiler 原始诊断范围。
 - Parcel 与更多宿主/框架暂停；性能与 Firefox Article 历史问题继续暂缓；包发布、release/tag 需另行授权。Fast Refresh 和更精确 overlay 只是候选，不是已批准待办。

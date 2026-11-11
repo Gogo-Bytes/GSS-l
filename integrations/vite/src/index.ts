@@ -7,7 +7,7 @@ import {
   type GssSourceAdapter,
   type ReplaceStylesheetResult
 } from '@gss-l/compiler';
-import { isFileLoadingAllowed, normalizePath, type Plugin, type Rollup, type ViteDevServer } from 'vite';
+import { isFileLoadingAllowed, normalizePath, type EnvironmentModuleNode, type Plugin, type Rollup, type ViteDevServer } from 'vite';
 import { CENTRAL_CSS_URL, LINKED_CSS_URL, STYLESHEET_URL_IMPORT, STYLESHEET_URL_ID, fromVirtualGssId, resolveCentralCssId, toVirtualGssId } from './virtual-id.js';
 import { hasCentralStylesheet } from './central-html.js';
 import { createDevCssOwner } from './dev-css.js';
@@ -42,6 +42,7 @@ export function gss({ adapter }: GssOptions): Plugin[] {
   let assetOwner: ReturnType<typeof createDevAssetOwner> | undefined;
   const trackedStylesheets = new Set<string>();
   const sourceDependencies = new Map<string, Set<string>>();
+  const retiredImportLists = new WeakSet<EnvironmentModuleNode['importedModules']>();
   const cachedStylesheets = new Set<string>();
   const devAssets = new Map<string, StylesheetAsset[]>();
   const assetDependencies = new Map<string, Set<string>>();
@@ -52,6 +53,51 @@ export function gss({ adapter }: GssOptions): Plugin[] {
   function readDevCss() {
     const resolveAssetUrl = assetOwner?.resolve(devAssets.values());
     return session.finalize(resolveAssetUrl ? { resolveAssetUrl } : undefined).css;
+  }
+
+  function discardStylesheet(id: string) {
+    latest.set(id, { result: Promise.resolve(undefined) });
+    session.invalidate(id);
+    devAssets.delete(id);
+    assetDependencies.delete(id);
+    failedReplacements.delete(id);
+  }
+
+  function hasSourceImporter(id: string) {
+    for (const dependencies of sourceDependencies.values()) {
+      if (dependencies.has(id)) return true;
+    }
+    return false;
+  }
+
+  // The adapter runs before Vite resolves all of the importer's other imports.
+  // Keep its previous dependencies until the host accepts this version of the source.
+  function finishSourceImports(id: string, next: Set<string>) {
+    const previous = sourceDependencies.get(id);
+    if (!previous) return;
+    const removed = [...previous].filter((dependency) => !next.has(dependency));
+    if (!removed.length) return;
+    const client = devServer?.environments.client;
+    const module = client?.moduleGraph.getModuleById(id);
+    if (!client || !module) return;
+    const priorEdges = module.importedModules;
+    // Join the current request without awaiting it inside its own transform hook.
+    void client.transformRequest(module.url).then((result) => {
+      if (!result || module.transformResult !== result || sourceDependencies.get(id) !== previous) return;
+      // Vite 7 skips updating its graph when the new JS has no imports at all.
+      // Ignore that obsolete edge list only while the module still holds the same list.
+      if (!next.size && module.importedModules === priorEdges) retiredImportLists.add(priorEdges);
+      if (next.size) sourceDependencies.set(id, next);
+      else sourceDependencies.delete(id);
+      for (const dependency of removed) {
+        if (hasSourceImporter(dependency)) continue;
+        const virtual = client.moduleGraph.getModuleById(toVirtualGssId(dependency));
+        if (virtual && [...virtual.importers].some((importer) => !retiredImportLists.has(importer.importedModules))) continue;
+        discardStylesheet(dependency);
+        trackedStylesheets.delete(dependency);
+      }
+      cssOwner?.publish();
+    }, () => { /* A failed importer keeps the previous successful contribution. */ });
   }
 
   function startReplacement(physicalId: string, read: () => string | Promise<string>, watch?: (path: string) => void): Replacement {
@@ -272,13 +318,16 @@ export function gss({ adapter }: GssOptions): Plugin[] {
         const source = graph.getModuleById(sourceId);
         if (source) modules.add(source);
       }
-      for (const module of modules) graph.invalidateModule(module, new Set(), context.timestamp, true);
-      if (context.type === 'delete') {
+      if (context.type === 'delete' && hasSourceImporter(physicalId) && session.getScopeSchema(physicalId)) {
+        // Cancel older work, retain the delivered CSS/exports, and let Vite report the failure
+        // without propagating a JS update that would reload the already mounted page.
         latest.set(physicalId, { result: Promise.resolve(undefined) });
-        session.invalidate(physicalId);
-        devAssets.delete(physicalId);
-        assetDependencies.delete(physicalId);
-        failedReplacements.delete(physicalId);
+        assetDependencies.delete(physicalId); // Its source must return before asset edits can recompile it.
+        failedReplacements.add(physicalId);
+        this.error({ id: physicalId, message: `Referenced GSS stylesheet is missing: ${physicalId}` });
+      }
+      if (context.type === 'delete') {
+        discardStylesheet(physicalId);
         cssOwner?.publish();
       } else {
         const before = JSON.stringify(session.getScopeSchema(physicalId));
@@ -290,6 +339,7 @@ export function gss({ adapter }: GssOptions): Plugin[] {
         // Only changed scope JavaScript needs propagation through its importers.
         if (result?.committed && before === JSON.stringify(session.getScopeSchema(physicalId))) return [];
       }
+      for (const module of modules) graph.invalidateModule(module, new Set(), context.timestamp, true);
       return [...modules];
     },
     transformIndexHtml: {
@@ -338,8 +388,9 @@ export function gss({ adapter }: GssOptions): Plugin[] {
       }
       if (!adapter.supports(id)) return null;
       const imports = adapter.discoverImports({ id, source });
+      const clientSource = development && this.environment.name === 'client';
       if (imports.length === 0) {
-        sourceDependencies.delete(id);
+        if (clientSource) finishSourceImports(id, new Set());
         return null;
       }
       const dependencies = new Map<string, string>();
@@ -348,9 +399,11 @@ export function gss({ adapter }: GssOptions): Plugin[] {
         const physicalId = resolved && !resolved.external ? fromVirtualGssId(resolved.id) : undefined;
         if (!physicalId) this.error(`Cannot resolve GSS dependency ${importId} from ${id}.`);
         this.addWatchFile(physicalId);
-        const watched = sourceDependencies.get(id) ?? new Set<string>();
-        watched.add(physicalId);
-        sourceDependencies.set(id, watched);
+        if (clientSource) {
+          const watched = sourceDependencies.get(id) ?? new Set<string>();
+          watched.add(physicalId);
+          sourceDependencies.set(id, watched);
+        }
         await compile(this, physicalId);
         dependencies.set(importId, physicalId);
       }
@@ -363,7 +416,7 @@ export function gss({ adapter }: GssOptions): Plugin[] {
         }
       });
       reportDiagnostics(this, result.diagnostics, { id, source });
-      sourceDependencies.set(id, new Set(dependencies.values()));
+      if (clientSource) finishSourceImports(id, new Set(dependencies.values()));
       return { code: result.code, ...(result.map ? { map: JSON.stringify(result.map) } : {}) };
     }
   };

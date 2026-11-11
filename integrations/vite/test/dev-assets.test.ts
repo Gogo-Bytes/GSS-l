@@ -165,7 +165,7 @@ it('refreshes public resources and font bytes without changing the source schema
   expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'full-reload' }));
 });
 
-it('reclaims deleted Module contributions while retaining a shared asset for its remaining owner', async () => {
+it('retains missing stylesheets and reclaims their assets when the last source import is removed', async () => {
   const { root, server, origin } = await fixture({
     'Card.gss': '.card { background-image: url(./icon.svg); color: red; }',
     'Fresh.gss': '.fresh { background-image: url(./fresh.svg); }',
@@ -176,17 +176,27 @@ it('reclaims deleted Module contributions while retaining a shared asset for its
   });
   await server.transformRequest('/Card.tsx');
   await server.transformRequest('/Other.tsx');
-  await css(server);
+  const before = await css(server);
+  const send = vi.spyOn(server.environments.client.hot, 'send');
+  async function removeImport(name: string) {
+    const id = join(root, name + '.tsx');
+    await writeFile(id, 'export default () => <div/>;');
+    server.moduleGraph.onFileChange(id);
+    await server.transformRequest('/' + name + '.tsx');
+  }
   await rm(join(root, 'Card.gss'));
   server.watcher.emit('unlink', `${root}/Card.gss`);
-  await vi.waitFor(async () => expect(await css(server)).not.toContain('color: red;'));
-  expect(await css(server)).toContain('background-image');
+  await vi.waitFor(() => expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: 'error' })));
+  expect(await css(server)).toBe(before);
+  expect((await fetch(new URL(imageUrl(before), origin))).status).toBe(200);
   await writeFile(join(root, 'icon.svg'), '<svg xmlns="http://www.w3.org/2000/svg"><circle/></svg>');
   server.watcher.emit('change', `${root}/icon.svg`);
   await vi.waitFor(async () => expect(await (await fetch(new URL(imageUrl(await css(server)), origin))).text()).toContain('<circle'));
+  await removeImport('Card');
+  await vi.waitFor(async () => expect(await css(server)).not.toContain('color: red;'));
+  expect(await css(server)).toContain('background-image');
   const retiredUrl = new URL(imageUrl(await css(server)), origin);
-  await rm(join(root, 'Other.gss'));
-  server.watcher.emit('unlink', `${root}/Other.gss`);
+  await removeImport('Other');
   await vi.waitFor(async () => expect(await css(server)).toBe(''));
   await server.transformRequest('/Fresh.tsx');
   expect((await fetch(retiredUrl)).status).toBe(404);

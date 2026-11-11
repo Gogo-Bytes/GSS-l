@@ -186,19 +186,48 @@ it('recovers an unchanged scope through CSS only without reloading its JS import
   expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'full-reload' }));
 });
 
-it.each(['.card { color:green; }', '.panel { color:blue; }', null])(
-  'still propagates changed scope or deletion to a JS importer (%j)', async (next) => {
+it.each(['.card { color:green; }', '.panel { color:blue; }'])(
+  'still propagates changed scope to a JS importer (%j)', async (next) => {
     const { root, id, server } = await fixture('.card { color:blue; }');
     await writeFile(`${root}/main.ts`, `import styles from './Card.gss'; document.body.className = styles.card;`);
     await server.transformRequest('/main.ts');
     const send = vi.spyOn(server.environments.client.hot, 'send');
-    if (next === null) await rm(id);
-    else await writeFile(id, next);
-    server.watcher.emit(next === null ? 'unlink' : 'change', id);
+    await writeFile(id, next);
+    server.watcher.emit('change', id);
     await vi.waitFor(() => expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: 'full-reload' })));
-    if (next?.includes('.panel')) expect(await server.transformRequest('/Card.tsx')).toBeDefined();
+    if (next.includes('.panel')) expect(await server.transformRequest('/Card.tsx')).toBeDefined();
   }
 );
+
+it('reports an imported stylesheet deletion and preserves the delivered module through invalid and identical recreation', async () => {
+  const { id, server } = await fixture('.card { color:red; }');
+  await server.transformRequest('/Card.tsx');
+  const virtual = [...server.environments.client.moduleGraph.idToModuleMap.values()].find((module) => module.id?.endsWith('/Card.gss') && module.id.startsWith('\0'))!;
+  const previousJs = (await server.transformRequest(virtual.url))!.code;
+  const readCss = () => server.transformRequest('/@gss-l/central.css?direct');
+  const css = (await readCss())!.code;
+  const send = vi.spyOn(server.environments.client.hot, 'send');
+  await rm(id);
+  server.watcher.emit('unlink', id);
+  await vi.waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'error', err: expect.objectContaining({
+    id, message: expect.stringContaining('missing')
+  }) }));
+  expect((await readCss())!.code).toBe(css);
+  expect((await server.transformRequest(virtual.url))!.code).toBe(previousJs);
+  await writeFile(id, '.card { color:blue; color:red; }');
+  server.watcher.emit('add', id);
+  await vi.waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'error', err: expect.objectContaining({
+    message: expect.stringContaining('GSS1204')
+  }) }));
+  expect((await readCss())!.code).toBe(css);
+  expect((await server.transformRequest(virtual.url))!.code).toBe(previousJs);
+  await writeFile(id, '.card { color:red; }');
+  server.watcher.emit('change', id);
+  await vi.waitFor(() => expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: 'update' })));
+  expect((await readCss())!.code).toBe(css);
+  expect((await server.transformRequest(virtual.url))!.code).toBe(previousJs);
+  expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'full-reload' }));
+});
 
 it('replays production census warnings from owned source, not the current disk file', async () => {
   const { root, id } = await fixture('.card { old-paint: red; }');

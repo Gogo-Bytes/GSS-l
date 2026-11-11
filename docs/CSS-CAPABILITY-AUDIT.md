@@ -73,7 +73,7 @@
 - 保守 rank 复用的连续同写入规则保留，方向屏障统一扩展到已建模 effects。统一 physical-priority 替代旧 Policy B 的 source-order tie；native strength 和语义高度仍优先，不开展性能扩展。
 - React 的可变 alias、跨文件 scope/data-flow 推导和精确 IDE path completion 不在当前目标。
 - class mapping 修改允许 reload/state reset；个别模板的 state-preserving HMR 不提升为通用保证。
-- `.gss` 删除不纳入当前支持契约；框架 SSR 的相对 base、server-only 图差异等限制见 [SSR 报告](FRAMEWORK-SSR-ACCEPTANCE.md)。
+- `.gss` 删除与恢复的 Vite 开发范围见[宿主清单](HOST-SUPPORT.md)。框架 SSR 的相对 base、server-only 图差异等限制见 [SSR 报告](FRAMEWORK-SSR-ACCEPTANCE.md)。
 
 ## 证据使用
 

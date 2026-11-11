@@ -176,6 +176,31 @@ it('replaces the full CSS snapshot and revalidates source importers after a file
   expect((await server.transformRequest('/Card.tsx'))?.code).toContain('styles.card');
 });
 
+it('reclaims CSS only after the last importer successfully drops it', async () => {
+  const { root, server } = await fixture();
+  const withStyle = `import styles from './Card.gss'; export const View = () => <p className={styles.card}/>;`;
+  async function edit(name: string, source: string) {
+    const file = join(root, name);
+    await writeFile(file, source);
+    server.moduleGraph.onFileChange(file);
+    return server.transformRequest('/' + name);
+  }
+  const css = async () => (await server.transformRequest('/@gss-l/central.css?direct'))!.code;
+  const plain = 'export const View = () => <p/>;';
+  await edit('A.tsx', withStyle);
+  await edit('B.tsx', withStyle);
+  const before = await css();
+  expect(before).toContain('color: red;');
+  await edit('A.tsx', plain);
+  expect(await css()).toBe(before);
+  await expect(edit('B.tsx', `import './nonexistent.js'; ${plain}`)).rejects.toThrow(/nonexistent/);
+  expect(await css()).toBe(before);
+  await edit('B.tsx', plain);
+  await vi.waitFor(async () => expect(await css()).toBe(''));
+  await edit('A.tsx', withStyle);
+  expect(await css()).toBe(before);
+});
+
 it('invalidates deleted stylesheets, reclaims resources and recovers on recreation', async () => {
   const { root, server, container } = await fixture();
   await writeFile(join(root, 'Card.gss'),
