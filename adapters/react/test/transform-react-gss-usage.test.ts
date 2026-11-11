@@ -20,6 +20,53 @@ const cardScope: ScopeSchema = {
 };
 
 describe('transformReactGssUsage', () => {
+  it('uses only declared schema keys, including explicitly declared prototype names', () => {
+    const source = `import styles from './Card.gss';
+styles.constructor.child;
+styles.card.constructor.child;
+styles.toString();
+styles.card.hasOwnProperty("self");`;
+    const transform = (schema: ScopeSchema) => transformReactGssUsage({
+      id: '/project/App.tsx', source, resolveScopeSchema: () => schema
+    });
+    expect(transform(cardScope).code).toBe(source);
+    const child = { selfClassName: 'leaf', targets: {} };
+    const special = { selfClassName: 'parent', targets: { child } };
+    const declared = transform({ moduleId: 'Card.gss', exports: {
+      constructor: special, card: { selfClassName: 'card', targets: { constructor: special } }
+    } });
+    expect(declared.code).toContain('styles.constructor.child.self;');
+    expect(declared.code).toContain('styles.card.constructor.child.self;');
+    expect(declared.diagnostics).toEqual([]);
+  });
+
+  it('retains the alias diagnostic when a child also occupies the self field', () => {
+    const result = transformReactGssUsage({
+      id: '/project/App.tsx',
+      source: `import styles from './Card.gss'; const cls = styles.card.self;
+export const App = () => <div className={cls}/>;`,
+      resolveScopeSchema: () => ({ moduleId: 'Card.gss', exports: {
+        card: { selfClassName: 'parent', targets: { self: { selfClassName: 'child', targets: {} } } }
+      } })
+    });
+    expect(result.diagnostics.map(d => d.code)).toEqual(['GSS2104']);
+  });
+
+  it.each([
+    'styles.card.self',
+    'active ? styles.card.self : styles.panel.self',
+    'active ? styles.card.self : "plain"'
+  ])('keeps an explicit class string alias as a string: %s', (initializer) => {
+    const source = `import styles from './Card.gss';
+const cls = ${initializer};
+export const App = () => <div className={cls}/>;`;
+    const result = transformReactGssUsage({
+      id: '/project/App.tsx', source, resolveScopeSchema: () => cardScope
+    });
+    expect(result.diagnostics).toEqual([]);
+    expect(result.code).toBe(source);
+  });
+
   it('lowers a direct GSS scope reference in JSX className to self', () => {
     const result = transformReactGssUsage({
       id: '/project/src/Card.tsx',

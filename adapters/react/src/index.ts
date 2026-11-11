@@ -662,8 +662,17 @@ function classifyScopeExpression(
   verifiedBindings: WeakMap<t.MemberExpression, GssBinding>
 ): ScopeExpressionKind {
   if (t.isMemberExpression(expression)) {
-    return readVerifiedScopeExpression(expression, verifiedBindings) ? 'scope' :
-      verifiedBindings.has(expression) ? 'ambiguous' : 'non-scope';
+    const binding = verifiedBindings.get(expression);
+    if (!binding) return 'non-scope';
+    const reference = readStaticReference(expression);
+    if (!reference) return 'ambiguous';
+    const path = reference.path;
+    if (path.at(-1) === 'self') {
+      const parent = resolveScopePath(binding.schema, path.slice(0, -1));
+      // A declared child named self collides with the terminal field (#53).
+      return parent && !Object.hasOwn(parent.targets, 'self') ? 'non-scope' : 'ambiguous';
+    }
+    return resolveScopePath(binding.schema, path) ? 'scope' : 'ambiguous';
   }
   if (t.isConditionalExpression(expression)) {
     const consequent = classifyScopeExpression(expression.consequent, verifiedBindings);
@@ -715,9 +724,12 @@ function resolveScopePath(
   path: readonly string[]
 ): ReactScopeNodeSchema | undefined {
   const [root, ...targets] = path;
-  if (!root) return undefined;
+  if (!root || !Object.hasOwn(schema.exports, root)) return undefined;
   let scope = schema.exports[root];
-  for (const target of targets) scope = scope?.targets[target];
+  for (const target of targets) {
+    if (!scope || !Object.hasOwn(scope.targets, target)) return undefined;
+    scope = scope.targets[target];
+  }
   return scope;
 }
 

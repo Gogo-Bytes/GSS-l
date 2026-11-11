@@ -97,6 +97,8 @@ Owner 已采用“编译期语法糖 + 轻量 TS 兼容类型”：直接静态�
 
 父组件 `<Child className={styles.title} />` 在父文件完成 lowering，子组件接收普通字符串；这不需要跨文件 scope 推导。普通函数、DOM API、模板字符串的直接静态引用以及已支持的不可变条件 alias 有既有回归；可变 alias、未知／动态路径、跨文件传播继续按当前实现边界处理，不能扩大成完整数据流分析或任意 namespace 逃逸支持。不可证明的动态／未知路径保留已确认的普通 JS 行为，不新增拒绝规则。
 
+验证路径时，每一段都必须是当前 schema 节点自身声明的成员。显式声明的 `constructor` 等名字可以使用，原型链上的同名成员不能证明路径成立。当子 scope 没有占用 `self` 键时，已验证路径的显式 `.self` 可直接赋给字符串别名；条件分支都是字符串时也按字符串处理。scope 与字符串混用仍按既有别名诊断处理。
+
 未采用双 Symbol 作为公共语义：内部键分离不能让同一个未转换的 `styles.card` 同时成为 primitive string 和任意子树。`Symbol.toPrimitive` 也不会把对象类型变成字符串；`string & children` 不自动解决 `length` 等成员冲突。原调研中的 Proxy、动态 resolver、精确声明交付、freeze 等建议不属于已批准能力。实现边界以 [Adapter](../adapters/react/src/index.ts)、[转换测试](../adapters/react/test/transform-react-gss-usage.test.ts)和 [类型测试](../types/test)为准；宿主使用 [通用 client 入口](../types/client.d.ts)。
 
 #### 接口评估与最小调整方案（2026-11-01）
