@@ -191,14 +191,6 @@ export function transformReactGssUsage(
         return;
       }
 
-      const binding = verifiedBindings.get(expression);
-      if (!binding) return;
-      const reference = readStaticReference(expression);
-      if (!reference) return;
-      if (!resolveScopePath(binding.schema, reference.path)) return;
-      if (expression.end != null) {
-        output.appendLeft(expression.end, '.$class');
-      }
     });
   });
 
@@ -223,16 +215,21 @@ export function transformReactGssUsage(
   // GSS references are compile-time paths, not JSX-only values. Lower direct
   // static paths in direct expression contexts so ordinary string consumers
   // (for example custom functions or document APIs) receive a primitive at
-  // runtime. Alias initializers and JSX attributes retain the existing
-  // bounded analysis below; general data-flow handling is not inferred here.
+  // runtime. A callback body has its own consumption context, even when
+  // the function itself is supplied as a JSX prop.
   traverse(ast, {
     MemberExpression(path) {
       const expression = path.node;
       if (t.isMemberExpression(path.parent) && path.parent.object === expression) return;
-      if (t.isJSXAttribute(path.parent)) return;
+      let inClassName = false;
       let ancestor: NodePath<t.Node> | null = path.parentPath;
       while (ancestor) {
-        if (t.isJSXAttribute(ancestor.node)) return;
+        if (ancestor.isFunction()) break;
+        if (t.isJSXAttribute(ancestor.node)) {
+          if (!t.isJSXIdentifier(ancestor.node.name, { name: 'className' })) return;
+          inClassName = true;
+          break;
+        }
         if (t.isVariableDeclarator(ancestor.node)) {
           const id = ancestor.node.id;
           if (t.isObjectPattern(id)) return;
@@ -248,7 +245,7 @@ export function transformReactGssUsage(
       if (!resolveScopePath(binding.schema, reference.path)) return;
       if (expression.end != null) {
         output.appendLeft(expression.end, '.$class');
-        loweredReferences.add(expression);
+        if (!inClassName) loweredReferences.add(expression);
       }
     }
   });

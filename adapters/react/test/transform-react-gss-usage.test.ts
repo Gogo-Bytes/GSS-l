@@ -20,6 +20,20 @@ const cardScope: ScopeSchema = {
 };
 
 describe('transformReactGssUsage', () => {
+  it('treats inline and named callback bodies alike while retaining direct scope props', () => {
+    const source = `import styles from './Card.gss';
+const named = e => { e.currentTarget.className = styles.card; };
+const view = <Child scope={styles.card} onHover={named}
+  onClick={e => { e.currentTarget.className = styles.card; }}
+  render={() => <Child scope={styles.card} className={styles.card} />} />;`;
+    const result = transformReactGssUsage({
+      id: '/project/Card.tsx', source, resolveScopeSchema: () => cardScope
+    });
+    expect(result.diagnostics).toEqual([]);
+    expect(result.code).toBe(source.replaceAll('currentTarget.className = styles.card;',
+      'currentTarget.className = styles.card.$class;').replace('className={styles.card}', 'className={styles.card.$class}'));
+  });
+
   it('uses only declared schema keys, including explicitly declared prototype names', () => {
     const source = `import styles from './Card.gss';
 styles.constructor.child;
