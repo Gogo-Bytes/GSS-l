@@ -916,6 +916,30 @@ describe('GssCompilerSession', () => {
     );
   });
 
+  it('keeps an authored unlayered name distinct in atomic, preserved and resource output', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project', layers: ['theme', 'unlayered', 'unlayered.inner'] });
+    const id = '/project/layers.gss';
+    const source = '.a { color: red; } @layer unlayered { .b { color: red; } ' +
+      '@layer inner { .c { color: blue; } } @keyframes pulse { to { opacity: 1; } } } ' +
+      '@layer theme { .d { color: red; } }';
+    const result = session.replaceStylesheet({ id, source });
+    expect(result.diagnostics).toEqual([]);
+    const { a, b, d } = result.module!.scopeSchema.exports;
+    expect(a!.selfClassName).toBe(colorRedClass);
+    expect(b!.selfClassName).toBe(colorRedClass.replace('--layer_unlayered', '--named-layer_unlayered'));
+    expect(d!.selfClassName).toBe(colorRedClass.replace('layer_unlayered', 'layer_theme'));
+    const { css, manifest } = session.finalize();
+    expect(css).toContain('@layer unlayered {\n  @keyframes ');
+    expect(css).toContain('@layer unlayered.inner {');
+    expect(manifest.rules.find(rule => rule.className === b!.selfClassName)?.origins)
+      .toEqual([{ moduleId: 'layers.gss', range: {
+        start: source.lastIndexOf('color: red;', source.indexOf('@layer inner')),
+        end: source.indexOf(' } @layer inner') } }]);
+    const preserved = session.replaceStylesheet({ id, source: '@layer unlayered { .a { future-paint: red; } }' });
+    expect(preserved.module?.compilationMode).toBe('preserved');
+    expect(session.finalize().css).toContain('@layer unlayered {\n  .');
+  });
+
   it('warns without rejecting an unregistered named layer', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 

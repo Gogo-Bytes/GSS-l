@@ -121,7 +121,7 @@ function renderPreservedRule(
   for (const condition of [...rule.conditions].reverse()) {
     css = `@${condition.kind} ${condition.query} {\n${indentCss(css)}\n}`;
   }
-  if (rule.layer !== 'unlayered') {
+  if (rule.layer !== null) {
     css = `@layer ${rule.layer} {\n${indentCss(css)}\n}`;
   }
   return { css, declarationOffsets: physical.map(({ offset }) => offset) };

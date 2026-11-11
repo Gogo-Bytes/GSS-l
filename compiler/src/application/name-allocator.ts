@@ -22,7 +22,7 @@ export type NameAllocatorPort = {
     moduleId: string,
     path: readonly string[],
     condition?: string,
-    layer?: string
+    layer?: string | null
   ): string;
   createTargetMarker(identity: ContextualRelationIdentity): string;
   createContextMarker(

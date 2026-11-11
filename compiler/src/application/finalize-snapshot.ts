@@ -158,7 +158,7 @@ function renderRule(rule: PlannedDeclaration, resolve: AssetUrlResolver): string
   for (const wrapper of [...(rule.wrappers ?? [])].reverse()) {
     css = `@${wrapper.kind} ${wrapper.query} {\n${indentCss(css)}\n}`;
   }
-  if (rule.layer && rule.layer !== 'unlayered') {
+  if (rule.layer) {
     css = `@layer ${rule.layer} {\n${indentCss(css)}\n}`;
   }
   return css;

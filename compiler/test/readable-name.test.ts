@@ -6,7 +6,7 @@ import {
 } from '../src/domain/readable-name.js';
 
 const atomic = (value: string) => createReadableAtomicName({
-  layer: 'unlayered',
+  layer: null,
   condition: 'base',
   state: 'self',
   property: 'color',

@@ -7,7 +7,7 @@ function registeredWidthBound(
   resource: ParsedKeyframesRegistration,
   registeredMedia: readonly string[]
 ): WidthBound | undefined {
-  if (resource.layer !== 'unlayered' || resource.conditions.length !== 1) return undefined;
+  if (resource.layer !== null || resource.conditions.length !== 1) return undefined;
   const condition = resource.conditions[0]!;
   if (condition.kind !== 'media' || !registeredMedia.includes(condition.query)) return undefined;
   const match = /^\(\s*(min|max)-width\s*:\s*(0|[1-9][0-9]*)px\s*\)$/.exec(condition.query);

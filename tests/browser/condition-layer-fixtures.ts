@@ -57,8 +57,9 @@ function conditionFixture(kind: 'media' | 'supports' | 'container', reverseSourc
 
 function layerFixture(reverseSource: boolean, reverseConfig: boolean): ReferenceFixture {
   const moduleId = 'Layers.gss';
+  const early = reverseConfig ? 'unlayered' : 'early';
   const groups = [
-    '@layer early { .normal { color: red; } .important { color: red !important; } .unlayered { color: red; } .unlayeredImportant { color: red !important; } }',
+    `@layer ${early} { .normal { color: red; } .important { color: red !important; } .unlayered { color: red; } .unlayeredImportant { color: red !important; } }`,
     '@layer late { .normal { color: blue; } .important { color: blue !important; } .unlayered { color: blue; } .unlayeredImportant { color: blue !important; } }',
     '.unlayered { color: green; } .unlayeredImportant { color: green !important; }'
   ];
@@ -66,7 +67,7 @@ function layerFixture(reverseSource: boolean, reverseConfig: boolean): Reference
   const last = reverseConfig ? 'rgb(255, 0, 0)' : 'rgb(0, 0, 255)';
   return {
     name: `native-layers-${reverseSource ? 'reverse' : 'forward'}-source-${reverseConfig ? 'reverse' : 'forward'}-config`,
-    config: { layers: reverseConfig ? ['late', 'early'] : ['early', 'late'] },
+    config: { layers: reverseConfig ? ['late', early] : [early, 'late'] },
     modules: [{ id: moduleId, source: (reverseSource ? [...groups].reverse() : groups).join('\n') }],
     nodes: [
       { id: 'layer-normal', moduleId, path: ['normal'], expected: { color: last } },

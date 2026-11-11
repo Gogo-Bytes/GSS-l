@@ -9,7 +9,7 @@ import { compareCodeUnits } from './compare-code-units.js';
 export type OrderableRule = {
   className: string;
   identity: { property: string; atomRank?: number; orderSlot?: number };
-  layer?: string;
+  layer?: string | null;
   relationRank?: number;
   wrappers?: readonly OrderableCondition[];
 };
@@ -29,10 +29,10 @@ export function compareRuleOrder(
   config: RuleOrderConfig
 ): number {
   const layerOrder = compareRegisteredValue(
-    left.layer ?? 'unlayered',
-    right.layer ?? 'unlayered',
+    left.layer ?? '',
+    right.layer ?? '',
     config.layers ?? [],
-    'unlayered'
+    ''
   );
   if (layerOrder !== 0) return layerOrder;
 

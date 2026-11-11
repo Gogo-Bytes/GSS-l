@@ -6,7 +6,7 @@ import { canonicalCondition, groupRulesByCondition } from './condition-context.j
 export type PlannedOwnershipGroup = {
   wrappers: readonly ParsedCondition[];
   condition: string;
-  layer: string;
+  layer: string | null;
   targets: readonly ResolvedTarget<ParsedStyleRule>[];
 };
 

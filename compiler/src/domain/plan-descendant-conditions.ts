@@ -5,7 +5,7 @@ import type { ParsedStyleRule } from './parsed-stylesheet.js';
 
 export type DescendantRule = Pick<ParsedStyleRule, 'nodes'> & {
   conditions: readonly { kind: string; query: string }[];
-  layer: string;
+  layer: string | null;
   sourceOrdinal: number;
   declarations: readonly { property: string; value: string; important: boolean }[];
 };

@@ -63,7 +63,7 @@ export type ParsedSelector = {
 export type ParsedStyleRule = ParsedSelector & {
   source: SourceSpan;
   conditions: readonly ParsedCondition[];
-  layer: string;
+  layer: string | null;
   declarations: readonly ParsedDeclaration[];
   sourceOrdinal: number;
 };
@@ -80,7 +80,7 @@ export type ParsedKeyframesRegistration = {
   kind: 'keyframes';
   name: string;
   conditions: readonly ParsedCondition[];
-  layer: string;
+  layer: string | null;
   frames: readonly {
     source: SourceSpan;
     selector: string;

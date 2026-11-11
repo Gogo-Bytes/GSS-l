@@ -21,7 +21,7 @@ type RuleCandidate = {
     observations: readonly unknown[]; pseudoElement: string | null }[];
   externalTarget?: string;
   externalCondition?: string;
-  layer: string;
+  layer: string | null;
   conditions: readonly unknown[];
   relations: readonly string[];
   declarations: readonly { property: string }[];

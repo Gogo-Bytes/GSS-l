@@ -55,14 +55,14 @@ export function prepareSelectorContexts(id: string, semanticRules: readonly Pars
   const simpleBaseRefinement = sameNode !== undefined && base !== undefined &&
     semanticRules.length === 2 && localRules.length === 1 && externalRules.length === 0 &&
     sameNode.nodes.length === 1 && base.nodes.length === 1 && base.nodes[0]!.name === sameNode.nodes[0]!.name &&
-    isPureOwnershipRule(base) && base.conditions.length === 0 && base.layer === 'unlayered' &&
+    isPureOwnershipRule(base) && base.conditions.length === 0 && base.layer === null &&
     base.declarations.length === 1 && sameNode.declarations.length === 1 &&
     base.declarations[0]!.property === sameNode.declarations[0]!.property &&
     classifyPropertyEffect(base.declarations[0]!.property).kind === 'longhand' &&
     !base.declarations[0]!.important && !sameNode.declarations[0]!.important;
   if (sameNodeRules.length > 0 && (sameNodeRules.length !== 1 ||
     (semanticRules.length !== 1 && !simpleBaseRefinement) ||
-    sameNode!.conditions.length > 0 || sameNode!.layer !== 'unlayered' ||
+    sameNode!.conditions.length > 0 || sameNode!.layer !== null ||
     sameNode!.relations.some((relation) => relation !== 'descendant') ||
     sameNode!.nodes.some((node) => node.states.length > 0) ||
     sameNode!.nodes.some((node) => node.attributes.length > 0) ||

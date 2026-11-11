@@ -3,7 +3,7 @@ export type PureDeclarationIdentity = {
   atomRank?: number;
   /** Cross-property emission position; retained in identity to prevent unsafe reuse. */
   orderSlot?: number;
-  layer: string;
+  layer: string | null;
   condition: string;
   state: string;
   /** Local markers in first-reference order in the emitted state selector. */
@@ -18,7 +18,7 @@ export type PureDeclarationIdentity = {
 
 export type ObservedRelationIdentity = {
   moduleId: string;
-  layer?: string;
+  layer?: string | null;
   condition?: string;
   subjectPath: readonly string[];
   relation: 'descendant' | 'child' | 'adjacent' | 'general-sibling';
@@ -29,7 +29,7 @@ export type ObservedRelationIdentity = {
 
 export type ContextualRelationIdentity = {
   moduleId: string;
-  layer?: string;
+  layer?: string | null;
   condition?: string;
   relations: readonly ('descendant' | 'child' | 'adjacent' | 'general-sibling')[];
   authoredPath?: readonly string[];
@@ -58,7 +58,7 @@ export function createReadableKeyframesName(moduleId: string, authoredName: stri
 export function createReadableAtomicName(identity: PureDeclarationIdentity): string {
   return [
     'gss-a',
-    `layer_${encodeNamePart(identity.layer)}`,
+    identity.layer === 'unlayered' ? 'named-layer_unlayered' : `layer_${encodeNamePart(identity.layer ?? 'unlayered')}`,
     `condition_${encodeNamePart(identity.condition)}`,
     `state_${encodeNamePart(identity.state)}`,
     identity.pseudoElement
@@ -82,7 +82,7 @@ export function createReadableHasSubjectMarker(identity: ObservedRelationIdentit
   return [
     'gss-hs',
     `module_${encodeNamePart(identity.moduleId)}`,
-    identity.layer && identity.layer !== 'unlayered'
+    identity.layer
       ? `layer_${encodeNamePart(identity.layer)}`
       : undefined,
     identity.condition && identity.condition !== 'base'
@@ -99,7 +99,7 @@ export function createReadableObservedMarker(identity: ObservedRelationIdentity)
   return [
     'gss-ho',
     `module_${encodeNamePart(identity.moduleId)}`,
-    identity.layer && identity.layer !== 'unlayered'
+    identity.layer
       ? `layer_${encodeNamePart(identity.layer)}`
       : undefined,
     identity.condition && identity.condition !== 'base'
@@ -122,12 +122,12 @@ export function createReadableSourceMarker(
   moduleId: string,
   path: readonly string[],
   condition?: string,
-  layer?: string
+  layer?: string | null
 ): string {
   return [
     'gss-s',
     `module_${encodeNamePart(moduleId)}`,
-    layer && layer !== 'unlayered'
+    layer
       ? `layer_${encodeNamePart(layer)}`
       : undefined,
     condition && condition !== 'base'
@@ -141,7 +141,7 @@ export function createReadableTargetMarker(identity: ContextualRelationIdentity)
   return [
     'gss-t',
     `module_${encodeNamePart(identity.moduleId)}`,
-    identity.layer && identity.layer !== 'unlayered'
+    identity.layer
       ? `layer_${encodeNamePart(identity.layer)}`
       : undefined,
     identity.condition && identity.condition !== 'base'
@@ -166,7 +166,7 @@ export function createReadableContextMarker(
   return [
     'gss-c',
     `module_${encodeNamePart(identity.moduleId)}`,
-    identity.layer && identity.layer !== 'unlayered'
+    identity.layer
       ? `layer_${encodeNamePart(identity.layer)}`
       : undefined,
     identity.condition && identity.condition !== 'base'
@@ -234,7 +234,7 @@ const encodeNamePart = encodeReadableNamePart;
 export type ReadableScopeSourceIdentity = {
   moduleId: string;
   path: readonly string[];
-  layer?: string;
+  layer?: string | null;
   condition?: string;
 };
 
@@ -415,7 +415,7 @@ export function decodeReadableAtomicName(name: string): PureDeclarationIdentity 
   if (parts.shift() !== 'gss-a') return undefined;
   const fields = new Map<string, string>();
   const allowed = new Set([
-    'layer', 'condition', 'state', 'pseudo', 'property', 'value', 'asset-value',
+    'layer', 'named-layer', 'condition', 'state', 'pseudo', 'property', 'value', 'asset-value',
     'importance', 'rank', 'order', 'module', 'target', 'specificity', 'markers'
   ]);
   for (const part of parts) {
@@ -428,7 +428,9 @@ export function decodeReadableAtomicName(name: string): PureDeclarationIdentity 
     fields.set(key, value);
   }
 
-  const required = ['layer', 'condition', 'state', 'property', 'importance'];
+  const layer = fields.get('named-layer') ?? fields.get('layer');
+  if (layer === undefined) return undefined;
+  const required = ['condition', 'state', 'property', 'importance'];
   if (required.some((key) => !fields.has(key))) return undefined;
   const hasValue = fields.has('value');
   const hasAssetValue = fields.has('asset-value');
@@ -451,7 +453,7 @@ export function decodeReadableAtomicName(name: string): PureDeclarationIdentity 
   if (fields.has('markers') && !stateMarkers?.length) return undefined;
 
   const identity: PureDeclarationIdentity = {
-    layer: fields.get('layer')!,
+    layer: fields.get('layer') === 'unlayered' ? null : layer,
     condition: fields.get('condition')!,
     state: fields.get('state')!,
     ...(stateMarkers ? { stateMarkers } : {}),

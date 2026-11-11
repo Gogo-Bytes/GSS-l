@@ -26,7 +26,7 @@ export type PlannedDeclaration = {
   className: string;
   selector: string;
   wrappers?: readonly ParsedCondition[];
-  layer?: string;
+  layer?: string | null;
   relationRank?: number;
   physicalDeclarations?: readonly PhysicalDeclaration[];
   source: SourceSpan;

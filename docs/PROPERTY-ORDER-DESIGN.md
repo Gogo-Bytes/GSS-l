@@ -18,6 +18,8 @@ GSS 将样式编译为可复用的 atom class，并允许同一模块的多个 s
 
 对于 `:is(.flag)`、`:not(.flag)` 等包含本地类的状态，atom 身份还包含渲染 selector 时实际引用的 scope marker，按首次引用顺序记录。两个模块各自声明的 `.flag` 绑定不同；即使函数源码和声明值相同，也必须分开生成。目标路径本身不额外参与这项判断。同一模块引用相同 marker 时仍按原有条件复用，纯全局条件和不引用本地 marker 的状态沿用原身份。
 
+无层声明在编译器中使用 `null`，具名层使用完整层名。普通无层 atom 继续编码为 `layer_unlayered`，真正名为 `unlayered` 的层编码为 `named-layer_unlayered`；其他具名层沿用现有命名。层内筛选、marker、CSS wrapper 和资源归属都应根据实际层判断，普通与 important 的跨层覆盖交给浏览器。
+
 ## 复合属性先展开
 
 对于能够证明语义等价的 shorthand，在生成 atom 之前，将其展开为受影响的单一属性，再依据声明顺序处理同一规则内的覆盖。例如：

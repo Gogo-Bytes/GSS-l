@@ -158,7 +158,7 @@ function planKeyframesRegistration(
   for (const condition of [...resource.conditions].reverse()) {
     css = `@${condition.kind} ${condition.query} {\n${indentCss(css)}\n}`;
   }
-  if (resource.layer !== 'unlayered') {
+  if (resource.layer !== null) {
     css = `@layer ${resource.layer} {\n${indentCss(css)}\n}`;
   }
   return {

@@ -12,7 +12,7 @@ import {
 
 it.each([
   {
-    layer: 'unlayered', condition: 'base', state: 'self', property: 'margin-left', value: '1px',
+    layer: null, condition: 'base', state: 'self', property: 'margin-left', value: '1px',
     important: false, atomRank: 1, orderSlot: 4
   },
   {
@@ -21,17 +21,17 @@ it.each([
     important: true
   },
   {
-    layer: 'unlayered', condition: 'base', state: 'self', property: 'color', value: 'red',
+    layer: null, condition: 'base', state: 'self', property: 'color', value: 'red',
     important: false,
     ownership: { moduleId: '../shared/Card.gss', path: ['card', 'icon'], specificity: 2 }
   },
   {
-    layer: 'unlayered', condition: 'base', state: 'self', property: 'color', value: 'red',
+    layer: null, condition: 'base', state: 'self', property: 'color', value: 'red',
     important: false,
     ownership: { moduleId: 'tree.gss', path: ['a/b', 'c\\d'], specificity: 0 }
   },
   {
-    layer: 'unlayered', condition: 'base', state: 'self', property: 'content', value: '"cafe\u0301"',
+    layer: null, condition: 'base', state: 'self', property: 'content', value: '"cafe\u0301"',
     important: false,
     ownership: { moduleId: 'cafe\u0301.gss', path: ['cafe\u0301'], specificity: 0 }
   }
@@ -79,6 +79,7 @@ it('keeps every canonical identity field collision-free', () => {
     ownership: { moduleId: 'module.gss', path: ['card', 'icon'], specificity: 2 }
   };
   const variants: PureDeclarationIdentity[] = [
+    { ...base, layer: 'unlayered' }, { ...base, layer: null },
     { ...base, layer: 'base-x' }, { ...base, condition: 'media_y' },
     { ...base, stateMarkers: ['marker-a', 'marker-b'] },
     { ...base, stateMarkers: ['marker-a/marker-b'] },

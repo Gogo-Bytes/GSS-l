@@ -12,7 +12,7 @@ export function supportsCurrentBackgroundRanks(rules: readonly ParsedStyleRule[]
   return rules.filter((rule) => rule.externalTarget !== undefined || matchesOwnedTarget(getOwnershipPath(rule.nodes), target)).every((rule) => {
     const competing = rule.declarations.filter((declaration) => effectsOfProperty(declaration.property).includes('background-color'));
     if (!competing.length) return true;
-    return rule.layer === 'unlayered' && rule.conditions.length === 0 &&
+    return rule.layer === null && rule.conditions.length === 0 &&
       !rule.externalTarget && !rule.externalCondition &&
       rule.relations.every((relation) => relation === 'descendant') &&
       rule.nodes.every((node) => node.observations.length === 0) &&

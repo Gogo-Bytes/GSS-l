@@ -157,7 +157,7 @@ function parseAndNormalizeStylesheet(id: string, source: string): ParsedStyleshe
   const visitNodes = (
     nodes: readonly postcss.ChildNode[],
     conditions: readonly ParsedCondition[],
-    layer: string
+    layer: string | null
   ): void => {
     for (const node of nodes) {
       if (node.type === 'atrule') {
@@ -190,7 +190,7 @@ function parseAndNormalizeStylesheet(id: string, source: string): ParsedStyleshe
         }
         if (node.name === 'layer' && node.nodes && isNamedLayer(node.params.trim())) {
           const name = node.params.trim();
-          visitNodes(node.nodes, conditions, layer === 'unlayered' ? name : `${layer}.${name}`);
+          visitNodes(node.nodes, conditions, layer === null ? name : `${layer}.${name}`);
           continue;
         }
         if (!isSupportedConditionKind(node.name) || !node.nodes) {
@@ -238,7 +238,7 @@ function parseAndNormalizeStylesheet(id: string, source: string): ParsedStyleshe
       sourceOrdinal += 1;
     }
   };
-  visitNodes(root.nodes, [], 'unlayered');
+  visitNodes(root.nodes, [], null);
 
   return { rules, resources, diagnostics };
 }
@@ -246,10 +246,10 @@ function parseAndNormalizeStylesheet(id: string, source: string): ParsedStyleshe
 function parseFontFaceResource(
   node: postcss.AtRule,
   conditions: readonly ParsedCondition[],
-  layer: string,
+  layer: string | null,
   spanOf: SourceSpanReader
 ): ParsedFontFaceResource | undefined {
-  if (conditions.length > 0 || layer !== 'unlayered' || node.params.trim() || !node.nodes) {
+  if (conditions.length > 0 || layer !== null || node.params.trim() || !node.nodes) {
     return undefined;
   }
   const declarations: ParsedDeclaration[] = [];
@@ -265,7 +265,7 @@ function parseFontFaceResource(
 function parseKeyframesRegistration(
   node: postcss.AtRule,
   conditions: readonly ParsedCondition[],
-  layer: string,
+  layer: string | null,
   spanOf: SourceSpanReader
 ): ParsedKeyframesRegistration | undefined {
   const name = node.params.trim();
@@ -300,13 +300,13 @@ function isKeyframeSelector(selector: string): boolean {
 function parsePropertyRegistration(
   node: postcss.AtRule,
   conditions: readonly ParsedCondition[],
-  layer: string,
+  layer: string | null,
   spanOf: SourceSpanReader
 ): ParsedPropertyRegistration | undefined {
   const name = node.params.trim();
   if (
     conditions.length > 0 ||
-    layer !== 'unlayered' ||
+    layer !== null ||
     !/^--[-_A-Za-z0-9]+$/.test(name) ||
     !node.nodes
   ) return undefined;

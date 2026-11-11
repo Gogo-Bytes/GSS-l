@@ -45,7 +45,7 @@ export function validateRegisteredConditions(
   );
   const unregisteredLayers = new Set(
     [...rules.map(({ layer }) => layer), ...resourceLayers].filter((layer) =>
-      layer !== 'unlayered' && !registeredLayers.has(layer)
+      layer !== null && !registeredLayers.has(layer)
     )
   );
   const layerDiagnostics: GssDiagnostic[] = [...unregisteredLayers].sort().map((layer) => ({
@@ -66,7 +66,7 @@ export function groupRulesByCondition(
 ): ReadonlyMap<string, readonly ParsedStyleRule[]> {
   const groups = new Map<string, ParsedStyleRule[]>();
   for (const rule of rules) {
-    const key = `${rule.layer}\0${canonicalCondition(rule.conditions)}`;
+    const key = JSON.stringify([rule.layer, canonicalCondition(rule.conditions)]);
     groups.set(key, [...(groups.get(key) ?? []), rule]);
   }
   return groups;
