@@ -31,17 +31,19 @@ export function renderStateSuffix(
   states: readonly string[],
   moduleId: string,
   nameAllocator: NameAllocatorPort,
-  roots: Map<string, MutableScopeNode>
+  roots: Map<string, MutableScopeNode>,
+  localMarkers?: Set<string>
 ): string {
   return states.map((state) => state === 'self' ? '' :
-    renderNativeSelector(`:${state}`, moduleId, nameAllocator, roots)).join('');
+    renderNativeSelector(`:${state}`, moduleId, nameAllocator, roots, localMarkers)).join('');
 }
 
 export function renderNativeSelector(
   source: string,
   moduleId: string,
   nameAllocator: NameAllocatorPort,
-  roots: Map<string, MutableScopeNode>
+  roots: Map<string, MutableScopeNode>,
+  localMarkers?: Set<string>
 ): string {
   const root = selectorParser().astSync(source);
   const rewrite = (nodes: readonly selectorParser.Node[], global: boolean): void => {
@@ -49,6 +51,7 @@ export function renderNativeSelector(
       if (node.type === 'class' && !global) {
         const marker = nameAllocator.createScopeMarker(moduleId, [node.value]);
         ensureScopePath(roots, [node.value]).classNames.add(marker);
+        localMarkers?.add(marker);
         node.value = marker;
         continue;
       }

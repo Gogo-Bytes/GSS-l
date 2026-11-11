@@ -28,9 +28,14 @@ export function emitPseudoRules(input: AtomicEmissionContext & {
     const condition = canonicalCondition(wrappers);
     const layer = rule.layer;
     const scope = ensureScopePath(roots, targetPath);
+    if (declarations.length === 0) continue;
+    const localMarkers = new Set<string>();
+    const suffix = renderStateSuffix([state], moduleId, nameAllocator, roots, localMarkers);
+    const stateMarkers = [...localMarkers];
     for (const declaration of declarations) {
       const identity: PureDeclarationIdentity = {
         layer, condition, state, pseudoElement,
+        ...(stateMarkers.length ? { stateMarkers } : {}),
         ...(moduleOrder.get(declaration, instance) ?? {}),
         property: declaration.property,
         ...identifyAssetValue(declaration.value, bindings),
@@ -43,7 +48,7 @@ export function emitPseudoRules(input: AtomicEmissionContext & {
         kind: state === 'self' ? 'pure-atom' : 'contextual-atom',
         identity, className,
         // Keep authored class specificity on this target-qualified atom, not a shared weaker atom.
-        selector: `${`.${className}`.repeat(rule.nodes.length)}${renderStateSuffix([state], moduleId, nameAllocator, roots)}::${pseudoElement}`,
+        selector: `${`.${className}`.repeat(rule.nodes.length)}${suffix}::${pseudoElement}`,
         wrappers, layer, relationRank, source: declaration.source
       });
     }

@@ -6,6 +6,8 @@ export type PureDeclarationIdentity = {
   layer: string;
   condition: string;
   state: string;
+  /** Local markers in first-reference order in the emitted state selector. */
+  stateMarkers?: readonly string[];
   pseudoElement?: string;
   ownership?: { moduleId: string; path: readonly string[]; specificity: number };
   property: string;
@@ -71,7 +73,8 @@ export function createReadableAtomicName(identity: PureDeclarationIdentity): str
       `module_${encodeNamePart(identity.ownership.moduleId)}`,
       `target_${encodePath(identity.ownership.path)}`,
       `specificity_${identity.ownership.specificity}`
-    ] : [])
+    ] : []),
+    identity.stateMarkers?.length ? `markers_${encodePath(identity.stateMarkers)}` : undefined
   ].filter((part): part is string => part !== undefined).join('--');
 }
 
@@ -413,7 +416,7 @@ export function decodeReadableAtomicName(name: string): PureDeclarationIdentity 
   const fields = new Map<string, string>();
   const allowed = new Set([
     'layer', 'condition', 'state', 'pseudo', 'property', 'value', 'asset-value',
-    'importance', 'rank', 'order', 'module', 'target', 'specificity'
+    'importance', 'rank', 'order', 'module', 'target', 'specificity', 'markers'
   ]);
   for (const part of parts) {
     const separator = part.indexOf('_');
@@ -444,10 +447,14 @@ export function decodeReadableAtomicName(name: string): PureDeclarationIdentity 
   const targetPath = fields.has('target') ? decodePath(fields.get('target')!) : undefined;
   if (fields.has('target') && targetPath === undefined) return undefined;
 
+  const stateMarkers = fields.has('markers') ? decodePath(fields.get('markers')!) : undefined;
+  if (fields.has('markers') && !stateMarkers?.length) return undefined;
+
   const identity: PureDeclarationIdentity = {
     layer: fields.get('layer')!,
     condition: fields.get('condition')!,
     state: fields.get('state')!,
+    ...(stateMarkers ? { stateMarkers } : {}),
     property: fields.get('property')!,
     value: (hasAssetValue ? fields.get('asset-value') : fields.get('value'))!,
     important: importance === 'important',

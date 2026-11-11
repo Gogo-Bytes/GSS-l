@@ -40,6 +40,38 @@ it.each([
   expect(decodeReadableAtomicName(name)).toEqual(identity);
 });
 
+it.each([':is(.flag)', ':where(.flag)', ':not(.flag)', ':nth-child(1 of .flag)', ':is(.flag)::before'])(
+  'keeps %s atoms bound to the emitted module marker across replacement', state => {
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    const source = `.a${state}, .b${state} { color: red; } .flag { opacity: 1; }`;
+    const add = (id: string) => {
+      const result = session.replaceStylesheet({ id, source });
+      expect(result.committed).toBe(true);
+      return result.module!.scopeSchema.exports;
+    };
+    const a = add('A.gss');
+    const b = add('B.gss');
+    const snapshot = session.finalize();
+    expect(a.a!.selfClassName).toBe(a.b!.selfClassName);
+    expect(a.a!.selfClassName).not.toBe(b.a!.selfClassName);
+    for (const [id, roots] of [['A.gss', a], ['B.gss', b]] as const) {
+      const cls = roots.a!.selfClassName;
+      const rule = snapshot.manifest.rules.find(rule => rule.className === cls)!;
+      expect(rule.sources).toEqual([id]);
+      expect(rule.origins.map(origin => origin.moduleId)).toEqual([id]);
+      const marker = createReadableScopeMarker(id, ['flag']);
+      expect(decodeReadableAtomicName(cls)?.stateMarkers).toEqual([marker]);
+      expect(rule.selector).toContain(marker);
+      expect(roots.flag!.selfClassName.split(' ')).toContain(marker);
+    }
+    const shared = snapshot.manifest.rules.find(rule => rule.property === 'opacity');
+    expect(shared?.sources).toEqual(['A.gss', 'B.gss']);
+    session.invalidate('A.gss');
+    expect(session.finalize().css).not.toContain(a.a!.selfClassName);
+    add('A.gss');
+    expect(session.finalize().css).toBe(snapshot.css);
+  });
+
 it('keeps every canonical identity field collision-free', () => {
   const base: PureDeclarationIdentity = {
     layer: 'base', condition: 'media:x', state: 'hover', pseudoElement: 'before',
@@ -48,6 +80,8 @@ it('keeps every canonical identity field collision-free', () => {
   };
   const variants: PureDeclarationIdentity[] = [
     { ...base, layer: 'base-x' }, { ...base, condition: 'media_y' },
+    { ...base, stateMarkers: ['marker-a', 'marker-b'] },
+    { ...base, stateMarkers: ['marker-a/marker-b'] },
     { ...base, state: 'hover-x' }, { ...base, pseudoElement: 'after' },
     { ...base, property: 'background-color' }, { ...base, value: 'red-x' },
     { ...base, important: true },

@@ -219,6 +219,7 @@ function serializeIdentity(identity: PlannedDeclaration['identity']): string {
     identity.layer,
     identity.condition,
     identity.state,
+    identity.stateMarkers,
     identity.pseudoElement,
     identity.ownership,
     identity.property,
