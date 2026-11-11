@@ -1,3 +1,4 @@
+import { renderWrappedCss } from './render-wrapped-css.js';
 import { getOwnershipPath } from '../domain/ownership-path.js';
 import selectorParser from 'postcss-selector-parser';
 import type { CompatibilityTransformer } from './compatibility-transformer.js';
@@ -8,7 +9,7 @@ import type { NameAllocatorPort } from './name-allocator.js';
 import type { ModuleContribution } from './module-contribution.js';
 import { bindCssAssets } from './asset-values.js';
 import { collectAssetDependencies } from './stylesheet-assets.js';
-import { indentCss, type PlannedResource } from './resource-planning.js';
+import type { PlannedResource } from './resource-planning.js';
 import { ensureScopePath, toScopeSchema, renderModuleCode, renderDeclarationCode, type MutableScopeNode } from './scope-exports.js';
 
 // The caller chooses fallback and validates compatibility before entering here.
@@ -115,15 +116,12 @@ function renderPreservedRule(
     (compatibility ? compatibility.expand(declaration)! : [declaration])
       .map((entry) => ({ entry, offset: declaration.source.start }))
   );
-  const declarations = physical.map(({ entry: { property, value, important } }) =>
-    `  ${property}: ${value}${important ? ' !important' : ''};`).join('\n');
-  let css = `${selector} {\n${declarations}\n}`;
-  for (const condition of [...rule.conditions].reverse()) {
-    css = `@${condition.kind} ${condition.query} {\n${indentCss(css)}\n}`;
-  }
-  if (rule.layer !== null) {
-    css = `@layer ${rule.layer} {\n${indentCss(css)}\n}`;
-  }
+  const css = renderWrappedCss([
+    `${selector} {`,
+    ...physical.map(({ entry: { property, value, important } }) =>
+      `  ${property}: ${value}${important ? ' !important' : ''};`),
+    '}'
+  ], rule.conditions, rule.layer);
   return { css, declarationOffsets: physical.map(({ offset }) => offset) };
 }
 

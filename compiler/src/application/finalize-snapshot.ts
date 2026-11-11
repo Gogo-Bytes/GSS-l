@@ -1,3 +1,4 @@
+import { renderWrappedCss } from './render-wrapped-css.js';
 import { compareCodeUnits } from '../domain/compare-code-units.js';
 import { compareRuleOrder } from '../domain/rule-order-planner.js';
 import type { FinalizedGssSnapshot, FinalizeGssOptions, GssCompilerConfig } from '../public-types.js';
@@ -153,20 +154,12 @@ function renderRule(rule: PlannedDeclaration, resolve: AssetUrlResolver): string
   const { property, important } = rule.identity;
   const value = renderAssetValue(rule.identity, resolve);
   const declarations = rule.physicalDeclarations ?? [{ property, value, important }];
-  let css = `${rule.selector} {\n${declarations.map((declaration) =>
-    `  ${declaration.property}: ${renderAssetValue(declaration, resolve)}${declaration.important ? ' !important' : ''};`).join('\n')}\n}`;
-  for (const wrapper of [...(rule.wrappers ?? [])].reverse()) {
-    css = `@${wrapper.kind} ${wrapper.query} {\n${indentCss(css)}\n}`;
-  }
-  if (rule.layer) {
-    css = `@layer ${rule.layer} {\n${indentCss(css)}\n}`;
-  }
-  return css;
-}
-
-
-function indentCss(css: string): string {
-  return css.split('\n').map((line) => `  ${line}`).join('\n');
+  return renderWrappedCss([
+    `${rule.selector} {`,
+    ...declarations.map(declaration =>
+      `  ${declaration.property}: ${renderAssetValue(declaration, resolve)}${declaration.important ? ' !important' : ''};`),
+    '}'
+  ], rule.wrappers ?? [], rule.layer);
 }
 
 function serializeIdentity(identity: PlannedDeclaration['identity']): string {

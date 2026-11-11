@@ -1,3 +1,4 @@
+import { renderWrappedCss } from './render-wrapped-css.js';
 import postcss from 'postcss';
 import valueParser from 'postcss-value-parser';
 import type { CompatibilityTransformer } from './compatibility-transformer.js';
@@ -148,19 +149,15 @@ function planKeyframesRegistration(
   nameAllocator: NameAllocatorPort
 ): Omit<PlannedResource, 'source'> {
   const generatedName = nameAllocator.createKeyframesName(moduleId, resource.name);
-  const frames = resource.frames.map((frame) => {
-    const declarations = frame.declarations
-      .map(({ property, value }) => `    ${property}: ${value};`)
-      .join('\n');
-    return `  ${frame.selector} {\n${declarations}\n  }`;
-  }).join('\n');
-  let css = `@keyframes ${generatedName} {\n${frames}\n}`;
-  for (const condition of [...resource.conditions].reverse()) {
-    css = `@${condition.kind} ${condition.query} {\n${indentCss(css)}\n}`;
-  }
-  if (resource.layer !== null) {
-    css = `@layer ${resource.layer} {\n${indentCss(css)}\n}`;
-  }
+  const css = renderWrappedCss([
+    `@keyframes ${generatedName} {`,
+    ...resource.frames.flatMap(frame => [
+      `  ${frame.selector} {`,
+      ...frame.declarations.map(({ property, value }) => `    ${property}: ${value};`),
+      '  }'
+    ]),
+    '}'
+  ], resource.conditions, resource.layer);
   return {
     kind: resource.kind,
     name: generatedName,
@@ -190,10 +187,6 @@ function resourceAssetsPreserved(authored: string, physical: string): boolean {
   const original = urls(authored);
   const transformed = urls(physical);
   return original.size === transformed.size && [...original].every((url) => transformed.has(url));
-}
-
-export function indentCss(css: string): string {
-  return css.split('\n').map((line) => `  ${line}`).join('\n');
 }
 
 export function findConflictingResource(

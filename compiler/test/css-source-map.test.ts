@@ -40,6 +40,21 @@ it('matches case-sensitive custom property names in registrations and keyframes'
   expect(css).toContain('color: var(--Brand);');
 });
 
+it.each([
+  '.a::before { content: VALUE; }',
+  '.a { future-paint: red; content: VALUE; }',
+  '@keyframes pulse { from { content: VALUE; } }'
+])('preserves string continuations and maps the declaration under nested wrappers: %s', body => {
+  const session = createGssCompilerSession({ projectRoot: '/project', layers: ['ui'], conditions: { media: ['all'] } });
+  const value = '"A' + String.fromCharCode(92, 10) + 'B"';
+  const source = '@layer ui { @media all { ' + body.replace('VALUE', value) + ' } }';
+  expect(session.replaceStylesheet({ id: '/project/content.gss', source }).committed).toBe(true);
+  const { css, sourceMap } = session.finalize();
+  expect(css).toContain('content: ' + value + ';');
+  expect(originalPositionFor(new TraceMap(sourceMap), generatedPosition(css, 'content:')))
+    .toMatchObject({ source: 'content.gss', line: 1, column: source.indexOf('content:') });
+});
+
 it('orders distinct Unicode Module origins independent of registration order', () => {
   const ids = ['caf\u00e9.gss', 'cafe\u0301.gss'] as const;
   const origins = (order: readonly string[]) => {
