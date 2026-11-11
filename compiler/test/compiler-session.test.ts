@@ -372,6 +372,22 @@ describe('GssCompilerSession', () => {
     );
   });
 
+  it('resolves quoted and escaped local names across animation lists while preserving external names and functions', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    const result = session.replaceStylesheet({ id: '/project/motion.gss', source: String.raw`
+      @keyframes ease { to { opacity: 1 } }
+      @keyframes pulse { to { opacity: 1 } }
+      .names { animation-name: "\65 ase", \70 ulse, "external", var(--names, "pulse"); }
+      .motion { animation: 1s 'ease', 2s \70 ulse, var(--motion, 1s pulse); }
+    ` });
+    expect(result).toMatchObject({ committed: true, diagnostics: [] });
+    const css = session.finalize().css;
+    const ease = 'gss-k--module_motion_2e_gss--name_ease';
+    const pulse = 'gss-k--module_motion_2e_gss--name_pulse';
+    expect(css).toContain(`animation-name: "${ease}", ${pulse}, "external", var(--names, "pulse");`);
+    expect(css).toContain(`animation: 1s '${ease}', 2s ${pulse}, var(--motion, 1s pulse);`);
+  });
+
   it('rewrites static local names in animation shorthand without touching var()', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 
@@ -396,6 +412,7 @@ describe('GssCompilerSession', () => {
 
   it.each([
     ['ease', 'ease 2s'],
+    ['ease', String.raw`\65 ase 2s`],
     ['ease', 'var(--animation), ease 2s'],
     ['EASE', 'EASE 2s'],
     ['linear', '1s linear'],

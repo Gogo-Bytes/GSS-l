@@ -8,7 +8,7 @@ import type { PlannedDeclaration } from './planned-declaration.js';
 import { analyzeCompatibility } from './compatibility-analysis.js';
 import { preparePreservedContribution } from './preserved-contribution.js';
 import { validateRegisteredConditions } from './condition-context.js';
-import { findAmbiguousKeyframeInShorthand, rewriteKeyframeReferences, planResource, type PlannedResource } from './resource-planning.js';
+import { rewriteKeyframeReferences, planResource, type PlannedResource } from './resource-planning.js';
 import { toScopeSchema, renderModuleCode, renderDeclarationCode, type MutableScopeNode } from './scope-exports.js';
 import type { NameAllocatorPort } from './name-allocator.js';
 import { isRegisteredPropertyEffect } from '../domain/property-effects.js';
@@ -93,15 +93,15 @@ export function prepareContribution(
       .filter((resource): resource is ParsedKeyframesRegistration => resource.kind === 'keyframes')
       .map((resource) => [resource.name, nameAllocator.createKeyframesName(moduleId, resource.name)])
   );
-  const ambiguousAnimation = findAmbiguousKeyframeInShorthand(parsed.rules, keyframeNames);
-  if (ambiguousAnimation) return { diagnostics: [{
+  const animation = rewriteKeyframeReferences(parsed.rules, keyframeNames);
+  if ('ambiguous' in animation) return { diagnostics: [{
     code: 'GSS1101', severity: 'error', phase: 'validate', id: input.id,
-    range: { start: ambiguousAnimation.source.start, end: ambiguousAnimation.source.end },
+    range: { start: animation.ambiguous.source.start, end: animation.ambiguous.source.end },
     reason: 'capability-not-registered',
     message: 'An animation shorthand word matches both a local keyframe and an animation component keyword or timeline identifier.',
     suggestion: 'Use animation-name for the local keyframe and separate longhands for other animation components.'
   }] };
-  const rewrittenRules = rewriteKeyframeReferences(parsed.rules, keyframeNames);
+  const rewrittenRules = animation.rules;
   // Preserved/compatibility paths must keep authored declarations intact.
   const atomicRules = !compatibility && rewrittenRules.every((rule) =>
     rule.externalTarget === undefined && rule.externalCondition === undefined &&

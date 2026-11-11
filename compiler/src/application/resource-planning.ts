@@ -1,6 +1,7 @@
 import { renderWrappedCss } from './render-wrapped-css.js';
 import postcss from 'postcss';
-import valueParser from 'postcss-value-parser';
+import { tokenize, tokenTypes } from 'css-tree/tokenizer';
+import { ident, string as cssString } from 'css-tree/utils';
 import type { CompatibilityTransformer } from './compatibility-transformer.js';
 import type { ParsedDeclaration, ParsedFontFaceResource, ParsedGlobalResource, ParsedKeyframesRegistration, ParsedPropertyRegistration, ParsedStyleRule, SourceSpan } from '../domain/parsed-stylesheet.js';
 import { bindCssAssets, type AssetBindings, type AssetUrlResolver } from './asset-values.js';
@@ -31,39 +32,52 @@ const animationComponentKeywords = new Set([
   'none', 'forwards', 'backwards', 'both', 'running', 'paused'
 ]);
 
-export function findAmbiguousKeyframeInShorthand(
-  rules: readonly ParsedStyleRule[],
-  keyframeNames: ReadonlyMap<string, string>
+function rewriteAnimationValue(
+  declaration: ParsedDeclaration, keyframeNames: ReadonlyMap<string, string>
 ): ParsedDeclaration | undefined {
-  for (const rule of rules) for (const declaration of rule.declarations) {
-    if (declaration.property !== 'animation') continue;
-    const collision = valueParser(declaration.value).nodes.some((node) =>
-      node.type === 'word' && keyframeNames.has(node.value) &&
-      (animationComponentKeywords.has(node.value.toLowerCase()) || node.value.startsWith('--')));
-    if (collision) return declaration;
-  }
-  return undefined;
+  const { property, value } = declaration;
+  if (property !== 'animation-name' && property !== 'animation') return declaration;
+  let depth = 0;
+  let offset = 0;
+  let output = '';
+  let ambiguous = false;
+  tokenize(value, (type, start, end) => {
+    if (type === tokenTypes.Function || type === tokenTypes.LeftParenthesis) depth++;
+    else if (type === tokenTypes.RightParenthesis) depth--;
+    else if (depth === 0 && (type === tokenTypes.Ident || type === tokenTypes.String)) {
+      const raw = value.slice(start, end);
+      const quoted = type === tokenTypes.String;
+      const name = quoted ? cssString.decode(raw) : ident.decode(raw);
+      const generated = keyframeNames.get(name);
+      if (!generated) return;
+      if (!quoted && property === 'animation' &&
+          (animationComponentKeywords.has(name.toLowerCase()) || name.startsWith('--'))) {
+        ambiguous = true;
+        return;
+      }
+      output += value.slice(offset, start) + (quoted ? cssString.encode(generated, raw[0] === "'") : ident.encode(generated));
+      offset = end;
+    }
+  });
+  if (ambiguous) return undefined;
+  return offset ? { ...declaration, value: output + value.slice(offset) } : declaration;
 }
 
 export function rewriteKeyframeReferences(
-  rules: readonly ParsedStyleRule[],
-  keyframeNames: ReadonlyMap<string, string>
-): readonly ParsedStyleRule[] {
-  return rules.map((rule) => ({
-    ...rule,
-    declarations: rule.declarations.map((declaration) => {
-      if (declaration.property !== 'animation-name' && declaration.property !== 'animation') {
-        return declaration;
-      }
-      const parsedValue = valueParser(declaration.value);
-      for (const node of parsedValue.nodes) {
-        if (node.type !== 'word') continue;
-        const generatedName = keyframeNames.get(node.value);
-        if (generatedName) node.value = generatedName;
-      }
-      return { ...declaration, value: parsedValue.toString() };
-    })
-  }));
+  rules: readonly ParsedStyleRule[], keyframeNames: ReadonlyMap<string, string>
+): { rules: readonly ParsedStyleRule[] } | { ambiguous: ParsedDeclaration } {
+  if (!keyframeNames.size) return { rules };
+  const rewritten: ParsedStyleRule[] = [];
+  for (const rule of rules) {
+    const declarations: ParsedDeclaration[] = [];
+    for (const declaration of rule.declarations) {
+      const result = rewriteAnimationValue(declaration, keyframeNames);
+      if (!result) return { ambiguous: declaration };
+      declarations.push(result);
+    }
+    rewritten.push({ ...rule, declarations });
+  }
+  return { rules: rewritten };
 }
 
 export function planResource(
