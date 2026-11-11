@@ -18,7 +18,7 @@ webpack 成功构建后将 buildInfo.file/context/missingDependencies 移到 fil
 
 ## 验证与边界
 
-`test/main-compilation.test.ts` 使用真实 webpack + MiniCssExtractPlugin 2.10.2 + css-loader 7.1.5 watch，覆盖双入口、lazy 移除、GSS 失败/恢复、处理器失败/依赖文件修复、无 GSS 清空和旧依赖移除，保留 `margin-left` 在未展开 `margin: var()` 前被覆盖的断言。测试读取实际输出文件，避免成功构建后 SizeOnlySource 不再包含源码的问题。
+`test/main-compilation.test.ts` 使用真实 webpack + MiniCssExtractPlugin 2.10.2 + css-loader 7.1.5 watch，覆盖双入口、lazy 移除、GSS 失败/恢复、处理器失败/依赖文件修复、无 GSS 清空和旧依赖移除，保留 `margin-left` 在未展开 `margin: var()` 前被覆盖的断言。测试读取实际输出文件，避免成功构建后 SizeOnlySource 不再包含源码的问题。 验证失败保留时，在同一个 compilation 的开始和结束采样，断言已发布快照仍是之前的同一对象。原生 watch 可能在两次文件编辑之间额外成功构建，此时允许重新发布内容相同的快照。
 
 首次临时目录的 /var→/private/var 别名导致虚拟 CSS 在 extraction 内部重解析时找不到，原失败保留。2026-11-04 已复现并修复稳定目录符号链接：原生 CSS 成功而 GSS 失败，原因是虚拟 carrier 仅登记别名路径，提取器再次解析后请求真实路径。现在 beforeRun/watchRun 通过宿主 inputFileSystem.realpath 解析内部 carrier 根目录，只登记一次空虚拟文件；payload 仍在每个不可变 query 中，不逐轮写 CSS seed。loader 匹配与 CSS 分组读取同一个解析后 carrier 路径。不改 compiler.context、全局 resolve.symlinks、Compiler projectRoot 或模块/资源身份。宿主没有 realpath 能力时保留其 context，不改用 Node 原生 FS 绕过宿主。
 

@@ -46,6 +46,23 @@ it('uses the main CSS graph across entries, lazy removal, failed input, recovery
     inputs = await Promise.all([index, source, token].map(file => readFile(file, 'utf8')));
   });
   compiler.hooks.thisCompilation.tap('TestInputs', compilation => roundInputs.set(compilation, { inputs, changed: new Set(compiler.modifiedFiles) }));
+  // Compare publication across the failed round itself. An extra successful watch
+  // round between edits may legitimately publish an equivalent new snapshot.
+  type Published = NonNullable<typeof publication>['published'];
+  const beforeRound = new WeakMap<Compilation, Published>();
+  const afterRound = new WeakMap<Compilation, Published>();
+  compiler.hooks.thisCompilation.tap('TestPublication', compilation => {
+    beforeRound.set(compilation, publication!.published);
+  });
+  compiler.hooks.done.tap('TestPublication', ({ compilation }) => {
+    afterRound.set(compilation, publication!.published);
+  });
+  const expectRetained = (stats: Stats, expected: Published) => {
+    const previous = beforeRound.get(stats.compilation);
+    expect(previous).toBeDefined();
+    expect(previous).toEqual(expected);
+    expect(afterRound.get(stats.compilation)).toBe(previous);
+  };
   const pending: Stats[] = [];
   let deliver: ((stats: Stats) => void) | undefined;
   let rejectRun: ((error: Error) => void) | undefined;
@@ -97,7 +114,7 @@ it('uses the main CSS graph across entries, lazy removal, failed input, recovery
     expect(message).toContain(`${source}:1:1`);
     expect(message).toContain('1 | .card {');
     expect(message).toContain('^');
-    expect(publication!.published).toBe(previous);
+    expectRetained(failed, previous);
     await writeFile(source, '.card { color: green; }');
     const recovered = await currentRun(source);
     expect(recovered.hasErrors()).toBe(false);
@@ -105,8 +122,9 @@ it('uses the main CSS graph across entries, lazy removal, failed input, recovery
     expect(css(recovered)).not.toContain('color: red');
     const processed = publication!.published;
     await writeFile(token, 'fail');
-    expect((await currentRun(token)).hasErrors()).toBe(true);
-    expect(publication!.published).toBe(processed);
+    const processorFailure = await currentRun(token);
+    expect(processorFailure.hasErrors()).toBe(true);
+    expectRetained(processorFailure, processed);
     await writeFile(token, 'ok');
     expect((await currentRun(token)).hasErrors()).toBe(false);
     await writeFile(index, "console.log('no gss');");
