@@ -171,6 +171,8 @@ Tailwind 参考：[margin utilities](https://tailwindcss.com/docs/margin)、[冲
 
 ### 持续适用的排序约束
 
+本地 selector 节点的状态按既有顺序规范化，保留每个伪类出现的次数。`:focus:focus` 和 `:focus` 在相同元素上触发，前者多贡献一个类权重，因此输出 selector 及 atom 身份须区分两者。`:where()` 自身的权重仍为零。局部 marker 的 scope membership 可以去重。
+
 先保留每个 selector 分支、声明位置和 target／source／observation 绑定为独立 occurrence；按 layer、条件、伪元素主体和 importance 等现有上下文规则处理，不把原生 specificity 简化为可跨上下文比较的一个分数。生成规则时继续由浏览器处理原生强度。
 
 对于可证明会竞争且处于可比较上下文的 occurrence：

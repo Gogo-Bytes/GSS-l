@@ -21,6 +21,7 @@ export const familyLabel = (family: string) => families[family] ?? family;
 
 export function fixtureTitle(fixture: { name: string; family: string }) {
   const exact: Record<string, string> = {
+    'repeated-not-specificity': '重复 :not() 与普通样式的优先级',
     'native-nth-of-local-marker': 'nth-child of local GSS class · marker 映射',
     'native-relation-local-markers': 'native relation selectors · local marker 映射',
     'asset-module-isolation-one': '本地资源的模块隔离 · 示例一',

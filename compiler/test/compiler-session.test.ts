@@ -1448,6 +1448,20 @@ describe('GssCompilerSession', () => {
     expect(css).not.toContain(':global(');
   });
 
+  it('keeps repeated focus in both the emitted selector and its atom identity', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    const result = session.replaceStylesheet({ id: '/project/focus.gss',
+      source: '.a:focus,.b:focus:focus { color: red }' });
+    expect(result.committed).toBe(true);
+    const scopes = result.module!.scopeSchema.exports;
+    const one = scopes.a!.selfClassName;
+    const two = scopes.b!.selfClassName;
+    expect(one).not.toBe(two);
+    expect(session.finalize().manifest.rules.map(rule => rule.selector).sort()).toEqual([
+      `.${one}:focus`, `.${two}:focus:focus`
+    ].sort());
+  });
+
   it('preserves escaped terminal spaces in local and global functional class names', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
     const result = compiler.replaceStylesheet({ id: '/project/TerminalSpace.gss', source: String.raw`

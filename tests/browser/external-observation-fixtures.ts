@@ -37,6 +37,20 @@ export const externalObservationFixtures: readonly (ReferenceFixture & {
         'outside-child': { 'background-color': 'rgba(0, 0, 0, 0)' } } }
   ]
 }, {
+  name: 'repeated-not-specificity',
+  modules: [{ id: 'Repeated.gss', source: '.card:not(.muted):not(.muted),.other:not(.muted) { color: red }' }],
+  reference: {
+    css: '.card:not(.muted):not(.muted),.other:not(.muted) { color: red }',
+    scopeSchemas: { 'Repeated.gss': { moduleId: 'Repeated.gss', exports: {
+      card: { selfClassName: 'card', targets: {} }, other: { selfClassName: 'other', targets: {} }
+    } } }
+  },
+  afterCss: '.override:not(.absent) { color: blue; }',
+  nodes: [
+    { id: 'double', moduleId: 'Repeated.gss', path: ['card'], extraClassName: 'override', expected: { color: 'rgb(255, 0, 0)' } },
+    { id: 'single', moduleId: 'Repeated.gss', path: ['other'], extraClassName: 'override', expected: { color: 'rgb(0, 0, 255)' } }
+  ]
+}, {
   name: 'functional-external-owned-conditions',
   modules: [{ id: 'FunctionalExternal.gss', source: `
     .editorNot:not(:global(.external)) { background-color: red; }

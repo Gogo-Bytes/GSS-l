@@ -354,11 +354,10 @@ function parseClassPath(nodes: readonly Node[]): ParsedSelectorPath | undefined 
   const segments: { name: string; states: string[]; attributes: ParsedAttributeCondition[];
     hasConditions: ParsedHasGroup[]; pseudoElement: string | null }[] = [];
   const relations: SelectorRelation[] = [];
-  // External early returns historically retain raw state order and duplicates;
-  // only complete local paths perform the established state normalization.
-  const result = (normalizeStates: boolean): ParsedSelectorPath => ({
+  // Local paths canonicalize state order. Repeated pseudos still contribute native specificity.
+  const result = (sortStates: boolean): ParsedSelectorPath => ({
     nodes: segments.map((segment) => ({ ...segment,
-      states: normalizeStates ? [...new Set(segment.states)].sort() : segment.states })),
+      states: sortStates ? [...segment.states].sort() : segment.states })),
     relations,
   });
   let expectClass = true;

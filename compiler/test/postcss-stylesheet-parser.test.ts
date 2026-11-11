@@ -124,7 +124,7 @@ it('preserves each selector segment and the established external early-return st
   expect(parsed.rules.map(({ nodes, relations, externalTarget }) => ({
     nodes: nodes.map(({ name, states }) => ({ name, states })), relations, externalTarget
   }))).toEqual([
-    { nodes: [{ name: 'a', states: ['hover'] }, { name: 'b', states: ['focus'] }], relations: ['descendant'], externalTarget: undefined },
+    { nodes: [{ name: 'a', states: ['hover', 'hover'] }, { name: 'b', states: ['focus'] }], relations: ['descendant'], externalTarget: undefined },
     { nodes: [{ name: 'a', states: ['hover', 'hover'] }], relations: [], externalTarget: '.external' }
   ]);
 });
