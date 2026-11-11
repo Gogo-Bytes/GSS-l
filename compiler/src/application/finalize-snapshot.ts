@@ -189,10 +189,9 @@ function serializeIdentity(identity: PlannedDeclaration['identity']): string {
       identity.layer,
       identity.condition,
       identity.subjectPath,
-      identity.relation,
-      identity.observedClass,
-      identity.observedState,
-      identity.observedResidual,
+      ...('hasConditions' in identity ? ['groups', identity.hasConditions] : [
+        identity.relation, identity.observedClass, identity.observedState, identity.observedResidual
+      ]),
       identity.property,
       identity.value,
       identity.important,

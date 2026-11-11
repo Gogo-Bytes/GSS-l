@@ -130,14 +130,17 @@ it('preserves each selector segment and the established external early-return st
 });
 
 it('binds selector conditions to nodes while preserving shared declarations and deriving ownership names', () => {
-  const parsed = parseStylesheet(id, '.a:hover .b[role="x"], .c:has(.flag) { color:red }');
+  const parsed = parseStylesheet(id, '.a:hover .b[role="x"], .c:has(.flag,.other):has(.flag) { color:red }');
   expect(parsed.diagnostics).toEqual([]);
   expect(parsed.rules[0]!.nodes).toMatchObject([
-    { name: 'a', states: ['hover'], attributes: [], observations: [], pseudoElement: null },
-    { name: 'b', states: [], attributes: [{ attribute: 'role', operator: '=', value: 'x' }], observations: [], pseudoElement: null }
+    { name: 'a', states: ['hover'], attributes: [], hasConditions: [], pseudoElement: null },
+    { name: 'b', states: [], attributes: [{ attribute: 'role', operator: '=', value: 'x' }], hasConditions: [], pseudoElement: null }
   ]);
   expect(parsed.rules[1]!.nodes).toMatchObject([
-    { name: 'c', states: [], attributes: [], observations: [{ observedClass: 'flag' }], pseudoElement: null }
+    { name: 'c', states: [], attributes: [], hasConditions: [
+      { alternatives: [{ observedClass: 'flag' }, { observedClass: 'other' }] },
+      { alternatives: [{ observedClass: 'flag' }] }
+    ], pseudoElement: null }
   ]);
   expect(parsed.rules[0]!.declarations).toBe(parsed.rules[1]!.declarations);
   expect(getOwnershipPath(parsed.rules[0]!.nodes)).toEqual(['a', 'b']);

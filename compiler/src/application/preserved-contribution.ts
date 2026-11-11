@@ -33,7 +33,7 @@ export function preparePreservedContribution(input: {
       const path = authoredPath.slice(0, index + 1);
       ensureScopePath(roots, path).classNames.add(input.nameAllocator.createScopeMarker(input.moduleId, path));
     }
-    for (const observation of rule.nodes.flatMap((node) => node.observations)) {
+    for (const observation of rule.nodes.flatMap(node => node.hasConditions.flatMap(group => group.alternatives))) {
       if (!observation.observedClass) continue;
       const path = [observation.observedClass];
       ensureScopePath(roots, path).classNames.add(input.nameAllocator.createScopeMarker(input.moduleId, path));

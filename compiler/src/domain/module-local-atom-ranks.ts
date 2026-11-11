@@ -15,7 +15,7 @@ export function supportsCurrentBackgroundRanks(rules: readonly ParsedStyleRule[]
     return rule.layer === null && rule.conditions.length === 0 &&
       !rule.externalTarget && !rule.externalCondition &&
       rule.relations.every((relation) => relation === 'descendant') &&
-      rule.nodes.every((node) => node.observations.length === 0) &&
+      rule.nodes.every((node) => node.hasConditions.length === 0) &&
       rule.nodes.every((node) => node.pseudoElement === null) &&
       competing.every((declaration) => declaration.property === 'background-color') &&
       rule.nodes.every(({ states }, index) => states.length === 0 ||

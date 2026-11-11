@@ -6,6 +6,29 @@ const specificityList = '.card:has(.error, .warning:hover) { color: red; }';
 const competingRule = '.card[data-active="yes"] { color: blue; }';
 
 describe('observed selector-list specificity', () => {
+  it('keeps the complete conjunction when selector branches share declarations and observed markers', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const left = '.card:has(.a,.b):has(.c)';
+    const right = '.card:has(.a):has(.b,.c)';
+    const replacement = compiler.replaceStylesheet({ id: moduleId, source: `${left},${right},${left} { color: red }` });
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [], module: { compilationMode: 'atomic' } });
+    const scopes = replacement.module!.scopeSchema.exports;
+    const marker = (name: string) => '.' + scopes[name]!.selfClassName;
+    expect(compiler.finalize().manifest.rules.map(rule => rule.selector).sort()).toEqual([
+      `${marker('card')}:has(${marker('a')},${marker('b')}):has(${marker('c')})`,
+      `${marker('card')}:has(${marker('a')}):has(${marker('b')},${marker('c')})`
+    ].sort());
+  });
+
+  it('uses the sum of group maxima to check structural ambiguity', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const observed = '.root .card:has(button,.a):has(.a) { color: red }';
+    const replace = (states: string) => compiler.replaceStylesheet({ id: moduleId,
+      source: observed + `.root${states} + .card { color: blue }` });
+    expect(replace(':hover').committed).toBe(true);
+    expect(replace(':hover:focus').committed).toBe(false);
+  });
+
   it.each([false, true])('retains native complex-list specificity for every branch against a class-only competitor (reverse=%s)', (reverse) => {
     const observed = '.card:has(div .local, .owned) { color: red; }';
     const competitor = '.card[data-active="yes"] { color: blue; }';

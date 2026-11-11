@@ -18,7 +18,7 @@ const conflictingPhysicalProperties: Readonly<Record<string, readonly string[]>>
 
 type RuleCandidate = {
   nodes: readonly { name: string; states: readonly unknown[]; attributes: readonly unknown[];
-    observations: readonly unknown[]; pseudoElement: string | null }[];
+    hasConditions: readonly unknown[]; pseudoElement: string | null }[];
   externalTarget?: string;
   externalCondition?: string;
   layer: string | null;
@@ -50,7 +50,7 @@ export function validateLogicalPhysicalConflicts(
       rule.layer,
       rule.conditions,
       rule.relations,
-      rule.nodes.map((node) => [node.states, node.attributes, node.observations, node.pseudoElement])
+      rule.nodes.map((node) => [node.states, node.attributes, node.hasConditions, node.pseudoElement])
     ]);
     add(key, rule);
   }

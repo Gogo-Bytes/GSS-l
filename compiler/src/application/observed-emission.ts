@@ -18,16 +18,8 @@ export function emitObservedRules(input: AtomicEmissionContext & {
     const wrappers = rule.conditions;
     const condition = canonicalCondition(wrappers);
     const layer = rule.layer;
-    const observations = rule.nodes.at(-1)!.observations;
-    const nativeSpecificity = observations.some((observation) => observation.nativeSpecificity);
-    const observedSpecificity = (observation: ParsedHasCondition) => observation.observedClass
-      ? 1 + Number(Boolean(observation.observedState))
-      : observation.observedResidualClassCount ??
-        (observation.observedResidual?.startsWith(':') || observation.observedResidual?.startsWith('[') ? 1 : 0);
-    const selectorListSpecificity = observations.length > 1
-      ? Math.max(...observations.map(observedSpecificity))
-      : undefined;
-    const branches = observations.map((observation) => {
+    const groups = rule.nodes.at(-1)!.hasConditions;
+    const renderBranch = (observation: ParsedHasCondition) => {
       const relationIdentity: ObservedRelationIdentity = {
         moduleId,
         layer,
@@ -40,8 +32,6 @@ export function emitObservedRules(input: AtomicEmissionContext & {
           ? { observedResidual: observation.observedResidual }
           : {})
       };
-      const subjectMarker = nameAllocator.createHasSubjectMarker(relationIdentity);
-      ensureScopePath(roots, targetPath).classNames.add(subjectMarker);
       const observedSelector = observation.observedClass
         ? (() => {
           const observedMarker = nameAllocator.createObservedMarker(relationIdentity);
@@ -50,10 +40,44 @@ export function emitObservedRules(input: AtomicEmissionContext & {
         })()
         : renderNativeSelector(observation.observedResidual!, moduleId, nameAllocator, roots);
       const observedCombinator = renderObservedCombinator(observation.relation);
-      return { observation, relationIdentity, subjectMarker, observedSelector, observedCombinator };
-    });
+      return { observation, relationIdentity, observedSelector, observedCombinator };
+    };
+    if (groups.length > 1) {
+      const subjectMarker = nameAllocator.createScopeMarker(moduleId, targetPath);
+      ensureScopePath(roots, targetPath).classNames.add(subjectMarker);
+      const conditions = groups.map(group => {
+        const alternatives = group.alternatives.map(observation => {
+          const { observedCombinator, observedSelector } = renderBranch(observation);
+          return observedCombinator + observedSelector;
+        });
+        return `:has(${alternatives.join(',')})`;
+      });
+      const selector = `.${subjectMarker}`.repeat(rule.nodes.length) + conditions.join('');
+      for (const declaration of rule.declarations) {
+        rules.push({
+          kind: 'contextual-atom', className: subjectMarker, selector, wrappers, layer, source: declaration.source,
+          identity: { moduleId, layer, condition, subjectPath: targetPath, hasConditions: groups,
+            ...moduleOrder.get(declaration, { rule, targetPath }),
+            property: declaration.property, ...identifyAssetValue(declaration.value, bindings),
+            important: declaration.important }
+        });
+      }
+      continue;
+    }
+    const observations = groups[0]!.alternatives;
+    const nativeSpecificity = observations.some((observation) => observation.nativeSpecificity);
+    const observedSpecificity = (observation: ParsedHasCondition) => observation.observedClass
+      ? 1 + Number(Boolean(observation.observedState))
+      : observation.observedResidualClassCount ??
+        (observation.observedResidual?.startsWith(':') || observation.observedResidual?.startsWith('[') ? 1 : 0);
+    const selectorListSpecificity = observations.length > 1
+      ? Math.max(...observations.map(observedSpecificity))
+      : undefined;
+    const branches = observations.map(renderBranch);
     const nativeList = branches.map(({ observedCombinator, observedSelector }) => `${observedCombinator}${observedSelector}`).join(',');
-    for (const { observation, relationIdentity, subjectMarker, observedSelector, observedCombinator } of branches) {
+    for (const { observation, relationIdentity, observedSelector, observedCombinator } of branches) {
+      const subjectMarker = nameAllocator.createHasSubjectMarker(relationIdentity);
+      ensureScopePath(roots, targetPath).classNames.add(subjectMarker);
       const normalizedObservedSelector = selectorListSpecificity !== undefined && selectorListSpecificity > 0
         ? `:where(${observedSelector})`
         : observedSelector;

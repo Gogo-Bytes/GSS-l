@@ -39,7 +39,7 @@ export function prepareSelectorContexts(id: string, semanticRules: readonly Pars
   if (externalRules.some((rule) => rule.relations.some((relation) => relation !== 'descendant') ||
     rule.nodes.some((node) => node.states.length > 0) ||
     rule.nodes.some((node) => node.attributes.length > 0) ||
-    rule.nodes.some((node) => node.observations.length > 0) ||
+    rule.nodes.some((node) => node.hasConditions.length > 0) ||
     rule.nodes.some((node) => node.pseudoElement !== null))) {
     return { diagnostics: [{
       code: 'GSS1101', severity: 'error', phase: 'validate', id,
@@ -66,7 +66,7 @@ export function prepareSelectorContexts(id: string, semanticRules: readonly Pars
     sameNode!.relations.some((relation) => relation !== 'descendant') ||
     sameNode!.nodes.some((node) => node.states.length > 0) ||
     sameNode!.nodes.some((node) => node.attributes.length > 0) ||
-    sameNode!.nodes.some((node) => node.observations.length > 0) ||
+    sameNode!.nodes.some((node) => node.hasConditions.length > 0) ||
     sameNode!.nodes.some((node) => node.pseudoElement !== null))) {
     return { diagnostics: [{
       code: 'GSS1101', severity: 'error', phase: 'validate', id,
@@ -122,7 +122,7 @@ export function validateSelectorShapes(id: string, rules: readonly ParsedStyleRu
       relations.some((relation) => relation !== 'descendant') ||
       nodes.slice(0, -1).some((node) => node.states.length > 0) ||
       nodes.some((node) => node.attributes.length > 0) ||
-      nodes.some((node) => node.observations.length > 0)
+      nodes.some((node) => node.hasConditions.length > 0)
     );
   });
   if (unsupportedPseudoElement) {
@@ -143,7 +143,7 @@ export function validateSelectorShapes(id: string, rules: readonly ParsedStyleRu
     nodes
   }) => {
     const observationIndexes = nodes.flatMap((node, index) =>
-      node.observations.length > 0 ? [index] : []
+      node.hasConditions.length > 0 ? [index] : []
     );
     return observationIndexes.length > 0 && (
       observationIndexes.length !== 1 ||

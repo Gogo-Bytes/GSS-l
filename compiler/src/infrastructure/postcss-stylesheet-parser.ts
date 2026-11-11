@@ -14,7 +14,7 @@ import { isSupportedPseudoState } from '../domain/pseudo-state-capabilities.js';
 import type { GssDiagnostic, GssSourceRange } from '../public-types.js';
 
 import type {
-  ParsedDeclaration, SelectorRelation, ParsedAttributeCondition, ParsedHasCondition,
+  ParsedDeclaration, SelectorRelation, ParsedAttributeCondition, ParsedHasCondition, ParsedHasGroup,
   ParsedCondition, ParsedStyleRule, ParsedPropertyRegistration, ParsedKeyframesRegistration,
   ParsedFontFaceResource, ParsedGlobalResource, SourceSpan
 } from '../domain/parsed-stylesheet.js';
@@ -352,7 +352,7 @@ function parseDescendantClassPaths(
 
 function parseClassPath(nodes: readonly Node[]): ParsedSelectorPath | undefined {
   const segments: { name: string; states: string[]; attributes: ParsedAttributeCondition[];
-    observations: ParsedHasCondition[]; pseudoElement: string | null }[] = [];
+    hasConditions: ParsedHasGroup[]; pseudoElement: string | null }[] = [];
   const relations: SelectorRelation[] = [];
   // External early returns historically retain raw state order and duplicates;
   // only complete local paths perform the established state normalization.
@@ -378,7 +378,7 @@ function parseClassPath(nodes: readonly Node[]): ParsedSelectorPath | undefined 
       };
     }
     if (expectClass && node.type === 'class') {
-      segments.push({ name: (node as ClassName).value, states: [], attributes: [], observations: [], pseudoElement: null });
+      segments.push({ name: (node as ClassName).value, states: [], attributes: [], hasConditions: [], pseudoElement: null });
       expectClass = false;
       continue;
     }
@@ -398,7 +398,7 @@ function parseClassPath(nodes: readonly Node[]): ParsedSelectorPath | undefined 
     if (!expectClass && node.type === 'pseudo' && node.value === ':has') {
       const parsedObservations = parseHasConditions(node as Pseudo);
       if (!parsedObservations) return undefined;
-      segments.at(-1)?.observations.push(...parsedObservations);
+      segments.at(-1)?.hasConditions.push({ alternatives: parsedObservations });
       continue;
     }
     if (!expectClass && node.type === 'pseudo' && node.nodes.length > 0) {

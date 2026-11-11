@@ -3,7 +3,7 @@ import type { ParsedStyleRule } from './parsed-stylesheet.js';
 type OwnershipShape = {
   relations: readonly string[];
   nodes: readonly { states: readonly unknown[]; attributes: readonly unknown[];
-    observations: readonly unknown[]; pseudoElement: string | null }[];
+    hasConditions: readonly unknown[]; pseudoElement: string | null }[];
 };
 
 // These predicates can overlap. Callers retain their own admission, external
@@ -19,12 +19,12 @@ export function isAncestorAttributeRule(rule: ParsedStyleRule): boolean {
 }
 
 export function isObservedRule(rule: ParsedStyleRule): boolean {
-  return rule.nodes.at(-1)!.observations.length > 0;
+  return rule.nodes.at(-1)!.hasConditions.length > 0;
 }
 
 export function isStructuralRuntimeRule(rule: ParsedStyleRule): boolean {
   return rule.relations.some((relation) => relation !== 'descendant') &&
-    rule.nodes.every((node) => node.observations.length === 0) &&
+    rule.nodes.every((node) => node.hasConditions.length === 0) &&
     rule.nodes.every((node) => node.pseudoElement === null);
 }
 
@@ -33,7 +33,7 @@ export function isCurrentAttributeRule(rule: ParsedStyleRule): boolean {
     rule.nodes.at(-1)!.attributes.length === 1 &&
     rule.nodes.slice(0, -1).every((node) => node.attributes.length === 0) &&
     rule.nodes.every((node) => node.states.length === 0) &&
-    rule.nodes.every((node) => node.observations.length === 0) &&
+    rule.nodes.every((node) => node.hasConditions.length === 0) &&
     rule.nodes.every((node) => node.pseudoElement === null);
 }
 
@@ -43,7 +43,7 @@ export function isPseudoElementRule(rule: ParsedStyleRule): boolean {
     rule.nodes.slice(0, -1).every((node) => node.pseudoElement === null) &&
     rule.nodes.slice(0, -1).every((node) => node.states.length === 0) &&
     rule.nodes.every((node) => node.attributes.length === 0) &&
-    rule.nodes.every((node) => node.observations.length === 0);
+    rule.nodes.every((node) => node.hasConditions.length === 0);
 }
 
 export function isCurrentStateRule(rule: ParsedStyleRule): boolean {
@@ -51,7 +51,7 @@ export function isCurrentStateRule(rule: ParsedStyleRule): boolean {
     rule.nodes.at(-1)!.states.length > 0 &&
     rule.nodes.slice(0, -1).every((node) => node.states.length === 0) &&
     rule.nodes.every((node) => node.attributes.length === 0) &&
-    rule.nodes.every((node) => node.observations.length === 0) &&
+    rule.nodes.every((node) => node.hasConditions.length === 0) &&
     rule.nodes.every((node) => node.pseudoElement === null);
 }
 
@@ -59,7 +59,7 @@ export function isPureOwnershipRule(rule: OwnershipShape): boolean {
   return rule.relations.every((relation) => relation === 'descendant') &&
     rule.nodes.every((node) => node.states.length === 0) &&
     rule.nodes.every((node) => node.attributes.length === 0) &&
-    rule.nodes.every((node) => node.observations.length === 0) &&
+    rule.nodes.every((node) => node.hasConditions.length === 0) &&
     rule.nodes.every((node) => node.pseudoElement === null);
 }
 

@@ -6,7 +6,7 @@ import { fixtures, type CompiledReferenceFixture, type ReferenceFixture } from '
 import { contextualBoundaryFixtures } from './contextual-boundary-fixtures.js';
 import { structuralRelationFixtures, structuralObservedFixtures } from './structural-relation-fixtures.js';
 import { fontResetFixtures } from './font-reset-fixtures.js';
-import { hasSpecificityDedupFixtures, hasSpecificityFixtures, hasTypeListFixtures } from './has-specificity-fixtures.js';
+import { groupedHasFixture, hasSpecificityDedupFixtures, hasSpecificityFixtures, hasTypeListFixtures } from './has-specificity-fixtures.js';
 import { conditionalKeyframeFixtures } from './conditional-keyframe-fixtures.js';
 import { nestedLayerFixtures } from './nested-layer-fixtures.js';
 import { interleavedChainFixtures } from './interleaved-chain-fixtures.js';
@@ -89,6 +89,7 @@ export default defineConfig({
         ...contextualBoundaryFixtures.map((fixture) => compile(fixture, fixture.reference, 'contextual boundary')),
         ...[...structuralRelationFixtures, ...structuralObservedFixtures].map((fixture) => compile(fixture, fixture.reference, 'structural relations')),
         ...fontResetFixtures.map((fixture) => compile(fixture, fixture.reference, 'property-effect resets')),
+        compile(groupedHasFixture, groupedHasFixture.reference, 'grouped has conditions'),
         ...hasSpecificityFixtures.map((fixture) => compile(fixture, fixture.reference, 'has specificity')),
         ...hasTypeListFixtures.map((fixture) => compile(fixture, fixture.reference, 'type-only has lists')),
         ...conditionalKeyframeFixtures.map((fixture) => compile(fixture, fixture.reference, 'Compiler registered conditional keyframes')),

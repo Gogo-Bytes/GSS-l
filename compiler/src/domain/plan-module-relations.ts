@@ -11,7 +11,7 @@ import { isPureOwnershipRule, isCurrentStateRule, isCurrentAttributeRule, isAnce
  * individual planners still own their relation and specificity semantics. */
 export function planModuleRelations(localRules: readonly ParsedStyleRule[], semanticRules: readonly ParsedStyleRule[]) {
   const ownershipRules = localRules.filter(isPureOwnershipRule);
-  const hasRules = localRules.filter(({ nodes }) => nodes.at(-1)?.observations.length);
+  const hasRules = localRules.filter(({ nodes }) => nodes.at(-1)?.hasConditions.length);
   const contextualRules = localRules.filter(({ relations }) => relations.some((relation) => relation !== 'descendant'));
   const descendantRules = localRules.filter((rule) =>
     isPureOwnershipRule(rule) || isCurrentStateRule(rule) || isCurrentAttributeRule(rule) ||
@@ -53,9 +53,14 @@ export function collectModuleOrderCandidates(
       rule, targetPath, sourceIndex: -1, specificity: rule.nodes.length,
       relationRank: 0, declarations: rule.declarations
     })),
-    ...observedSubjects.flatMap(({ rule, targetPath }) => rule.nodes.at(-1)!.observations.map((observation) => ({
-      rule, observation, targetPath, sourceIndex: -1, specificity: rule.nodes.length,
-      relationRank: 0, declarations: rule.declarations
-    })))
+    ...observedSubjects.flatMap(({ rule, targetPath }) => {
+      const groups = rule.nodes.at(-1)!.hasConditions;
+      const candidate = { rule, targetPath, sourceIndex: -1, specificity: rule.nodes.length,
+        relationRank: 0, declarations: rule.declarations };
+      // A conjunction emits one selector bound to this rule; a single list emits branch witnesses.
+      return groups.length === 1
+        ? groups[0]!.alternatives.map(observation => ({ ...candidate, observation }))
+        : [candidate];
+    })
   ];
 }

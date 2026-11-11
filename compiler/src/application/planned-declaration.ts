@@ -1,5 +1,5 @@
 import type { PhysicalDeclaration } from './compatibility-transformer.js';
-import type { ParsedCondition, SourceSpan } from '../domain/parsed-stylesheet.js';
+import type { ParsedCondition, ParsedHasGroup, SourceSpan } from '../domain/parsed-stylesheet.js';
 import type { ContextualRelationIdentity, ObservedRelationIdentity, PureDeclarationIdentity } from '../domain/readable-name.js';
 
 export type ContextualDeclarationIdentity = ContextualRelationIdentity & {
@@ -11,7 +11,11 @@ export type ContextualDeclarationIdentity = ContextualRelationIdentity & {
   orderSlot?: number;
 };
 
-export type ObservedDeclarationIdentity = ObservedRelationIdentity & {
+type GroupedObservationIdentity = Pick<ObservedRelationIdentity, 'moduleId' | 'layer' | 'condition' | 'subjectPath'> & {
+  hasConditions: readonly ParsedHasGroup[];
+};
+
+export type ObservedDeclarationIdentity = (ObservedRelationIdentity | GroupedObservationIdentity) & {
   property: string;
   value: string;
   assetValue?: true;

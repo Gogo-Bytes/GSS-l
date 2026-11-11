@@ -89,6 +89,7 @@ export function fixtureTitle(fixture: { name: string; family: string }) {
   if (name.startsWith('structural-equal-specificity-intersection-')) return `等优先级结构条件的交集 · ${order}`;
   if (name.startsWith('has-selector-list-shared-branch-')) return `:has() 列表共享分支 · ${name.includes('-reversed-list-') ? '规则逆序' : '规则正序'} / ${name.includes('-weaker-') ? '弱项在前' : '强项在前'}`;
   if (name.startsWith('has-selector-list-specificity-')) return `:has() 列表的选择器优先级 · ${order}`;
+  if (name === 'has-conjunction-membership-and-repeated-specificity') return '连续 :has() 的匹配与重复权重';
   if (name.startsWith('has-type-only-list-')) return `:has() 的纯类型列表 · ${order}`;
   if (name.startsWith('interleaved-owned-descendant-')) {
     const shape = name.includes('-general-root-') ? '一般兄弟起点' : name.includes('-general-prefix-') ? '一般兄弟前缀'

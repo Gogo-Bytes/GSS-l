@@ -91,3 +91,20 @@ export const hasSpecificityDedupFixtures: readonly HasSpecificityFixture[] = [fa
     };
   })
 );
+
+const conjunction = '.card:has(.error, .warning):has(.warning) { color: red; }';
+const repetition = '.card:has(.error):has(.error) { background-color: red; }';
+export const groupedHasFixture: HasSpecificityFixture = {
+  name: 'has-conjunction-membership-and-repeated-specificity',
+  modules: [{ id: moduleId, source: conjunction + repetition }],
+  reference: { css: conjunction + repetition, scopeSchemas },
+  afterCss: '.competitor.competitor { color: blue; background-color: blue; }',
+  nodes: [
+    { id: 'partial', moduleId, path: ['card'], extraClassName: 'competitor',
+      expected: { color: 'rgb(0, 0, 255)', 'background-color': 'rgb(255, 0, 0)' } },
+    { id: 'error', parent: 'partial', moduleId, path: ['error'], expected: {} },
+    { id: 'complete', moduleId, path: ['card'], extraClassName: 'competitor',
+      expected: { color: 'rgb(255, 0, 0)', 'background-color': 'rgb(0, 0, 255)' } },
+    { id: 'warning', parent: 'complete', moduleId, path: ['warning'], expected: {} }
+  ]
+};

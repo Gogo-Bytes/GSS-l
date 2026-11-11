@@ -1,7 +1,7 @@
 import { getOwnershipPath } from './ownership-path.js';
 import { effectsOfProperty } from './property-effects.js';
 import type { DescendantInstance } from './plan-descendant-conditions.js';
-import type { ParsedHasCondition, ParsedStyleRule, SelectorRelation } from './parsed-stylesheet.js';
+import type { ParsedHasCondition, ParsedHasGroup, ParsedStyleRule, SelectorRelation } from './parsed-stylesheet.js';
 
 // Ownership identifies the exported target. Runtime edges constrain DOM witnesses;
 // ownership-prefix segments are never interpreted as runtime ancestry here.
@@ -10,7 +10,7 @@ type Constraint = {
   sourcePath?: readonly string[];
   predicates: readonly string[];
   runtime?: { edges: readonly SelectorRelation[] };
-  observation?: ParsedHasCondition;
+  observation?: ParsedHasCondition | readonly ParsedHasGroup[];
 };
 export type StructuralInstance = DescendantInstance<ParsedStyleRule>;
 /** Runtime structural outputs always bind a source; inherited descendant
@@ -173,22 +173,30 @@ export function planStructuralRelations(
   const candidates = [...inherited, ...structural];
   // Complex residuals retain native list specificity, not an estimated class/type count.
   // They cannot license implication/pruning or scalar equal-strength ambiguity diagnostics.
-  const observedCandidates: Candidate[] = observed.filter((rule) =>
-    !rule.nodes.at(-1)!.observations.some((observation) => observation.nativeSpecificity)
-  ).flatMap((rule) => rule.nodes.at(-1)!.observations.map((observation) => {
+  const observedCandidates: Candidate[] = observed.flatMap(rule => {
+    const groups = rule.nodes.at(-1)!.hasConditions;
+    if (groups.some(group => group.alternatives.some(branch => branch.nativeSpecificity))) return [];
     const targetPath = getOwnershipPath(rule.nodes);
-    const isTag = observation.observedResidual !== undefined &&
-      observation.observedResidualClassCount === undefined &&
-      !observation.observedResidual.startsWith(':') && !observation.observedResidual.startsWith('[');
-    const argumentClasses = observation.observedClass ? 1 + Number(Boolean(observation.observedState))
-      : observation.observedResidualClassCount ?? Number(!isTag);
-    return {
-      instance: { rule, targetPath, sourceIndex: -1, specificity: rule.nodes.length + argumentClasses,
+    const candidate = (observation: NonNullable<Constraint['observation']>, classes: number, types: number) => ({
+      instance: { rule, targetPath, sourceIndex: -1, specificity: rule.nodes.length + classes,
         relationRank: 0, declarations: rule.declarations },
       constraint: { targetPath, predicates: [], observation },
-      typeSpecificity: Number(isTag)
-    };
-  }));
+      typeSpecificity: types
+    });
+    if (groups.length === 1) return groups[0]!.alternatives.map(branch => {
+      const { classes, types } = observedSpecificity(branch);
+      return candidate(branch, classes, types);
+    });
+    let classes = 0;
+    let types = 0;
+    for (const group of groups) {
+      const strongest = group.alternatives.map(observedSpecificity).reduce((a, b) =>
+        (a.classes - b.classes || a.types - b.types) >= 0 ? a : b);
+      classes += strongest.classes;
+      types += strongest.types;
+    }
+    return [candidate(groups, classes, types)];
+  });
   const conflict = ambiguity([...candidates, ...observedCandidates]);
   if (conflict) return { instances: [], descendants: [], ambiguity: conflict };
   // Descendant atoms may be shared across targets and Modules. Preserve their
@@ -207,4 +215,15 @@ export function planStructuralRelations(
   }
   for (const candidate of structural) candidate.instance.relationRank = rank(candidate);
   return { instances: structural.map(({ instance }) => instance), descendants: inherited.map(({ instance }) => instance) };
+}
+
+function observedSpecificity(observation: ParsedHasCondition) {
+  const isTag = observation.observedResidual !== undefined &&
+    observation.observedResidualClassCount === undefined &&
+    !observation.observedResidual.startsWith(':') && !observation.observedResidual.startsWith('[');
+  return {
+    classes: observation.observedClass ? 1 + Number(Boolean(observation.observedState))
+      : observation.observedResidualClassCount ?? Number(!isTag),
+    types: Number(isTag)
+  };
 }

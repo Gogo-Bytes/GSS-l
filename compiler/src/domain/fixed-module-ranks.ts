@@ -61,7 +61,7 @@ function reusablePureOccurrence({ instance }: Occurrence): boolean {
     !instance.sourcePath && instance.sourceIndex === -1 && !instance.observation &&
     !rule.externalTarget && !rule.externalCondition && rule.relations.length === 0 &&
     rule.nodes.every((node) => node.states.length === 0) && rule.nodes.every((node) => node.attributes.length === 0) &&
-    rule.nodes.every((node) => node.observations.length === 0) && rule.nodes.every((node) => node.pseudoElement === null);
+    rule.nodes.every((node) => node.hasConditions.length === 0) && rule.nodes.every((node) => node.pseudoElement === null);
 }
 
 /** Only contract adjacent, wholly eligible original buckets with identical writes.

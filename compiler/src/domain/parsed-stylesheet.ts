@@ -34,6 +34,11 @@ export type ParsedHasCondition = {
   nativeSpecificity?: true;
 };
 
+/** One authored :has() call. Alternatives are OR; calls on a node are AND. */
+export type ParsedHasGroup = {
+  readonly alternatives: readonly ParsedHasCondition[];
+};
+
 export type ParsedCondition = {
   kind: 'media' | 'supports' | 'container';
   query: string;
@@ -45,7 +50,7 @@ export type ParsedSelectorNode = {
   readonly name: string;
   readonly states: readonly string[];
   readonly attributes: readonly ParsedAttributeCondition[];
-  readonly observations: readonly ParsedHasCondition[];
+  readonly hasConditions: readonly ParsedHasGroup[];
   readonly pseudoElement: string | null;
 };
 

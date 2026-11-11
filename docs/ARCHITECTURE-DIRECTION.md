@@ -426,11 +426,11 @@ import { react } from '@gss-l/react';
 
 [atomic-emission.ts](../compiler/src/application/atomic-emission.ts) 消费已完成准入、关系规划和兼容性／fallback 决策的规则，按既有顺序生成 ownership、状态、pseudo、`:has()`、结构及 external 对应的 atom／marker、scope membership 和 selector。排序候选仍由关系规划提供，`planFixedModuleOrder` 保留 semantic height、`atomRank`／`orderSlot` 和安全复用规则；输出阶段只使用已规划关系，不推测新 DOM 关系或改变 selector 准入。
 
-其中 [observed-emission.ts](../compiler/src/application/observed-emission.ts) 专门生成已规划的 `:has()` 分支，[planned-declaration.ts](../compiler/src/application/planned-declaration.ts) 保存各原子输出共享的内部声明身份类型。每个 observation 仍独立绑定排序查询；本地观察 class 的 marker 必须添加到对应 scope。复杂 list 保留原生 `:has(list)` specificity，多个分支时保留零强度 witness；简单 list 延续既有 scalar 处理。该拆分不扩大 `:has()` 语法，不合并分支或改变 class／marker 身份。
+[observed-emission.ts](../compiler/src/application/observed-emission.ts) 从主体绑定的末尾节点读取 `hasConditions`。每个具名组代表一次源码中的 `:has()` 调用，`alternatives` 保留该次调用的相对选择器列表。例如 `.a:has(.b,.c):has(.d)` 要求后代中有 b 或 c，同时还要有 d；只有 b 时不匹配。单次调用沿用原有逐分支排序绑定、subject／observed marker 及 list specificity 处理。
 
-`:has()` 的排序候选和输出共用规划阶段的 `OwnedTargetBinding`（规则分支与 targetPath）。每个 selector 分支仍独立，observation 继续从该规则末尾只读节点读取，不另存条件数组；逐 observation 的 occurrence 身份不合并。输出把同一路径作为 subject marker 的 scope，排序查询把它作为 target 绑定。此绑定不携带通用 specificity：排序候选沿用节点数量，结构歧义检查有自己的简单 observation 强度且排除 native complex，渲染仍保留 selector-list 最大值与 native specificity；三者不能仅因路径共用而合并算法。绑定在原有关系歧义检查成功后建立，不改变诊断或 compatibility／preserved 的先后次序。验证见当前计划。
+连续多次调用在同一个 rule／targetPath 上形成一个排序候选，主体使用其 scope marker。输出把每组渲染成一次原生 `:has()` 并连接到同一主体上，浏览器负责各组的实际匹配。每组取参数列表的最大 specificity，各组相加。相同 marker 可以多次引用，例如 `:has(.b):has(.b)` 依然贡献两次参数强度。结构歧义检查对可计算的多组条件同样取各组最大值之和；复杂 residual 继续沿用原生强度边界。
 
-关系候选收集、结构 planner 的观察约束、语义高度的不透明判断和 `:has()` 输出从对应 selector 节点读取 observation；preserved 输出仍按节点顺序处理所有 observation 并登记本地 marker。观察项的来源节点和分支身份不可因同名 class 或相同 selector 文本合并。准入、规则分类和排序已迁移，observation 平行数组已删除。
+观察 class 按所属 scope 登记。收集 membership 可以遍历所有备选项；匹配、权重和多组声明身份必须保留组间边界与重复次数。复用还受模块、目标、条件、layer、属性、值、importance、排序位置及最终 selector 约束。此模型用于既有 atomic 路径，fallback 准入沿用原约定。对应编译回归见 [has-specificity.test.ts](../compiler/test/has-specificity.test.ts)，原生浏览器对照见 [has-specificity-fixtures.ts](../tests/browser/has-specificity-fixtures.ts)。
 
 [structural-emission.ts](../compiler/src/application/structural-emission.ts) 负责已规划结构实例的 source／中间／target marker、组合符和 selector 输出，保留来源路径、状态／属性条件、specificity 与关系 rank。它不验证或发明 DOM 关系，也不替代结构 planner 的歧义证明；例如 `.input:checked > .middle ~ .label` 需要分别将 marker 放入各自 scope，并在浏览器中匹配 `>` 与 `~`，不能把整条 ownership 路径当成一个目标 atom。逐 declaration 的排序绑定和来源不变。 输出直接使用结构 planner 的 `sourceIndex`／`sourcePath`／`targetPath`，不重新从 selector 搜索来源或派生目标。该入口仅接收 `RuntimeStructuralInstance`，类型要求来源路径存在且由 planner 建立；descendant 实例仍走 ownership 输出。节点条件按 authored sourceIndex 读取，渲染保留首个 runtime 关系之后的全部组合符（包括尾部 descendant），不能把证明中忽略 ownership 尾部的 edge 列表直接用作 CSS selector。
 

@@ -163,7 +163,7 @@ Tailwind 参考：[margin utilities](https://tailwindcss.com/docs/margin)、[冲
 身份采用本次 contribution 准备中的声明对象编号、规则分支对象编号，以及 target／source／observation 的序列化值。保持现有编码，不对 observation 做新的等价归一化。它只用于本次规划和查询，不写入公共 API，也不直接作为 class 名或复用证明。
 
 - selector-list 分支即使共享声明对象，也不能合为一个 occurrence：例如 `.a::before, .a::after` 的主体不同，`.a:focus, .a:where(:checked)` 的谓词也不同。
-- 同一规则绑定到不同目标或状态来源时必须分开；同一 `:has()` 的不同 observation 也保留独立身份。重新构造但值相同的路径可查回原 occurrence，不能依赖路径数组对象相同。
+- 同一规则绑定到不同目标或状态来源时必须分开；单次 `:has()` 的不同 observation 保留独立身份。连续多次调用以完整规则分支与目标绑定一个 occurrence，输出身份保留每次调用的备选项与组间边界。重新构造但值相同的路径可查回原 occurrence，不能依赖路径数组对象相同。
 - 收集读取 `instance.rule.declarations` 及其下标，保持候选竞争范围；不能改成已经剪枝的 `instance.declarations`，否则竞争者可能丢失、声明顺序位置可能移动。这里的下标属于展开后的语义规则，不是 parser 源码偏移。相同完整身份继续沿用原 Map 去重行为。
 - occurrence 分离不禁止最终 atom 复用；复用仍由现有完整连续桶、安全条件和来源汇总决定。`.early{color:red}.middle{color:blue}.late{color:red}` 仍不能将两个红色跨竞争者合并。
 
