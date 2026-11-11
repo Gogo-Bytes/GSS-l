@@ -57,6 +57,9 @@ importers:
       '@jridgewell/gen-mapping':
         specifier: ^0.3.13
         version: 0.3.13
+      css-tree:
+        specifier: ^3.2.1
+        version: 3.2.1
       lightningcss:
         specifier: ^1.30.2
         version: 1.33.0
@@ -76,6 +79,9 @@ importers:
       '@jridgewell/trace-mapping':
         specifier: ^0.3.31
         version: 0.3.31
+      '@types/css-tree':
+        specifier: ^2.3
+        version: 2.3.11
 
   examples/playground:
     dependencies:
@@ -1402,6 +1408,10 @@ packages:
     resolution: {integrity: sha512-r1bzfrm0tomOI8g1SzvCaQHo6Lcv6zu0EA+W2kHrt8dyrHQxGzBBL4kdkzIS+jBMV+EYcMAEAqXqYaLJq5rOZg==}
     dependencies:
       '@babel/types': 7.29.8
+    dev: true
+
+  /@types/css-tree@2.3.11:
+    resolution: {integrity: sha512-aEokibJOI77uIlqoBOkVbaQGC9zII0A+JH1kcTNKW2CwyYWD8KM6qdo+4c77wD3wZOQfJuNWAr9M4hdk+YhDIg==}
     dev: true
 
   /@types/estree@1.0.9:

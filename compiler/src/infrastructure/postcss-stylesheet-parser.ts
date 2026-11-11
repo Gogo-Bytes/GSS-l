@@ -1,3 +1,4 @@
+import { ident } from 'css-tree/utils';
 import postcss, { CssSyntaxError, type Declaration } from 'postcss';
 import PreviousMap from 'postcss/lib/previous-map';
 import Parser from 'postcss/lib/parser';
@@ -522,7 +523,7 @@ function parseHasSelector(nodes: readonly Node[]): ParsedHasCondition | undefine
       : undefined;
   }
   if (observed.type === 'tag' && observed.namespace === undefined) {
-    return { relation, observedResidual: observed.value };
+    return { relation, observedResidual: ident.encode(observed.value) };
   }
   if (observed.type === 'pseudo' && observed.nodes.length === 0) {
     const state = observed.value.slice(1);

@@ -1,3 +1,4 @@
+import { ident } from 'css-tree/utils';
 import selectorParser from 'postcss-selector-parser';
 import type { ParsedAttributeCondition } from '../domain/parsed-stylesheet.js';
 import type { ContextualRelationIdentity, ObservedRelationIdentity } from '../domain/readable-name.js';
@@ -17,12 +18,13 @@ export function renderObservedCombinator(
 }
 
 export function canonicalAttributeCondition(condition: ParsedAttributeCondition): string {
-  return `attribute:${condition.attribute}=${condition.value}`;
+  // Only the separator is an unescaped equals sign before the value.
+  return `attribute:${ident.encode(condition.attribute)}=${condition.value}`;
 }
 
 export function renderAttributeCondition(condition: ParsedAttributeCondition): string {
   const attribute = selectorParser.attribute({ attribute: condition.attribute, operator: condition.operator,
-    value: condition.value, quoteMark: '"', raws: {} });
+    value: condition.value, quoteMark: '"', raws: { attribute: ident.encode(condition.attribute) } });
   attribute.setValue(condition.value, { quoteMark: '"' });
   return attribute.toString();
 }

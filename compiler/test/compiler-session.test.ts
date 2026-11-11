@@ -1448,6 +1448,36 @@ describe('GssCompilerSession', () => {
     expect(css).not.toContain(':global(');
   });
 
+  it('separates equality conditions by decoded name and value across modules', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    const register = (file: string, condition: string) => {
+      const result = session.replaceStylesheet({ id: '/project/' + file, source: `.a[${condition}] { color: red }` });
+      expect(result.committed).toBe(true);
+      return result.module!.scopeSchema.exports.a!.selfClassName;
+    };
+    const inName = register('name.gss', String.raw`data\=x="y"`);
+    const inValue = register('value.gss', 'data="x=y"');
+    expect(register('equivalent.gss', String.raw`data\3d x="y"`)).toBe(inName);
+    expect(inValue).toBe('gss-a--layer_unlayered--condition_base--state_attribute_3a_data_3d_x_3d_y--property_color--value_red--importance_normal');
+    expect(inName).not.toBe(inValue);
+    expect(session.finalize().manifest.rules.map(rule => rule.selector).sort()).toEqual([
+      `.${inName}` + String.raw`[data\=x="y"]`, `.${inValue}[data="x=y"]`
+    ].sort());
+  });
+
+  it.each([String.raw`x\:y`, String.raw`x\.y`, String.raw`x\\y`, String.raw`x\ y`])(
+    'round-trips the same identifier in an attribute and an observed tag: %s', name => {
+      const session = createGssCompilerSession({ projectRoot: '/project' });
+      const result = session.replaceStylesheet({ id: '/project/escaped.gss',
+        source: `.a[${name}="ok"] { color: red } .b:has(${name}) { opacity: 1 }` });
+      expect(result.committed).toBe(true);
+      const { css } = session.finalize();
+      expect(css).toContain(`[${name}="ok"]`);
+      expect(css).toContain(`:has(${name})`);
+      expect(Object.keys(result.module!.scopeSchema.exports).sort()).toEqual(['a', 'b']);
+    }
+  );
+
   it('keeps repeated focus in both the emitted selector and its atom identity', () => {
     const session = createGssCompilerSession({ projectRoot: '/project' });
     const result = session.replaceStylesheet({ id: '/project/focus.gss',
