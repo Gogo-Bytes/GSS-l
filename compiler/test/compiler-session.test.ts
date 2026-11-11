@@ -303,6 +303,25 @@ describe('GssCompilerSession', () => {
     expect(compiler.finalize().css).not.toContain('./b.woff2');
   });
 
+  it('uses the final repeated font descriptor for conflicts and retains all declarations in CSS', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const replace = (weights: string) => compiler.replaceStylesheet({
+      id: '/project/fonts.gss',
+      source: `@font-face { font-family: Probe; ${weights} src: local("Courier New"); }
+        @font-face { font-family: Probe; font-weight: 700; src: local("Arial Bold"); }`
+    });
+    expect(replace('font-weight: 400;').committed).toBe(true);
+    const control = compiler.finalize().manifest.resources.map(resource => resource.name).sort();
+    expect(replace('font-weight: 700; font-weight: 400;').committed).toBe(true);
+    const snapshot = compiler.finalize();
+    expect(snapshot.manifest.resources.map(resource => resource.name).sort()).toEqual(control);
+    expect(snapshot.css).toContain('font-weight: 700;\n  font-weight: 400;');
+    expect(replace('font-weight: 400; font-weight: 700;')).toMatchObject({
+      committed: false, diagnostics: [{ code: 'GSS1301' }]
+    });
+    expect(compiler.finalize().css).toBe(snapshot.css);
+  });
+
   it('emits @font-face intact and reports its URL dependencies', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 

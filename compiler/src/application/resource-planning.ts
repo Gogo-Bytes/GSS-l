@@ -119,14 +119,13 @@ function planPropertyRegistration(resource: ParsedPropertyRegistration): Omit<Pl
 }
 
 function planFontFaceResource(resource: ParsedFontFaceResource): Omit<PlannedResource, 'source'> {
-  const descriptor = (name: string, fallback: string): string =>
-    resource.declarations.find(({ property }) => property === name)?.value ?? fallback;
+  const descriptors = new Map(resource.declarations.map(({ property, value }) => [property, value]));
   const signature = [
-    descriptor('font-family', ''),
-    descriptor('font-style', 'normal'),
-    descriptor('font-weight', 'normal'),
-    descriptor('font-stretch', 'normal'),
-    descriptor('unicode-range', 'all')
+    descriptors.get('font-family') ?? '',
+    descriptors.get('font-style') ?? 'normal',
+    descriptors.get('font-weight') ?? 'normal',
+    descriptors.get('font-stretch') ?? 'normal',
+    descriptors.get('unicode-range') ?? 'all'
   ].join('|');
   const declarations = resource.declarations
     .map(({ property, value }) => `  ${property}: ${value};`)
