@@ -72,6 +72,30 @@ it('builds a same-rule logical and physical longhand pair in fixed order', async
   expect(css.indexOf('margin-inline-start: 1px')).toBeLessThan(css.indexOf('margin-left: 2px'));
 });
 
+it('omits optional className and reads supplied scopes in both typed prop forms', async () => {
+  const root = await fixture({
+    'App.tsx': `import React from 'react'; import styles from './Card.gss';
+      type Props = { scope?: typeof styles.card };
+      const Member = (props: Props) => <div className={props.scope} />;
+      const Destructured = ({ scope: value }: Props) => <div className={value} />;
+      export const expected = styles.card;
+      export function App() {
+        return <><Member /><Destructured /><Member scope={styles.card} /><Destructured scope={styles.card} /></>;
+      }`
+  });
+  await symlink(join(process.cwd(), 'node_modules'), join(root, 'node_modules'), 'dir');
+  const server = await createServer({ root, configFile: false, plugins: [gss({ adapter: react() })],
+    logLevel: 'silent', server: { middlewareMode: true } });
+  try {
+    const { App, expected } = await server.ssrLoadModule('/App.tsx');
+    expect(expected).toMatch(/^gss-/);
+    expect(renderToString(createElement(App))).toBe(
+      '<div></div><div></div>' + `<div class="${expected}"></div>`.repeat(2));
+  } finally {
+    await server.close();
+  }
+});
+
 it('renders both the selected scope and its child from one immutable alias', async () => {
   const root = await fixture({
     'Card.gss': '.card { color: red } .card .title { color: blue } .panel .title { color: green }',
