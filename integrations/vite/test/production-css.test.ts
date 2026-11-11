@@ -72,6 +72,30 @@ it('builds a same-rule logical and physical longhand pair in fixed order', async
   expect(css.indexOf('margin-inline-start: 1px')).toBeLessThan(css.indexOf('margin-left: 2px'));
 });
 
+it('renders both the selected scope and its child from one immutable alias', async () => {
+  const root = await fixture({
+    'Card.gss': '.card { color: red } .card .title { color: blue } .panel .title { color: green }',
+    'App.tsx': `import React from 'react'; import styles from './Card.gss';
+      export const expected = [styles.card, styles.card.title];
+      export function App() {
+        let active = true;
+        const branch = active ? styles.card : styles.panel;
+        active = false;
+        return <div className={branch}><span className={branch.title} /></div>;
+      }`
+  });
+  await symlink(join(process.cwd(), 'node_modules'), join(root, 'node_modules'), 'dir');
+  const server = await createServer({ root, configFile: false, plugins: [gss({ adapter: react() })],
+    logLevel: 'silent', server: { middlewareMode: true } });
+  try {
+    const { App, expected } = await server.ssrLoadModule('/App.tsx');
+    expect(expected).toEqual([expect.stringMatching(/^gss-/), expect.stringMatching(/^gss-/)]);
+    expect(renderToString(createElement(App))).toBe(`<div class="${expected[0]}"><span class="${expected[1]}"></span></div>`);
+  } finally {
+    await server.close();
+  }
+});
+
 it('links a Vite-managed SSG React render to the same production CSS and class names', async () => {
   const root = await fixture({
     'index.html': '<!doctype html><html><head></head><body><div id="app"><!--ssg--></div><script type="module" src="/main.tsx"></script></body></html>',

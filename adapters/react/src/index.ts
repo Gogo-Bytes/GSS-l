@@ -200,10 +200,8 @@ export function transformReactGssUsage(
     });
   });
 
-  // Expand a bounded immutable alias when a target path is read from it.
-  // This keeps `const branch = active ? styles.card : styles.panel;
-  // branch.title` as a source-level convenience without inferring arbitrary
-  // data flow or relying on DOM structure.
+  // Keep the initializer as the one place that evaluates the branch. Each
+  // possible scope must declare the target before we read its class string.
   traverse(ast, {
     MemberExpression(path) {
       const expression = path.node;
@@ -214,10 +212,8 @@ export function transformReactGssUsage(
       const init = rootBinding && rootBinding.constant && t.isVariableDeclarator(rootBinding.path.node)
         ? rootBinding.path.node.init ?? undefined
         : undefined;
-      if (!init) return;
-      const replacement = expandAliasTarget(init, reference.path, input.source, verifiedBindings);
-      if (replacement && expression.start != null && expression.end != null) {
-        output.overwrite(expression.start, expression.end, replacement);
+      if (init && expression.end != null && aliasHasTarget(init, reference.path, verifiedBindings)) {
+        output.appendLeft(expression.end, '.$class');
       }
     }
   });
@@ -626,31 +622,18 @@ function aliasKindForBinding(
   return binding.kind === 'const' && binding.constant ? expressionKind : 'mutable';
 }
 
-function expandAliasTarget(
-  expression: t.Expression,
+function aliasHasTarget(
+  initializer: t.Expression,
   targetPath: readonly string[],
-  source: string,
   verifiedBindings: WeakMap<t.MemberExpression, GssBinding>
-): string | undefined {
-  const targets = targetPath.at(-1) === '$class' ? targetPath.slice(0, -1) : targetPath;
-  if (targets.length === 0) return undefined;
-  if (t.isMemberExpression(expression)) {
-    const verified = readVerifiedScopeExpression(expression, verifiedBindings);
-    if (!verified || !resolveScopePath(verified.binding.schema, [...verified.path, ...targets])) {
-      return undefined;
-    }
-    const text = expression.start != null && expression.end != null
-      ? source.slice(expression.start, expression.end) : undefined;
-    return text ? `${text}.${targets.join('.')}.$class` : undefined;
+): boolean {
+  if (t.isMemberExpression(initializer)) {
+    const scope = readVerifiedScopeExpression(initializer, verifiedBindings);
+    return !!scope && !!resolveScopePath(scope.binding.schema, [...scope.path, ...targetPath]);
   }
-  if (t.isConditionalExpression(expression)) {
-    const consequent = expandAliasTarget(expression.consequent, targets, source, verifiedBindings);
-    const alternate = expandAliasTarget(expression.alternate, targets, source, verifiedBindings);
-    const test = expression.test.start != null && expression.test.end != null
-      ? source.slice(expression.test.start, expression.test.end) : undefined;
-    return consequent && alternate && test ? `${test} ? ${consequent} : ${alternate}` : undefined;
-  }
-  return undefined;
+  return t.isConditionalExpression(initializer) &&
+    aliasHasTarget(initializer.consequent, targetPath, verifiedBindings) &&
+    aliasHasTarget(initializer.alternate, targetPath, verifiedBindings);
 }
 
 function classifyScopeExpression(

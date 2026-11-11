@@ -19,7 +19,7 @@ const cases = [
   { id: 'string-coercion', title: 'Static path string lowering', source: "const name = styles.card + ' external';", contains: 'styles.card.$class + \' external\'' },
   { id: 'alias-member', title: 'Conditional alias target path',
     source: 'const branch = active ? styles.card : styles.panel; const view = <span className={branch.title} />;',
-    contains: 'className={active ? styles.card.title.$class : styles.panel.title.$class}' }
+    contains: 'className={branch.title.$class}' }
 ];
 
 export function transformPlaygroundCases() {

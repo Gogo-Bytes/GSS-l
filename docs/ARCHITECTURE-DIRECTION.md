@@ -95,6 +95,8 @@ Vite 当前将 transform 的原始 `id` 与源码交给 adapter；对发现的 s
 
 用户在 React 源码直接写 `styles.card` 或 `styles.card.title`。适配器按 schema 验证静态路径，在支持的字符串消费位置自动读取节点的内部 `$class` 字段。[GssScope](../types/src/index.ts) 用带 brand 的 `string & children` 描述源码引用，允许传给普通 `className?: string`，不承诺逐文件精确补全。
 
+不可变别名同时用于父节点和子路径时，初始化保留选中的 scope 对象。读取 `className={branch}` 或 `branch.title` 时才取对应节点的字符串。对条件别名，适配器检查每个可能分支都声明了目标，生成代码仍读取原别名，因此条件只在初始化时求值一次。
+
 父组件 `<Child className={styles.title} />` 在父文件完成 lowering，子组件接收普通字符串；这不需要跨文件 scope 推导。普通函数、DOM API、模板字符串的直接静态引用以及已支持的不可变条件 alias 有既有回归；可变 alias、未知／动态路径、跨文件传播继续按当前实现边界处理，不能扩大成完整数据流分析或任意 namespace 逃逸支持。不可证明的动态／未知路径保留已确认的普通 JS 行为，不新增拒绝规则。
 
 验证路径时，每一段都必须是当前 schema 自有的成员；显式声明的 `constructor`、`self` 等名字遵循同一规则。组合 class 时可写 `className={[styles.card, 'external'].join(' ')}`。既有的隐式字符串强制转换诊断仍适用。旧的生成对象把父节点字符串和名为 `self` 的子节点写到了同一个键，导致父元素收到对象。现在 `.card .self` 对应源码 `styles.card.self`，父节点仍使用 `styles.card`。已有项目中用于读取当前节点字符串的旧后缀 `.self` 应移除。混合类型的别名仍按既有规则处理，例如可将条件直接写在 JSX 的 `className` 中。

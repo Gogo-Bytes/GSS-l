@@ -63,7 +63,7 @@ const view = <div className={card}><span className={card.self} /></div>;`,
     });
     expect(result.diagnostics).toEqual([]);
     expect(result.code).toContain('const card = styles.card;');
-    expect(result.code).toContain('<div className={card.$class}><span className={styles.card.self.$class} /></div>');
+    expect(result.code).toContain('<div className={card.$class}><span className={card.self.$class} /></div>');
   });
 
   it.each([
@@ -218,7 +218,24 @@ const view = <span className={branch.title} />;`;
     });
 
     expect(result.diagnostics).toEqual([]);
-    expect(result.code).toContain('className={active ? styles.card.title.$class : styles.panel.title.$class}');
+    expect(result.code).toContain('className={branch.title.$class}');
+  });
+
+  it('keeps a conditional alias selection at initialization across repeated child reads', () => {
+    const source = `import styles from './Card.gss';
+let calls = 0;
+const select = () => ++calls === 1;
+const branch = select() ? styles.card : styles.panel;
+const first = branch.title + ' extra';
+const second = branch.title;`;
+    const result = transformReactGssUsage({
+      id: '/project/App.js', source, resolveScopeSchema: () => cardScope
+    });
+    expect(result.diagnostics).toEqual([]);
+    const read = new Function('styles', result.code.slice(result.code.indexOf('\n')) +
+      '\nreturn [calls, first, second];');
+    expect(read({ card: { title: { $class: 'red' } }, panel: { title: { $class: 'blue' } } }))
+      .toEqual([1, 'red extra', 'red']);
   });
 
   it('lowers a renamed property-destructured scope alias', () => {

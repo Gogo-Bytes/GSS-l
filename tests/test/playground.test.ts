@@ -49,7 +49,7 @@ describe('MVP playground catalog', () => {
       expect(mixing.diagnostics).toMatchObject([{ code: 'GSS2107', severity: 'warning' }]);
       expect(mixing.source).toContain("[styles.card, other.badge].join(' ')");
       expect(mixing.code).toContain("[styles.card.$class, other.badge.$class].join(' ')");
-      expect(adapter.find((entry: { id: string }) => entry.id === 'alias-member').code).toContain('styles.card.title.$class');
+      expect(adapter.find((entry: { id: string }) => entry.id === 'alias-member').code).toContain('branch.title.$class');
     } finally { await server.close(); }
   });
 });
