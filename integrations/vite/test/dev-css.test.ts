@@ -322,7 +322,7 @@ it('does not confuse comments or script text with an existing stylesheet owner',
   expect(result.match(/data-gss-dev/g)).toHaveLength(1);
   const existing = await server.transformIndexHtml('/index.html',
     `<html><head><link rel='stylesheet' href='/@gss-l/central.css?t=1'></head></html>`);
-  expect(existing).not.toContain('data-gss-dev');
+  expect(existing).not.toMatch(/data-gss-dev|atom-handoff\.js/);
 });
 
 it('keeps HMR source responses transformed and their virtual dependency URLs cache-busted', async () => {
@@ -370,7 +370,7 @@ it('never injects the dev stylesheet URL into production HTML', async () => {
   if (Array.isArray(result) || !('output' in result)) throw new Error('Expected one bundle.');
   const html = result.output.find((entry) => entry.fileName === 'index.html');
   if (html?.type !== 'asset') throw new Error('Expected HTML asset.');
-  expect(String(html.source)).not.toMatch(/@gss-l\/central.css|data-gss-dev/);
+  expect(String(html.source)).not.toMatch(/@gss-l\/central.css|data-gss-dev|atom-handoff\.js/);
 });
 
 it('injects one shared, base-aware stylesheet link into every dev HTML entry', async () => {
@@ -380,6 +380,14 @@ it('injects one shared, base-aware stylesheet link into every dev HTML entry', a
     const transformed = await server.transformIndexHtml(path, html);
     expect(transformed).toContain('href="/app/@gss-l/central.css"');
     const repeated = await server.transformIndexHtml(path, transformed);
+    expect(repeated.match(/src="\/app\/@gss-l\/atom-handoff\.js"/g)).toHaveLength(1);
     expect(repeated.match(/href="\/app\/@gss-l\/central.css"/g)).toHaveLength(1);
   }
+});
+
+it('serves the dev stylesheet without a handoff client when Vite HMR is disabled', async () => {
+  const { server } = await fixture('/', [{ name: 'no-hmr', config: () => ({ server: { hmr: false } }) }]);
+  const html = await server.transformIndexHtml('/index.html', '<html><head></head></html>');
+  expect(html).toContain('data-gss-dev');
+  expect(html).not.toContain('atom-handoff.js');
 });

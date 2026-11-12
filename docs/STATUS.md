@@ -22,7 +22,7 @@ Owner 已批准并实现 [#32](https://github.com/Gogo-Bytes/GSS-l/issues/32) �
 
 ## 当前工作与授权
 
-Vite 开发 HMR 的纯 atom 改名实验已完成。临时选择器可以覆盖已复现的标题闪烁；React state 保存的 class 字符串可能在 DOM 清空后重新出现，其回收契约仍待决定。[交接实验](REACT-UPDATE-REVIEW.md#纯-atom-改名的交接实验2026-11-12)、[#33](https://github.com/Gogo-Bytes/GSS-l/issues/33)
+Vite 开发 HMR 已修复单模块纯 atom 因新增／移除同属性竞争者而改名时的短暂失样式。旧名离开页面后即回收，不为稍后重新显示的 state 字符串续期。真实 Fast Refresh、编译失败恢复、迟到请求和回收已验证。[设计与证据](REACT-UPDATE-REVIEW.md#正式插件的交接与回收)、[#33](https://github.com/Gogo-Bytes/GSS-l/issues/33)
 
 Vite 开发模式已实现 React 直接静态导入的 `.gss` 缺失报错、上一成功版保留、原路径恢复和最后一个引用移除后的清理。浏览器验证覆盖两个组件共享同一文件。[架构决定](ARCHITECTURE-DIRECTION.md#vite-开发时文件删除与恢复)、[验证记录](REACT-UPDATE-REVIEW.md#vite-开发时文件缺失与移除引用)、[#33](https://github.com/Gogo-Bytes/GSS-l/issues/33)
 

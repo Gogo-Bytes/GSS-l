@@ -72,23 +72,31 @@ Owner 同意以“限定场景避免用户可见失样式，保持最终正确�
 
 六次均捕获标题由红色变为默认深色再恢复的合成画面，最终 document marker 与 counter=1 均保留。错误颜色连续 RAF 样本跨度为 17–34ms；异常合成帧至下一恢复合成帧的时间间隔约 25–42ms。这是带仪器的 headless 样本，不是最坏延迟、人眼感知或所有设备的时间保证。
 
-首轮相对写入时间：CSS beforeUpdate +22ms，CSS afterUpdate +55ms 时标题已失样式且 class 仍旧；JS afterUpdate +76ms 仍未恢复；DOM class mutation +94ms 后恢复红色。由此确认该场景存在旧 DOM class 与已更新 CSS 的交接空档，且 JS afterUpdate 不能单独证明 React 已提交 DOM。具体修复方案仍待决定，不能仅用固定延时回收旧 CSS。没有确认所有样式变化都具有相同根因或表现。
+首轮相对写入时间：CSS beforeUpdate +22ms，CSS afterUpdate +55ms 时标题已失样式且 class 仍旧；JS afterUpdate +76ms 仍未恢复；DOM class mutation +94ms 后恢复红色。由此确认该场景存在旧 DOM class 与已更新 CSS 的交接空档，且 JS afterUpdate 不能单独证明 React 已提交 DOM。该调查排除了仅用固定延时回收旧 CSS；后续实施见下文。没有确认所有样式变化都具有相同根因或表现。
 
 证据：`artifacts/hmr-paint-investigation/2026-11-09T09-53-30.456Z/`（result.json 时间线、13 张合成帧、server.log）；探针为同目录上层 `probe.mjs`，运行命令 `node artifacts/hmr-paint-investigation/probe.mjs`。使用的外部 consumer 与 tarball 哈希记录在 result.json；运行后已恢复外部输入、关闭浏览器和本轮 server。实际源码／构建产物仍来自原 Vite 模板运行，不冒充本轮重新打包验证。
 
-候选方向是先评估宿主现有更新完成信号与发布顺序，再评估有界的新旧 CSS 交接；任何双版本方案必须证明同名规则竞争、资源回收、失败恢复及多个 importer 的行为。未引入自定义 HMR runtime，也未改变 class 身份、排序或 fallback。动态进度见 [#33](https://github.com/Gogo-Bytes/GSS-l/issues/33)。
+候选方向是先评估宿主现有更新完成信号与发布顺序，再评估有界的新旧 CSS 交接；任何双版本方案必须证明同名规则竞争、资源回收、失败恢复及多个 importer 的行为。该轮调查没有修改产品。动态进度见 [#33](https://github.com/Gogo-Bytes/GSS-l/issues/33)。
 
 ### 纯 atom 改名的交接实验（2026-11-12）
 
-在 Vite 8.3.5、plugin-react 6.1.2、React 19.3.1 和 Chromium 145 中，两个组件直接导入同一个 `App.gss`。新增或移除未使用的 `.extra` 会改变标题 atom 的名字，已有标题仍应是 `rgb(180, 20, 30)`。实验只为这对已核对的名字生成临时选择器。测试插件在编辑时通过 Vite 事件准备浏览器里的旧规则，测试拦截器把两个单 class 选择器并列在新表原有的红色规则上。Vite 实际加载 CSS，React Fast Refresh 实际更新组件。正式插件仍采用原来的更新流程。
+在 Vite 8.3.5、plugin-react 6.1.2、React 19.3.1 和 Chromium 145 中，两个组件直接导入同一个 `App.gss`。新增或移除未使用的 `.extra` 会改变标题 atom 的名字，已有标题仍应是 `rgb(180, 20, 30)`。实验只为这对已核对的名字生成临时选择器。测试插件在编辑时通过 Vite 事件准备浏览器里的旧规则，测试拦截器把两个单 class 选择器并列在新表原有的红色规则上。Vite 实际加载 CSS，React Fast Refresh 实际更新组件。该次实验没有改动正式插件。
 
 在两个消费者分别使用旧、新名字时，两处文字都保持红色。无效声明触发错误浮层，修正后页面自动恢复。连续写入移除再新增 scope 的两次修改也到达了客户端。两处都采纳新名字后，移除临时选择器，浏览器规则列表与独立请求返回的干净 CSS 逐条一致。
 
 **清理条件有一个反例。** 预览组件用 `useState(className)` 保存收到的字符串，允许用户稍后接受新的预览。隐藏预览时，组件仍然挂载，但整个 document 已经找不到使用旧 class 的元素。如果此时清理选择器，再展开预览，旧字符串仍会回到 DOM。红色随即变成默认深色 `rgb(8, 6, 13)`。仅恢复旧选择器，红色和预览截图的每个像素均恢复；点击接受新版后，预览也能正常使用新 class。这个反例即使在 CSS 和 JS 均已成功更新时仍成立。
 
-若只保障持续使用旧 class 的 DOM 元素和跟随最新 prop 的视图，回收后重新显示的历史字符串就可能失去样式。若历史字符串也要有效，Vite 的更新事件与 DOM 都无法告知 GSS 何时可安全丢弃旧名字，需要另外定义历史名字的有效期和复用冲突规则。两种行为影响 React 使用方，产品范围由负责人决定。[Issue #33](https://github.com/Gogo-Bytes/GSS-l/issues/33)
+负责人据此确定：**交接时保住仍在页面上使用的旧 class；交接完成后，不保障从 React state 重新取出的历史字符串。** 这条规则只决定何时回收临时选择器，不根据 JSX 或 state 的读取情况裁剪构建产物。原始双 importer 实验和回收反例保留在本机 `artifacts/issue-33-handoff/2026-11-12T09-39-35.208Z/` 与 `2026-11-12T09-43-41.420Z/`。
 
-[回收反例脚本](../tests/acceptance/vite-template/handoff-retirement.mjs) 可基于已安装的外部模板重跑。从仓库根目录执行 `node tests/acceptance/vite-template/handoff-retirement.mjs <外部模板的app目录>`。模板由 `corepack pnpm vite-template:check` 准备。脚本在临时副本中运行，并把颜色、独立参考图、失败表现及恢复图保存在 `artifacts/issue-33-handoff/`。完整双 importer 实验的本机时间线取自 `2026-11-12T09-39-35.208Z/result.json`，聚焦反例的像素对照取自 `2026-11-12T09-43-41.420Z/retirement.json`。本次验证限于该纯 atom 和这个宿主组合。
+### 正式插件的交接与回收
+
+触发条件和宿主边界见[架构契约](ARCHITECTURE-DIRECTION.md#vite-开发时纯-atom-改名)。Vite 仍然负责替换 link，React 仍然按自己的时机提交。临时别名只存在于当前页面的 CSSOM，旧、新名字指向同一条声明。最后一个使用旧名的元素移除或换名后，该页还原到新表；新打开的页面直接拿干净 CSS。
+
+[浏览器回归](../tests/acceptance/vite-template/handoff-retirement.mjs)使用外部模板的真实安装，在临时副本中运行。重跑：先用 `corepack pnpm vite-template:check` 准备当前包，再从仓库根执行 `node tests/acceptance/vite-template/handoff-retirement.mjs <外部模板的app目录>`。脚本从不改写响应 CSS 或手动回收别名；竞态场景只暂停一次真实请求，到下一次保存成功发布后放行。
+
+- 两个组件直接导入同一个文件。已有标题和仍显示旧 class 的预览保持红色，非法重复声明显示错误浮层，恢复到相同输入后浮层消失、预览仍为红色。连续反向保存，以及前一版请求迟到并读到下一版 CSS，均验证最后一次 CSS 更新完成后再检查。
+- 隐藏旧预览后，将页面 CSSOM 与独立请求返回的新版 CSS 逐条比较。再次显示旧 state 时为模板默认色；接受当前 class 后，预览与独立红色参考图逐像素相同。
+- 本次复用外部模板的固定依赖，只替换重新打包的 Vite 集成（Vite 8.3.5、plugin-react 6.1.2、React 19.3.1、Chromium 145）。旧包未能保留过渡选择器；迟到响应也有独立的失败记录。修复后 `artifacts/issue-33-handoff/2026-11-12T10-21-23.176Z/` 保存时间戳、PNG、107 次 RAF 采样；首次改名的 6 张合成帧里，标题区域各有 4148 个精确红色像素。证据限于该模板和编辑序列，不是任意更新均无闪烁的保证。
 
 ## Vite 开发时文件缺失与移除引用
 

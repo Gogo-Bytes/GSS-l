@@ -7,7 +7,7 @@ import {
   type GssSourceAdapter,
   type ReplaceStylesheetResult
 } from '@gss-l/compiler';
-import { isFileLoadingAllowed, normalizePath, type EnvironmentModuleNode, type Plugin, type Rollup, type ViteDevServer } from 'vite';
+import { isFileLoadingAllowed, normalizePath, type EnvironmentModuleNode, type HtmlTagDescriptor, type Plugin, type Rollup, type ViteDevServer } from 'vite';
 import { CENTRAL_CSS_URL, LINKED_CSS_URL, STYLESHEET_URL_IMPORT, STYLESHEET_URL_ID, fromVirtualGssId, resolveCentralCssId, toVirtualGssId } from './virtual-id.js';
 import { hasCentralStylesheet } from './central-html.js';
 import { createDevCssOwner } from './dev-css.js';
@@ -21,6 +21,7 @@ import { resolveViteCssTargets } from './css-targets.js';
 
 export type GssOptions = { adapter: GssSourceAdapter };
 
+const HANDOFF_URL = '/@gss-l/atom-handoff.js';
 const STYLESHEET_META = 'gss-l:stylesheet';
 
 export function gss({ adapter }: GssOptions): Plugin[] {
@@ -50,9 +51,9 @@ export function gss({ adapter }: GssOptions): Plugin[] {
   type Replacement = { result: Promise<(ReplaceStylesheetResult & ProductionStylesheet) | undefined> };
   const latest = new Map<string, Replacement>();
 
-  function readDevCss() {
+  function readDevSnapshot() {
     const resolveAssetUrl = assetOwner?.resolve(devAssets.values());
-    return session.finalize(resolveAssetUrl ? { resolveAssetUrl } : undefined).css;
+    return session.finalize(resolveAssetUrl ? { resolveAssetUrl } : undefined);
   }
 
   function discardStylesheet(id: string) {
@@ -268,7 +269,7 @@ export function gss({ adapter }: GssOptions): Plugin[] {
     configureServer(server) {
       devServer = server;
       assetOwner = createDevAssetOwner(server);
-      cssOwner = createDevCssOwner(server, readDevCss);
+      cssOwner = createDevCssOwner(server, readDevSnapshot);
       return assetOwner.install;
     },
     closeBundle() {
@@ -347,14 +348,18 @@ export function gss({ adapter }: GssOptions): Plugin[] {
       handler(html) {
         if (!development || hasCentralStylesheet(html, centralCssHref) ||
           hasCentralStylesheet(html, `${base}${LINKED_CSS_URL.slice(1)}`)) return html;
-        return [{
+        const tags: HtmlTagDescriptor[] = [{
           tag: 'link',
           attrs: { rel: 'stylesheet', href: centralCssHref, 'data-gss-dev': '' },
           injectTo: 'head'
         }];
+        if (devServer?.config.server.hmr !== false) tags.push({ tag: 'script',
+          attrs: { type: 'module', src: base + HANDOFF_URL.slice(1) }, injectTo: 'head' });
+        return tags;
       }
     },
     async resolveId(source, importer) {
+      if (development && source === HANDOFF_URL) return HANDOFF_URL;
       if (source === STYLESHEET_URL_IMPORT || source === STYLESHEET_URL_ID) return STYLESHEET_URL_ID;
       if (development && resolveCentralCssId(source)) return resolveCentralCssId(source);
       if (fromVirtualGssId(source)) return source;
@@ -365,7 +370,8 @@ export function gss({ adapter }: GssOptions): Plugin[] {
     },
     async load(id) {
       if (id === STYLESHEET_URL_ID) return stylesheetUrlModule(this);
-      if (development && resolveCentralCssId(id)) return readDevCss();
+      if (development && id === HANDOFF_URL) return readFile(new URL('./dev-handoff-client.js', import.meta.url), 'utf8');
+      if (development && resolveCentralCssId(id)) return readDevSnapshot().css;
       const physicalId = fromVirtualGssId(id);
       if (!physicalId) return null;
       this.addWatchFile(physicalId);

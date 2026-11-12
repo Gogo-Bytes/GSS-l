@@ -1,6 +1,6 @@
 {
   "extends": "./tsconfig.json",
-  "compilerOptions": { "rootDir": "src", "outDir": "dist" },
-  "include": ["src/**/*.ts"],
+  "compilerOptions": { "allowJs": true, "rootDir": "src", "outDir": "dist" },
+  "include": ["src/**/*.ts", "src/dev-handoff-client.js"],
   "exclude": ["test"]
 }
