@@ -78,6 +78,18 @@ Owner 同意以“限定场景避免用户可见失样式，保持最终正确�
 
 候选方向是先评估宿主现有更新完成信号与发布顺序，再评估有界的新旧 CSS 交接；任何双版本方案必须证明同名规则竞争、资源回收、失败恢复及多个 importer 的行为。未引入自定义 HMR runtime，也未改变 class 身份、排序或 fallback。动态进度见 [#33](https://github.com/Gogo-Bytes/GSS-l/issues/33)。
 
+### 纯 atom 改名的交接实验（2026-11-12）
+
+在 Vite 8.3.5、plugin-react 6.1.2、React 19.3.1 和 Chromium 145 中，两个组件直接导入同一个 `App.gss`。新增或移除未使用的 `.extra` 会改变标题 atom 的名字，已有标题仍应是 `rgb(180, 20, 30)`。实验只为这对已核对的名字生成临时选择器。测试插件在编辑时通过 Vite 事件准备浏览器里的旧规则，测试拦截器把两个单 class 选择器并列在新表原有的红色规则上。Vite 实际加载 CSS，React Fast Refresh 实际更新组件。正式插件仍采用原来的更新流程。
+
+在两个消费者分别使用旧、新名字时，两处文字都保持红色。无效声明触发错误浮层，修正后页面自动恢复。连续写入移除再新增 scope 的两次修改也到达了客户端。两处都采纳新名字后，移除临时选择器，浏览器规则列表与独立请求返回的干净 CSS 逐条一致。
+
+**清理条件有一个反例。** 预览组件用 `useState(className)` 保存收到的字符串，允许用户稍后接受新的预览。隐藏预览时，组件仍然挂载，但整个 document 已经找不到使用旧 class 的元素。如果此时清理选择器，再展开预览，旧字符串仍会回到 DOM。红色随即变成默认深色 `rgb(8, 6, 13)`。仅恢复旧选择器，红色和预览截图的每个像素均恢复；点击接受新版后，预览也能正常使用新 class。这个反例即使在 CSS 和 JS 均已成功更新时仍成立。
+
+若只保障持续使用旧 class 的 DOM 元素和跟随最新 prop 的视图，回收后重新显示的历史字符串就可能失去样式。若历史字符串也要有效，Vite 的更新事件与 DOM 都无法告知 GSS 何时可安全丢弃旧名字，需要另外定义历史名字的有效期和复用冲突规则。两种行为影响 React 使用方，产品范围由负责人决定。[Issue #33](https://github.com/Gogo-Bytes/GSS-l/issues/33)
+
+[回收反例脚本](../tests/acceptance/vite-template/handoff-retirement.mjs) 可基于已安装的外部模板重跑。从仓库根目录执行 `node tests/acceptance/vite-template/handoff-retirement.mjs <外部模板的app目录>`。模板由 `corepack pnpm vite-template:check` 准备。脚本在临时副本中运行，并把颜色、独立参考图、失败表现及恢复图保存在 `artifacts/issue-33-handoff/`。完整双 importer 实验的本机时间线取自 `2026-11-12T09-39-35.208Z/result.json`，聚焦反例的像素对照取自 `2026-11-12T09-43-41.420Z/retirement.json`。本次验证限于该纯 atom 和这个宿主组合。
+
 ## Vite 开发时文件缺失与移除引用
 
 以 `d7cd393` 重新构建的工作区包测试：Vite 7.3.6、React 19.3.0、GSS React adapter、Chromium 145.0.7632.6。临时应用仅有一个 JSX 文件导入 `Card.gss`，没有 Fast Refresh 插件。通过真实文件系统和 Vite watcher 更新；浏览器读取节点的实际颜色与错误浮层，另通过 HTTP 读取中央 CSS。两次独立运行得到相同结果。

@@ -22,6 +22,8 @@ Owner 已批准并实现 [#32](https://github.com/Gogo-Bytes/GSS-l/issues/32) �
 
 ## 当前工作与授权
 
+Vite 开发 HMR 的纯 atom 改名实验已完成。临时选择器可以覆盖已复现的标题闪烁；React state 保存的 class 字符串可能在 DOM 清空后重新出现，其回收契约仍待决定。[交接实验](REACT-UPDATE-REVIEW.md#纯-atom-改名的交接实验2026-11-12)、[#33](https://github.com/Gogo-Bytes/GSS-l/issues/33)
+
 Vite 开发模式已实现 React 直接静态导入的 `.gss` 缺失报错、上一成功版保留、原路径恢复和最后一个引用移除后的清理。浏览器验证覆盖两个组件共享同一文件。[架构决定](ARCHITECTURE-DIRECTION.md#vite-开发时文件删除与恢复)、[验证记录](REACT-UPDATE-REVIEW.md#vite-开发时文件缺失与移除引用)、[#33](https://github.com/Gogo-Bytes/GSS-l/issues/33)
 
 维护现有支持范围，修复可复现契约问题，补必要回归并同步文档。2026-11-06 owner 已批准将诊断定位、React 更新目标、Firefox Article 和性能线索迁入 Issues；[任务映射](NEXT-STAGE.md#已迁入-github-的跟踪事项)指向各自唯一动态状态。迁移不批准新能力或恢复暂缓事项。保持 main 直提，暂不采用 PR；其他能力边界仍按设计文档与 owner 授权。
