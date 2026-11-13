@@ -68,7 +68,7 @@
 ### Resources 与 assets
 
 - local keyframe 的静态引用、条件／layer 组合、font descriptors 和 resource conflicts 均有范围。
-- 在 Vite 7 的生产对照中，`image-set("./icon.svg" 1x)` 的裸字符串未登记为依赖，构建成功但产物缺少 SVG。使用 `image-set(url("./icon.svg") 1x)` 时，同一文件被输出，CSS 引用其带哈希的路径。前者的接入范围见 [#45](https://github.com/Gogo-Bytes/GSS-l/issues/45)。
+- `image-set("./icon.svg" 1x)` 和 `image-set(url("./icon.svg") 1x)` 引用同一图片。编译器按候选项的源码顺序收集 URL，两种写法共用转义解码、资源身份绑定和输出地址解析。相对路径以声明所在样式表为基准，宿主在输出时给出部署地址。`type("image/svg+xml")` 中的字符串是 MIME 类型，原样保留。[CSS Images §2.4](https://drafts.csswg.org/css-images-4/#image-set-notation)
 - 复杂 cursor/mask/filter URL、worklet 等没有完整公共支持；URL escape／function nesting 不是通用重写器。
 
 ### Cascade 与 Adapter

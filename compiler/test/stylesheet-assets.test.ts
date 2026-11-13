@@ -303,6 +303,22 @@ describe('stylesheet Asset references', () => {
     expect(result.diagnostics).toEqual(expect.arrayContaining([expect.objectContaining({ id: '/project/broken.gss', severity: 'error' })]));
   });
 
+  it('binds image-set candidate strings and URLs in source order, preserving descriptors and ordinary strings', () => {
+    const id = '/project/Card.gss';
+    const source = `.card {
+      background-image: IMAGE-SET('./a.svg' type("image/svg+xml"), url(./b.svg) 2x, /* hi */ "./c\\20 d.svg" 3x);
+      content: "./a.svg";
+    }`;
+    const urls = ['./a.svg', './b.svg', './c d.svg'];
+    expect(discoverStylesheetAssets({ id, source })).toEqual({ urls, diagnostics: [] });
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    const result = session.replaceStylesheet({ id, source, assetReferences: urls.map((url) => ({ url, identity: url.slice(2) })) });
+    expect(result.committed).toBe(true);
+    const css = session.finalize({ resolveAssetUrl: (name) => `/out/${name}` }).css;
+    expect(css).toMatch(/url\("\/out\/a\.svg"\) type\("image\/svg\+xml"\), url\("\/out\/b\.svg"\) 2x, .*url\("\/out\/c d\.svg"\) 3x/);
+    expect(css).toContain('content: "./a.svg"');
+  });
+
   it.each([
     [{ url: '', identity: 'icon.svg' }],
     [{ url: './icon.svg', identity: '' }],

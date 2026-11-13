@@ -10,6 +10,8 @@
 
 ## 最新维护核查
 
+已修复 `image-set("./icon.svg" 1x)` 在生产构建中遗漏图片的问题。Vite 7.3.6 的普通 CSS、GSS 字符串及 GSS 显式 `url()` 三组生产产物经 Chromium 145 加载，均请求到同一哈希地址，返回 200 且内容与源 SVG 一致。本机复测记录见 `artifacts/issue-45-triage/image-set-browser.log`。[资源契约](CSS-CAPABILITY-AUDIT.md#resources-与-assets) · [Issue #45](https://github.com/Gogo-Bytes/GSS-l/issues/45)
+
 核查 #45 的声明前缀反例时发现并修复了前导下划线丢失。合法未知属性 `_color` 现在按整模块 fallback 输出，与 `color` 并存。Chromium 原生／GSS 颜色对照和 Vite 的 image-set 资源对照记录在本机 `artifacts/issue-45-triage/`。[能力边界](CSS-CAPABILITY-AUDIT.md#values-与-declaration-sequence) · [Issue #45](https://github.com/Gogo-Bytes/GSS-l/issues/45)
 
 嵌套 `self` 与父节点字符串的导出冲突已修复。React 业务源码直接使用静态路径；升级和保留名称规则见[React 引用契约](ARCHITECTURE-DIRECTION.md#react-引用与-typescript-契约)，验收与提交记录见 [#53](https://github.com/Gogo-Bytes/GSS-l/issues/53)。
