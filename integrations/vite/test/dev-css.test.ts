@@ -201,6 +201,41 @@ it('reclaims CSS only after the last importer successfully drops it', async () =
   expect(await css()).toBe(before);
 });
 
+it('drops the renamed stylesheet after its last consumer switches even if its virtual module imports itself', async () => {
+  const { root, server } = await fixture('/', [{
+    // Reproduce the self edge observed in the Vite 8 React dev graph on the workspace Vite 7.
+    name: 'virtual-self-import',
+    transform(code, id) {
+      if (id.startsWith('\0gss-l:') && id.endsWith('/Card.gss')) {
+        return code + "\nimport '/Card.gss';";
+      }
+    }
+  }]);
+  const view = (name: string) =>
+    `import styles from './${name}.gss'; export const View = () => <p className={styles.card}/>;`;
+  const edit = async (file: string, name: string) => {
+    await writeFile(join(root, file), view(name));
+    server.moduleGraph.onFileChange(join(root, file));
+    await server.transformRequest('/' + file);
+  };
+  const css = async () => (await server.transformRequest('/@gss-l/central.css?direct'))!.code;
+  await edit('A.tsx', 'Card');
+  await edit('B.tsx', 'Card');
+  const virtualId = '\0gss-l:' + join(root, 'Card.gss');
+  await server.transformRequest(virtualId);
+  const virtual = server.environments.client.moduleGraph.getModuleById(virtualId)!;
+  expect(virtual.importers.has(virtual)).toBe(true);
+  await writeFile(join(root, 'New.gss'), '.card {color: blue}');
+  await edit('A.tsx', 'New');
+  expect(await css()).toContain('color: red;');
+  await edit('B.tsx', 'New');
+  await vi.waitFor(async () => {
+    const latest = await css();
+    expect(latest).toContain('color: blue;');
+    expect(latest).not.toContain('color: red;');
+  });
+});
+
 it('invalidates deleted stylesheets, reclaims resources and recovers on recreation', async () => {
   const { root, server, container } = await fixture();
   await writeFile(join(root, 'Card.gss'),

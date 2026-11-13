@@ -93,7 +93,10 @@ export function gss({ adapter }: GssOptions): Plugin[] {
       for (const dependency of removed) {
         if (hasSourceImporter(dependency)) continue;
         const virtual = client.moduleGraph.getModuleById(toVirtualGssId(dependency));
-        if (virtual && [...virtual.importers].some((importer) => !retiredImportLists.has(importer.importedModules))) continue;
+        // Vite 8 can list the virtual module as its own importer after a hot update.
+        // Only another module can keep this stylesheet reachable.
+        if (virtual && [...virtual.importers].some((importer) =>
+          importer !== virtual && !retiredImportLists.has(importer.importedModules))) continue;
         discardStylesheet(dependency);
         trackedStylesheets.delete(dependency);
       }
