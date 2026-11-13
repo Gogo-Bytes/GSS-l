@@ -125,6 +125,8 @@ Vite 当前将 transform 的原始 `id` 与源码交给 adapter；对发现的 s
 
 此决定不是暂缓或待优化缺口：不生成邻接 `.d.gss.ts`，不引入编辑器虚拟声明，不以“更好的开发体验”为由重新提案、实验或加入优先级队列。除非 owner 主动明确改变该决定，不恢复 [#39](https://github.com/Gogo-Bytes/GSS-l/issues/39)。已有 `declarationCode` 产物和此前可行性实验不构成交付授权；未知路径保留原文且无诊断的既有回归位于 `adapters/react/test/transform-react-gss-usage.test.ts`。
 
+**2026-11-13 owner 决定：不扩展变量索引式 scope 引用。** [#38](https://github.com/Gogo-Bytes/GSS-l/issues/38) 不实施 `styles[variant]` 的动态解析或字符串转换；继续使用 `styles.primary`、`active ? styles.primary : styles.secondary` 等已支持的静态路径及条件选择。当前 computed member（包括 `styles['primary']`）不转换：有效名字可能取得 scope 对象，不保证可直接用作 className；不存在的名字保持普通 JavaScript 的 `undefined`。不新增 runtime resolver、诊断或兜底，也不扩大已有别名分析。该项明确不做、不是暂缓，不再列为待办；只有 owner 主动明确提出新要求才恢复。
+
 验证路径时，每一段都必须是当前 schema 自有的成员；显式声明的 `constructor`、`self` 等名字遵循同一规则。组合 class 时可写 `className={[styles.card, 'external'].join(' ')}`。既有的隐式字符串强制转换诊断仍适用。旧的生成对象把父节点字符串和名为 `self` 的子节点写到了同一个键，导致父元素收到对象。现在 `.card .self` 对应源码 `styles.card.self`，父节点仍使用 `styles.card`。已有项目中用于读取当前节点字符串的旧后缀 `.self` 应移除。混合类型的别名仍按既有规则处理，例如可将条件直接写在 JSX 的 `className` 中。
 
 编译器只保留 ownership 路径第二段及以后、CSS 转义解码后精确为 `$class` 的名称。命中时在原规则范围报告 `GSS1105`，本次替换失败；同一规则适用于 atomic 与 preserved 输出。顶层 `.\$class`、其他 `$` 前缀及外部类不占用子节点的内部字段。schema 保留 `selfClassName` 与 `targets` 两个独立成员；生成模块和适配器通过 `.$class` 读取自身字符串，业务源码继续使用静态路径。
