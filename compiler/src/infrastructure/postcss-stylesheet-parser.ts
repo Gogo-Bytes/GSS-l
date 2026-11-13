@@ -600,12 +600,11 @@ function isNativeFunctionalBranch(nodes: readonly Node[]): boolean {
 }
 
 function parseAttributeCondition(attribute: Attribute): ParsedAttributeCondition | undefined {
-  if (
-    attribute.operator !== '=' ||
-    typeof attribute.value !== 'string' ||
-    attribute.insensitive !== undefined ||
-    attribute.namespace !== undefined
-  ) return undefined;
+  if (attribute.insensitive !== undefined || attribute.namespace !== undefined) return undefined;
+  if (attribute.operator === undefined && attribute.value === undefined) {
+    return { attribute: attribute.attribute, operator: null };
+  }
+  if (attribute.operator !== '=' || typeof attribute.value !== 'string') return undefined;
   return {
     attribute: attribute.attribute,
     operator: '=',

@@ -55,7 +55,7 @@ function exclusive<R extends DescendantRule>(a: DescendantInstance<R>, b: Descen
   if (left.some((part) => right.includes(`not(:${part})`)) || right.some((part) => left.includes(`not(:${part})`))) return true;
   const aa = a.rule.nodes[a.sourceIndex]?.attributes[0];
   const ba = b.rule.nodes[b.sourceIndex]?.attributes[0];
-  return aa !== undefined && ba !== undefined && aa.attribute === ba.attribute && aa.value !== ba.value;
+  return aa?.operator === '=' && ba?.operator === '=' && aa.attribute === ba.attribute && aa.value !== ba.value;
 }
 
 /** Closed predicates retain their existing winner proof. Only explicitly eligible

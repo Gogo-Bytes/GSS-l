@@ -185,7 +185,7 @@ export function validateSelectorShapes(id: string, rules: readonly ParsedStyleRu
         code: 'GSS1101',
         severity: 'error',
         phase: 'validate',
-        message: 'A selector may contain one equality attribute on its current or runtime-source node.',
+        message: 'A selector may contain one presence or equality attribute on its current or runtime-source node.',
         id: id,
         reason: 'capability-not-registered'
       }]

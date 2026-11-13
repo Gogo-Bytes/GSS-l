@@ -22,6 +22,7 @@ describe('anchored external declaration target', () => {
 
   it.each([
     ['.editor :global(button) { color: red; }', 'button'],
+    ['.editor :global([data-mode]) { color: red; }', '[data-mode]'],
     ['.editor :global([data-mode="ready"]) { color: red; }', '[data-mode="ready"]']
   ])('anchors one external tag/attribute target without exporting it: %s', (input, target) => {
     const session = createGssCompilerSession({ projectRoot: '/project' });
@@ -68,7 +69,6 @@ describe('anchored external declaration target', () => {
       ':global(button) { color: blue; }',
       '.editor:global(button) { color: blue; }',
       '.editor :global(button[data-mode="ready"]) { color: blue; }',
-      '.editor :global([data-mode]) { color: blue; }',
       '.editor :global([data-mode^="ready"]) { color: blue; }',
       '.editor :global([data-mode="ready" i]) { color: blue; }',
       '.editor :global(button):hover { color: blue; }',

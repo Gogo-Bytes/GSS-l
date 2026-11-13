@@ -4,6 +4,62 @@ import type { CompiledReferenceFixture, ReferenceFixture } from './fixtures.js';
 export const externalTagAttributeFixtures: readonly (ReferenceFixture & {
   reference: CompiledReferenceFixture['reference'];
 })[] = [{
+  name: 'attribute-presence-current-ancestor-and-child',
+  modules: [{ id: 'Presence.gss', source: `
+    .button { color: black; background-color: white; }
+    .button[disabled] { color: red; }
+    .button[data-mode] { background-color: red; }
+    .button[data-mode=""] { background-color: blue; }
+    .group .leaf { padding-left: 1px; width: 10px; }
+    .group[data-ready] .leaf { padding-left: 7px; }
+    .group[data-ready] > .leaf { width: 30px; }
+  ` }],
+  reference: {
+    css: `.native-button { color: black; background-color: white; }
+      .native-button[disabled] { color: red; }
+      .native-button[data-mode] { background-color: red; }
+      .native-button[data-mode=""] { background-color: blue; }
+      .native-group .native-leaf { padding-left: 1px; width: 10px; }
+      .native-group[data-ready] .native-leaf { padding-left: 7px; }
+      .native-group[data-ready] > .native-leaf { width: 30px; }`,
+    scopeSchemas: { 'Presence.gss': { moduleId: 'Presence.gss', exports: {
+      button: { selfClassName: 'native-button', targets: {} },
+      group: { selfClassName: 'native-group', targets: {
+        leaf: { selfClassName: 'native-leaf', targets: {} }
+      } }
+    } } }
+  },
+  nodes: [
+    { id: 'button', moduleId: 'Presence.gss', path: ['button'], tag: 'button',
+      expected: { color: 'rgb(0, 0, 0)', 'background-color': 'rgb(255, 255, 255)' } },
+    { id: 'group', moduleId: 'Presence.gss', path: ['group'], expected: {} },
+    { id: 'leaf', moduleId: 'Presence.gss', path: ['group', 'leaf'], parent: 'group',
+      expected: { 'padding-left': '1px', width: '10px' } }
+  ],
+  phases: [
+    { name: 'empty-present', changes: [
+      { node: 'button', disabled: true, attributes: { 'data-mode': '' } },
+      { node: 'group', attributes: { 'data-ready': '' } }
+    ], expected: {
+      button: { color: 'rgb(255, 0, 0)', 'background-color': 'rgb(0, 0, 255)' },
+      leaf: { 'padding-left': '7px', width: '30px' }
+    } },
+    { name: 'nonempty-present', changes: [
+      { node: 'button', disabled: true, attributes: { 'data-mode': 'ready' } },
+      { node: 'group', attributes: { 'data-ready': 'false' } }
+    ], expected: {
+      button: { color: 'rgb(255, 0, 0)', 'background-color': 'rgb(255, 0, 0)' },
+      leaf: { 'padding-left': '7px', width: '30px' }
+    } },
+    { name: 'removed', changes: [
+      { node: 'button', disabled: false, attributes: { 'data-mode': null } },
+      { node: 'group', attributes: { 'data-ready': null } }
+    ], expected: {
+      button: { color: 'rgb(0, 0, 0)', 'background-color': 'rgb(255, 255, 255)' },
+      leaf: { 'padding-left': '1px', width: '10px' }
+    } }
+  ]
+}, {
   name: 'external-tag-attribute-owned-anchor',
   modules: [{ id: 'ExternalShape.gss', source: `
     .outer .editor :global(button) { color: red; }

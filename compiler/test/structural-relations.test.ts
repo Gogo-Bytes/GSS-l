@@ -54,6 +54,8 @@ describe('Compiler structural relation implication', () => {
   });
 
   it.each([
+    '.input[data-mode] + .label { color: red; } .input[data-mode=ready] + .label { color: blue; }',
+    '.input[data-mode] > .label { color: red; } .input[data-mode=""] > .label { color: blue; }',
     '.input:checked + .label { color: red; } .input:disabled ~ .label { color: blue; }',
     '.input:checked + .label { color: red; } .input .label:has(:checked) { color: blue; }',
     '.root .input:checked ~ .label { color: red; } .root .input .label:has(.observed) { color: blue; }',
@@ -77,12 +79,12 @@ describe('Compiler structural relation implication', () => {
       expect(session.finalize()).toEqual(before);
     }
   });
-  it.each([':checked', '[data-mode=ready]', ':checked:disabled', ':where(:checked)'])('retains state/attribute refinements on their real source: %s', (predicate) => {
+  it.each([':checked', '[data-mode=ready]', '[data-mode]', ':checked:disabled', ':where(:checked)'])('retains state/attribute refinements on their real source: %s', (predicate) => {
     const session = createGssCompilerSession({ projectRoot: '/project' });
     expect(session.replaceStylesheet({ id, source: `.input${predicate} + .label { color: red; } .input ~ .label { color: blue; }` }).committed).toBe(true);
     const rules = colorRules(session.finalize().css);
     expect(rules.map(({ value }) => value)).toEqual(['blue', 'red']);
-    expect(rules[1]!.selector).toContain(predicate.startsWith('[') ? '[data-mode="ready"] +' : `${predicate} +`);
+    expect(rules[1]!.selector).toContain(predicate === '[data-mode=ready]' ? '[data-mode="ready"] +' : `${predicate} +`);
     expect(session.getScopeSchema(id)!.exports.input!.selfClassName).not.toBe('');
   });
 

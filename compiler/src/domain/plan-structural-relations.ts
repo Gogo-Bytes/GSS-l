@@ -85,7 +85,7 @@ function exclusive(a: Candidate, b: Candidate): boolean {
   if (left.some((part) => right.includes(`:not(${part})`)) || right.some((part) => left.includes(`:not(${part})`))) return true;
   const aa = a.instance.rule.nodes[a.instance.sourceIndex]?.attributes[0];
   const ba = b.instance.rule.nodes[b.instance.sourceIndex]?.attributes[0];
-  return aa !== undefined && ba !== undefined && aa.attribute === ba.attribute && aa.value !== ba.value;
+  return aa?.operator === '=' && ba?.operator === '=' && aa.attribute === ba.attribute && aa.value !== ba.value;
 }
 function resolveEquivalentGroups(candidates: readonly Candidate[]): void {
   const pending = new Set(candidates);

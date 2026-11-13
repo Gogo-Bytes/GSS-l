@@ -21,6 +21,9 @@ export type ParsedAttributeCondition = {
   attribute: string;
   operator: '=';
   value: string;
+} | {
+  attribute: string;
+  operator: null;
 };
 
 export type ParsedHasCondition = {

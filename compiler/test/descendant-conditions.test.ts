@@ -5,6 +5,76 @@ import type { ScopeNodeSchema } from '../src/index.js';
 import { createGssCompilerSession } from '../src/index.js';
 
 describe('Compiler descendant condition ownership', () => {
+  it.each(['[disabled]', String.raw`[data\=mode]`])('emits a presence condition without inventing an equality value: %s', (condition) => {
+    const { session, rules } = compile(`.button { color: black; } .button${condition} { color: red; }`);
+    const red = rules('button').find((rule) => declarationValues([rule], 'color').includes('red'))!;
+    expect(red.selector).toContain(condition);
+    const attributes: selectorParser.Attribute[] = [];
+    selectorParser().astSync(red.selector).walkAttributes((attribute) => { attributes.push(attribute); });
+    expect(attributes).toHaveLength(1);
+    expect(attributes[0]!.operator).toBeUndefined();
+    expect(attributes[0]!.value).toBeUndefined();
+    expect(session.finalize().sourceMap.sourcesContent).toEqual([
+      `.button { color: black; } .button${condition} { color: red; }`
+    ]);
+  });
+
+  it('distinguishes presence from empty equality while sharing equivalent escaped names', () => {
+    const present = compile('.button[data-mode] { color: red; }');
+    const empty = compile('.button[data-mode=""] { color: red; }');
+    const escaped = compile(String.raw`.button[data\2d mode] { color: red; }`);
+    expect(present.scope('button').selfClassName).toBe(escaped.scope('button').selfClassName);
+    expect(present.scope('button').selfClassName).not.toBe(empty.scope('button').selfClassName);
+    expect(present.session.finalize().css).toBe(escaped.session.finalize().css);
+    expect(present.session.finalize().css).toContain('[data-mode]');
+    expect(empty.session.finalize().css).toContain('[data-mode=""]');
+  });
+
+  it('binds ancestor presence to the declared source prefix', () => {
+    const { session, scope } = compile('.group .panel .leaf { color: black; } .panel[data-ready] .leaf { color: red; }');
+    const source = scope('group.panel').selfClassName.split(' ').find((name) => name.startsWith('gss-s'));
+    const target = scope('group.panel.leaf').selfClassName.split(' ').find((name) => name.startsWith('gss-t'));
+    expect(source).toBeDefined();
+    expect(target).toBeDefined();
+    expect(session.finalize().css).toContain(`.${source}[data-ready] .${target}`);
+  });
+
+  it.each(['.button[data-mode] { color: red; } .button[data-mode=""] { color: blue; }',
+    '.button[data-mode] { color: red; } .button[data-mode=ready] { color: blue; }'])('does not treat presence and equality as mutually exclusive: %s', (source) => {
+    const { session } = compile('.button { color: black; }');
+    const before = session.finalize();
+    expect(session.replaceStylesheet({ id: '/project/Tree.gss', source })).toMatchObject({
+      committed: false, diagnostics: [expect.objectContaining({ code: 'GSS1205' })]
+    });
+    expect(session.finalize()).toEqual(before);
+  });
+
+  it.each(['.button[disabled]:hover', '.button[disabled][data-ready]', '.button[disabled]::before',
+    '.button[ns|disabled]', '.button[disabled i]', '.button[data-mode^=ready]', '.button[data-mode$=ready]',
+    '.button[data-mode*=ready]', '.button[data-mode~=ready]', '.button[data-mode|=ready]'])('keeps unsupported attribute combinations transactional: %s', (selector) => {
+    const { session } = compile('.button[disabled] { color: red; }');
+    const before = session.finalize();
+    const schema = session.getScopeSchema('/project/Tree.gss');
+    expect(session.replaceStylesheet({ id: '/project/Tree.gss', source: `${selector} { color: blue; }` }).committed).toBe(false);
+    expect(session.finalize()).toEqual(before);
+    expect(session.getScopeSchema('/project/Tree.gss')).toEqual(schema);
+    expect(session.replaceStylesheet({ id: '/project/Tree.gss', source: '.button[disabled] { color: blue; }' }).committed).toBe(true);
+    expect(session.finalize().css).toContain('color: blue;');
+  });
+
+  it.each(['.button:not([disabled])', '.button:is([disabled])', '.button:has(> [disabled])'])('retains presence in an already admitted native fragment: %s', (selector) => {
+    const { session } = compile(`${selector} { color: red; }`);
+    expect(session.finalize().css).toContain('[disabled]');
+  });
+
+  it('preserves presence selectors through whole-module fallback', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    expect(session.replaceStylesheet({ id: '/project/Tree.gss', source: '.button[disabled] { future-paint: red; }' }))
+      .toMatchObject({ committed: true, module: { compilationMode: 'preserved' } });
+    expect(session.finalize().css).toContain('[disabled]');
+    expect(session.finalize().css).toContain('future-paint: red');
+  });
+
   it('binds an ancestor equality condition to a deeper declared target and source prefix', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
     expect(compiler.replaceStylesheet({ id: '/project/Tree.gss', source: [

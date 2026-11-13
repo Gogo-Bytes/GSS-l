@@ -45,9 +45,17 @@ GSS 以 CSS 为输入，生成可组合的 scope 引用、原子 CSS 与必要�
 
 [selector-rendering.ts](../compiler/src/application/selector-rendering.ts) 根据已规划的关系渲染组合符、属性条件、状态后缀和原生 selector 片段，并在原生片段引用局部 class 时通过 scope 树登记对应 marker。调用者仍决定何时需要 source／target／subject／observed marker、关系语义和 specificity；该模块不作 DOM 匹配或规划排序。
 
-选择器中的名字和值在解析后保留各自的含义。把解码后的属性名或 `:has()` 标签名写回选择器时，统一用 CSS 标识符序列化（`css-tree/utils` 的 `ident.encode`）；属性值交给属性节点的字符串序列化。已有完整 selector 片段按语法树处理。属性条件的身份使用同一个标识符编码，随后追加分隔符 `=` 和原始值。因此 `[data\=x="y"]` 与 `[data="x=y"]` 可区分，而 `data\=x` 与 `data\3d x` 这两种写法能复用。普通属性名沿用既有编码。新增标识符场景应在从名字写回 CSS 的边界使用同一序列化规则。
+选择器中的名字和值在解析后保留各自的含义。把解码后的属性名或 `:has()` 标签名写回选择器时，统一用 CSS 标识符序列化（`css-tree/utils` 的 `ident.encode`）；属性值交给属性节点的字符串序列化。已有完整 selector 片段按语法树处理。属性条件的身份使用同一个标识符编码；等值条件随后追加分隔符 `=` 和原始值，存在条件不追加。因此 `[data\=x="y"]` 与 `[data="x=y"]` 可区分，而 `data\=x` 与 `data\3d x` 这两种写法能复用。普通属性名沿用既有编码。新增标识符场景应在从名字写回 CSS 的边界使用同一序列化规则。
 
 例如 `:global(.outside)` 内的 class 保持全局语义，不能登记为局部 scope；嵌套的功能性 pseudo 内局部 class 则需要改写并登记，否则 selector 会引用不可触发的 marker。属性值继续通过 selector parser 序列化，转义和引号不能靠字符串拼接替代。`:has()` 的 native specificity 与分支 witness 仍由现有调用路径决定，组合符空白、state `self` 和原始顺序保持现状；整模块 preserved 的 selector 改写在一次语法树遍历中同时生成 marker 和登记 scope。顶层 class 沿 ownership 路径前进，函数伪类内部的 class 引用模块根 scope，包括 `:nth-child(… of .b)` 和 `:has(.b.c)`。例如后一条必须同时导出 b 和 c，调用者才能通过 scope 触发匹配。显式 `:global()` 仍遵循既有 fallback 准入。本次仅移动共用渲染逻辑，不更改语法准入、marker 身份、fallback 或 atom 顺序；各关系 planner 的统一模型仍未完成。验证见 [当前计划](NEXT-STAGE.md)。
+
+### 属性存在判断（2026-11-13 owner 决定）
+
+在现有属性条件入口增加 `[attribute]`，例如 `.button[disabled]`：属性存在即匹配，空字符串和非空字符串都满足，移除属性后不匹配。复用当前节点、祖先／结构来源、已准入函数片段和带锚点的外部目标路径；不新增组合规则。名称转义仍经 CSS 标识符解码／编码，等值条件身份保持不变。
+
+内部 `ParsedAttributeCondition` 以 `operator: null` 表达存在条件且不携带 value；`operator: '='` 必须携带字符串值。`[data-mode]` 与 `[data-mode=""]` 的匹配范围和 atom 身份不同，不能共用身份或判为互斥。后代及结构 planner 的等值互斥判定只适用于两个等值条件；本次不新增“等值蕴含存在”的排序证明。两种条件分别写不同 `color` 时仍可能触发 `GSS1205`；符合既有当前节点 background 准入的竞争继续按原排序处理，不赋予等值条件额外优先级。
+
+namespace、大小写标志、其他属性运算符，以及本地节点上的多属性／属性加状态／属性加伪元素等组合保留既有拒绝范围。ownership、原生 specificity、fallback 和公共 API 不变。回归位于 `compiler/test/descendant-conditions.test.ts`、`structural-relations.test.ts`、`external-target.test.ts`；独立原生 CSS 与字面计算值对照复用 `tests/browser/external-tag-attribute-fixtures.ts`，验证缺失、空值、非空值及移除，以及当前节点、祖先和 child 来源。该脚本默认 Chromium，未扩大引擎范围。
 
 ### 规则形态判断与上下文准入
 

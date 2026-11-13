@@ -19,10 +19,11 @@ export function renderObservedCombinator(
 
 export function canonicalAttributeCondition(condition: ParsedAttributeCondition): string {
   // Only the separator is an unescaped equals sign before the value.
-  return `attribute:${ident.encode(condition.attribute)}=${condition.value}`;
+  return `attribute:${ident.encode(condition.attribute)}${condition.operator === '=' ? `=${condition.value}` : ''}`;
 }
 
 export function renderAttributeCondition(condition: ParsedAttributeCondition): string {
+  if (condition.operator === null) return `[${ident.encode(condition.attribute)}]`;
   const attribute = selectorParser.attribute({ attribute: condition.attribute, operator: condition.operator,
     value: condition.value, quoteMark: '"', raws: { attribute: ident.encode(condition.attribute) } });
   attribute.setValue(condition.value, { quoteMark: '"' });

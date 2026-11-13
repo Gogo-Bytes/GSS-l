@@ -15,7 +15,7 @@
 | Functional selectors | 有界 `:has()`、`:is()`、`:not()`、`:where()` 嵌套 local marker rewrite；显式 global 保持外部身份 | 不是通用 selector implication engine；不要把扩展 parser 等同于所有组合均正确 |
 | Structural pseudos | 无参数结构状态、`nth-child`／`nth-last-child`／`nth-of-type`／`nth-last-of-type` native passthrough | 公式与运行时匹配交给浏览器；不进行 sibling-index 推理 |
 | nth-of | local class identity marker、嵌套 filter、后续 list branch 与 explicit global 区分 | Browser fixture 是有限证据，不是所有公式／filter 的证明 |
-| State／attributes／pseudo-elements | 注册状态及伪元素、有限 equality attribute／ARIA 条件 | 准确清单查 registry/parser；参数化 pseudo-elements、更广 attributes 与组合仍有边界 |
+| State／attributes／pseudo-elements | 注册状态及伪元素、有限 presence／equality attribute 条件 | 准确清单查 registry/parser；参数化 pseudo-elements、更广 attributes 与组合仍有边界 |
 | Conditions／layers | 注册 media/supports/container、named layers 与有界 nesting | 未注册条件／layer 的 precedence 不保证；不承诺完整 CSS 条件推理 |
 | Property effects | 显式 family/longhand/independent registry，包含近期 logical sizing/border、text-wrap、timeline、anchor、mask-border 扩展 | 登记不等于完整 value grammar；unknown effect 继续整 Module preserved 或按配置 error |
 | Resources／assets | 有界 `@property`、local keyframes、font-face、URL binding、Vite asset delivery | 不是任意 at-rule/URL/function/resource 的通用实现 |
@@ -30,6 +30,8 @@
 - [React Adapter](../adapters/react/src/index.ts)、[Vite Adapter](../integrations/vite/src/index.ts)。
 
 已登记的原生伪类和伪元素按 ASCII 大小写匹配，包括函数内部的伪类。`.Card:HaS(> .Item:EmPtY)` 与小写关键字的写法生成相同的 selector、marker 和 scope 导出。解析只处理伪类／伪元素名称，保留 `.Card`、`.Item`、属性值以及 GSS 指令 `:global()` 各自的拼写语义。[Selectors 4 伪类](https://www.w3.org/TR/selectors-4/#pseudo-classes) · [伪元素](https://www.w3.org/TR/selectors-4/#pseudo-elements)
+
+2026-11-13 owner 批准的属性存在判断已实现：`.button[disabled]` 与 `.group[data-ready] .leaf` 可按现有关系准入，空值和非空值均匹配，移除属性后不匹配。`[data-mode]` 与 `[data-mode=""]` 保持不同身份；其他运算符、namespace、标志及原有组合限制不变。存在与等值条件可同时命中，不新增蕴含排序证明；具体冲突边界见[属性存在判断契约](ARCHITECTURE-DIRECTION.md#属性存在判断2026-11-13-owner-决定)。
 
 ## 本轮一致性核查：正确性，不是数量
 

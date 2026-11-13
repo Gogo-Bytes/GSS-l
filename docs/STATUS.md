@@ -10,6 +10,8 @@
 
 ## 最新维护核查
 
+已完成 owner 批准的 #45 属性存在判断切片：支持 `[disabled]` 等存在条件，保留等值身份、原有组合限制和排序／fallback。完整 `corepack pnpm verify` 通过（2665 项测试、lint、构建与类型检查）；默认 Chromium 的 `corepack pnpm --filter @gss-l/testing browser:check` 通过（128 个 fixture、1289 项对照、38 个负向控制及原有 Vite/SSR/lazy 检查）。新增对照验证缺失、空值、非空值及移除；未运行其他浏览器。本机失败与成功记录保留于 `artifacts/issue-45-attribute-presence/`。[契约](ARCHITECTURE-DIRECTION.md#属性存在判断2026-11-13-owner-决定) · [Issue #45](https://github.com/Gogo-Bytes/GSS-l/issues/45)
+
 已修复本地动画误拒关键帧百分比的问题。在相应关键帧暂停动画时，`.5%`、`+50%`、`5e1%`、`-0%` 与普通小数对照的 Chromium 145 计算透明度均与原生 CSS 一致。修复前后记录位于 `artifacts/issue-45-keyframe-percent/`。[关键帧契约](CSS-CAPABILITY-AUDIT.md#conditionslayers-与-at-rules) · [Issue #45](https://github.com/Gogo-Bytes/GSS-l/issues/45)
 
 已修复 #45 核查中发现的 CSS 大小写解析错误。嵌套 `@MeDiA` 能正常应用，混写关键字的动画能定位首帧；含开尔文符号的未知属性按默认 fallback 保留。选择器中已支持的原生关键字也能混写大小写，包括 `::BeFoRe` 和 `:HaS(> .Item:EmPtY)`。两批共八组 Chromium 145 原生／GSS 计算样式对照记录在本机 `artifacts/issue-45-case/`。[解析契约](CSS-CAPABILITY-AUDIT.md) · [Issue #45](https://github.com/Gogo-Bytes/GSS-l/issues/45)

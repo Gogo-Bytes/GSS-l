@@ -68,6 +68,7 @@ export function fixtureTitle(fixture: { name: string; family: string }) {
     'registered-property-inheritance-and-module-isolation': '@property 的继承与模块隔离',
     'keyword-like-keyframe-explicit-longhand': '关键字式动画名称的显式长写',
     'scope-source-path-separator-isolation': 'scope 源路径分隔符的标识隔离',
+    'attribute-presence-current-ancestor-and-child': '属性存在判断 · 当前节点、祖先与子节点',
     'external-tag-attribute-owned-anchor': '外部标签、属性与 owned 锚点',
     'external-attribute-css-escape-value': '外部属性值中的 CSS 转义'
   };
@@ -112,7 +113,7 @@ const compilerNames: Record<string, string> = {
   keyframes: 'Module-local 动画名称与引用', 'conditional-keyframes': '互斥宽度条件下的关键帧',
   compatibility: '目标驱动的兼容声明序列', 'property-fallback': '整 Module 保留回退',
   'strict-property': '严格模式拒绝未知属性效果', 'duplicate-property': '重复属性：拒绝并保留旧快照',
-  'local-compound': '拒绝未支持的本地复合类名', 'external-existence': '拒绝延期的外部属性存在目标',
+  'local-compound': '拒绝未支持的本地复合类名', 'external-existence': '带锚点的外部属性存在目标',
   'logical-physical-overlap': '同一规则的逻辑与物理长属性按固定顺序输出',
   'multiple-runtime-witnesses': '多个 native runtime relation 与 marker', 'keyword-shorthand': '拒绝有歧义的动画简写'
 };
