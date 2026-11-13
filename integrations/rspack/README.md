@@ -26,7 +26,7 @@
 
 `source-loader.ts` 是内部原生 loader。主 plugin 必须在每轮 NormalModule loader hook 注入 `createSourceLoaderPreparation`，与候选重放共享该轮 prepare；没有注入则明确失败。React 入口仍先解析／watch `.gss`，再取 schema 并转换。loader 应作为原始源码的 pre loader 使用，不承诺组合任意上游源码变换。没有转换时透传输入 map／附加数据；转换后使用 Adapter map，不能把旧 map 附到新代码。`.gss` JS 导出来自同轮 Compiler artifact，不假造源码映射。
 
-Compiler／Adapter error 阻止代码交付；`SourceDiagnosticError.diagnostics` 原样保留 id／UTF-16 range，warning 交给原生 emitWarning，info 交给 logger。JSX 导入 `.gss` 编译失败且有可靠范围时，Rspack 和 Rsbuild 终端错误展示 CSS 文件、一基行列及有界首行代码框。仅使用该次失败的不可变快照和匹配 id 的合法范围；范围缺失或无效时不编造位置，不读取新磁盘内容。多行范围只展示起始行；原生外层标签可能仍是 importer。实际回归覆盖 Rspack watch 和 Rsbuild 构建的失败及恢复；不承诺 overlay 高亮、编辑器跳转或 React 诊断定位。IO／resolve 异常保持原错误，不额外判断 CSS 值是否合法。
+Compiler／Adapter error 阻止代码交付；`SourceDiagnosticError.diagnostics` 原样保留 id／UTF-16 range，warning 交给原生 emitWarning，info 交给 logger。JSX 导入 `.gss` 编译失败且有可靠范围时，Rspack 和 Rsbuild 终端错误展示 CSS 文件、一基行列及有界首行代码框。仅使用该次失败的不可变快照和匹配 id 的合法范围；范围缺失或无效时不编造位置，不读取新磁盘内容。多行范围只展示起始行；原生外层标签可能仍是 importer。实际回归覆盖 Rspack watch 和 Rsbuild 构建的失败及恢复。React 别名错误 GSS2103／GSS2104 使用传给 Adapter 的 JSX 快照标出 className 内的出错表达式。[定位范围与示例](../../docs/DIAGNOSTIC-LOCATION-REVIEW.md#react-别名错误的表达式位置)。IO／resolve 异常保持原错误，不额外判断 CSS 值是否合法。
 
 `installPublication` 安装已获批准的 NoEmitOnErrorsPlugin，并区分 candidate、afterEmit 与 done。只有本轮确实经过 afterEmit、done 无任何编译错误且有候选时才推进 published；shouldEmit=false 即使没有错误也不推进。每轮候选以 Compilation 为键，结束后拒绝继续写入该轮。它不负责输出 CSS／HTML／runtime，也不代表 npm 包发布。
 

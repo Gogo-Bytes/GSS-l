@@ -19,7 +19,7 @@ export function formatDiagnosticMessages(diagnostics: readonly SourceAdapterDiag
     const prefix = sliceStart ? '…' : '';
     const display = line.slice(sliceStart, sliceStart + 160);
     const padding = line.slice(sliceStart, column).replace(/[^\t]/g, ' ');
-    const carets = '^'.repeat(Math.max(1, Math.min(range.end - range.start, 160 - padding.length)));
+    const carets = '^'.repeat(Math.max(1, Math.min(range.end - range.start, display.length - padding.length)));
     return `${base}\n${d.id}:${lineNumber}:${column + 1}\n${lineNumber} | ${prefix}${display}${sliceStart + 160 < line.length ? '…' : ''}\n${' '.repeat(String(lineNumber).length)} | ${' '.repeat(prefix.length)}${padding}${carets}`;
   }).join('\n');
 }

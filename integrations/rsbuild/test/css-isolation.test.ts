@@ -99,6 +99,15 @@ it('reports the imported GSS failure location and builds after correction', asyn
       expect(message).toContain('1 | .card {');
       expect(message).toContain('^');
       await writeFile(source, '.card { color: green; }');
+      const entry = path.join(root, 'index.js');
+      const usage = 'export const View = <div className={alias}/>;';
+      await writeFile(entry, ["import card from './card.gss';", "const alias = active ? card.card : 'x';", usage].join('\n'));
+      const aliasFailure = await run();
+      const display = aliasFailure.toString({ all: false, errors: true, errorDetails: true });
+      expect(display).toContain('[GSS2104]');
+      expect(display).toContain(`index.js:3:${usage.indexOf('{alias}') + 2}`);
+      expect(display).toContain('3 | ' + usage);
+      await writeFile(entry, "import card from './card.gss'; console.log(card.card);");
       const recovered = await run();
       expect(recovered.hasErrors(), recovered.toString({ all: false, errors: true })).toBe(false);
     } finally {

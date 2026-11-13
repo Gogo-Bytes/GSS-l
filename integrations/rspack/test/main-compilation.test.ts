@@ -94,6 +94,15 @@ it('uses the main CSS graph across entries, lazy removal, failed input, recovery
     expect(recovered.hasErrors()).toBe(false);
     expect(css(recovered)).toContain('color: green');
     expect(css(recovered)).not.toContain('color: red');
+    const invalidUsage = 'export const View = <div className={alias}/>;';
+    await writeFile(index, ["import a from './a.gss';", 'let alias = a.card;', invalidUsage].join('\n'));
+    const aliasFailure = await currentRun(index);
+    const aliasMessage = aliasFailure.toString({ all: false, errors: true, errorDetails: true });
+    expect(aliasMessage).toContain('[GSS2103]');
+    expect(aliasMessage).toContain(`${index}:3:${invalidUsage.indexOf('{alias}') + 2}`);
+    expect(aliasMessage).toContain('3 | ' + invalidUsage);
+    await writeFile(index, "import a from './a.gss';console.log(a.card);");
+    expect((await currentRun(index)).hasErrors()).toBe(false);
     const processed = publication!.published;
     await writeFile(token, 'fail');
     expect((await currentRun(token)).hasErrors()).toBe(true);

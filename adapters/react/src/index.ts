@@ -68,6 +68,11 @@ export function react(): GssSourceAdapter {
   };
 }
 
+function diagnosticRange(node: t.Node): Pick<ReactGssDiagnostic, 'range'> {
+  if (node.start == null || node.end == null) return {};
+  return { range: { start: node.start, end: node.end } };
+}
+
 export function transformReactGssUsage(
   input: TransformReactGssUsageInput
 ): TransformReactGssUsageResult {
@@ -136,8 +141,7 @@ export function transformReactGssUsage(
         id: input.id,
         reason: 'cross-module-class-composition',
         suggestion: 'Use scopes from one GSS module on this element.',
-        ...(node.start != null && node.end != null
-          ? { range: { start: node.start, end: node.end } } : {})
+        ...diagnosticRange(node)
       });
     }
 
@@ -157,7 +161,8 @@ export function transformReactGssUsage(
             message: `Mutable GSS scope alias ${expression.name} cannot be lowered safely.`,
             id: input.id,
             reason: 'mutable-scope-alias',
-            suggestion: 'Use a const scope alias or use the imported path directly in className.'
+            suggestion: 'Use a const scope alias or use the imported path directly in className.',
+            ...diagnosticRange(expression)
           });
         } else if (aliasKind === 'ambiguous') {
           diagnostics.push({
@@ -167,7 +172,8 @@ export function transformReactGssUsage(
             message: `Alias ${expression.name} mixes a GSS scope with a non-scope value.`,
             id: input.id,
             reason: 'ambiguous-scope-alias',
-            suggestion: 'Make every branch a GSS scope or pass explicit class strings.'
+            suggestion: 'Make every branch a GSS scope or pass explicit class strings.',
+            ...diagnosticRange(expression)
           });
         }
         return;
@@ -188,7 +194,8 @@ export function transformReactGssUsage(
           message: 'A mutable typed GSS scope prop cannot be lowered safely.',
           id: input.id,
           reason: 'mutable-scope-alias',
-          suggestion: 'Do not reassign the props binding before className use.'
+          suggestion: 'Do not reassign the props binding before className use.',
+          ...diagnosticRange(expression)
         });
         return;
       }

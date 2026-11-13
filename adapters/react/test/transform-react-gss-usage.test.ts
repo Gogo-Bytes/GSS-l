@@ -304,7 +304,8 @@ const second = branch.title;`;
     expect(result.diagnostics).toMatchObject([{
       code: 'GSS2104',
       phase: 'transform',
-      reason: 'ambiguous-scope-alias'
+      reason: 'ambiguous-scope-alias',
+      range: { start: source.lastIndexOf('branch'), end: source.lastIndexOf('branch') + 6 }
     }]);
   });
 
@@ -322,7 +323,8 @@ const second = branch.title;`;
     expect(result.diagnostics).toMatchObject([{
       code: 'GSS2103',
       phase: 'transform',
-      reason: 'mutable-scope-alias'
+      reason: 'mutable-scope-alias',
+      range: { start: source.lastIndexOf('card'), end: source.lastIndexOf('card') + 4 }
     }]);
   });
 
@@ -392,6 +394,25 @@ const second = branch.title;`;
     expect(result.code).toContain('className={props.scope.$class}');
     expect(result.code).toContain('{props.title}');
     expect(result.diagnostics).toEqual([]);
+  });
+
+  it('locates each use of a reassigned typed prop in the original JSX input', () => {
+    const expression = 'props.\r\n        scope';
+    const source = [
+      "import type styles from './Card.gss';",
+      'type Props = { scope: typeof styles.card };',
+      'export function Card(props: Props, next: Props) {',
+      '  props = next;',
+      `  return <><div title="😀" className={${expression}}/><i className={props.scope}/></>;`,
+      '}'
+    ].join('\r\n');
+    const { diagnostics } = transformReactGssUsage({
+      id: '/project/src/Card.tsx', source, resolveScopeSchema: () => cardScope
+    });
+    expect(diagnostics).toMatchObject([expression, 'props.scope'].map(text => ({
+      code: 'GSS2103', severity: 'error', id: '/project/src/Card.tsx',
+      range: { start: source.indexOf(text), end: source.indexOf(text) + text.length }
+    })));
   });
 
   it('does not rewrite a local binding that shadows a GSS import', () => {

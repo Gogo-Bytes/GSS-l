@@ -66,4 +66,4 @@ artifacts 为本机忽略目录；历史日志、独立 oracle 与首次失败�
 
 现有 React 更新链路的代码与证据核对见 [只读核查](REACT-UPDATE-REVIEW.md)：值变化可能改变 class/schema/JS；Rsbuild 样式通过不等于已断言无刷新，webpack 原生 accept 不等于 Fast Refresh。核查未产生新产品缺陷或新能力授权。
 
-诊断细节见 [诊断与定位只读核查](DIAGNOSTIC-LOCATION-REVIEW.md)：Rspack/Rsbuild/webpack 保留原始 diagnostics，但目前不将 range 转为宿主 loc/frame；overlay 存在证据不等于精确高亮证据。最终 CSS map 与错误定位分开评估。
+Rspack／Rsbuild／webpack 将有可靠范围的 CSS 编译错误和 React 别名错误格式化为终端文件、行列和首行代码框。Vite 使用原生 loc/frame。已验范围和宿主源码快照的含义见[诊断定位说明](DIAGNOSTIC-LOCATION-REVIEW.md)。

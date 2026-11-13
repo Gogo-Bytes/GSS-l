@@ -1,8 +1,14 @@
 # 现有诊断与错误定位链路核查
 
-> 后续变更：owner 已批准 webpack、Rspack／Rsbuild 中 JSX 导入 `.gss` 失败时的终端文件、行列和代码框目标；当前实现与限制见 [webpack](../integrations/webpack/README.md#调用边界) 与 [Rspack／Rsbuild](../integrations/rspack/README.md#loader-与发布编排) 接线说明。下文保留 2026-11-04 的核查基线，不代表上述变更后的现状。
+## React 别名错误的表达式位置
 
-2026-11-04，owner 授权只读核查。核对基线为 `4408ab1`（产品代码仍为 `eb47522`），仅更新文档，没有改产品、测试或运行浏览器。既有检查基线见 [支持清单](HOST-SUPPORT.md)。本报告区分源码定位能力、宿主展示和实际运行证据，不新增 overlay 精度承诺。
+在 `className={card}` 中读取可变别名（GSS2103）或混有普通值的条件别名（GSS2104）时，诊断覆盖这一次读取的 `card`。重新赋值的 typed props 触发 GSS2103 时，`className={props.scope}` 的范围覆盖整个 `props.scope`。同名引用出现多次，每条错误都取自己的 Babel 节点在本次 Adapter 输入中的 UTF-16 半开区间。节点没有完整起止位置时，保留文件名及错误消息。
+
+Vite 用传给 Adapter 的源码生成原生 `loc/frame`。webpack、Rspack 和 Rsbuild 在 loader 的终端诊断中展示同一快照上的文件、一基行列和首行代码框。多行表达式的首行下划线止于行末，诊断对象仍保存完整范围。已有前置转换时，位置对应转换后交给 Adapter 的文本。
+
+回归覆盖可变与歧义别名、重新赋值的 props、同文件多处使用、CRLF 和表情字符。Vite 开发转换测试验证前置插件插入一行后的位置，webpack／Rspack watch 和 Rsbuild 编译测试验证实际错误文本及改回有效输入后的恢复。[Adapter 测试](../adapters/react/test/transform-react-gss-usage.test.ts) · [Vite](../integrations/vite/test/diagnostic-location.test.ts) · [webpack](../integrations/webpack/test/main-compilation.test.ts) · [Rspack](../integrations/rspack/test/main-compilation.test.ts) · [Rsbuild](../integrations/rsbuild/test/css-isolation.test.ts)
+
+下文保留 2026-11-04、提交 `4408ab1` 的核查基线。随后完成的 CSS 终端定位见 [webpack](../integrations/webpack/README.md#调用边界) 和 [Rspack／Rsbuild](../integrations/rspack/README.md#loader-与发布编排)。
 
 ## 链路与位置契约
 
@@ -45,7 +51,7 @@ Vite 使用该次处理持有的 source，而不是为生成 frame 再读取最�
 
 测试源码说明已有覆盖内容，本轮没有重跑；历史运行记录和版本见 [验证账本](HOST-SUPPORT.md#验证账本与恢复入口)。artifacts 是本机证据，未因写入本报告而成为 Git 内可移植附件。
 
-## 具体差距与结论
+## 2026-11-04 核查时的差距
 
 1. **内部位置尚未完整交付到 Rspack/Rsbuild/webpack 的展示层。** 即使 diagnostics 中有 range，当前 wrapper message 也没有行列/frame；webpack 历史日志证明 importer 标签容易干扰查找。代码层缺口明确，但未发现它违反已经承诺的 overlay 精度；本次不增加 formatter 或改错误 API。
 2. **React 诊断的范围覆盖不一致。** GSS2107 有属性范围，部分 alias 错误仅有文件 id；不能笼统宣称 React Adapter 错误均可定位到表达式。可选范围符合当前接口，不据此自动开启覆盖扩展。

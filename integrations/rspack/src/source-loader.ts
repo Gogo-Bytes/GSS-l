@@ -20,13 +20,13 @@ export function createSourceLoaderPreparation(
   prepare: (id: string) => Promise<PreparedStylesheet>
 ) {
   return async (loader: LoaderContext, source: string) => {
-    const report = (diagnostics: readonly SourceAdapterDiagnostic[]) => {
+    const report = (diagnostics: readonly SourceAdapterDiagnostic[], input?: Readonly<ReplaceStylesheetInput>) => {
       for (const diagnostic of diagnostics) {
-        if (diagnostic.severity === 'warning') loader.emitWarning(new SourceDiagnosticError([diagnostic]));
+        if (diagnostic.severity === 'warning') loader.emitWarning(new SourceDiagnosticError([diagnostic], input));
         else if (diagnostic.severity === 'info') loader.getLogger('gss').info(diagnostic.message);
       }
       const errors = diagnostics.filter(d => d.severity === 'error');
-      if (errors.length) throw new SourceDiagnosticError(errors);
+      if (errors.length) throw new SourceDiagnosticError(errors, input);
     };
     try {
       if (loader.resourcePath.endsWith('.gss')) {
@@ -35,7 +35,8 @@ export function createSourceLoaderPreparation(
         report(prepared.diagnostics);
         return { code: prepared.module.moduleCode };
       }
-      const output = await prepareSource(adapter, { id: loader.resourcePath, source }, {
+      const input = { id: loader.resourcePath, source };
+      const output = await prepareSource(adapter, input, {
         resolve: (specifier) => new Promise((resolve, reject) => {
           loader.resolve(loader.context ?? dirname(loader.resourcePath), specifier, (error, id) => {
             if (error) reject(error);
@@ -48,7 +49,7 @@ export function createSourceLoaderPreparation(
       });
       if (!output) return null;
       report(output.stylesheetDiagnostics);
-      if (output.transformed) report(output.transformed.diagnostics);
+      if (output.transformed) report(output.transformed.diagnostics, input);
       return output.transformed;
     } catch (error) {
       if (error instanceof StylesheetPreparationError) throw new SourceDiagnosticError(error.diagnostics, error.input);

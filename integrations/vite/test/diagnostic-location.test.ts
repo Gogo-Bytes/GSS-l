@@ -272,6 +272,21 @@ it('locates a failed cached production refresh and recovers on a later watch bui
   await recovery;
 }, 15000);
 
+it('locates an ambiguous alias in the JSX snapshot received from the preceding plugin', async () => {
+  const { root, server } = await fixture('.card { color: red }', [{
+    name: 'insert-line-before-adapter', enforce: 'pre',
+    transform(code, id) { if (id.endsWith('Card.tsx')) return '// generated preamble\n' + code; }
+  }]);
+  const id = join(root, 'Card.tsx');
+  const line = 'export const View = <div title="😀" className={value}/>;';
+  await writeFile(id, ["import styles from './Card.gss';",
+    "const value = active ? styles.card : 'external';", line].join('\r\n'));
+  await expect(server.transformRequest('/Card.tsx')).rejects.toMatchObject({
+    pluginCode: 'GSS2104', loc: { file: id, line: 4, column: line.indexOf('{value}') + 1 },
+    frame: expect.stringContaining('4 | ' + line)
+  });
+});
+
 it('surfaces same-element module mixing as a located warning in dev/build and retains runtime classes', async () => {
   const { root, server } = await fixture('.card { color: red; }');
   await writeFile(`${root}/Other.gss`, '.other { color: blue; }');

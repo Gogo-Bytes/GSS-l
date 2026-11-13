@@ -120,6 +120,15 @@ it('uses the main CSS graph across entries, lazy removal, failed input, recovery
     expect(recovered.hasErrors()).toBe(false);
     expect(css(recovered)).toContain('color: green');
     expect(css(recovered)).not.toContain('color: red');
+    const invalidUsage = 'export const View = <div className={alias}/>;';
+    await writeFile(index, ["import a from './a.gss';", 'let alias = a.card;', invalidUsage].join('\n'));
+    const aliasFailure = await currentRun(index);
+    const aliasMessage = aliasFailure.toString({ all: false, errors: true, errorDetails: true });
+    expect(aliasMessage).toContain('[GSS2103]');
+    expect(aliasMessage).toContain(`${index}:3:${invalidUsage.indexOf('{alias}') + 2}`);
+    expect(aliasMessage).toContain('3 | ' + invalidUsage);
+    await writeFile(index, "import a from './a.gss';console.log(a.card);");
+    expect((await currentRun(index)).hasErrors()).toBe(false);
     const processed = publication!.published;
     await writeFile(token, 'fail');
     const processorFailure = await currentRun(token);
@@ -149,6 +158,8 @@ it('formats only valid ranges against the matching failure snapshot', () => {
   expect(formatted).toContain('3 |   color: red;');
   expect(new SourceDiagnosticError([diagnostic], { ...input, id: '/other.gss' }).message).not.toContain(' | ');
   expect(new SourceDiagnosticError([{ ...diagnostic, range: { start: 1, end: 2 } }], input).message).not.toContain(' | ');
+  const multiline = new SourceDiagnosticError([{ ...diagnostic, range: { start: 4, end: 20 } }], input);
+  expect(multiline.message.split('\n').at(-1)).toBe('  |  ^^^^^^');
   const withoutRange = { id: input.id, code: diagnostic.code, message: diagnostic.message, phase: diagnostic.phase, severity: diagnostic.severity };
   expect(new SourceDiagnosticError([withoutRange], input).message).not.toContain(' | ');
 });
