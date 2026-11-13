@@ -61,7 +61,7 @@
 
 普通属性名仅将 ASCII 的 A–Z 转为小写，自定义属性名逐字保留。例如 `BACKGROUND-COLOR` 会命中 `background-color`，而 `bacKground-color` 含有开尔文符号 U+212A，应走未知属性的既定 fallback。若将整个名称按 Unicode 转小写，两条不同声明会被误判为重复。[CSS Syntax §8.1](https://www.w3.org/TR/css-syntax-3/#style-rules)
 
-[#45](https://github.com/Gogo-Bytes/GSS-l/issues/45) 中的负值反例沿用[无效值决策](PROPERTY-ORDER-DESIGN.md)：已批准的静态负 px padding 过滤有明确适用范围；负 em padding、负 border-width 和非标准 `*color` 的浏览器差异保留为已知限制。独立规则／声明之间的普通注释当前触发 GSS1101。若要接受，需要确定普通说明、许可证和工具指令各自的保留行为。
+[#45](https://github.com/Gogo-Bytes/GSS-l/issues/45) 中的负值反例沿用[无效值决策](PROPERTY-ORDER-DESIGN.md)：已批准的静态负 px padding 过滤有明确适用范围；负 em padding、负 border-width 和非标准 `*color` 的浏览器差异保留为已知限制。规则之间或声明之间的独立普通注释沿用现有准入规则，触发 `GSS1101`。
 
 ### Conditions、layers 与 at-rules
 
