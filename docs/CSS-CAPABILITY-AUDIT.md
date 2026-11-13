@@ -29,6 +29,8 @@
 - [property effects](../compiler/src/domain/property-effects.ts)、[统一属性排序策略](../compiler/src/domain/module-order-policy.ts)。
 - [React Adapter](../adapters/react/src/index.ts)、[Vite Adapter](../integrations/vite/src/index.ts)。
 
+已登记的原生伪类和伪元素按 ASCII 大小写匹配，包括函数内部的伪类。`.Card:HaS(> .Item:EmPtY)` 与小写关键字的写法生成相同的 selector、marker 和 scope 导出。解析只处理伪类／伪元素名称，保留 `.Card`、`.Item`、属性值以及 GSS 指令 `:global()` 各自的拼写语义。[Selectors 4 伪类](https://www.w3.org/TR/selectors-4/#pseudo-classes) · [伪元素](https://www.w3.org/TR/selectors-4/#pseudo-elements)
+
 ## 本轮一致性核查：正确性，不是数量
 
 本轮基于 `451dd5c` 核对以下入口，修复具体反例；不是全量 CSS 正确性证明：

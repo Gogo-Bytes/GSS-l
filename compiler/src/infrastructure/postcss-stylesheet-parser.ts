@@ -348,10 +348,22 @@ function isSupportedConditionKind(
   return name === 'media' || name === 'supports' || name === 'container';
 }
 
+const nthStates = new Set(['nth-child', 'nth-last-child', 'nth-of-type', 'nth-last-of-type']);
+const selectorListStates = new Set(['not', 'is', 'where']);
+
 function parseDescendantClassPaths(
   rule: postcss.Rule
 ): readonly (ParsedSelectorPath & { selector: string })[] | undefined {
   const root = selectorParser().astSync(rule);
+  root.walkPseudos((pseudo) => {
+    const keyword = asciiLowercase(pseudo.value);
+    if (keyword === pseudo.value) return;
+    const name = keyword.slice(1);
+    if (isSupportedPseudoState(name) || selectorListStates.has(name) || nthStates.has(name) ||
+        keyword === ':has' || (keyword.startsWith('::') && isSupportedPseudoElement(keyword.slice(2)))) {
+      pseudo.value = keyword;
+    }
+  });
   const paths: (ParsedSelectorPath & { selector: string })[] = [];
   for (const branch of root.nodes) {
     const path = parseClassPath(branch.nodes);
@@ -555,10 +567,10 @@ function parseRuntimeRelation(
 
 function parseFunctionalState(pseudo: Pseudo): string | undefined {
   const name = pseudo.value.slice(1);
-  if (['nth-child', 'nth-last-child', 'nth-of-type', 'nth-last-of-type'].includes(name)) {
+  if (nthStates.has(name)) {
     return pseudo.toString().slice(1);
   }
-  if (!['not', 'is', 'where'].includes(name)) return undefined;
+  if (!selectorListStates.has(name)) return undefined;
 
   const branches: string[] = [];
   for (const selector of pseudo.nodes) {

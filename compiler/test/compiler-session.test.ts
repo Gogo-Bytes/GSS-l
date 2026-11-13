@@ -778,6 +778,29 @@ describe('GssCompilerSession', () => {
     expect(compiler.finalize().css).toContain('  background-color: blue;\n  bacKground-color: red;');
   });
 
+  it.each([
+    [':FiRsT-ChIlD::BeFoRe', ':first-child::before'],
+    [':HaS(> .Item:EmPtY)', ':has(> .Item:empty)'],
+    [':Is(.Item, :WhErE(:NoT([data-mode="Dark"])))', ':is(.Item, :where(:not([data-mode="Dark"])))'],
+    [':NtH-ChIlD(2n of .Item)', ':nth-child(2n of .Item)']
+  ])('uses the existing selector and scope identities for %s', (mixed, canonical) => {
+    const compile = (suffix: string) => {
+      const compiler = createGssCompilerSession({ projectRoot: '/project' });
+      const result = compiler.replaceStylesheet({ id: '/project/Card.gss', source: `.Card${suffix} { color: red }` });
+      expect(result.committed).toBe(true);
+      return { css: compiler.finalize().css, schema: result.module!.scopeSchema };
+    };
+    expect(compile(mixed)).toEqual(compile(canonical));
+  });
+
+  it('keeps the GSS global directive and unregistered pseudos outside CSS keyword folding', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    for (const selector of ['.Card:GlObAl(.Item)', '.Card:ChecKed', '.Card:LaNg(en)']) {
+      expect(compiler.replaceStylesheet({ id: '/project/Card.gss', source: `${selector} { color: red }` }))
+        .toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1101' }] });
+    }
+  });
+
   it.each(['constructor', 'tostring'])('fails closed for inherited object keys used as unknown properties: %s', (property) => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
     const id = '/project/src/properties.gss';
