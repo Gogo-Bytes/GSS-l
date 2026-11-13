@@ -1,5 +1,24 @@
 # 现有诊断与错误定位链路核查
 
+## 最终 CSS map：2026-11-13 有界复现
+
+在 `f15a12a` 基线上，使用当前公开 `gss({ adapter: react() })`、Rspack 2.3.0、`devtool: 'source-map'` 和原生 Lightning CSS loader／`gssCssMinimizers`，复用既有 CSS isolation 测试的配置路径核查 #43。宿主 targets 为 Safari >= 9，保留兼容转换和生产压缩。输入为同一 `.probe` 规则中的 `color: red`（第 2 行、第 2 列）和 `appearance: none`（第 3 行、第 2 列），列从 0 开始；普通 CSS 使用相同输入作对照。
+
+以 source map 的 `originalPositionFor` 查询生成声明起点，结果如下：
+
+| 位置 | 本次 GSS 输入的结果 |
+| --- | --- |
+| Compiler 原始输出 | 两条声明均准确映射到原声明行列 |
+| Lightning CSS loader 之后 | `color`、`appearance` 及生成的前缀声明位置均无映射；规则起点仍有来源 |
+| 开发模式最终 CSS | 保留上述规则级结果；普通 CSS 的声明位置同样无映射 |
+| 生产模式最终 CSS | 经原生 minimizer 后，两条 atom 规则内的声明均映射到各自原始行列，生成的 `-webkit-appearance` 也指向第 3 行、第 2 列 |
+
+只移除 loader 的归因对照保留了开发声明映射；生产对照仍运行相同 minimizer。该对照不作为建议配置，不能为了 map 跳过兼容转换。普通 CSS 的生产声明均指向原规则起点；GSS 本例每个 atom 规则只有一个原始声明，因此其规则来源恰好也是声明来源。不能把这个结果扩大为 preserved 多声明规则、任意 CSS 转换或 DevTools 点击行为的保证。
+
+结论：本例的开发定位损失发生于原生 loader，两侧 CSS 均受影响，未发现 GSS 漏传 map 的契约违约。生产端并非一律缺少声明映射。当前仍沿用已接受的规则起点契约，不增加猜测性的 map 回填；是否进一步改进由 [#43](https://github.com/Gogo-Bytes/GSS-l/issues/43) 记录决定。
+
+本机重跑入口为 `node artifacts/issue-43-source-map/probe.mjs`，带断言的复测通过；`results.json`、`verified.log` 及分阶段 `.css`／`.map` 保留原始产物。初次探针错误地要求尚未经过处理器的普通 CSS 必须已有输入 map，失败保留在 `probe.log`，已修正探针后重跑。此次只做该输入的构建／map 查询，未运行浏览器 DevTools、Rsbuild／webpack、新增产品实现或全量 verify。
+
 ## React 别名错误的表达式位置
 
 在 `className={card}` 中读取可变别名（GSS2103）或混有普通值的条件别名（GSS2104）时，诊断覆盖这一次读取的 `card`。重新赋值的 typed props 触发 GSS2103 时，`className={props.scope}` 的范围覆盖整个 `props.scope`。同名引用出现多次，每条错误都取自己的 Babel 节点在本次 Adapter 输入中的 UTF-16 半开区间。节点没有完整起止位置时，保留文件名及错误消息。
