@@ -767,6 +767,17 @@ describe('GssCompilerSession', () => {
     expect(compiler.finalize().css).toContain('  color: blue;\n  _color: red;\n  _--brand: green;\n  __color: black;');
   });
 
+  it('folds ASCII property names without turning the Kelvin sign into a registered property', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const result = compiler.replaceStylesheet({
+      id: '/project/Card.gss', source: '.a { BACKGROUND-COLOR: blue; bacKground-color: red; }'
+    });
+    expect(result).toMatchObject({ committed: true, diagnostics: [{ code: 'GSS1104' }],
+      module: { compilationMode: 'preserved', fallbackReasons: [{ property: 'bacKground-color' }] }
+    });
+    expect(compiler.finalize().css).toContain('  background-color: blue;\n  bacKground-color: red;');
+  });
+
   it.each(['constructor', 'tostring'])('fails closed for inherited object keys used as unknown properties: %s', (property) => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
     const id = '/project/src/properties.gss';

@@ -57,9 +57,13 @@
 
 属性登记使用解析出的完整名称。下划线可以作为 CSS 标识符的首字符，PostCSS 会把第一个 `_` 保存到声明的原始格式信息中。解析器在查询属性表之前恢复它。例如 `.a { color: blue; _color: red }` 在默认配置下触发 GSS1104，保留两条独立声明，最终仍呈蓝色。`_--brand` 同样是未知属性，不能定义变量 `--brand`。[CSS 标识符定义](https://www.w3.org/TR/css-syntax-3/#ident-start-code-point)
 
+普通属性名仅将 ASCII 的 A–Z 转为小写，自定义属性名逐字保留。例如 `BACKGROUND-COLOR` 会命中 `background-color`，而 `bacKground-color` 含有开尔文符号 U+212A，应走未知属性的既定 fallback。若将整个名称按 Unicode 转小写，两条不同声明会被误判为重复。[CSS Syntax §8.1](https://www.w3.org/TR/css-syntax-3/#style-rules)
+
 [#45](https://github.com/Gogo-Bytes/GSS-l/issues/45) 中的负值反例沿用[无效值决策](PROPERTY-ORDER-DESIGN.md)：已批准的静态负 px padding 过滤有明确适用范围；负 em padding、负 border-width 和非标准 `*color` 的浏览器差异保留为已知限制。独立规则／声明之间的普通注释当前触发 GSS1101。若要接受，需要确定普通说明、许可证和工具指令各自的保留行为。
 
 ### Conditions、layers 与 at-rules
+
+已准入的 at-rule 名称在嵌套处理前统一 ASCII 大小写，关键帧的 `from`、`to` 也按关键字匹配。`@KeYfRaMeS Spin` 注册的动画名仍为 `Spin`。层名、容器名和自定义属性名同样保留作者拼写，源码位置始终指向原文。[CSS 语法大小写规则](https://www.w3.org/TR/CSS2/syndata.html#characters) · [关键帧语法](https://www.w3.org/TR/css-animations-1/#keyframes)
 
 - condition precedence 依赖现有注册／配置，不是通用 implication 系统。
 - anonymous／复杂 layer prelude、更多条件与 layer 交叉组合并非完整公共保证。

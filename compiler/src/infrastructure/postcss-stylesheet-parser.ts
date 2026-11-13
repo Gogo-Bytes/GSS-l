@@ -115,6 +115,14 @@ function parseAndNormalizeStylesheet(id: string, source: string): ParsedStyleshe
   const authored = parseAuthoredStylesheet(id, source);
   const originalSpans = new WeakMap<postcss.Source, SourceSpan>();
   authored.walk((node) => {
+    // Normalize admitted at-keywords before both selector validation and nesting.
+    // The prelude can contain case-sensitive author names (layers, keyframes, etc.).
+    if (node.type === 'atrule') {
+      const name = asciiLowercase(node.name);
+      if (isSupportedConditionKind(name) || ['layer', 'keyframes', 'property', 'font-face'].includes(name)) {
+        node.name = name;
+      }
+    }
     const origin = node.source;
     if (!origin?.start || !origin.end) throw new Error('Missing authored CSS source span.');
     // PostCSS removes one leading U+FEFF/U+FFFE before assigning node offsets.
@@ -277,13 +285,15 @@ function parseKeyframesRegistration(
 
   const frames: ParsedKeyframesRegistration['frames'][number][] = [];
   for (const child of node.nodes) {
-    if (child.type !== 'rule' || !isKeyframeSelector(child.selector)) return undefined;
+    if (child.type !== 'rule') return undefined;
+    const selector = asciiLowercase(child.selector.trim());
+    if (!isKeyframeSelector(selector)) return undefined;
     const declarations: ParsedDeclaration[] = [];
     for (const declaration of child.nodes) {
       if (declaration.type !== 'decl' || declaration.important) return undefined;
       declarations.push(toDeclaration(declaration, spanOf));
     }
-    frames.push({ selector: child.selector.trim(), declarations, source: spanOf(child) });
+    frames.push({ selector, declarations, source: spanOf(child) });
   }
   return { kind: 'keyframes', name, conditions, layer, frames, source: spanOf(node) };
 }
@@ -588,13 +598,17 @@ function parseAttributeCondition(attribute: Attribute): ParsedAttributeCondition
 
 type SourceSpanReader = (node: postcss.Node) => SourceSpan;
 
+function asciiLowercase(name: string): string {
+  return name.replace(/[A-Z]/g, (letter) => letter.toLowerCase());
+}
+
 function toDeclaration(declaration: Declaration, spanOf: SourceSpanReader): ParsedDeclaration {
   // PostCSS stores the first authored underscore in raws.before as a legacy hack.
   // It is a valid identifier start and must reach property-effect lookup.
   const property = declaration.raws.before?.endsWith('_') ? '_' + declaration.prop : declaration.prop;
   return {
     source: spanOf(declaration),
-    property: property.startsWith('--') ? property : property.toLowerCase(),
+    property: property.startsWith('--') ? property : asciiLowercase(property),
     value: declaration.value.trim(),
     important: declaration.important === true
   };

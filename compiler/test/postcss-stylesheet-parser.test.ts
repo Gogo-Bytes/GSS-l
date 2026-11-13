@@ -11,6 +11,27 @@ function withoutSourceIds(parsed: ParsedStylesheet): string {
 }
 
 describe('PostCSS adapter original-source provenance', () => {
+  it('normalizes registered at-keywords and frame keywords while preserving names and spans', () => {
+    const source = `@LaYeR Theme { .a { @MeDiA print { @SuPpOrTs (display: grid) { @CoNtAiNeR Card (width > 0px) { color: red } } } } }
+@KeYfRaMeS Spin { FrOm, 50% { opacity: 0 } To { opacity: 1 } }
+@PrOpErTy --Brand { syntax: "<color>"; inherits: false; initial-value: red }
+@FoNt-FaCe { font-family: Demo; src: url(a.woff2) }`;
+    const canonical = source.replace(/@[a-z-]+|FrOm|\bTo\b/gi, (word) => word.toLowerCase());
+    const parsed = parseStylesheet(id, source);
+    expect(parsed.diagnostics).toEqual([]);
+    expect(parsed).toEqual(parseStylesheet(id, canonical));
+    expect(parsed.rules[0]).toMatchObject({ layer: 'Theme', conditions: [
+      { kind: 'media', query: 'print' }, { kind: 'supports', query: '(display: grid)' },
+      { kind: 'container', query: 'Card (width > 0px)' }
+    ] });
+    expect(parsed.resources).toMatchObject([{ name: 'Spin', frames: [{ selector: 'from, 50%' }, { selector: 'to' }] },
+      { name: '--Brand' }, { kind: 'font-face' }]);
+    const span = parsed.resources[0]!.source;
+    expect(source.slice(span.start, span.end)).toContain('@KeYfRaMeS Spin { FrOm');
+    expect(parseStylesheet(id, '@Keyframes Spin { from { opacity: 0 } }').diagnostics)
+      .toMatchObject([{ code: 'GSS1101' }]);
+  });
+
   it('retains UTF-16 half-open spans through nesting splits, list expansion, CRLF and Unicode comments', () => {
     const parsed = parseStylesheet(id, source);
     expect(parsed.diagnostics).toEqual([]);
