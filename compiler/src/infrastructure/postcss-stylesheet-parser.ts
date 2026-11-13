@@ -589,9 +589,12 @@ function parseAttributeCondition(attribute: Attribute): ParsedAttributeCondition
 type SourceSpanReader = (node: postcss.Node) => SourceSpan;
 
 function toDeclaration(declaration: Declaration, spanOf: SourceSpanReader): ParsedDeclaration {
+  // PostCSS stores the first authored underscore in raws.before as a legacy hack.
+  // It is a valid identifier start and must reach property-effect lookup.
+  const property = declaration.raws.before?.endsWith('_') ? '_' + declaration.prop : declaration.prop;
   return {
     source: spanOf(declaration),
-    property: declaration.prop.startsWith('--') ? declaration.prop : declaration.prop.toLowerCase(),
+    property: property.startsWith('--') ? property : property.toLowerCase(),
     value: declaration.value.trim(),
     important: declaration.important === true
   };

@@ -55,6 +55,10 @@
 - compatibility transformer 的不可拆 sequence 只有有界 host-target 支持；更多 sequence/target 可能 preserved 或 fail-closed。
 - 未知／future property 不能默认当作 singleton；不能通过放松 fallback 掩盖 effect 不完整。
 
+属性登记使用解析出的完整名称。下划线可以作为 CSS 标识符的首字符，PostCSS 会把第一个 `_` 保存到声明的原始格式信息中。解析器在查询属性表之前恢复它。例如 `.a { color: blue; _color: red }` 在默认配置下触发 GSS1104，保留两条独立声明，最终仍呈蓝色。`_--brand` 同样是未知属性，不能定义变量 `--brand`。[CSS 标识符定义](https://www.w3.org/TR/css-syntax-3/#ident-start-code-point)
+
+[#45](https://github.com/Gogo-Bytes/GSS-l/issues/45) 中的负值反例沿用[无效值决策](PROPERTY-ORDER-DESIGN.md)：已批准的静态负 px padding 过滤有明确适用范围；负 em padding、负 border-width 和非标准 `*color` 的浏览器差异保留为已知限制。独立规则／声明之间的普通注释当前触发 GSS1101。若要接受，需要确定普通说明、许可证和工具指令各自的保留行为。
+
 ### Conditions、layers 与 at-rules
 
 - condition precedence 依赖现有注册／配置，不是通用 implication 系统。
@@ -64,7 +68,8 @@
 ### Resources 与 assets
 
 - local keyframe 的静态引用、条件／layer 组合、font descriptors 和 resource conflicts 均有范围。
-- image-set、复杂 cursor/mask/filter URL、worklet 等没有完整公共支持；URL escape／function nesting 不是通用重写器。
+- 在 Vite 7 的生产对照中，`image-set("./icon.svg" 1x)` 的裸字符串未登记为依赖，构建成功但产物缺少 SVG。使用 `image-set(url("./icon.svg") 1x)` 时，同一文件被输出，CSS 引用其带哈希的路径。前者的接入范围见 [#45](https://github.com/Gogo-Bytes/GSS-l/issues/45)。
+- 复杂 cursor/mask/filter URL、worklet 等没有完整公共支持；URL escape／function nesting 不是通用重写器。
 
 ### Cascade 与 Adapter
 

@@ -755,6 +755,18 @@ describe('GssCompilerSession', () => {
     );
   });
 
+  it('keeps leading underscores distinct from registered and custom properties during fallback', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const result = compiler.replaceStylesheet({
+      id: '/project/Card.gss',
+      source: '.a { color: blue; _color: red; _--brand: green; __color: black; }'
+    });
+    expect(result).toMatchObject({
+      committed: true, module: { compilationMode: 'preserved' }, diagnostics: [{ code: 'GSS1104' }]
+    });
+    expect(compiler.finalize().css).toContain('  color: blue;\n  _color: red;\n  _--brand: green;\n  __color: black;');
+  });
+
   it.each(['constructor', 'tostring'])('fails closed for inherited object keys used as unknown properties: %s', (property) => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
     const id = '/project/src/properties.gss';

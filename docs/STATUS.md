@@ -10,6 +10,8 @@
 
 ## 最新维护核查
 
+核查 #45 的声明前缀反例时发现并修复了前导下划线丢失。合法未知属性 `_color` 现在按整模块 fallback 输出，与 `color` 并存。Chromium 原生／GSS 颜色对照和 Vite 的 image-set 资源对照记录在本机 `artifacts/issue-45-triage/`。[能力边界](CSS-CAPABILITY-AUDIT.md#values-与-declaration-sequence) · [Issue #45](https://github.com/Gogo-Bytes/GSS-l/issues/45)
+
 嵌套 `self` 与父节点字符串的导出冲突已修复。React 业务源码直接使用静态路径；升级和保留名称规则见[React 引用契约](ARCHITECTURE-DIRECTION.md#react-引用与-typescript-契约)，验收与提交记录见 [#53](https://github.com/Gogo-Bytes/GSS-l/issues/53)。
 
 Owner 已授权 [#33](https://github.com/Gogo-Bytes/GSS-l/issues/33) 的 Vite 模板有界验证：新增／移除未引用 scope、失败与同输入恢复，检查导出、最终样式、document 和组件状态。范围与证据见 [模板验收](VITE-TEMPLATE-ACCEPTANCE.md#scope-形状更新owner-授权)；不推及嵌套形状或其他宿主。
