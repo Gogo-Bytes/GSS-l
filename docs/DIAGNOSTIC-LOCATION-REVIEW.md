@@ -15,7 +15,7 @@
 
 只移除 loader 的归因对照保留了开发声明映射；生产对照仍运行相同 minimizer。该对照不作为建议配置，不能为了 map 跳过兼容转换。普通 CSS 的生产声明均指向原规则起点；GSS 本例每个 atom 规则只有一个原始声明，因此其规则来源恰好也是声明来源。不能把这个结果扩大为 preserved 多声明规则、任意 CSS 转换或 DevTools 点击行为的保证。
 
-结论：本例的开发定位损失发生于原生 loader，两侧 CSS 均受影响，未发现 GSS 漏传 map 的契约违约。生产端并非一律缺少声明映射。当前仍沿用已接受的规则起点契约，不增加猜测性的 map 回填；是否进一步改进由 [#43](https://github.com/Gogo-Bytes/GSS-l/issues/43) 记录决定。
+结论：本例的开发定位损失发生于原生 loader，两侧 CSS 均受影响，未发现 GSS 漏传 map 的契约违约。生产端并非一律缺少声明映射。2026-11-13 owner 确认接受现有定位精度，结束 [#43](https://github.com/Gogo-Bytes/GSS-l/issues/43)，不增加额外修补实现。继续沿用规则起点契约，不增加猜测性的 map 回填；本次生产声明定位结果不升级为通用保证。该项已结束，不作为待实施优化；恢复需 owner 明确提出新要求。
 
 本机重跑入口为 `node artifacts/issue-43-source-map/probe.mjs`，带断言的复测通过；`results.json`、`verified.log` 及分阶段 `.css`／`.map` 保留原始产物。初次探针错误地要求尚未经过处理器的普通 CSS 必须已有输入 map，失败保留在 `probe.log`，已修正探针后重跑。此次只做该输入的构建／map 查询，未运行浏览器 DevTools、Rsbuild／webpack、新增产品实现或全量 verify。
 
