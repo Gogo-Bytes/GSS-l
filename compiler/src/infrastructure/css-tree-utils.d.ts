@@ -4,6 +4,6 @@ declare module 'css-tree/utils' {
 }
 
 declare module 'css-tree/tokenizer' {
-  export const tokenTypes: Readonly<Record<'Ident' | 'String' | 'Function' | 'LeftParenthesis' | 'RightParenthesis', number>>;
+  export const tokenTypes: Readonly<Record<'Ident' | 'String' | 'Function' | 'LeftParenthesis' | 'RightParenthesis' | 'Percentage', number>>;
   export function tokenize(source: string, onToken: (type: number, start: number, end: number) => void): void;
 }

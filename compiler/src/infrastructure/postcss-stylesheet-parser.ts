@@ -1,4 +1,5 @@
 import { ident } from 'css-tree/utils';
+import { tokenize, tokenTypes } from 'css-tree/tokenizer';
 import postcss, { CssSyntaxError, type Declaration } from 'postcss';
 import PreviousMap from 'postcss/lib/previous-map';
 import Parser from 'postcss/lib/parser';
@@ -302,8 +303,12 @@ function isKeyframeSelector(selector: string): boolean {
   return selector.split(',').every((part) => {
     const value = part.trim();
     if (value === 'from' || value === 'to') return true;
-    if (!/^\d+(?:\.\d+)?%$/.test(value)) return false;
-    const percentage = Number(value.slice(0, -1));
+    let percentage = NaN;
+    tokenize(value, (type, start, end) => {
+      if (type === tokenTypes.Percentage && start === 0 && end === value.length) {
+        percentage = Number(value.slice(0, -1));
+      }
+    });
     return percentage >= 0 && percentage <= 100;
   });
 }

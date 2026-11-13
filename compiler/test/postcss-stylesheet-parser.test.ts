@@ -11,6 +11,26 @@ function withoutSourceIds(parsed: ParsedStylesheet): string {
 }
 
 describe('PostCSS adapter original-source provenance', () => {
+  it('accepts CSS percentage tokens in keyframe lists and keeps the original frame range', () => {
+    const frame = 'from, -0%, .5%, +25%, 5e1%, 1E+2% { opacity: .25 }';
+    const source = `@keyframes pulse { ${frame} }`;
+    const parsed = parseStylesheet(id, source);
+    expect(parsed.diagnostics).toEqual([]);
+    const resource = parsed.resources[0];
+    if (resource?.kind !== 'keyframes') throw new Error('Expected keyframes');
+    expect(resource.frames).toMatchObject([{ selector: 'from, -0%, .5%, +25%, 5e1%, 1e+2%' }]);
+    const { start, end } = resource.frames[0]!.source;
+    expect(source.slice(start, end)).toBe(frame);
+  });
+
+  it.each(['-1%', '1.01e2%', '0', '5e%', '1.%', '0x10%', '10% 20%', 'entry 50%'])(
+    'rejects %s in a keyframe selector list', (invalid) => {
+      const parsed = parseStylesheet(id, `@keyframes pulse { from, ${invalid} { opacity: 0 } }`);
+      expect(parsed.resources).toEqual([]);
+      expect(parsed.diagnostics).toMatchObject([{ code: 'GSS1101' }]);
+    }
+  );
+
   it('normalizes registered at-keywords and frame keywords while preserving names and spans', () => {
     const source = `@LaYeR Theme { .a { @MeDiA print { @SuPpOrTs (display: grid) { @CoNtAiNeR Card (width > 0px) { color: red } } } } }
 @KeYfRaMeS Spin { FrOm, 50% { opacity: 0 } To { opacity: 1 } }

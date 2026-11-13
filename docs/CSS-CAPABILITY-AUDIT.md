@@ -67,6 +67,8 @@
 
 已准入的 at-rule 名称在嵌套处理前统一 ASCII 大小写，关键帧的 `from`、`to` 也按关键字匹配。`@KeYfRaMeS Spin` 注册的动画名仍为 `Spin`。层名、容器名和自定义属性名同样保留作者拼写，源码位置始终指向原文。[CSS 语法大小写规则](https://www.w3.org/TR/CSS2/syndata.html#characters) · [关键帧语法](https://www.w3.org/TR/css-animations-1/#keyframes)
 
+关键帧选择器列表的每一项可以是 `from`、`to` 或数值介于 0% 与 100%（含端点）的单个 CSS 百分比 token。`.5%` 与 `0.5%` 指向同一时刻，`+50%` 与 `5e1%` 也都表示 50%。缺少百分号、超出范围或含有多余 token 的项仍会触发已有的资源诊断。[CSS Animations 关键帧选择器](https://www.w3.org/TR/css-animations-1/#keyframes) · [CSS 数值分词](https://www.w3.org/TR/css-syntax-3/#consume-a-numeric-token)
+
 - condition precedence 依赖现有注册／配置，不是通用 implication 系统。
 - anonymous／复杂 layer prelude、更多条件与 layer 交叉组合并非完整公共保证。
 - `@page`、`@counter-style`、`@namespace`、`@scope`、更多 view-transition/custom at-rules 与全局 `@import` ordering 未纳入通用资源语义。

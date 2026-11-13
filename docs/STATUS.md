@@ -10,6 +10,8 @@
 
 ## 最新维护核查
 
+已修复本地动画误拒关键帧百分比的问题。在相应关键帧暂停动画时，`.5%`、`+50%`、`5e1%`、`-0%` 与普通小数对照的 Chromium 145 计算透明度均与原生 CSS 一致。修复前后记录位于 `artifacts/issue-45-keyframe-percent/`。[关键帧契约](CSS-CAPABILITY-AUDIT.md#conditionslayers-与-at-rules) · [Issue #45](https://github.com/Gogo-Bytes/GSS-l/issues/45)
+
 已修复 #45 核查中发现的 CSS 大小写解析错误。嵌套 `@MeDiA` 能正常应用，混写关键字的动画能定位首帧；含开尔文符号的未知属性按默认 fallback 保留。选择器中已支持的原生关键字也能混写大小写，包括 `::BeFoRe` 和 `:HaS(> .Item:EmPtY)`。两批共八组 Chromium 145 原生／GSS 计算样式对照记录在本机 `artifacts/issue-45-case/`。[解析契约](CSS-CAPABILITY-AUDIT.md) · [Issue #45](https://github.com/Gogo-Bytes/GSS-l/issues/45)
 
 已修复 `image-set("./icon.svg" 1x)` 在生产构建中遗漏图片的问题。Vite 7.3.6 的普通 CSS、GSS 字符串及 GSS 显式 `url()` 三组生产产物经 Chromium 145 加载，均请求到同一哈希地址，返回 200 且内容与源 SVG 一致。本机复测记录见 `artifacts/issue-45-triage/image-set-browser.log`。[资源契约](CSS-CAPABILITY-AUDIT.md#resources-与-assets) · [Issue #45](https://github.com/Gogo-Bytes/GSS-l/issues/45)
