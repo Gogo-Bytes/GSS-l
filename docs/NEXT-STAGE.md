@@ -36,6 +36,10 @@ Owner 再授权的 [诊断与错误定位只读核查](DIAGNOSTIC-LOCATION-REVIE
 
 没有创建新的 Projects/标签体系；当前凭据缺少 Projects 读取权限，本轮未同步看板。后续实现关联 Issue 和 commit，阶段完成、阻塞或范围变化时同步 Issue；PR 流程须另行获准。
 
+## 明确不做的能力
+
+负责人已明确否决 [#39](https://github.com/Gogo-Bytes/GSS-l/issues/39) 的逐文件 scope 精确类型、补全和拼写诊断。未知 scope 保持普通 JavaScript 行为，不新增 warning/error；这不是暂缓事项，不再列入排序、优化建议或实验队列。只有负责人主动明确改变决定才能恢复，长期契约见 [React 引用与 TypeScript 契约](ARCHITECTURE-DIRECTION.md#react-引用与-typescript-契约)。
+
 ## 未迁移的范围限制
 
 更多宿主（含 Parcel）、其他 UI 框架/上层框架、新 demo/验收矩阵仍不自动启动。跨模块优先级、更多 CSS/React 静态分析能力及公开 API/fallback 扩展需具体决策，尚未形成明确工程任务，不批量建 Issue。已有受限 shorthand/复用切片及清理已完成，不补造 Issue/PR。包尚未发布，发布/release/tag 需要显式指令。

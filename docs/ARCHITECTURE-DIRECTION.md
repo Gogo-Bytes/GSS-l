@@ -111,7 +111,7 @@ Vite 当前将 transform 的原始 `id` 与源码交给 adapter；对发现的 s
 
 #### React 引用与 TypeScript 契约
 
-用户在 React 源码直接写 `styles.card` 或 `styles.card.title`。适配器按 schema 验证静态路径，在支持的字符串消费位置自动读取节点的内部 `$class` 字段。[GssScope](../types/src/index.ts) 用带 brand 的 `string & children` 描述源码引用，允许传给普通 `className?: string`，不承诺逐文件精确补全。
+用户在 React 源码直接写 `styles.card` 或 `styles.card.title`。适配器按 schema 验证静态路径，在支持的字符串消费位置自动读取节点的内部 `$class` 字段。[GssScope](../types/src/index.ts) 用带 brand 的 `string & children` 描述源码引用，允许传给普通 `className?: string`，不提供逐文件精确补全，负责人已明确决定不做该能力，见下。
 
 不可变别名同时用于父节点和子路径时，初始化保留选中的 scope 对象。读取 `className={branch}` 或 `branch.title` 时才取对应节点的字符串。对条件别名，适配器检查每个可能分支都声明了目标，生成代码仍读取原别名，因此条件只在初始化时求值一次。
 
@@ -120,6 +120,10 @@ Vite 当前将 transform 的原始 `id` 与源码交给 adapter；对发现的 s
 同文件已识别的可选 prop（例如 `scope?: typeof styles.card`）可直接用于 `className`。省略时保留 `undefined`，传入时读取节点字符串。解构参数和 `props.scope` 遵循同一规则。
 
 父组件 `<Child className={styles.title} />` 在父文件完成 lowering，子组件接收普通字符串；这不需要跨文件 scope 推导。事件处理函数体中的静态路径按普通 JS 表达式转换，具名和 JSX 内联函数一致；直接传给子组件的 scope prop 保留节点。普通函数、DOM API、模板字符串的直接静态引用以及已支持的不可变条件 alias 有既有回归；可变 alias、未知／动态路径、跨文件传播继续按当前实现边界处理，不能扩大成完整数据流分析或任意 namespace 逃逸支持。不可证明的动态／未知路径保留已确认的普通 JS 行为，不新增拒绝规则。
+
+**2026-11-13 owner 决定：不做逐文件 scope 精确类型、字段补全或拼写检查。** 写错样式名由作者负责，例如未声明的 `styles.missing` 保持普通 JavaScript 的 `undefined`，不为未知静态／动态 scope 增加 warning、error 或构建失败。继续对该值解引用仍遵循普通 JavaScript 行为，不新增运行时兜底。保留通用 `*.gss` 类型声明、现有已识别路径的 lowering 和其他既有诊断。
+
+此决定不是暂缓或待优化缺口：不生成邻接 `.d.gss.ts`，不引入编辑器虚拟声明，不以“更好的开发体验”为由重新提案、实验或加入优先级队列。除非 owner 主动明确改变该决定，不恢复 [#39](https://github.com/Gogo-Bytes/GSS-l/issues/39)。已有 `declarationCode` 产物和此前可行性实验不构成交付授权；未知路径保留原文且无诊断的既有回归位于 `adapters/react/test/transform-react-gss-usage.test.ts`。
 
 验证路径时，每一段都必须是当前 schema 自有的成员；显式声明的 `constructor`、`self` 等名字遵循同一规则。组合 class 时可写 `className={[styles.card, 'external'].join(' ')}`。既有的隐式字符串强制转换诊断仍适用。旧的生成对象把父节点字符串和名为 `self` 的子节点写到了同一个键，导致父元素收到对象。现在 `.card .self` 对应源码 `styles.card.self`，父节点仍使用 `styles.card`。已有项目中用于读取当前节点字符串的旧后缀 `.self` 应移除。混合类型的别名仍按既有规则处理，例如可将条件直接写在 JSX 的 `className` 中。
 

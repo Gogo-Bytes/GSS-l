@@ -37,7 +37,7 @@ Playground 的 dev、构建、预览及类型检查由 `@gss-l/playground` 工�
 
 也可以将 `@gss-l/types/client` 加入 tsconfig 的 `compilerOptions.types`。消费项目应将 `@gss-l/types` 声明为直接开发依赖；目前仓库包仍未发布，外部验证使用本地 tarball。
 
-已有 Vite 项目可继续使用 `@gss-l/vite/client`，它引用通用声明并保留 Vite 专属 `virtual:gss.css?url`。Rspack／Rsbuild 不需要引用 Vite client。通用声明沿用现有 scope 类型，不增加逐文件 scope 补全，也不产生运行时代码。
+已有 Vite 项目可继续使用 `@gss-l/vite/client`，它引用通用声明并保留 Vite 专属 `virtual:gss.css?url`。Rspack／Rsbuild 不需要引用 Vite client。通用声明沿用现有 scope 类型，也不产生运行时代码。负责人已明确决定不做逐文件 scope 补全或拼写检查：未声明的 `styles.missing` 保持普通 JavaScript 的 `undefined`，不新增相关 warning/error。这不是待补能力，除非负责人主动改变决定，否则不重新提案；详见 [React 引用契约](docs/ARCHITECTURE-DIRECTION.md#react-引用与-typescript-契约)。
 
 ## 代码导航
 
