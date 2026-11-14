@@ -26,11 +26,66 @@ GSS 将样式编译为可复用的 atom class，并允许同一模块的多个 s
 
 名称不再承担样式来源定位。优先复用已有 CSS source map 和 manifest origins：前者表示一个稳定主来源，后者记录共享 atom 的全部来源；具体开发查询入口尚未决定，不预设 DevTools 插件或新增公开接口。生产 class 不为调试增加字符或要求随运行产物携带来源表；现有 source map 交付仍服从宿主设置，不因短名方向擅自改变。
 
-短名只是语义身份的输出表示，不能删掉决定复用与竞争的 layer、condition、state、importance、rank/orderSlot 或必要关系绑定。相同声明在不同竞争位置可能需要不同身份，不能仅 hash `property:value`。碰撞不能静默合并样式；名称分配必须保持相同输入下的确定性和 SSR／客户端一致，不依赖模块遍历顺序、绝对机器路径或随机值。hash 算法、编码、长度和碰撞处置尚未确定。现有宿主先发布局部编译导出，再进行全图重放，因此不宜在发现碰撞后临时改名：这会使已生成的 JS 与最终 CSS 不一致。建议检测到不同完整身份使用同一短名时拒绝本次发布，并沿用既有失败保留行为，而非依赖遍历顺序追加编号；这项失败策略尚待负责人确认。
+短名只是语义身份的输出表示，不能删掉决定复用与竞争的 layer、condition、state、importance、rank/orderSlot 或必要关系绑定。相同声明在不同竞争位置可能需要不同身份，不能仅 hash `property:value`。碰撞不能静默合并样式；名称分配必须保持相同输入下的确定性和 SSR／客户端一致，不依赖模块遍历顺序、绝对机器路径或随机值。hash 算法、编码、长度和碰撞处置尚未确定。现有宿主先发布局部编译导出，再进行全图重放，因此不宜在发现碰撞后临时改名：这会使已生成的 JS 与最终 CSS 不一致。建议检测到不同完整身份使用同一短名时拒绝本次发布，并沿用既有失败保留行为，而非依赖遍历顺序追加编号；负责人已确认这项失败兜底；随后授权调研业界更短、利于压缩的分配与碰撞方案，自动重命名仍不是已批准实现。
 
-当前实现仍统一生成长名称。`NameAllocatorPort` 提供命名接缝，但 Vite 的纯 atom HMR 交接仍解析长名前缀和 rank/order 后缀；实施时必须改为消费明确的语义信息，保留现有交接、回收及失败恢复契约，不能只替换名称函数。所有宿主和局部编译／全图重放需采用一致模式，建议宿主按自身开发／生产模式自动选择，插件不增加重复开关；Compiler 独立调用增加显式命名模式并默认开发。该公共配置形状与默认值尚待负责人确认。语义信息与来源定位信息分开，不把调试需求再次塞回名称。
+当前实现仍统一生成长名称。`NameAllocatorPort` 提供命名接缝，但 Vite 的纯 atom HMR 交接仍解析长名前缀和 rank/order 后缀；实施时必须改为消费明确的语义信息，保留现有交接、回收及失败恢复契约，不能只替换名称函数。所有宿主和局部编译／全图重放需采用一致模式，负责人已确认宿主按自身开发／生产模式自动选择，插件不增加重复开关；Compiler 独立调用允许指定命名模式并默认开发。语义信息与来源定位信息分开，不把调试需求再次塞回名称。
 
-不再以前置的普通 CSS／GSS 全面对照来决定是否接受此方向，也不恢复 #35 的耗时 profiling。实施验证仍须检查现有用例产物的前后体积及必要正确性回归；原始字符缩短不等于 gzip／Brotli 净收益。本轮只记录方向和源码核查，不选择完整算法、不修改产品或运行性能测量。
+不再以前置的普通 CSS／GSS 全面对照来决定是否接受此方向，也不恢复 #35 的耗时 profiling。实施验证仍须检查现有用例产物的前后体积及必要正确性回归；原始字符缩短不等于 gzip／Brotli 净收益。此阶段先记录方向和源码核查，未实施命名变化；随后授权的命名专项调研见下，不扩展为通用性能分析。
+
+### 命名压缩与碰撞调研（2026-11-14）
+
+**结论与建议，尚非算法决定。** 优先考虑固定 48-bit 摘要、base64url 编码，前置一个合法标识符字母，共 9 字符；保留全图碰撞检测与明确失败。不要为了压缩改 CSS 输出顺序，也不先引入全局频率命名。更短 hash 可以减少字节，但需要接受更高的偶发失败概率或新增全局分配阶段。hash 算法暂未选定；下述字节实验统一用 SHA-256 截断，只比较表示方式，不比较 hash 速度。
+
+#### 业界一手实现
+
+- **css-loader**：`defaultGetLocalIdent` 从资源路径／local name 生成截断 hash，支持算法、编码和长度设置。其 tier 循环是补足可用字符长度，并非检测不同身份的碰撞。`minimal-subset` 只有模板包含 `[local]` 时才可从摘要输入中省略 local name，以复用文件摘要部分；不能直接删掉 GSS 的 rank／条件来效仿。[固定源码](https://github.com/webpack/css-loader/blob/be04ec290ee57bafbc75f5936c1f6a2532681b49/src/utils.js#L279-L358) · [压缩选项说明](https://github.com/webpack/css-loader/blob/be04ec290ee57bafbc75f5936c1f6a2532681b49/README.md#hashstrategy)
+- **webpack deterministic IDs**：先稳定排序全集，根据数量选取低填充率 ID 空间，再对占用的 ID 加 salt 重试，直到分配成功。它不是“有限位数 hash 永不碰撞”，而是有完整登记表和重试流程。[固定源码](https://github.com/webpack/webpack/blob/362e612f666e3747b0125e17d8889cfcf1e18f7d/lib/ids/IdHelpers.js#L438-L493)
+- **esbuild CSS minification**：收集可达的局部／全局名称，按使用次数排序，将较短名称优先分配给高频符号，避开已占用名称；字符表按源码频率调整。这是全局短编号，不是内容 hash，也没有通过重排 CSS 声明获得收益。[分配过程](https://github.com/evanw/esbuild/blob/f6058f8364fe7ab91ca57a83e02577ed74c9cae4/internal/linker/linker.go#L451-L508) · [字符表与编号](https://github.com/evanw/esbuild/blob/f6058f8364fe7ab91ca57a83e02577ed74c9cae4/internal/ast/ast.go#L754-L831)
+- **Emotion／styled-components**：前者的 `@emotion/hash` 是 32-bit MurmurHash2、base36 输出；后者该版本使用 djb2 式 hash，再转 alphabetic name。这说明短名已有实践，但这些 hash／编码函数本身没有完整身份碰撞检测，不能据此声称安全无碰撞或直接采用相同位宽。[Emotion](https://github.com/emotion-js/emotion/blob/b882bcba85132554992e4bd49e94c95939bbf810/packages/hash/src/index.ts) · [styled-components hash](https://github.com/styled-components/styled-components/blob/e2aa1c8f6e40b74ae164e7489f68067019d47772/packages/styled-components/src/utils/hash.ts) · [编码](https://github.com/styled-components/styled-components/blob/e2aa1c8f6e40b74ae164e7489f68067019d47772/packages/styled-components/src/utils/generateAlphabeticName.ts)
+
+#### 短度与碰撞
+
+以下为均匀独立摘要假设下至少一次碰撞的概率估算 `1 − exp(−n(n−1)/(2×2^b))`，不是实测故障率，也不适用于证明抵抗恶意输入。`n` 是同一名称空间内的不同完整身份数量，不是模块数；base64url 每字符最多承载 6 bits。固定前缀不增加熵。
+
+| 有效位数 | 一个字母前缀后的名称总长 | 1 万身份 | 10 万身份 |
+| --- | --- | --- | --- |
+| 36 | 7 字符 | 0.0727% | 7.02% |
+| 48 | 9 字符 | 0.0000178% | 0.00178% |
+| 60 | 11 字符 | 0.00000000434% | 0.000000434% |
+| 64 | 12 字符（最后一位非满 6 bits） | 0.000000000271% | 0.0000000271% |
+
+检测必须比较短名对应的完整规范身份，并覆盖候选全图、同名的其他生成角色及已知外部保留名称；不能只检查单模块，也不能用另一个截断 hash 代替身份比较。失败不能污染已提交贡献。独立构建后混用产物不自动落入同一检测范围；不支持跨文件同节点覆盖，并不能豁免不同组件之间的名称碰撞。
+
+| 碰撞策略 | 短名／稳定性 | GSS 接入代价 |
+| --- | --- | --- |
+| 固定长度 + 检测失败 | 相同身份独立确定，不因新增无关样式改名 | 最小；保留负责人已确认的失败契约 |
+| 最短唯一摘要前缀，撞前缀则延长 | 小全集更短；新增身份可能延长已有名字 | 需在导出前掌握全集，或重放所有受影响 JS/CSS；SSR 两侧须共享分配结果／命名全集 |
+| 稳定排序 + salt 重试 | 可在较小空间内分配无重复名称；结果依赖全集与占用情况 | 类似 webpack，需要统一分配表；不能由各 loader 独立决定 |
+| 全局高频短编号 | 可做到比固定 hash 更短；源码变化可能导致大量重编号 | 不再是已决定的纯 hash 输出；需要新的全图链接与跨端一致性设计，未经批准不实施 |
+
+#### 实际产物的隔离改名实验
+
+在 `07241ea` 产品基线上重新构建既有 Task-board、Article 生产产物。提取其中生成的 atom／marker／keyframes 名称，分别为 137、132 个；只替换名字，不重排规则或声明。所有候选必须无碰撞、没有输入名称冲突，且逆向替换后每个文件与原文逐字节一致。该检查证明替换完整可逆，**不是浏览器语义验收**；候选未重算文件 contenthash 或 map，不可发布。
+
+每个 CSS／JS／HTML 文件独立 gzip level 9 或 Brotli quality 11/text 后求和；不拼接不同请求作弊压缩，不计 source map、调试 JSON manifest、HTTP 头及服务端生成 HTML。Node 22.22.3、zlib 1.3.1-e00f703、Brotli 1.1.0。hash 方案使用五个固定 seed 检查摘要内容敏感性，下表为五组总字节数中位数；这是不同摘要取值，不是五次耗时采样。高频编号仅作架构对照，跳过已有文本中的名称，只有一组确定性结果。
+
+| 表示 | Task-board gzip / Brotli（bytes） | Article gzip / Brotli（bytes） |
+| --- | --- | --- |
+| 当前长名 | 80,381 / 69,081 | 80,200 / 68,486 |
+| 36-bit base64url，含前缀 7 字符 | 79,047 / 68,026 | 79,100 / 67,622 |
+| 48-bit base64url，含前缀 9 字符 | 79,534 / 68,386 | 79,576 / 68,061 |
+| 48-bit hex，含前缀 13 字符 | 79,904 / 68,483 | 79,689 / 68,088 |
+| 60-bit base64url，含前缀 11 字符 | 80,025 / 68,910 | 79,905 / 68,467 |
+| 64-bit base64url，含前缀 12 字符 | 80,234 / 69,097 | 80,021 / 68,684 |
+| 高频短编号对照，非 hash 方案 | 77,865 / 66,928 | 78,081 / 66,668 |
+
+48-bit base64url 的 gzip 范围分别为 79,520–79,552／79,564–79,585 bytes，Brotli 范围为 68,331–68,442／68,037–68,119 bytes。原始总大小分别从 285,365／278,524 降至 249,445／245,856 bytes，但压缩后收益远小于原始差额。仅 CSS 的 Brotli：当前为 2,886／2,713 bytes；48-bit 为 2,847／2,608；64-bit 反而增至 3,174／2,917。不能把原始字节减少当成传输收益，也不能保证所有输入都获益。
+
+把 48-bit hash 字符表按非名称文本的字符频率置换，未观察到跨两案例、两种压缩算法的一致优势：gzip 中位数为 79,531／79,579（相对默认只差 −3／+3 bytes，位于各组波动范围内），Brotli 为 68,389／68,000，区间与默认方案重叠。均匀摘要换字母表仍近似均匀；它不等于 esbuild 给高频符号分配更短名字。不建议为这种差异引入全图字符统计。
+
+压缩的关键是重复串和符号分布，而非 hash 字典序本身。[DEFLATE](https://www.rfc-editor.org/rfc/rfc1951.html#section-3.2) 组合 LZ77 与 Huffman 编码；[Brotli](https://www.rfc-editor.org/rfc/rfc7932.html#section-7) 还使用上下文建模与静态字典。规则输出仍必须遵守排序契约；只能讨论不改变语义的名称分配顺序，不能按 hash／压缩收益重排有竞争的 CSS。这里没有测 hash 计算耗时、构建加速或端到端加载时间，不作速度排名。
+
+本机一手源码快照、commit SHA 和脚本位于 `artifacts/issue-40-naming-research/`：`fetch-sources.py`、`sources.json`、`compare-names.mjs`、`compression-results.json`、`compression-final.log` 及两份原始／48-bit 改名产物。初次高频编号对照因新名字与已有文本重名而被断言拒绝，保留 `compression.log`，修正为跳过占用名字后通过；没有将失败候选计入结果。未运行浏览器或 Firefox Article，未改变产品命名。
 
 ## 复合属性先展开
 
