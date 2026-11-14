@@ -63,7 +63,7 @@ React Router Framework Mode 的真实 SSR 外部验收：`corepack pnpm framewor
 
 React 中直接写 `<div className={styles.card} />`，子节点使用 `styles.card.title`。升级旧代码时，移除用于取当前节点字符串的 `.self` 后缀。样式表实际声明的 `.card .self` 仍通过 `styles.card.self` 访问。
 
-同一模块的多个 scope 可以组合。不同模块在同一个节点上的优先级仍不受支持；React 适配器对可证明的组合发出非阻塞警告 `GSS2107`，不移除 class。
+同一模块的多个 scope 可以组合。负责人明确：GSS 作者用法不需要在同一个节点组合不同文件的 GSS 样式，项目不保证这种组合的覆盖顺序，也不计划设计跨文件优先级。这是既定边界，不是待补能力，不再主动提案。React 适配器现有的非阻塞警告 `GSS2107` 保留，不移除 class。
 
 仓库尚未发布包；发布、release 和 tag 都需要单独授权。
 

@@ -42,9 +42,11 @@ Owner 再授权的 [诊断与错误定位只读核查](DIAGNOSTIC-LOCATION-REVIE
 
 负责人也已明确不需要 [#38](https://github.com/Gogo-Bytes/GSS-l/issues/38) 的变量索引式 scope 支持。保持静态路径和条件分支写法，不实现 `styles[variant]` 的动态解析、转换或兜底；不作为暂缓任务重新排期，恢复须由负责人主动提出。具体行为见同一 [React 引用契约](ARCHITECTURE-DIRECTION.md#react-引用与-typescript-契约)。
 
+负责人明确 [#36](https://github.com/Gogo-Bytes/GSS-l/issues/36) 的跨文件 GSS 样式同节点组合不是目标用法，不保证覆盖顺序，也不设计优先级。此项不再主动提出或列入待办，恢复须由负责人主动明确改变决定；见[产品边界](ARCHITECTURE-DIRECTION.md#产品目标与现有边界)。不同组件各自使用样式文件和已有跨模块 atom 复用不受此决定影响。
+
 ## 未迁移的范围限制
 
-更多宿主（含 Parcel）、其他 UI 框架/上层框架、新 demo/验收矩阵仍不自动启动。跨模块优先级、更多 CSS/React 静态分析能力及公开 API/fallback 扩展需具体决策，尚未形成明确工程任务，不批量建 Issue。已有受限 shorthand/复用切片及清理已完成，不补造 Issue/PR。包尚未发布，发布/release/tag 需要显式指令。
+更多宿主（含 Parcel）、其他 UI 框架/上层框架、新 demo/验收矩阵仍不自动启动。更多 CSS/React 静态分析能力及公开 API/fallback 扩展需具体决策，尚未形成明确工程任务，不批量建 Issue；跨模块优先级已按上文决定不做。已有受限 shorthand/复用切片及清理已完成，不补造 Issue/PR。包尚未发布，发布/release/tag 需要显式指令。
 
 ## 完成标准与参考
 
