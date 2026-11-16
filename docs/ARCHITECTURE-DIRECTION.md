@@ -19,6 +19,14 @@ GSS 以 CSS 为输入，生成可组合的 scope 引用、原子 CSS 与必要�
 
 现状入口：[compiler-session](../compiler/src/application/compiler-session.ts)、[module-contribution](../compiler/src/application/module-contribution.ts)、[finalize-snapshot](../compiler/src/application/finalize-snapshot.ts)、[CSS parser](../compiler/src/infrastructure/postcss-stylesheet-parser.ts)、[React Adapter](../adapters/react/src/index.ts)、[Vite](../integrations/vite/src/index.ts)。
 
+### 生产 CSS 交付粒度
+
+负责人在 [#41](https://github.com/Gogo-Bytes/GSS-l/issues/41) 的方案讨论后决定：本阶段保留单份聚合 CSS，不实施按入口／懒加载拆分。最终可达的静态与 lazy GSS 模块共同进入该资产；JS 懒加载不意味着对应 CSS 延迟下载。
+
+取舍是保留共享 atom、既有排序和 SSR／lazy 首次显示的简单交付路径，接受首屏携带其他可达页面样式。实际首屏及缓存收益尚未测量，不宣称聚合总是更快，也不宣称分包一定值得。只有出现明确的按需 CSS 需求并由负责人重新确认范围，才恢复讨论；不自动排期或为此启动 profiling。
+
+本轮仅记录决定，没有修改产品。基线 `2f507ff`，重新运行 `production-css.test.ts` 的 `includes lazy Modules in one asset` 用例通过（1 项通过、42 项跳过），确认当前交付行为；这不是分包收益或全部宿主的重新验收。
+
 ### Scope 输出的职责边界
 
 [scope-exports.ts](../compiler/src/application/scope-exports.ts) 负责按路径汇集贡献规划阶段已经决定的 atom／marker class、形成 scope schema，并生成模块导出及声明类型。它不判断 selector 匹配、决定 marker 触发、剪枝声明、规划排序或选择 fallback；这些决定继续由各自 planner／贡献准备负责。原子化和整模块 preserved 两条路径共用同一输出实现，但两者赋予 scope 的 marker 不因此变成相同语义。
