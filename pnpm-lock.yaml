@@ -82,6 +82,9 @@ importers:
       '@types/css-tree':
         specifier: ^2.3
         version: 2.3.11
+      '@types/node':
+        specifier: 22.20.4
+        version: 22.20.4
 
   examples/playground:
     dependencies:

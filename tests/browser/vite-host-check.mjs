@@ -3,7 +3,8 @@
 import { mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { build, createServer, normalizePath, preview } from 'vite';
+import { build, normalizePath, preview } from 'vite';
+import { pathToFileURL } from 'node:url';
 import { createElement } from 'react';
 import { renderToString } from 'react-dom/server';
 import postcss from 'postcss';
@@ -234,12 +235,13 @@ export async function checkViteSsgHydration(browser) {
       hydrateRoot(document.getElementById('app')!, <App />, {
         onRecoverableError(error) { (window as any).__GSS_HYDRATION_ERRORS__.push(String(error)); }
       });`);
-    devServer = await createServer({ root, configFile: false, plugins: [gss({ adapter: react() })],
-      logLevel: 'silent', server: { middlewareMode: true } });
-    const { App } = await devServer.ssrLoadModule('/entry-server.tsx');
+    const ssr = await build({ root, configFile: false, plugins: [gss({ adapter: react() })],
+      logLevel: 'silent', build: { ssr: 'entry-server.tsx', write: false, minify: false } });
+    const chunk = ssr.output.find(entry => entry.type === 'chunk');
+    const serverFile = join(root, 'server.mjs');
+    await writeFile(serverFile, chunk.code);
+    const { App } = await import(pathToFileURL(serverFile).href);
     const rendered = renderToString(createElement(App));
-    await devServer.close();
-    devServer = undefined;
     await build({ root, configFile: false, plugins: [gss({ adapter: react() })], logLevel: 'silent',
       build: { minify: false } });
     const manifest = JSON.parse(await readFile(join(root, 'dist/gss-manifest.json'), 'utf8'));

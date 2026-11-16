@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createGssCompilerSession } from '../src/index.js';
+import { createIdentityViewSession as createGssCompilerSession } from './identity-view-session.js';
 
 const moduleId = '/project/src/card.gss';
 const specificityList = '.card:has(.error, .warning:hover) { color: red; }';

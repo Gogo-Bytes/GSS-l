@@ -1,5 +1,4 @@
 import { createCompilerSession } from './application/compiler-session.js';
-import { createDefaultNameAllocator } from './application/name-allocator.js';
 import { discoverAssets } from './application/stylesheet-assets.js';
 import { parseStylesheet } from './infrastructure/postcss-stylesheet-parser.js';
 import { createCompatibilityTransformer } from './infrastructure/lightning-compatibility-transformer.js';
@@ -12,7 +11,7 @@ export function createGssCompilerSession(config: GssCompilerConfig): GssCompiler
   const stages = Array.isArray(supplied) ? supplied.map((targets) =>
     targets && typeof targets === 'object' && !Array.isArray(targets) ? { ...targets } : targets) : supplied;
   return createCompilerSession(stages === undefined ? config : { ...config, compatibilityTargetStages: stages },
-    cssParser, createDefaultNameAllocator(),
+    cssParser, undefined,
     stages === undefined ? undefined : createCompatibilityTransformer(stages));
 }
 

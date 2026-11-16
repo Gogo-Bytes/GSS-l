@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import postcss from 'postcss';
 import selectorParser from 'postcss-selector-parser';
 import type { ScopeNodeSchema } from '../src/index.js';
-import { createGssCompilerSession } from '../src/index.js';
+import { createIdentityViewSession as createGssCompilerSession } from './identity-view-session.js';
 
 describe('Compiler descendant condition ownership', () => {
   it.each(['[disabled]', String.raw`[data\=mode]`])('emits a presence condition without inventing an equality value: %s', (condition) => {

@@ -444,6 +444,8 @@ import { react } from '@gss-l/react';
 
 ### 原子与关系 marker 输出边界
 
+生成名与内部身份分离：开发使用可读标签＋摘要，生产使用九字符 hash；碰撞按完整身份拒绝候选并保留上一成功版。规范长名编码仅保留为内部身份／排序尾键，Vite HMR 从 manifest 的 `flatAtom` 读取语义，不解析名字。模式、SSR 一致性、碰撞检测范围与验证见[命名契约](PROPERTY-ORDER-DESIGN.md#开发生产命名2026-11-14-owner-决定)。
+
 [atomic-emission.ts](../compiler/src/application/atomic-emission.ts) 消费已完成准入、关系规划和兼容性／fallback 决策的规则，按既有顺序生成 ownership、状态、pseudo、`:has()`、结构及 external 对应的 atom／marker、scope membership 和 selector。排序候选仍由关系规划提供，`planFixedModuleOrder` 保留 semantic height、`atomRank`／`orderSlot` 和安全复用规则；输出阶段只使用已规划关系，不推测新 DOM 关系或改变 selector 准入。
 
 [observed-emission.ts](../compiler/src/application/observed-emission.ts) 从主体绑定的末尾节点读取 `hasConditions`。每个具名组代表一次源码中的 `:has()` 调用，`alternatives` 保留该次调用的相对选择器列表。例如 `.a:has(.b,.c):has(.d)` 要求后代中有 b 或 c，同时还要有 d；只有 b 时不匹配。单次调用沿用原有逐分支排序绑定、subject／observed marker 及 list specificity 处理。

@@ -260,7 +260,7 @@ describe('anchored external declaration target', () => {
     });
     expect(result).toMatchObject({ committed: true, diagnostics: [] });
     const anchor = session.getScopeSchema(id)!.exports.editor!.selfClassName;
-    expect(anchor).toContain('gss-a--');
+    expect(anchor).toContain('g-display-block-');
     expect(session.finalize().css).toContain(' .ProseMirror-focused {\n  color: red;\n}');
   });
 

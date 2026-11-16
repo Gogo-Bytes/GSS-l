@@ -24,11 +24,15 @@ export function ensureScopePath(
   return current;
 }
 
-export function toScopeSchema(scope: MutableScopeNode): ScopeNodeSchema {
+export function toScopeSchema(scope: MutableScopeNode, identities?: ReadonlyMap<string, string>): ScopeNodeSchema {
   return {
-    selfClassName: [...scope.classNames].sort().join(' '),
+    selfClassName: [...scope.classNames].sort((a, b) => {
+      const left = identities?.get(a) ?? a;
+      const right = identities?.get(b) ?? b;
+      return left < right ? -1 : left > right ? 1 : 0;
+    }).join(' '),
     targets: Object.fromEntries(
-      [...scope.targets.entries()].map(([name, target]) => [name, toScopeSchema(target)])
+      [...scope.targets.entries()].map(([name, target]) => [name, toScopeSchema(target, identities)])
     )
   };
 }

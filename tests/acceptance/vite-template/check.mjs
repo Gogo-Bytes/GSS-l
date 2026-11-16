@@ -108,7 +108,7 @@ async function route(mode, phase, path, marker, count, cssLinks) {
 async function baseline(mode) {
   await color('rgb(180, 20, 30)');
   const title = page.getByTestId('title');
-  assert.match(await title.getAttribute('class'), /gss-/);
+  assert.match(await title.getAttribute('class'), /^g[\w-]+$/);
   assert.notEqual(await title.getAttribute('class'), '[object Object]');
   const cssLinks = mode === 'production' ? await centralCss() : undefined;
   await route(mode, 'initial-home', '/', null, 0, cssLinks);
@@ -256,7 +256,7 @@ try {
     node.remove();
     return result;
   });
-  assert.match(addedScope.className, /gss-/);
+  assert.match(addedScope.className, /^g-[\w-]+$/);
   await page.waitForFunction((className) => {
     const node = document.createElement('div'); node.className = className; document.body.append(node);
     const color = getComputedStyle(node).color; node.remove(); return color === 'rgb(12, 34, 56)';

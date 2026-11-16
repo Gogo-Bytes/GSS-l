@@ -121,8 +121,8 @@ describe('host-resolved compatibility targets', () => {
       expect.objectContaining({ id: 'atomic.gss', compilationMode: 'atomic' }),
       expect.objectContaining({ id: 'fallback.gss', compilationMode: 'preserved' })
     ]);
-    expect(snapshot.css).toContain('.gss-s--module_fallback_2e_gss--path_card');
-    expect(snapshot.css).toContain('gss-a--layer_unlayered--condition_base--state_self--property_color--value_blue');
+    expect(snapshot.css).toContain('.' + session.getScopeSchema('/project/fallback.gss')!.exports.card!.selfClassName);
+    expect(snapshot.css).toContain('.' + session.getScopeSchema('/project/atomic.gss')!.exports.card!.selfClassName);
   });
 
   it('preserves the entire Module when a generated vendor property cannot be proved atomizable', () => {

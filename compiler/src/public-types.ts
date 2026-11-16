@@ -91,6 +91,8 @@ export type FinalizedGssSnapshot = {
     rules: readonly {
       kind: 'pure-atom' | 'contextual-atom';
       className: string;
+      /** Present only for unconditional, unlayered self atoms eligible for bounded dev handoff. */
+      flatAtom?: { atomRank?: number; orderSlot?: number };
       selector: string;
       property: string;
       value: string;
@@ -111,6 +113,8 @@ export type FinalizedGssSnapshot = {
 
 export type GssCompilerConfig = {
   projectRoot: string;
+  /** Hosts select this automatically; standalone compilation defaults to development. */
+  namingMode?: 'development' | 'production';
   layers?: readonly string[];
   atomizationFallback?: 'preserve-module' | 'error';
   /** Ordered host CSS transform/minification stages, each with resolved minimum browser versions. */

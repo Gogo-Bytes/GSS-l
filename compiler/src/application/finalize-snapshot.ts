@@ -136,6 +136,13 @@ export function finalizeSnapshot(
       rules: orderedRules.map(({ rule: { kind, className, selector, identity }, sources, origins }) => ({
         kind,
         className,
+        ...(kind === 'pure-atom' && 'state' in identity && identity.state === 'self' &&
+          identity.layer === null && identity.condition === 'base' && !identity.pseudoElement &&
+          !identity.ownership && !identity.stateMarkers?.length
+          ? { flatAtom: {
+            ...(identity.atomRank === undefined ? {} : { atomRank: identity.atomRank }),
+            ...(identity.orderSlot === undefined ? {} : { orderSlot: identity.orderSlot })
+          } } : {}),
         selector,
         property: identity.property,
         value: renderAssetValue(identity, resolve),

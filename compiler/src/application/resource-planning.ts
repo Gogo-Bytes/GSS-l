@@ -33,7 +33,7 @@ const animationComponentKeywords = new Set([
 ]);
 
 function rewriteAnimationValue(
-  declaration: ParsedDeclaration, keyframeNames: ReadonlyMap<string, string>
+  declaration: ParsedDeclaration, keyframeNames: ReadonlyMap<string, string>, reserveExternalName?: (name: string) => void
 ): ParsedDeclaration | undefined {
   const { property, value } = declaration;
   if (property !== 'animation-name' && property !== 'animation') return declaration;
@@ -49,7 +49,7 @@ function rewriteAnimationValue(
       const quoted = type === tokenTypes.String;
       const name = quoted ? cssString.decode(raw) : ident.decode(raw);
       const generated = keyframeNames.get(name);
-      if (!generated) return;
+      if (!generated) { reserveExternalName?.(name); return; }
       if (!quoted && property === 'animation' &&
           (animationComponentKeywords.has(name.toLowerCase()) || name.startsWith('--'))) {
         ambiguous = true;
@@ -64,14 +64,14 @@ function rewriteAnimationValue(
 }
 
 export function rewriteKeyframeReferences(
-  rules: readonly ParsedStyleRule[], keyframeNames: ReadonlyMap<string, string>
+  rules: readonly ParsedStyleRule[], keyframeNames: ReadonlyMap<string, string>, reserveExternalName?: (name: string) => void
 ): { rules: readonly ParsedStyleRule[] } | { ambiguous: ParsedDeclaration } {
-  if (!keyframeNames.size) return { rules };
+  if (!keyframeNames.size && !reserveExternalName) return { rules };
   const rewritten: ParsedStyleRule[] = [];
   for (const rule of rules) {
     const declarations: ParsedDeclaration[] = [];
     for (const declaration of rule.declarations) {
-      const result = rewriteAnimationValue(declaration, keyframeNames);
+      const result = rewriteAnimationValue(declaration, keyframeNames, reserveExternalName);
       if (!result) return { ambiguous: declaration };
       declarations.push(result);
     }

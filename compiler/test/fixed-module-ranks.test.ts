@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { createGssCompilerSession } from '../src/index.js';
+import { createIdentityViewSession as createGssCompilerSession } from './identity-view-session.js';
 
 function compile(source: string) {
   const session = createGssCompilerSession({ projectRoot: '/project' });

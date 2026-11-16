@@ -8,6 +8,7 @@ import { compareCodeUnits } from './compare-code-units.js';
 
 export type OrderableRule = {
   className: string;
+  orderKey?: string;
   identity: { property: string; atomRank?: number; orderSlot?: number };
   layer?: string | null;
   relationRank?: number;
@@ -51,7 +52,7 @@ export function compareRuleOrder(
   const property = comparePropertyRenderOrder(left.identity.property, right.identity.property);
   if (property !== 0) return property;
 
-  return compareCodeUnits(left.className, right.className);
+  return compareCodeUnits(left.orderKey ?? left.className, right.orderKey ?? right.className);
 }
 
 function compareConditions(

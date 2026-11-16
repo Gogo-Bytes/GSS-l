@@ -36,7 +36,7 @@ export function preparePreservedContribution(input: {
         ...bindCssAssets(css, bindings) };
     });
   const exports = Object.fromEntries(
-    [...roots.entries()].map(([name, scope]) => [name, toScopeSchema(scope)])
+    [...roots.entries()].map(([name, scope]) => [name, toScopeSchema(scope, input.nameAllocator.identities)])
   );
   const fallbackReasons = [
     ...input.fallbackProperties.map((property) => ({ property, reason: 'property-effect-not-registered' as const })),

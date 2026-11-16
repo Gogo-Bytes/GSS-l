@@ -1,3 +1,4 @@
+import selectorParser from 'postcss-selector-parser';
 import type { CompatibilityTransformer } from './compatibility-transformer.js';
 import { type AssetUrlResolver } from './asset-values.js';
 import { collectAssetDependencies } from './stylesheet-assets.js';
@@ -62,6 +63,11 @@ export function prepareContribution(
   if (parsed.diagnostics.some(({ severity }) => severity === 'error')) {
     return { diagnostics: parsed.diagnostics };
   }
+  for (const rule of parsed.rules) {
+    selectorParser().astSync(rule.selector).walkPseudos(pseudo => {
+      if (pseudo.value === ':global') pseudo.walkClasses(node => { nameAllocator.reserveExternalName(node.value); });
+    });
+  }
   const bindings = new Map<string, string>();
   const urls = new Set(collectAssetDependencies(parsed));
   for (const { url, identity } of input.assetReferences ?? []) {
@@ -93,7 +99,7 @@ export function prepareContribution(
       .filter((resource): resource is ParsedKeyframesRegistration => resource.kind === 'keyframes')
       .map((resource) => [resource.name, nameAllocator.createKeyframesName(moduleId, resource.name)])
   );
-  const animation = rewriteKeyframeReferences(parsed.rules, keyframeNames);
+  const animation = rewriteKeyframeReferences(parsed.rules, keyframeNames, nameAllocator.reserveExternalName);
   if ('ambiguous' in animation) return { diagnostics: [{
     code: 'GSS1101', severity: 'error', phase: 'validate', id: input.id,
     range: { start: animation.ambiguous.source.start, end: animation.ambiguous.source.end },
@@ -227,7 +233,7 @@ export function prepareContribution(
   const { rules } = emission;
 
   const exports = Object.fromEntries(
-    [...roots.entries()].map(([name, scope]) => [name, toScopeSchema(scope)])
+    [...roots.entries()].map(([name, scope]) => [name, toScopeSchema(scope, nameAllocator.identities)])
   );
 
   const scopeSchema = { moduleId, exports };

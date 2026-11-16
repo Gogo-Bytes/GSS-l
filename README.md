@@ -57,6 +57,10 @@ Playground 的 dev、构建、预览及类型检查由 `@gss-l/playground` 工�
 
 React Router Framework Mode 的真实 SSR 外部验收：`corepack pnpm framework-ssr:check`。通过公共 `virtual:gss.css?url` 与框架正常 `links()` 连接 aggregate CSS；版本、接入步骤及 Chromium 有界范围见 [Framework SSR 验收](docs/FRAMEWORK-SSR-ACCEPTANCE.md)。
 
+## 生成名称
+
+宿主开发模式生成属性／值可读标签加短摘要，生产构建生成九字符 hash 名称。独立 Compiler 可设置 `namingMode: 'development' | 'production'`，默认开发。SSR 与客户端必须使用相同模式；不要将开发服务器生成的 HTML 与生产 CSS 混用。名称不承诺携带来源信息，定位使用 source map／manifest origins；检测到不同身份同名时构建失败，不静默合并。详见[命名契约](docs/PROPERTY-ORDER-DESIGN.md#开发生产命名2026-11-14-owner-决定)。
+
 ## 使用边界
 
 这是有明确准入与 fallback 契约的实现，不是“任意 CSS 都能安全原子化”的承诺。普通场景使用独立编写的原生 CSS 对照；GSS 所有权／结构语义允许与原生 source order 不同，应使用明确的 GSS 预期。

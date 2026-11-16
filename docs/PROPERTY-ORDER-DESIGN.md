@@ -18,23 +18,23 @@ GSS 将样式编译为可复用的 atom class，并允许同一模块的多个 s
 
 对于 `:is(.flag)`、`:not(.flag)` 等包含本地类的状态，atom 身份还包含渲染 selector 时实际引用的 scope marker，按首次引用顺序记录。两个模块各自声明的 `.flag` 绑定不同；即使函数源码和声明值相同，也必须分开生成。目标路径本身不额外参与这项判断。同一模块引用相同 marker 时仍按原有条件复用，纯全局条件和不引用本地 marker 的状态沿用原身份。
 
-无层声明在编译器中使用 `null`，具名层使用完整层名。普通无层 atom 继续编码为 `layer_unlayered`，真正名为 `unlayered` 的层编码为 `named-layer_unlayered`；其他具名层沿用现有命名。层内筛选、marker、CSS wrapper 和资源归属都应根据实际层判断，普通与 important 的跨层覆盖交给浏览器。
+无层声明在编译器中使用 `null`，具名层使用完整层名。内部规范身份中，普通无层 atom 编码为 `layer_unlayered`，真正名为 `unlayered` 的层编码为 `named-layer_unlayered`；输出名称使用下述分模式短名。层内筛选、marker、CSS wrapper 和资源归属都应根据实际层判断，普通与 important 的跨层覆盖交给浏览器。
 
-## 开发／生产命名方向（2026-11-14 owner 决定，尚未实施）
+## 开发／生产命名（2026-11-14 owner 决定）
 
 负责人调整 [#40](https://github.com/Gogo-Bytes/GSS-l/issues/40) 的目标：生产环境默认采用 hash 短名称，以空间优化为目标，不在名称中保留可读语义或模块定位信息。开发环境采用负责人随后确认的“属性和值 + 短区分码”形式，例如 `g-color-red-k3p`（仅示意，不代表摘要长度）。可读部分表达声明，不承担身份唯一性或来源定位；复杂值的标签裁剪与编码由命名实现处理。这不引入 Tailwind 作者语法、预设样式体系或依赖。业务源码继续使用现有 scope 引用。
 
 名称不再承担样式来源定位。优先复用已有 CSS source map 和 manifest origins：前者表示一个稳定主来源，后者记录共享 atom 的全部来源；具体开发查询入口尚未决定，不预设 DevTools 插件或新增公开接口。生产 class 不为调试增加字符或要求随运行产物携带来源表；现有 source map 交付仍服从宿主设置，不因短名方向擅自改变。
 
-短名只是语义身份的输出表示，不能删掉决定复用与竞争的 layer、condition、state、importance、rank/orderSlot 或必要关系绑定。相同声明在不同竞争位置可能需要不同身份，不能仅 hash `property:value`。碰撞不能静默合并样式；名称分配必须保持相同输入下的确定性和 SSR／客户端一致，不依赖模块遍历顺序、绝对机器路径或随机值。hash 算法、编码、长度和碰撞处置尚未确定。现有宿主先发布局部编译导出，再进行全图重放，因此不宜在发现碰撞后临时改名：这会使已生成的 JS 与最终 CSS 不一致。建议检测到不同完整身份使用同一短名时拒绝本次发布，并沿用既有失败保留行为，而非依赖遍历顺序追加编号；负责人已确认这项失败兜底；随后授权调研业界更短、利于压缩的分配与碰撞方案，自动重命名仍不是已批准实现。
+短名只是语义身份的输出表示，不能删掉决定复用与竞争的 layer、condition、state、importance、rank/orderSlot 或必要关系绑定。相同声明在不同竞争位置可能需要不同身份，不能仅 hash `property:value`。碰撞不能静默合并样式；名称分配必须保持相同输入下的确定性和 SSR／客户端一致，不依赖模块遍历顺序、绝对机器路径或随机值。负责人已批准固定 48-bit 摘要、base64url 和单字母前缀，碰撞明确失败；实现采用 SHA-256 前六字节，不引入 hash 依赖或速度承诺。现有宿主先发布局部编译导出，再进行全图重放，因此不宜在发现碰撞后临时改名：这会使已生成的 JS 与最终 CSS 不一致。建议检测到不同完整身份使用同一短名时拒绝本次发布，并沿用既有失败保留行为，而非依赖遍历顺序追加编号；负责人已确认这项失败兜底；随后授权调研业界更短、利于压缩的分配与碰撞方案，自动重命名仍不是已批准实现。
 
-当前实现仍统一生成长名称。`NameAllocatorPort` 提供命名接缝，但 Vite 的纯 atom HMR 交接仍解析长名前缀和 rank/order 后缀；实施时必须改为消费明确的语义信息，保留现有交接、回收及失败恢复契约，不能只替换名称函数。所有宿主和局部编译／全图重放需采用一致模式，负责人已确认宿主按自身开发／生产模式自动选择，插件不增加重复开关；Compiler 独立调用允许指定命名模式并默认开发。语义信息与来源定位信息分开，不把调试需求再次塞回名称。
+当前实现由 `NameAllocatorPort` 生成分模式名称。Vite 的纯 atom HMR 交接改为读取 manifest 的 `flatAtom` 资格及 rank/orderSlot，不再解析输出名字；原有交接、回收及失败恢复契约不变。所有宿主和局部编译／全图重放需采用一致模式，负责人已确认宿主按自身开发／生产模式自动选择，插件不增加重复开关；Compiler 独立调用允许指定命名模式并默认开发。语义信息与来源定位信息分开，不把调试需求再次塞回名称。
 
 不再以前置的普通 CSS／GSS 全面对照来决定是否接受此方向，也不恢复 #35 的耗时 profiling。实施验证仍须检查现有用例产物的前后体积及必要正确性回归；原始字符缩短不等于 gzip／Brotli 净收益。此阶段先记录方向和源码核查，未实施命名变化；随后授权的命名专项调研见下，不扩展为通用性能分析。
 
 ### 命名压缩与碰撞调研（2026-11-14）
 
-**结论与建议，尚非算法决定。** 优先考虑固定 48-bit 摘要、base64url 编码，前置一个合法标识符字母，共 9 字符；保留全图碰撞检测与明确失败。不要为了压缩改 CSS 输出顺序，也不先引入全局频率命名。更短 hash 可以减少字节，但需要接受更高的偶发失败概率或新增全局分配阶段。hash 算法暂未选定；下述字节实验统一用 SHA-256 截断，只比较表示方式，不比较 hash 速度。
+**调研建议已获负责人同意，具体实现见下节。** 优先考虑固定 48-bit 摘要、base64url 编码，前置一个合法标识符字母，共 9 字符；保留全图碰撞检测与明确失败。不要为了压缩改 CSS 输出顺序，也不先引入全局频率命名。更短 hash 可以减少字节，但需要接受更高的偶发失败概率或新增全局分配阶段。调研时尚未选定 hash 算法；下述字节实验统一用 SHA-256 截断，只比较表示方式，不比较 hash 速度。实际实现见下节。
 
 #### 业界一手实现
 
@@ -86,6 +86,26 @@ GSS 将样式编译为可复用的 atom class，并允许同一模块的多个 s
 压缩的关键是重复串和符号分布，而非 hash 字典序本身。[DEFLATE](https://www.rfc-editor.org/rfc/rfc1951.html#section-3.2) 组合 LZ77 与 Huffman 编码；[Brotli](https://www.rfc-editor.org/rfc/rfc7932.html#section-7) 还使用上下文建模与静态字典。规则输出仍必须遵守排序契约；只能讨论不改变语义的名称分配顺序，不能按 hash／压缩收益重排有竞争的 CSS。这里没有测 hash 计算耗时、构建加速或端到端加载时间，不作速度排名。
 
 本机一手源码快照、commit SHA 和脚本位于 `artifacts/issue-40-naming-research/`：`fetch-sources.py`、`sources.json`、`compare-names.mjs`、`compression-results.json`、`compression-final.log` 及两份原始／48-bit 改名产物。初次高频编号对照因新名字与已有文本重名而被断言拒绝，保留 `compression.log`，修正为跳过占用名字后通过；没有将失败候选计入结果。未运行浏览器或 Firefox Article，未改变产品命名。
+
+### 短名实现与验证
+
+- 独立 Compiler 使用 `namingMode: 'development' | 'production'`，默认 development。Vite 按 serve/build，webpack／Rspack 按 development／其他 mode 自动选择；Rsbuild 沿用 Rspack。SSR 与客户端必须使用相同命名模式，不能用开发 `ssrLoadModule` 生成的 HTML 搭配生产 CSS。
+- 生产名为 `g` 加 SHA-256 前六字节的 base64url，共九字符。开发 atom 为 `g-<property>-<value>-<digest>`；每段标签把非字母数字连字符替换为连字符并截到 32 字符。marker 使用 scope/subject/observed/target/context 标签，关键帧使用 keyframes 标签。标签不承担唯一性，source map／manifest origins 仍承担定位。
+- 既有无损长名编码保留为内部规范身份和稳定排序尾键，不再直接输出。引用的局部 marker／关键帧先还原完整身份再摘要，避免模式影响下游身份。scope class 列表和最终规则尾键按规范身份排序，绝不按 hash 排序；原排序、复用和 selector 强度不变。
+- 每次候选贡献使用独立名称登记表。session 用完整身份及 owner 集合核对所有已提交模块，包含待替换旧版本，防止开发更新时新旧身份占用同名。同身份共享允许；不同身份报 `GSS1402`，失败不更新 generation、schema 或 CSS，也不保留候选占用。成功替换／invalidate 释放不再使用的名字。
+- 检测包括各生成角色、GSS 源码中已知 `:global()` class 及非局部动画引用。不声称扫描其他普通 CSS、运行时 class 或独立构建的产物；这些不在同一会话的完整集合中。不会为了避碰撞自动延长或重编号。
+- 新回归直接检查九字符名称、SHA-256 向量、完整身份碰撞注入、跨模块共享和回收、失败回滚、不同模式依赖身份、模块遍历和机器路径一致性。旧语义断言通过测试专用身份视图读取真实短名对应的规范身份，未修改历史排序 oracle；source map 位置测试仍直接使用公共短名输出。
+
+本次 `corepack pnpm verify`（lint/build/2671 tests/typecheck）通过；默认 Chromium 浏览器脚本通过 128 fixtures、1289 comparisons、38 controls，以及 Vite host、生产 SSG hydration、多页 lazy/hydration/state 控制。保留早期失败和超时记录，最终证据在 `artifacts/issue-40-naming/browser-fourth.json`、`verify-final.log`。另外 `corepack pnpm vite-template:check` 的外部 tarball 消费、开发更新／失败恢复／scope 形状及生产检查通过，证据 `artifacts/vite-template/2026-11-16T03-24-38.432Z/`；复用该 consumer 运行 `handoff-retirement.mjs`，真实 React HMR 的改名交接／回收及迟到请求验证通过，证据 `artifacts/issue-33-handoff/2026-11-16T03-25-15.933Z/`。未运行 Firefox Article、其他浏览器、独立评审或耗时 profiling。
+
+重新构建既有 Task-board 和 Article 后，按调研相同参数逐文件测量 CSS+JS+HTML，未计 map/manifest/HTTP 头/SSR HTML；基线为调研保存的原始产物，不是本轮重新构建旧提交：
+
+| 产物 | raw 前 → 后 | gzip 前 → 后 | Brotli 前 → 后 |
+| --- | --- | --- | --- |
+| Task-board | 285,365 → 249,445 | 80,381 → 79,557 | 69,081 → 68,396 |
+| Article | 278,524 → 245,856 | 80,200 → 79,612 | 68,486 → 68,047 |
+
+Node 22.22.3、zlib 1.3.1-e00f703、Brotli 1.1.0；gzip level 9、Brotli quality 11/text。可重复脚本和结果为 `artifacts/issue-40-naming/measure.mjs`、`actual-sizes.json`，不是速度测量或所有项目收益保证。
 
 ## 复合属性先展开
 
@@ -266,7 +286,7 @@ Tailwind 参考：[margin utilities](https://tailwindcss.com/docs/margin)、[冲
 
 `fixed-module-ranks.ts` 对需要排序的 occurrence 返回 `{ atomRank, orderSlot }`，无竞争族版本的 occurrence 仍不附加二者。两个数都在现有 layer／condition／pseudo subject／importance 上下文内规划；原生 specificity 和 importance 仍由生成的 selector／声明交给浏览器处理。
 
-1. **输出位置 `orderSlot`**：保留原 effect 竞争族及 `semanticOrderHeights` 证明，按语义高度 → 固定逻辑／物理 priority → authored rule ordinal／声明下标排列，相等元组共享一个位置。此数是输出投影，不是 CSS 属性的等级；同 priority 的未展开 shorthand／longhand 仍按源码顺序排列。最终比较器依次比较 layer、conditions、`orderSlot`、既有 `relationRank`、属性 render key 和 class 名。
+1. **输出位置 `orderSlot`**：保留原 effect 竞争族及 `semanticOrderHeights` 证明，按语义高度 → 固定逻辑／物理 priority → authored rule ordinal／声明下标排列，相等元组共享一个位置。此数是输出投影，不是 CSS 属性的等级；同 priority 的未展开 shorthand／longhand 仍按源码顺序排列。最终比较器依次比较 layer、conditions、`orderSlot`、既有 `relationRank`、属性 render key 和规范名称身份（不比较输出 hash）。
 2. **同属性版本 `atomRank`**：遍历上述序列时，每个属性有自己的计数器，只有该属性的语义／声明顺序元组改变才递增；遇到其他属性不会递增。相同 tuple 的 selector-list 分支保持同版本。编号在复用前分配，复用后不重编号其他声明。`relationRank` 仍是既有结构输出的补充顺序，不是这个属性内版本。
 3. **复用和生成身份**：沿用原完整连续桶的证明，只有整个桶满足原安全条件时一起复用最早的 `atomRank` 与 `orderSlot`。纯 atom class 编码两者；contextual／observed 声明的汇总 key 也保留两者。最终比较器不读取 `atomRank`，不同属性局部数值不发生比较。
 

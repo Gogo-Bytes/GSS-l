@@ -18,7 +18,8 @@ export function gss({ adapter }: GssOptions): RspackPluginInstance {
   if (!adapter) throw new Error('gss({ adapter }) requires an explicit framework Adapter.');
   return { apply(compiler) {
     installCssIsolation(compiler, path.join(compiler.context, '.gss-internal/aggregate.css'));
-    installMainCompilation(compiler, { config: { projectRoot: compiler.context }, adapter,
+    installMainCompilation(compiler, { config: { projectRoot: compiler.context,
+      namingMode: compiler.options.mode === 'development' ? 'development' : 'production' }, adapter,
       read: (id, compilation) => readStylesheetInput(compiler, compilation, id),
       finalize: { resolveAssetUrl: identity => stylesheetAssetUrl(compiler.context, identity) } });
   } };

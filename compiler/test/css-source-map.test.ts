@@ -248,7 +248,7 @@ it('maps preserved and resource blocks without borrowing unrelated Module origin
   expect(originalPositionFor(map, generatedPosition(snapshot.css, 'url(demo.woff2);'))).toMatchObject({
     source: 'z.gss', line: 1, column: resource.indexOf('url(demo.woff2);')
   });
-  expect(originalPositionFor(map, generatedPosition(snapshot.css, '.gss-s--module_p_2e_gss--path_icon'))).toMatchObject({
+  expect(originalPositionFor(map, generatedPosition(snapshot.css, '.' + session.getScopeSchema('/project/p.gss')!.exports.icon!.selfClassName))).toMatchObject({
     source: 'p.gss', line: 1, column: preserved.indexOf('.icon')
   });
   expect(originalPositionFor(map, generatedPosition(snapshot.css, 'color: blue;'))).toMatchObject({

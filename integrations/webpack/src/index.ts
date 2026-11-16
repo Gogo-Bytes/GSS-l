@@ -35,7 +35,8 @@ export type GssOptions = { adapter: GssSourceAdapter };
 export function gss({ adapter }: GssOptions): WebpackPluginInstance {
   if (!adapter) throw new Error('gss({ adapter }) requires an explicit framework Adapter.');
   return { apply(compiler) {
-    const main = installMainCompilation(compiler, { config: { projectRoot: compiler.context }, adapter,
+    const main = installMainCompilation(compiler, { config: { projectRoot: compiler.context,
+      namingMode: compiler.options.mode === 'development' ? 'development' : 'production' }, adapter,
       read: (id, compilation) => readStylesheetInput(compiler, compilation, id),
       finalize: { resolveAssetUrl: identity => stylesheetAssetUrl(compiler.context, identity) } });
     installCssIsolation(compiler, () => main.aggregateId);

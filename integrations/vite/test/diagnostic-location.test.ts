@@ -322,7 +322,7 @@ export const Card = () => <div className={[styles.card, other.other].join(' ')} 
   const chunk = output.output.find((item) => item.type === 'chunk')!;
   if (chunk.type !== 'chunk') throw new Error('Expected JS output.');
   const built = await import(`data:text/javascript;base64,${Buffer.from(chunk.code).toString('base64')}`);
-  expect(built.classes).toEqual(runtime.classes);
-  expect(built.Card().className).toBe(runtime.classes.join(' '));
+  expect(built.classes).toEqual(runtime.classes.map((name: string) => `g${name.slice(-8)}`));
+  expect(built.Card().className).toBe(built.classes.join(' '));
   expect(output.output.some((item) => item.type === 'asset' && item.fileName.endsWith('.css'))).toBe(true);
 });

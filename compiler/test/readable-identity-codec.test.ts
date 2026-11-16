@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { createGssCompilerSession } from '../src/index.js';
+import { createIdentityViewSession as createGssCompilerSession } from './identity-view-session.js';
 import {
   createReadableAtomicName, createReadableContextMarker, createReadableHasSubjectMarker,
   createReadableKeyframesName, createReadableObservedMarker, createReadableScopeMarker,

@@ -31,7 +31,7 @@ export function gss({ adapter }: GssOptions): Plugin[] {
   let publicDir = '';
   let compatibilityStages: GssCompilerConfig['compatibilityTargetStages'];
   let compatibilityError: string | undefined;
-  const newSession = () => createGssCompilerSession({ projectRoot,
+  const newSession = () => createGssCompilerSession({ projectRoot, namingMode: development ? 'development' : 'production',
     ...(compatibilityStages ? { compatibilityTargetStages: compatibilityStages } : {}) });
   let development = false;
   let devServer: ViteDevServer | undefined;

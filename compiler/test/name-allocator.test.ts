@@ -8,10 +8,10 @@ it('routes generated names through the injected allocator without changing the s
   const compiler = createCompilerSession(
     { projectRoot: '/project' },
     { parseStylesheet },
-    {
+    () => ({
       ...defaults,
       createAtomicName: () => 'test-atomic-name'
-    }
+    })
   );
 
   const result = compiler.replaceStylesheet({
@@ -44,7 +44,7 @@ it('routes resource, preserved, and contextual marker names through the allocato
   const compiler = createCompilerSession(
     { projectRoot: '/project' },
     { parseStylesheet },
-    {
+    () => ({
       ...defaults,
       createKeyframesName: () => 'test-keyframes',
       createScopeMarker: () => 'test-scope',
@@ -52,7 +52,7 @@ it('routes resource, preserved, and contextual marker names through the allocato
       createTargetMarker: () => 'test-target',
       createHasSubjectMarker: () => 'test-has-subject',
       createObservedMarker: () => 'test-observed'
-    }
+    })
   );
 
   expect(compiler.replaceStylesheet({

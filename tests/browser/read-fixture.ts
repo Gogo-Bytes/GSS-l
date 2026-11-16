@@ -166,7 +166,6 @@ export async function readDocument(fixture: Fixture, side: 'reference' | 'atomic
     const sheet = style.sheet!;
     const index = [...sheet.cssRules].findIndex((item) =>
       item instanceof (frame.contentWindow as Window & typeof globalThis).CSSStyleRule &&
-      (item as CSSStyleRule).selectorText.includes('--residual_button') &&
       (item as CSSStyleRule).selectorText.includes(':has(button)'));
     const rule = sheet.cssRules[index] as CSSStyleRule | undefined;
     if (index < 0 || !rule) throw new Error('Type-only control requires one emitted button branch');
@@ -179,7 +178,7 @@ export async function readDocument(fixture: Fixture, side: 'reference' | 'atomic
     const sheet = style.sheet!;
     const rule = [...sheet.cssRules].map((item, index) => ({ item, index })).find(({ item }) =>
       item instanceof (frame.contentWindow as Window & typeof globalThis).CSSStyleRule &&
-      (item as CSSStyleRule).selectorText.includes('--observed_error') &&
+      (item as CSSStyleRule).selectorText.includes('.g-observed-') &&
       (item as CSSStyleRule).style.color === 'red' &&
       (item as CSSStyleRule).selectorText.slice(0, (item as CSSStyleRule).selectorText.indexOf(':has(')).split('.').filter(Boolean).length === 3
     );
@@ -199,7 +198,7 @@ export async function readDocument(fixture: Fixture, side: 'reference' | 'atomic
   if (corrupt === 'has-specificity') {
     const sheet = style.sheet!;
     const index = [...sheet.cssRules].findIndex((rule) => rule instanceof (frame.contentWindow as Window & typeof globalThis).CSSStyleRule &&
-      (rule as CSSStyleRule).selectorText.includes('--observed_error') && (rule as CSSStyleRule).selectorText.includes(':has(:where('));
+      (rule as CSSStyleRule).selectorText.includes('.g-observed-') && (rule as CSSStyleRule).selectorText.includes(':has(:where('));
     const rule = sheet.cssRules[index] as CSSStyleRule | undefined;
     if (index < 0 || !rule) throw new Error('Specificity control requires the lower :has() list branch');
     const separator = rule.selectorText.indexOf(':has(');
@@ -243,7 +242,7 @@ export async function readDocument(fixture: Fixture, side: 'reference' | 'atomic
     // Collapse only the final ownership-descendant edge in the deeper chain.
     const sheet = style.sheet!;
     const index = [...sheet.cssRules].findIndex((rule) => rule instanceof (frame.contentWindow as Window & typeof globalThis).CSSStyleRule &&
-      (rule as CSSStyleRule).selectorText.includes('--position_2--') && (rule as CSSStyleRule).style.color === 'red');
+      (rule as CSSStyleRule).selectorText.includes('.g-context-') && (rule as CSSStyleRule).style.color === 'red');
     const rule = sheet.cssRules[index] as CSSStyleRule | undefined;
     if (index < 0 || !rule) throw new Error('Deep ownership control requires the red position-2 rule');
     const selector = rule.selectorText;
@@ -295,7 +294,7 @@ export async function readDocument(fixture: Fixture, side: 'reference' | 'atomic
   }
   if (corrupt === 'scope-source-alias') {
     const sourceMarker = fixture.atomic.scopeSchemas['Alias.gss']?.exports['a.b']?.selfClassName
-      .split(' ').find((name) => name.startsWith('gss-s--'));
+      .split(' ').find((name) => name.startsWith('g-scope-'));
     const nested = doc.getElementById('alias-b');
     if (!sourceMarker || !nested || nested.classList.contains(sourceMarker)) {
       throw new Error('Scope/source alias control requires two initially distinct owned marker identities');

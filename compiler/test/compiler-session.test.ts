@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createGssCompilerSession } from '../src/index.js';
+import { createIdentityViewSession as createGssCompilerSession } from './identity-view-session.js';
 
 const colorRedClass =
   'gss-a--layer_unlayered--condition_base--state_self--property_color--value_red--importance_normal';

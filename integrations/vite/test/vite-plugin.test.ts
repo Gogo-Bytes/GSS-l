@@ -93,8 +93,8 @@ it('fails a hard replacement without losing the committed schema or masking the 
   await expect(container.transform(source, `${root}/Card.tsx`)).rejects.toThrow();
   expect(resolveSchema!('./Card.gss')).toEqual(committedSchema);
   await writeFile(join(root, 'Card.gss'), '.card { color: blue; }');
-  expect(await container.load(virtualId)).toContain('value_blue');
-  expect(resolveSchema!('./Card.gss')?.exports.card?.selfClassName).toContain('value_blue');
+  expect(await container.load(virtualId)).toContain('g-color-blue-');
+  expect(resolveSchema!('./Card.gss')?.exports.card?.selfClassName).toContain('g-color-blue-');
 });
 
 it('leaves unknown scope paths available for runtime undefined behavior', async () => {
@@ -118,7 +118,7 @@ it('requires an explicit Adapter and can compose a non-React Adapter', async () 
     }
   });
   await writeFile(join(root, 'Card.view'), 'view source');
-  expect((await server.transformRequest('/Card.view'))?.code).toContain('value_red');
+  expect((await server.transformRequest('/Card.view'))?.code).toContain('g-color-red-');
 });
 
 it('canonicalizes aliases and symlinks and round-trips spaces, Unicode and percent signs', async () => {
@@ -131,7 +131,7 @@ it('canonicalizes aliases and symlinks and round-trips spaces, Unicode and perce
   expect(direct?.id).toBe(`\0gss-l:${root}/${filename}`);
   expect((await container.resolveId(`@/${filename}`, importer))?.id).toBe(direct?.id);
   expect((await container.resolveId('./linked.gss', importer))?.id).toBe(direct?.id);
-  expect(await container.load(direct!.id)).toContain('value_blue');
+  expect(await container.load(direct!.id)).toContain('g-color-blue-');
 });
 
 it('builds static GSS JavaScript without adding a GSS runtime or per-file declaration', async () => {
@@ -148,7 +148,7 @@ it('builds static GSS JavaScript without adding a GSS runtime or per-file declar
   expect(result.output.some((entry) => entry.fileName.endsWith('.d.ts'))).toBe(false);
   const chunk = chunks[0];
   if (chunk?.type !== 'chunk') throw new Error('Expected a JavaScript chunk.');
-  expect(chunk.code).toContain('value_red');
+  expect(chunk.code).toContain('gZaFa4tBh');
   expect(chunk.code).not.toMatch(/gss-l:|\.gss|Proxy|import /);
 });
 
@@ -200,7 +200,7 @@ it('compiles root-external imports, aliases and symlinks with one relative logic
     expect((await container.resolveId(specifier, `${root}/Card.tsx`))?.id).toBe(`\0gss-l:${physicalId}`);
   }
   expect(await container.load(`\0gss-l:${physicalId}`)).toBe(
-    'const card = { $class: "gss-s--module__2e__2e__2f_shared_2f_Card_2e_gss--path_card" };\n' +
+    'const card = { $class: "g-scope-HjvPH8yi" };\n' +
     'export default { card };\n'
   );
 });

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createCompilerSession } from '../src/application/compiler-session.js';
 import type { CssParserPort, ParsedStylesheet } from '../src/application/css-parser-port.js';
 
-const redClass = 'gss-a--layer_unlayered--condition_base--state_self--property_color--value_red--importance_normal';
+const redClass = 'g-color-red-ZaFa4tBh';
 
 describe('internal CssParserPort session seam', () => {
   it('uses a range-bearing parser contribution for replace/finalize, retaining it on port diagnostics', () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createGssCompilerSession } from '../src/index.js';
+import { createIdentityViewSession as createGssCompilerSession } from './identity-view-session.js';
 
 const id = '/project/Motion.gss';
 const media = ['(max-width: 400px)', '(min-width: 401px)', '(min-width: 400px)',

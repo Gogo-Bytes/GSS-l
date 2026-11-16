@@ -29,6 +29,7 @@
   },
   "devDependencies": {
     "@jridgewell/trace-mapping": "^0.3.31",
-    "@types/css-tree": "^2.3"
+    "@types/css-tree": "^2.3",
+    "@types/node": "22.20.4"
   }
 }

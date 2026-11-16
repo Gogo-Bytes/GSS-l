@@ -28,6 +28,7 @@ export type PlannedDeclaration = {
   kind: 'pure-atom' | 'contextual-atom';
   identity: PureDeclarationIdentity | ContextualDeclarationIdentity | ObservedDeclarationIdentity;
   className: string;
+  orderKey?: string;
   selector: string;
   wrappers?: readonly ParsedCondition[];
   layer?: string | null;

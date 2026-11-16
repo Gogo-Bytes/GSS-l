@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createGssCompilerSession } from '../src/index.js';
+import { createIdentityViewSession as createGssCompilerSession } from './identity-view-session.js';
 
 const forward = '.button:hover { background-color: red; } .button[aria-pressed="true"] { background-color: blue; }';
 const reverse = '.button[aria-pressed="true"] { background-color: blue; } .button:hover { background-color: red; }';

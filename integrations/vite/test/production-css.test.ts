@@ -95,7 +95,7 @@ it('renders optional scopes and shadowed string props using their lexical types'
     logLevel: 'silent', server: { middlewareMode: true } });
   try {
     const { App, expected } = await server.ssrLoadModule('/App.tsx');
-    expect(expected).toMatch(/^gss-/);
+    expect(expected).toMatch(/^g-color-red-[\w-]{8}$/);
     expect(renderToString(createElement(App))).toBe(
       '<div></div><div></div>' + `<div class="${expected}"></div>`.repeat(2) +
       '<b class="plain"></b><i class="plain"></i>');
@@ -121,7 +121,7 @@ it('renders both the selected scope and its child from one immutable alias', asy
     logLevel: 'silent', server: { middlewareMode: true } });
   try {
     const { App, expected } = await server.ssrLoadModule('/App.tsx');
-    expect(expected).toEqual([expect.stringMatching(/^gss-/), expect.stringMatching(/^gss-/)]);
+    expect(expected).toEqual([expect.stringMatching(/^g-color-red-/), expect.stringMatching(/^g-color-blue-/)]);
     expect(renderToString(createElement(App))).toBe(`<div class="${expected[0]}"><span class="${expected[1]}"></span></div>`);
   } finally {
     await server.close();
@@ -138,15 +138,13 @@ it('links a Vite-managed SSG React render to the same production CSS and class n
       import { App } from './App'; hydrateRoot(document.getElementById('app')!, <App />);`
   });
   await symlink(join(process.cwd(), 'node_modules'), join(root, 'node_modules'), 'dir');
-  const server = await createServer({ root, configFile: false, plugins: [gss({ adapter: react() })],
-    logLevel: 'silent', server: { middlewareMode: true } });
-  let rendered: string;
-  try {
-    const { App } = await server.ssrLoadModule('/entry-server.tsx');
-    rendered = renderToString(createElement(App));
-  } finally {
-    await server.close();
-  }
+  const ssr = await bundle(root, { build: { ssr: 'entry-server.tsx' } });
+  const serverChunk = ssr.output.find(entry => entry.type === 'chunk');
+  if (serverChunk?.type !== 'chunk') throw new Error('Missing SSR entry.');
+  const serverFile = join(root, 'server.mjs');
+  await writeFile(serverFile, serverChunk.code);
+  const { App } = await import(serverFile);
+  const rendered = renderToString(createElement(App));
   const output = await bundle(root);
   const manifest = JSON.parse(asset(output, 'gss-manifest.json'));
   const html = asset(output, 'index.html').replace('<!--ssg-->', rendered);
@@ -198,7 +196,9 @@ it.each([
     'Card.gss': '@keyframes ease { to { opacity: 1; } } .card { animation-name: ease; animation-duration: 2s; }'
   }));
   const css = asset(accepted, JSON.parse(asset(accepted, 'gss-manifest.json')).cssAsset);
-  expect(css).toContain('animation-name: gss-k--module_Card_2e_gss--name_ease;');
+  const keyframe = /@keyframes (g[\w-]{8})/.exec(css)?.[1];
+  expect(keyframe).toBeTruthy();
+  expect(css).toContain(`animation-name: ${keyframe};`);
 });
 
 it('links the emitted CSS to a map with original GSS contents and logical source ids', async () => {
@@ -457,7 +457,7 @@ it('uses the compiled source snapshot rather than rereading files at generateBun
   const manifest = JSON.parse(asset(output, 'gss-manifest.json'));
   expect(asset(output, manifest.cssAsset)).toContain('color: red;');
   expect(asset(output, manifest.cssAsset)).not.toContain('color: blue;');
-  expect(output.output.some((entry) => entry.type === 'chunk' && entry.code.includes('value_red'))).toBe(true);
+  expect(output.output.some((entry) => entry.type === 'chunk' && entry.code.includes(manifest.compiler.rules.find((rule: { property: string }) => rule.property === 'color').className))).toBe(true);
 });
 
 it('keeps CSS and both JSON artifacts byte-stable across workspace relocation', async () => {

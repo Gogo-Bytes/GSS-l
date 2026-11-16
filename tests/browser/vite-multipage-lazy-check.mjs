@@ -3,7 +3,8 @@
 import { mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { build, createServer, normalizePath, preview } from 'vite';
+import { build, normalizePath, preview } from 'vite';
+import { pathToFileURL } from 'node:url';
 import { createElement } from 'react';
 import { renderToString } from 'react-dom/server';
 import postcss from 'postcss';
@@ -70,15 +71,13 @@ export async function checkViteMultipageLazy(browser) {
     await writeFile(join(root, 'First.gss'), '.main { color: red; } .main[data-active="yes"] { color: purple; }');
     await writeFile(join(root, 'Second.gss'), '.main { color: blue; } .main[data-active="yes"] { color: purple; }');
     await writeFile(join(root, 'Lazy.gss'), '.lazy { background-color: green; }');
-    const ssrServer = await createServer({ root, configFile: false, plugins: [gss({ adapter: react() })],
-      logLevel: 'silent', server: { middlewareMode: true } });
-    let rendered;
-    try {
-      const { App } = await ssrServer.ssrLoadModule('/App.tsx');
-      rendered = renderToString(createElement(App));
-    } finally {
-      await ssrServer.close();
-    }
+    const ssr = await build({ root, configFile: false, plugins: [gss({ adapter: react() })],
+      logLevel: 'silent', build: { ssr: 'App.tsx', write: false, minify: false,
+        rollupOptions: { output: { entryFileNames: 'server.mjs', chunkFileNames: '[name]-[hash].mjs' } } } });
+    for (const chunk of ssr.output) if (chunk.type === 'chunk') await writeFile(join(root, chunk.fileName), chunk.code);
+    const serverFile = join(root, 'server.mjs');
+    const { App } = await import(pathToFileURL(serverFile).href);
+    const rendered = renderToString(createElement(App));
     await build({ root, configFile: false, plugins: [gss({ adapter: react() })], logLevel: 'silent',
       build: { minify: false, rollupOptions: { input: {
         first: join(root, 'index.html'), second: join(root, 'second.html')
