@@ -29,6 +29,10 @@ GSS 以 CSS 为输入，生成可组合的 scope 引用、原子 CSS 与必要�
 
 ### Scope 输出的职责边界
 
+负责人在 [#42](https://github.com/Gogo-Bytes/GSS-l/issues/42) 的讨论后决定：本阶段不引入消费端使用分析驱动的 scope 裁剪。可达 `.gss` 模块仍按完整输入编译，保留现有声明覆盖消除和 atom 去重，不把它们称为未使用 scope 裁剪。理由是直接引用集合不足以判断规则是否有用：例如 `.title { color: red } .card .title { font-weight: 700 }` 中，只引用 `styles.card.title` 仍需要通用 `.title` 的红色声明。不能因没有直接引用 `styles.title` 就删掉该规则。
+
+本阶段接受文件中未使用 scope 可能保留在产物中，不增加 Adapter 使用集合接口或全项目依赖追踪。实际压缩／传输收益尚未测量；只有负责人明确提出裁剪需求并重新确定范围后才恢复，不自动排期，也不恢复已否决的动态索引用法。基线 `ca5dc7b` 的公共 Compiler／React Adapter 探针已确认上述依赖及未使用 `.unused` 规则仍输出，本机证据在 `artifacts/issue-42-scope-pruning/`；这是编译输出核查，不是浏览器或性能验收。本次仅记录决定，没有修改产品。
+
 [scope-exports.ts](../compiler/src/application/scope-exports.ts) 负责按路径汇集贡献规划阶段已经决定的 atom／marker class、形成 scope schema，并生成模块导出及声明类型。它不判断 selector 匹配、决定 marker 触发、剪枝声明、规划排序或选择 fallback；这些决定继续由各自 planner／贡献准备负责。原子化和整模块 preserved 两条路径共用同一输出实现，但两者赋予 scope 的 marker 不因此变成相同语义。
 
 该边界保留既有行为：路径节点与目标按原插入顺序建立，schema 中同一节点的 class 按现有规则排序并去重，代码输出的字段按既有规则排序；selector-list、状态来源和 `:has()` 观察目标的 membership 由调用方按原规则添加。`__proto__`、保留字及生成变量名冲突需要保持可用的自有属性和合法导出；空路径仍是内部不变量错误。移动实现不改变 atom／marker 名称、identity、rank／orderSlot、资源、source map、诊断或 preserved 内容。
