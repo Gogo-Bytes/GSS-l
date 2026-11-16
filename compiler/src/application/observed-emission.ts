@@ -2,7 +2,7 @@ import type { OwnedTargetBinding } from '../domain/order-occurrences.js';
 import type { AtomicEmissionContext } from './atomic-emission-context.js';
 import type { ParsedHasCondition } from '../domain/parsed-stylesheet.js';
 import type { ObservedRelationIdentity } from '../domain/readable-name.js';
-import { identifyAssetValue } from './asset-values.js';
+import { identifyDeclarationValue } from './asset-values.js';
 import { canonicalCondition } from './condition-context.js';
 import { renderNativeSelector, renderObservedCombinator } from './selector-rendering.js';
 import { ensureScopePath } from './scope-exports.js';
@@ -58,7 +58,7 @@ export function emitObservedRules(input: AtomicEmissionContext & {
           kind: 'contextual-atom', className: subjectMarker, selector, wrappers, layer, source: declaration.source,
           identity: { moduleId, layer, condition, subjectPath: targetPath, hasConditions: groups,
             ...moduleOrder.get(declaration, { rule, targetPath }),
-            property: declaration.property, ...identifyAssetValue(declaration.value, bindings),
+            property: declaration.property, ...identifyDeclarationValue(declaration, bindings),
             important: declaration.important }
         });
       }
@@ -94,7 +94,7 @@ export function emitObservedRules(input: AtomicEmissionContext & {
           ...relationIdentity,
           ...(moduleOrder.get(declaration, { rule, targetPath: targetPath, observation }) ?? {}),
           property: declaration.property,
-          ...identifyAssetValue(declaration.value, bindings),
+          ...identifyDeclarationValue(declaration, bindings),
           important: declaration.important
         };
         rules.push({

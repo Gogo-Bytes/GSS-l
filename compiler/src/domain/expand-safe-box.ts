@@ -1,3 +1,4 @@
+import { declarationSequence } from './validate-declarations.js';
 import type { ParsedDeclaration, ParsedStyleRule } from './parsed-stylesheet.js';
 import { propertiesMayOverlapForModuleOrder } from './module-order-policy.js';
 
@@ -38,17 +39,29 @@ const fontLength = /^[+-]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:em|rem)$/i;
 /** Discard only padding declarations proven invalid at parse time. A var()
  * declaration is not invalid until computed-value time and must remain. */
 export function discardInvalidStaticPadding(rules: readonly ParsedStyleRule[]): readonly ParsedStyleRule[] {
+  const filtered = new Map<ParsedDeclaration, readonly ParsedDeclaration[]>();
   return rules.map((rule) => {
-    const declarations = rule.declarations.filter(({ property, value }) => {
-      const max = property === 'padding' ? 4 :
-        property === 'padding-inline' || property === 'padding-block' ? 2 :
-        /^padding-(?:top|right|bottom|left|inline-start|inline-end|block-start|block-end)$/.test(property) ? 1 : 0;
-      if (!max) return true;
-      const values = value.trim().split(/\s+/);
-      if (values.length > max || !values.every((entry) => length.test(entry))) return true;
-      return !values.some((entry) => /px$/i.test(entry) && Number.parseFloat(entry) < 0);
+    const declarations = rule.declarations.flatMap(declaration => {
+      const cached = filtered.get(declaration);
+      if (cached) return cached;
+      const sequence = declarationSequence(declaration);
+      const kept = sequence.filter(({ property, value }) => {
+        const max = property === 'padding' ? 4 :
+          property === 'padding-inline' || property === 'padding-block' ? 2 :
+          /^padding-(?:top|right|bottom|left|inline-start|inline-end|block-start|block-end)$/.test(property) ? 1 : 0;
+        if (!max) return true;
+        const values = value.trim().split(/\s+/);
+        if (values.length > max || !values.every((entry) => length.test(entry))) return true;
+        return !values.some((entry) => /px$/i.test(entry) && Number.parseFloat(entry) < 0);
+      });
+      const last = kept.at(-1);
+      const result = kept.length === sequence.length ? [declaration] : !last ? [] :
+        [{ ...last, ...(kept.length > 1 ? { fallbacks: kept.slice(0, -1).map(({ value, source }) => ({ value, source })) } : {}) }];
+      filtered.set(declaration, result);
+      return result;
     });
-    return declarations.length === rule.declarations.length ? rule : { ...rule, declarations };
+    return declarations.every((declaration, index) => declaration === rule.declarations[index]) &&
+      declarations.length === rule.declarations.length ? rule : { ...rule, declarations };
   });
 }
 
@@ -60,6 +73,8 @@ function expandBox(rules: readonly ParsedStyleRule[], policy: typeof boxExpansio
   const { shorthand, properties, nonnegative, allowPercentage, allowFontLength, allowCrossScope, isolateAliases } = policy;
   const declarations = [...new Set(rules.flatMap((rule) => rule.declarations))];
   const isSide = (property: string) => properties.includes(property);
+  if (declarations.some(declaration => declaration.fallbacks?.length &&
+    propertiesMayOverlapForModuleOrder(declaration.property, shorthand))) return rules;
   // Padding, scroll-padding and border widths require nonnegative values. Keep
   // unsupported values intact rather than partially applying invalid shorthands.
   // Accepted percentages and font lengths remain unevaluated for the browser.

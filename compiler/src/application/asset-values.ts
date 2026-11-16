@@ -1,4 +1,5 @@
 import postcss, { type AnyNode } from 'postcss';
+import type { ParsedDeclaration } from '../domain/parsed-stylesheet.js';
 import { assetOccurrences } from './stylesheet-assets.js';
 
 export type AssetBindings = ReadonlyMap<string, string>;
@@ -23,6 +24,13 @@ export function identifyAssetValue(value: string, bindings: AssetBindings): { va
   const serialized = JSON.stringify(parts).split('').map((character) => character.charCodeAt(0) <= 127
     ? character : `\\u${character.charCodeAt(0).toString(16).padStart(4, '0')}`).join('');
   return { value: serialized, assetValue: true };
+}
+
+export function identifyDeclarationValue(declaration: Pick<ParsedDeclaration, 'value' | 'fallbacks'>, bindings: AssetBindings) {
+  return { ...identifyAssetValue(declaration.value, bindings),
+    ...(declaration.fallbacks?.length ? {
+      fallbackValues: declaration.fallbacks.map(({ value }) => identifyAssetValue(value, bindings))
+    } : {}) };
 }
 
 export function renderAssetValue(value: { value: string; assetValue?: true }, resolve: AssetUrlResolver): string {

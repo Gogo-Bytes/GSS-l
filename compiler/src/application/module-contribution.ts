@@ -17,7 +17,7 @@ import { planModuleRelations } from '../domain/plan-module-relations.js';
 import { discardInvalidStaticPadding, expandSafeBoxRules } from '../domain/expand-safe-box.js';
 import { isPureOwnershipRule } from '../domain/rule-classification.js';
 import { disjointKeyframeWidthBounds } from '../domain/keyframe-condition-exclusivity.js';
-import { validateDeclarationSequences } from '../domain/validate-declarations.js';
+import { groupAdjacentDeclarations, validateDeclarationSequences } from '../domain/validate-declarations.js';
 import { validateLogicalPhysicalConflicts } from '../domain/validate-logical-physical-conflicts.js';
 import type {
   ParsedKeyframesRegistration,
@@ -107,7 +107,7 @@ export function prepareContribution(
     message: 'An animation shorthand word matches both a local keyframe and an animation component keyword or timeline identifier.',
     suggestion: 'Use animation-name for the local keyframe and separate longhands for other animation components.'
   }] };
-  const rewrittenRules = animation.rules;
+  const rewrittenRules = groupAdjacentDeclarations(animation.rules);
   // Preserved/compatibility paths must keep authored declarations intact.
   const atomicRules = !compatibility && rewrittenRules.every((rule) =>
     rule.externalTarget === undefined && rule.externalCondition === undefined &&
@@ -177,7 +177,7 @@ export function prepareContribution(
         ? 'Compatibility transformation cannot preserve this declaration shape.'
         : 'Compatibility transformation changed declaration importance.' }] };
   }
-  const { getPhysicalDeclarations, compatibilityFallback } = compatibilityAnalysis;
+  const { getPhysicalDeclarations, getDeclarationOffsets, compatibilityFallback } = compatibilityAnalysis;
   if (compatibilityFallback.length > 0) {
     // Preserved CSS keeps authored order, so it cannot implement the new fixed
     // logical/physical order. Retain the old conflict guard for this path.
@@ -249,8 +249,9 @@ export function prepareContribution(
 
   return {
     artifact,
-    rules: compatibility ? rules.map((rule) => ({ ...rule,
-      physicalDeclarations: getPhysicalDeclarations(rule.identity)! })) : rules,
+    rules: rules.map((rule) => ({ ...rule,
+      physicalDeclarations: getPhysicalDeclarations(rule.identity)!,
+      declarationOffsets: getDeclarationOffsets(rule.source)! })),
     preservedBlocks: [],
     resources,
     diagnostics: conditionDiagnostics,

@@ -112,7 +112,8 @@ const compilerNames: Record<string, string> = {
   'custom-property-resource': '自定义属性与全局注册', 'font-face': '字体资源的编译结构',
   keyframes: 'Module-local 动画名称与引用', 'conditional-keyframes': '互斥宽度条件下的关键帧',
   compatibility: '目标驱动的兼容声明序列', 'property-fallback': '整 Module 保留回退',
-  'strict-property': '严格模式拒绝未知属性效果', 'duplicate-property': '重复属性：拒绝并保留旧快照',
+  'strict-property': '严格模式拒绝未知属性效果', 'duplicate-property': '非相邻重复属性：拒绝并保留旧快照',
+  'declaration-fallback': '相邻声明组成有序回退原子',
   'local-compound': '拒绝未支持的本地复合类名', 'external-existence': '带锚点的外部属性存在目标',
   'logical-physical-overlap': '同一规则的逻辑与物理长属性按固定顺序输出',
   'multiple-runtime-witnesses': '多个 native runtime relation 与 marker', 'keyword-shorthand': '拒绝有歧义的动画简写'

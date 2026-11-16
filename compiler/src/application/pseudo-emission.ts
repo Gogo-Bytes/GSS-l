@@ -3,7 +3,7 @@ import type { ParsedStyleRule } from '../domain/parsed-stylesheet.js';
 import type { PureDeclarationIdentity } from '../domain/readable-name.js';
 import type { DescendantInstance } from '../domain/plan-descendant-conditions.js';
 import { isPseudoElementRule } from '../domain/rule-classification.js';
-import { identifyAssetValue } from './asset-values.js';
+import { identifyDeclarationValue } from './asset-values.js';
 import { canonicalCondition } from './condition-context.js';
 import { renderStateSuffix } from './selector-rendering.js';
 import { ensureScopePath } from './scope-exports.js';
@@ -38,7 +38,7 @@ export function emitPseudoRules(input: AtomicEmissionContext & {
         ...(stateMarkers.length ? { stateMarkers } : {}),
         ...(moduleOrder.get(declaration, instance) ?? {}),
         property: declaration.property,
-        ...identifyAssetValue(declaration.value, bindings),
+        ...identifyDeclarationValue(declaration, bindings),
         important: declaration.important,
         ...(rule.nodes.length > 1 ? { ownership: { moduleId, path: targetPath, specificity: rule.nodes.length } } : {})
       };

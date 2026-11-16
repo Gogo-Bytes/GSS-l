@@ -343,6 +343,17 @@ it('keeps compatibility fallback isolated while a second Module remains atomic w
     .toEqual(['background-image', 'display']);
 });
 
+it('publishes an authored fallback group as one class with all alternatives intact', async () => {
+  const root = await fixture({ 'Card.gss': '.card { display: block; display: flex; }' });
+  const output = await bundle(root);
+  const manifest = JSON.parse(asset(output, 'gss-manifest.json'));
+  expect(manifest.compiler.rules).toHaveLength(1);
+  const rule = manifest.compiler.rules[0];
+  expect(rule).toMatchObject({ property: 'display', fallbackValues: ['block'], value: 'flex' });
+  expect(asset(output, manifest.cssAsset)).toContain(`.${rule.className} {\n  display: block;\n  display: flex;\n}`);
+  expect(output.output.some(entry => entry.type === 'chunk' && entry.code.includes(rule.className))).toBe(true);
+});
+
 it('includes lazy Modules in one asset and exports matching manifest/report snapshots', async () => {
   const root = await fixture({
     'main.ts': `import styles from './Card.gss'; document.body.className = styles.card; document.body.onclick = () => import('./lazy');`,

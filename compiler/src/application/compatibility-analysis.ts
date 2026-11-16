@@ -1,38 +1,44 @@
-import type { ParsedStyleRule } from '../domain/parsed-stylesheet.js';
+import type { ParsedStyleRule, SourceSpan } from '../domain/parsed-stylesheet.js';
+import type { PureDeclarationIdentity } from '../domain/readable-name.js';
+import { declarationSequence } from '../domain/validate-declarations.js';
 import type { CompatibilityTransformer, PhysicalDeclaration } from './compatibility-transformer.js';
-import { identifyAssetValue, type AssetBindings } from './asset-values.js';
+import { identifyAssetValue, identifyDeclarationValue, type AssetBindings } from './asset-values.js';
 import { assetOccurrences } from './stylesheet-assets.js';
 
-type DeclarationIdentity = { property: string; value: string; assetValue?: true; important: boolean };
+type DeclarationIdentity = Pick<PureDeclarationIdentity, 'property' | 'value' | 'assetValue' | 'fallbackValues' | 'important'>;
 
-function declarationKey({ property, value, assetValue, important }: DeclarationIdentity): string {
-  return JSON.stringify([property, value, assetValue === true, important]);
+function declarationKey({ property, value, assetValue, fallbackValues, important }: DeclarationIdentity): string {
+  return JSON.stringify([property, fallbackValues, value, assetValue === true, important]);
 }
 
-/** Analyze physical declarations without deciding the module's fallback. Shape
- * and asset loss precede importance checks; the caller retains diagnostic and
- * logical/physical conflict precedence. */
+/** Transform each alternative separately so host optimization cannot discard an earlier fallback. */
 export function analyzeCompatibility(
   rules: readonly ParsedStyleRule[], bindings: AssetBindings, compatibility?: CompatibilityTransformer
 ) {
-  const physicalDeclarations = rules.flatMap((rule) => rule.declarations.map((declaration) => ({
-    declaration, physical: compatibility?.expand(declaration)
+  const groups = rules.flatMap(rule => rule.declarations.map(declaration => ({ declaration,
+    alternatives: declarationSequence(declaration).map(authored => ({ authored,
+      physical: compatibility ? compatibility.expand(authored) : [authored] }))
   })));
-  if (compatibility && physicalDeclarations.some(({ declaration, physical }) =>
-    physical === undefined || !physicalAssetsPreserved(declaration.value, physical))) return { error: 'shape' as const };
-  if (compatibility && physicalDeclarations.some(({ declaration, physical }) =>
-    physical?.some((entry) => entry.important !== declaration.important))) return { error: 'importance' as const };
-  const physicalByDeclaration = new Map(physicalDeclarations.filter(({ physical }) => physical !== undefined)
-    .map(({ declaration, physical }) => {
-      const identified = identifyAssetValue(declaration.value, bindings);
-      return [declarationKey({ ...declaration, ...identified }),
-        physical!.map((entry) => ({ ...entry, ...identifyAssetValue(entry.value, bindings) }))] as const;
-    }));
-  const compatibilityFallback = [...new Set(physicalDeclarations.filter(({ declaration, physical }) =>
-    physical?.some((entry) => entry.property !== declaration.property))
-    .map(({ declaration }) => declaration.property))].sort();
-  return { getPhysicalDeclarations: (identity: DeclarationIdentity) => physicalByDeclaration.get(declarationKey(identity)),
-    compatibilityFallback };
+  if (compatibility && groups.some(({ alternatives }) => alternatives.some(({ authored, physical }) =>
+    physical === undefined || !physicalAssetsPreserved(authored.value, physical)))) return { error: 'shape' as const };
+  if (compatibility && groups.some(({ alternatives }) => alternatives.some(({ authored, physical }) =>
+    physical?.some(entry => entry.important !== authored.important)))) return { error: 'importance' as const };
+  const physicalByDeclaration = new Map<string, readonly PhysicalDeclaration[]>();
+  const offsets = new Map<SourceSpan, readonly number[]>();
+  const compatibilityFallback = new Set<string>();
+  for (const { declaration, alternatives } of groups) {
+    const physical = alternatives.flatMap(({ physical }) => physical ?? []);
+    physicalByDeclaration.set(declarationKey({ ...declaration, ...identifyDeclarationValue(declaration, bindings) }),
+      physical.map(entry => ({ ...entry, ...identifyAssetValue(entry.value, bindings) })));
+    offsets.set(declaration.source, alternatives.flatMap(({ authored, physical }) =>
+      (physical ?? []).map(() => authored.source.start)));
+    if (physical.some(entry => entry.property !== declaration.property)) compatibilityFallback.add(declaration.property);
+  }
+  return {
+    getPhysicalDeclarations: (identity: DeclarationIdentity) => physicalByDeclaration.get(declarationKey(identity)),
+    getDeclarationOffsets: (source: SourceSpan) => offsets.get(source),
+    compatibilityFallback: [...compatibilityFallback].sort()
+  };
 }
 
 function physicalAssetsPreserved(authored: string, physical: readonly PhysicalDeclaration[]): boolean {

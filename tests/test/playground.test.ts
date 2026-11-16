@@ -17,7 +17,7 @@ describe('MVP playground catalog', () => {
       expect(fixtures.every((fixture: { name: string; family: string }) => !fixtureTitle(fixture).includes(fixture.name))).toBe(true);
       expect(fixtures.some((fixture: { name: string }) => fixture.name === 'ownership-module-isolation')).toBe(true);
       const { default: cases } = await server.ssrLoadModule('virtual:playground-compiler');
-      expect(cases).toHaveLength(114);
+      expect(cases).toHaveLength(115);
       for (const property of ['box-shadow', 'letter-spacing', 'text-transform', 'outline-offset']) {
         const entry = cases.find((entry: { id: string }) => entry.id === `effect-${property}`);
         expect(entry.module.compilationMode).toBe('atomic');

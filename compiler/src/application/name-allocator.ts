@@ -80,18 +80,20 @@ export function createDefaultNameAllocator(
       return name;
     },
     createAtomicName(identity) {
-      let value = identity.value;
       // Referenced names are presentation; identity and ordering use their full canonical keys.
-      if (/^(?:-webkit-)?animation(?:-name)?$/.test(identity.property) && keyframes.size) {
-        const parsed = valueParser(value);
+      const canonicalValue = (value: { value: string; assetValue?: true }) => {
+        if (value.assetValue || !/^(?:-webkit-)?animation(?:-name)?$/.test(identity.property) || !keyframes.size) return value;
+        const parsed = valueParser(value.value);
         parsed.walk(node => {
           if (node.type === 'function') return false;
           if (node.type === 'word' || node.type === 'string') node.value = keyframes.get(node.value) ?? node.value;
           return undefined;
         });
-        value = parsed.toString();
-      }
+        return { value: parsed.toString() };
+      };
+      const value = canonicalValue(identity).value;
       const canonical = createReadableAtomicName({ ...identity, value,
+        ...(identity.fallbackValues ? { fallbackValues: identity.fallbackValues.map(canonicalValue) } : {}),
         ...(identity.stateMarkers ? { stateMarkers: identity.stateMarkers.map(name => identities.get(name) ?? name) } : {}) });
       return allocate(canonical, `${label(identity.property)}-${label(value)}`);
     },

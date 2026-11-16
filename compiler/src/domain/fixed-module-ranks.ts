@@ -88,7 +88,7 @@ function reuseContiguousPureOrders(family: readonly Occurrence[], heights: Reado
     buckets.set(orderSlot, bucket);
   }
   let previous: { semantic: string; order: DeclarationOrder } | undefined;
-  const semantic = ({ declaration }: Occurrence) => JSON.stringify([declaration.property, declaration.value, declaration.important]);
+  const semantic = ({ declaration }: Occurrence) => JSON.stringify([declaration.property, declaration.fallbacks?.map(({ value }) => value), declaration.value, declaration.important]);
   for (const bucket of buckets.values()) {
     const value = semantic(bucket[0]!);
     // Selector-list branches share tuples, not necessarily eligibility. Never

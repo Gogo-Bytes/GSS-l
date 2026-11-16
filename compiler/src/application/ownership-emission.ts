@@ -4,7 +4,7 @@ import type { ParsedStyleRule } from '../domain/parsed-stylesheet.js';
 import type { ContextualRelationIdentity, PureDeclarationIdentity } from '../domain/readable-name.js';
 import type { DescendantInstance } from '../domain/plan-descendant-conditions.js';
 import type { PlannedOwnershipGroup } from './ownership-planning.js';
-import { identifyAssetValue } from './asset-values.js';
+import { identifyDeclarationValue } from './asset-values.js';
 import { canonicalCondition } from './condition-context.js';
 import { canonicalAttributeCondition, renderAttributeCondition, renderStateSuffix } from './selector-rendering.js';
 import { ensureScopePath } from './scope-exports.js';
@@ -49,7 +49,7 @@ export function emitOwnershipRules(input: AtomicEmissionContext & {
         for (const declaration of instance.declarations) rules.push({
           kind: 'contextual-atom', className: targetMarker, selector, wrappers, layer, relationRank,
           source: declaration.source, identity: { ...relationIdentity, ...(moduleOrder.get(declaration, instance) ?? {}), property: declaration.property,
-            ...identifyAssetValue(declaration.value, bindings), important: declaration.important }
+            ...identifyDeclarationValue(declaration, bindings), important: declaration.important }
         });
       } else {
         const stateMarkers = [...localMarkers];
@@ -58,7 +58,7 @@ export function emitOwnershipRules(input: AtomicEmissionContext & {
             layer, condition, state: attribute ? canonicalAttributeCondition(attribute) : states.join(':') || 'self',
             ...(moduleOrder.get(declaration, instance) ?? {}),
             ...(stateMarkers.length ? { stateMarkers } : {}),
-            property: declaration.property, ...identifyAssetValue(declaration.value, bindings), important: declaration.important,
+            property: declaration.property, ...identifyDeclarationValue(declaration, bindings), important: declaration.important,
             ...(rule.nodes.length > 1 ? { ownership: { moduleId, path: targetPath, specificity: rule.nodes.length } } : {})
           };
           const className = nameAllocator.createAtomicName(identity);
@@ -81,7 +81,7 @@ export function emitOwnershipRules(input: AtomicEmissionContext & {
           state: 'self',
           ...(moduleOrder.get(declaration, { rule, targetPath: target.path }) ?? {}),
           property: declaration.property,
-          ...identifyAssetValue(declaration.value, bindings),
+          ...identifyDeclarationValue(declaration, bindings),
           important: declaration.important
         };
         const className = nameAllocator.createAtomicName(identity);

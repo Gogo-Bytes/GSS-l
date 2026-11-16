@@ -12,6 +12,8 @@ export type ParsedDeclaration = {
   source: SourceSpan;
   property: string;
   value: string;
+  /** Earlier adjacent alternatives; value/source above describe the final declaration. */
+  fallbacks?: readonly { value: string; source: SourceSpan }[];
   important: boolean;
 };
 

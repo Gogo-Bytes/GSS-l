@@ -83,8 +83,10 @@ export const compilerCases: readonly Case[] = [
     source: '.demo { future-property: 1; color: red; }', expected: 'preserved', config: { atomizationFallback: 'preserve-module' } },
   { id: 'strict-property', family: 'safety boundaries', title: 'Strict mode rejects an unknown property effect',
     source: '.demo { future-property: 1; }', expected: 'rejected', config: { atomizationFallback: 'error' } },
-  { id: 'duplicate-property', family: 'safety boundaries', title: 'Authored duplicates reject and retain last-known-good',
-    source: '.demo { color: red; color: blue; }', expected: 'rejected', diagnostic: 'GSS1204' },
+  atomic('declaration-fallback', 'declarations', 'Adjacent alternatives form one ordered atomic class',
+    '.demo { display: block; display: flex; }'),
+  { id: 'duplicate-property', family: 'safety boundaries', title: 'Non-adjacent duplicates reject and retain last-known-good',
+    source: '.demo { color: red; display: block; color: blue; }', expected: 'rejected', diagnostic: 'GSS1204' },
   { id: 'local-compound', family: 'safety boundaries', title: 'Unsupported local compounds fail closed',
     source: '.demo.selected { color: red; }', expected: 'rejected' },
   atomic('external-existence', 'selector syntax', 'Anchored external attribute-presence target',
@@ -125,7 +127,7 @@ function lifecycleEvidence() {
   const shared = session.finalize();
   session.invalidate('/playground/A.gss');
   const oneOwner = session.finalize();
-  const rejected = session.replaceStylesheet({ id: '/playground/B.gss', source: '.demo { color: red; color: blue; }' });
+  const rejected = session.replaceStylesheet({ id: '/playground/B.gss', source: '.demo { color: red; display: block; color: blue; }' });
   const rollback = !rejected.committed && JSON.stringify(oneOwner) === JSON.stringify(session.finalize());
   session.replaceStylesheet({ id: '/playground/B.gss', source: blue });
   const updated = session.finalize();

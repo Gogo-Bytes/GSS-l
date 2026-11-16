@@ -107,6 +107,20 @@ GSS 将样式编译为可复用的 atom class，并允许同一模块的多个 s
 
 Node 22.22.3、zlib 1.3.1-e00f703、Brotli 1.1.0；gzip level 9、Brotli quality 11/text。可重复脚本和结果为 `artifacts/issue-40-naming/measure.mjs`、`actual-sizes.json`，不是速度测量或所有项目收益保证。
 
+## 相邻声明回退组（owner 已批准）
+
+同一规则中相邻、同属性且同 `!important` 级别的声明作为一个不可拆的有序回退组。例如 `display: block; display: flex` 生成一个 class，内部按原顺序输出两条声明，由浏览器选择可用值。不新增作者语法，不把正常文件整体降级，也不以最后一个值代表整组身份。相同有效值的重复也保留，不做新的值等价推理。
+
+- 内部 `ParsedDeclaration.value/source` 保留末条声明，`fallbacks` 保留此前候选的值及来源。分组在原子规划前完成；只有相邻的同属性／同 importance 才合并，被其他声明隔开的同级重复仍报 `GSS1204`。不同 importance 不合为一组，原重要性规则不变。
+- 原子身份、连续桶复用、跨模块汇总及 hash 包含有序完整候选、各候选的 typed Asset 身份和既有 layer／condition／state／rank／orderSlot 等条件。`block → flex`、`inline → flex`、`flex → block` 和单条 `flex` 不得误合并；来源位置不参与身份。
+- 整组参与既有 effect／排序规则，不比较候选值的浏览器支持度。含回退组的 shorthand 及其重叠族不进入安全展开，以免只展开末条或改变组与 longhand 的相对效果。已批准的静态负 px padding 过滤逐候选执行，保留有效候选并更新其来源；不扩大无效值判断范围。一般无效 CSS、跨规则竞争及其他既定边界仍沿用原契约。
+- compatibility 分别处理每条候选，再按原序连接物理声明；既有属性变化／无法安全转换的 fallback 与拒绝边界不变。未知属性触发的整模块保留路径也输出完整候选。资源绑定、局部关键帧改名覆盖全部候选，不只处理末条。
+- CSS source map 为每条输出声明使用各自原始偏移；共享组仍选确定的主来源，manifest origins 的范围覆盖整组。manifest `value` 为末条，新增可选 `fallbackValues` 表达此前候选，顺序与源码一致。Vite 的有界纯 atom 改名交接不把回退组当作单值 atom；一般更新链路不变。
+
+首版不放开非相邻重复、不新增 CSS 值合法性／支持度求值器、不扩展资源 descriptor 的语法，也不改变选择器准入、ownership 或逻辑／物理优先级。`color: red; color: var(--missing)` 的计算时失效不等于解析时回退，必须仍交给浏览器处理。
+
+回归覆盖完整组身份和复用、重复有效值、importance、shorthand、各既有 selector 输出分支、compatibility、Asset、keyframes、主来源定位及失败恢复。旧失败恢复输入改为非相邻重复，保留拒绝与回滚断言。浏览器在现有默认 Chromium 入口增加六组手写原生 CSS／字面预期／精确像素对照，以及删除实际产物首条回退、交换实际产物顺序两个负向控制；未扩展默认引擎范围。本机证据入口：`artifacts/issue-45-declaration-fallback/`，实际最终检查与提交以 [#45](https://github.com/Gogo-Bytes/GSS-l/issues/45) 为准。
+
 ## 复合属性先展开
 
 对于能够证明语义等价的 shorthand，在生成 atom 之前，将其展开为受影响的单一属性，再依据声明顺序处理同一规则内的覆盖。例如：

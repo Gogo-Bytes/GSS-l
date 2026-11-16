@@ -188,9 +188,9 @@ it.each([
   expect(rulesFor(session, ['a']).map((rule) => rule.value)).toEqual(['1px']);
 });
 
-it('still rejects duplicate valid padding declarations', () => {
+it('still rejects non-adjacent duplicate valid padding declarations', () => {
   const session = createGssCompilerSession({ projectRoot: '/project' });
-  expect(session.replaceStylesheet({ id: '/project/Fixed.gss', source: '.a { padding: 1px; padding: 2px; }' }))
+  expect(session.replaceStylesheet({ id: '/project/Fixed.gss', source: '.a { padding: 1px; color: red; padding: 2px; }' }))
     .toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1204' }] });
 });
 
@@ -507,7 +507,7 @@ for (const family of ['scroll-margin', 'scroll-padding']) {
     expect(session.finalize().manifest.rules.filter(({ property }) => property === `${family}-left`).map(({ value }) => value))
       .toEqual(reverse ? ['9px', '2px'] : ['2px', '9px']);
     const before = session.finalize();
-    expect(session.replaceStylesheet({ id: '/project/Fixed.gss', source: `.a{${family}:1px;${family}:2px}` }))
+    expect(session.replaceStylesheet({ id: '/project/Fixed.gss', source: `.a{${family}:1px;color:red;${family}:2px}` }))
       .toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1204' }] });
     expect(session.finalize()).toEqual(before);
     expect(session.replaceStylesheet({ id: '/project/Fixed.gss', source }).committed).toBe(true);
@@ -586,7 +586,7 @@ for (const family of ['margin', 'padding', 'inset', 'scroll-margin', 'scroll-pad
     expect(rulesFor(session, ['c']).map(({ property, value }) => [property, value])).toEqual([[`${shorthand}-start`, '9px']]);
     expect(session.finalize().manifest.rules.filter(({ property }) => property === `${shorthand}-start`).map(({ value }) => value)).toEqual(reverse ? ['9px', '1px'] : ['1px', '9px']);
     const before = session.finalize();
-    expect(session.replaceStylesheet({ id: '/project/Fixed.gss', source: `.a{${shorthand}:1px;${shorthand}:2px}` })).toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1204' }] });
+    expect(session.replaceStylesheet({ id: '/project/Fixed.gss', source: `.a{${shorthand}:1px;color:red;${shorthand}:2px}` })).toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1204' }] });
     expect(session.finalize()).toEqual(before);
     expect(session.replaceStylesheet({ id: '/project/Fixed.gss', source }).committed).toBe(true);
     expect(session.finalize().css).toBe(before.css);
@@ -666,7 +666,7 @@ for (const family of ['margin', 'padding', 'inset', 'scroll-padding']) for (cons
     expect(rulesFor(session, ['b'])).toEqual(rulesFor(session, ['a']));
     expect(session.finalize().manifest.rules.filter(({ property }) => property === side).map(({ value }) => value)).toEqual(reverse ? ['9%', axis ? '1%' : '2px'] : [axis ? '1%' : '2px', '9%']);
     const before = session.finalize();
-    expect(session.replaceStylesheet({ id: '/project/Fixed.gss', source: `.a{${shorthand}:1%;${shorthand}:2%}` })).toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1204' }] });
+    expect(session.replaceStylesheet({ id: '/project/Fixed.gss', source: `.a{${shorthand}:1%;color:red;${shorthand}:2%}` })).toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1204' }] });
     expect(session.finalize()).toEqual(before);
     expect(session.replaceStylesheet({ id: '/project/Fixed.gss', source }).committed).toBe(true);
     expect(session.finalize().css).toBe(before.css);
@@ -721,7 +721,7 @@ for (const family of ['margin', 'padding', 'inset', 'scroll-margin', 'scroll-pad
     expect(rulesFor(session, ['a']).find(({ property }) => property === other)).toMatchObject({ value: '2rem', origins: [{ range: { start: source.indexOf(`${shorthand}:`) } }] });
     expect(session.finalize().manifest.rules.filter(({ property }) => property === side).map(({ value }) => value)).toEqual(reverse ? ['3em', axis ? '1em' : '2rem'] : [axis ? '1em' : '2rem', '3em']);
     const before = session.finalize();
-    expect(session.replaceStylesheet({ id: '/project/Fixed.gss', source: `.a{${shorthand}:1em;${shorthand}:2em}` })).toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1204' }] });
+    expect(session.replaceStylesheet({ id: '/project/Fixed.gss', source: `.a{${shorthand}:1em;color:red;${shorthand}:2em}` })).toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1204' }] });
     expect(session.finalize()).toEqual(before);
     expect(session.replaceStylesheet({ id: '/project/Fixed.gss', source }).committed).toBe(true);
     expect(session.finalize().css).toBe(before.css);
@@ -807,7 +807,7 @@ it('keeps border-width compatibility, preserved fallback, duplicate diagnostics 
   const source = '.a{border-width:1px 2px;border-left-width:9px}';
   const session = compile(source);
   const before = session.finalize();
-  expect(session.replaceStylesheet({ id: '/project/Fixed.gss', source: '.a{border-width:1px;border-width:2px;border-left-width:9px}' }))
+  expect(session.replaceStylesheet({ id: '/project/Fixed.gss', source: '.a{border-width:1px;border-left-width:9px;border-width:2px}' }))
     .toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1204' }] });
   expect(session.finalize()).toEqual(before);
   expect(session.replaceStylesheet({ id: '/project/Fixed.gss', source }).committed).toBe(true);

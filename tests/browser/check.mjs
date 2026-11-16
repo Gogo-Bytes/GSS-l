@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { chromium } from 'playwright';
 import { checkViteHostCompatibility, checkViteSsgHydration } from './vite-host-check.mjs';
+import { checkDeclarationFallback } from './declaration-fallback-check.mjs';
 import { checkViteMultipageLazy } from './vite-multipage-lazy-check.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
@@ -82,8 +83,11 @@ try {
   } catch (error) {
     multipageLazy = { detected: false, error: String(error) };
   }
+  let declarationFallback;
+  try { declarationFallback = await checkDeclarationFallback(browser); }
+  catch (error) { declarationFallback = { detected: false, error: String(error) }; }
   await mkdir(path.dirname(artifact), { recursive: true });
-  await writeFile(artifact, JSON.stringify({ result, hostCompatibility, ssgHydration, multipageLazy, errors }, null, 2));
+  await writeFile(artifact, JSON.stringify({ result, hostCompatibility, ssgHydration, multipageLazy, declarationFallback, errors }, null, 2));
   const comparisons = result.results?.reduce((sum, fixture) => sum + fixture.comparisons, 0);
   const readings = result.results?.flatMap(({ reference, atomic }) => [...reference, ...atomic]) ?? [];
   const attributionErrors = readings.filter((reading) =>
@@ -103,9 +107,9 @@ try {
     ssgHydration.detected !== true || ssgHydration.pageErrors?.length ||
     multipageLazy.detected !== true || multipageLazy.baselineDetected !== true ||
     multipageLazy.controlDetected !== true || multipageLazy.hydrationControlDetected !== true ||
-    multipageLazy.stateControlDetected !== true;
-  if (failed) throw new Error(`Browser oracle gate failed: status=${result.status}, fixtures=${result.results?.length}, comparisons=${comparisons}, attributionErrors=${attributionErrors}, errors=${errors.length}, host=${hostCompatibility.error ?? hostCompatibility.detected}, ssg=${ssgHydration.error ?? ssgHydration.detected}, multipage=${multipageLazy.error ?? multipageLazy.detected}. See ${artifact}`);
-  console.log(`Browser oracle passed: ${result.results.length} fixtures, ${comparisons} comparisons, ${controls.length} controls; Vite host artifact/three controls, SSG hydration/controls and multipage lazy/hydration/state controls passed. ${artifact}`);
+    multipageLazy.stateControlDetected !== true || declarationFallback.detected !== true;
+  if (failed) throw new Error(`Browser oracle gate failed: status=${result.status}, fixtures=${result.results?.length}, comparisons=${comparisons}, attributionErrors=${attributionErrors}, errors=${errors.length}, host=${hostCompatibility.error ?? hostCompatibility.detected}, ssg=${ssgHydration.error ?? ssgHydration.detected}, multipage=${multipageLazy.error ?? multipageLazy.detected}, declarationFallback=${declarationFallback.error ?? declarationFallback.detected}. See ${artifact}`);
+  console.log(`Browser oracle passed: ${result.results.length} fixtures, ${comparisons} comparisons, ${controls.length} controls; Vite host artifact/three controls, SSG hydration/controls and multipage lazy/hydration/state controls passed; declaration fallback native/pixel comparisons and two controls passed. ${artifact}`);
 } finally {
   await browser?.close();
   server.kill('SIGTERM');

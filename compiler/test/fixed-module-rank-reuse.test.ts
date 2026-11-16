@@ -261,7 +261,7 @@ it('splits and restores physical sharing when an alias enters and leaves the com
   expect(classes(session, 'a')).not.toBe(classes(session, 'b'));
   compareFresh(mixed);
   const before = session.finalize();
-  expect(session.replaceStylesheet({ id: '/project/Reuse.gss', source: '.a{margin-left:1px;margin-left:2px}' }).committed).toBe(false);
+  expect(session.replaceStylesheet({ id: '/project/Reuse.gss', source: '.a{margin-left:1px;color:red;margin-left:2px}' }).committed).toBe(false);
   expect(session.finalize()).toEqual(before);
   expect(classes(session, 'a')).not.toBe(classes(session, 'b'));
   expect(session.replaceStylesheet({ id: '/project/Reuse.gss', source }).committed).toBe(true);
@@ -316,7 +316,7 @@ it('converges conditional reuse after condition edits, failure and recovery acro
     expect(session.finalize()).toEqual({ ...clean.finalize(), generation: session.finalize().generation });
     expect(session.getScopeSchema('/project/Reuse.gss')).toEqual(clean.getScopeSchema('/project/Reuse.gss'));
     const before = session.finalize();
-    expect(session.replaceStylesheet({ id: '/project/Reuse.gss', source: '@media (min-width:1px){.a{color:red;color:blue}}' }).committed).toBe(false);
+    expect(session.replaceStylesheet({ id: '/project/Reuse.gss', source: '@media (min-width:1px){.a{color:red;display:block;color:blue}}' }).committed).toBe(false);
     expect(session.finalize()).toEqual(before);
   }
   expect(classes(session, 'a')).toBe(classes(session, 'b'));

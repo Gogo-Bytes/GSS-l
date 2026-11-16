@@ -217,7 +217,7 @@ describe('stylesheet Asset references', () => {
     const previous = session.finalize({ resolveAssetUrl: (identity) => `/out/${identity}` });
 
     const failed = session.replaceStylesheet({ id: '/project/a.gss',
-      source: '.card { color: red; color: blue; }' });
+      source: '.card { color: red; display: block; color: blue; }' });
     expect(failed).toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1204' }] });
     expect(session.finalize({ resolveAssetUrl: (identity) => `/out/${identity}` })).toEqual(previous);
     expect(session.finalize({ resolveAssetUrl: (identity) => `/out/${identity}` }).manifest.resources[0]?.sources)

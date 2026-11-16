@@ -23,7 +23,7 @@ const sources = {
 
 type ModuleId = keyof typeof sources;
 const ids = Object.keys(sources).sort() as ModuleId[];
-const invalid = '.broken { color: red; color: blue; }';
+const invalid = '.broken { color: red; display: block; color: blue; }';
 
 function random(seed: number): () => number {
   let state = seed;

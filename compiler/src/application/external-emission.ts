@@ -3,7 +3,7 @@ import type { OwnedTargetBinding } from '../domain/order-occurrences.js';
 import type { PureDeclarationIdentity } from '../domain/readable-name.js';
 import type { GssDiagnostic } from '../public-types.js';
 import { classifyPropertyEffect } from '../domain/property-effects.js';
-import { identifyAssetValue } from './asset-values.js';
+import { identifyDeclarationValue } from './asset-values.js';
 import { canonicalCondition } from './condition-context.js';
 import { ensureScopePath } from './scope-exports.js';
 
@@ -40,7 +40,7 @@ export function emitExternalRules(input: AtomicEmissionContext & {
         ...(moduleOrder.get(declaration, { rule, targetPath }) ?? {}),
         ownership: { moduleId, path: targetPath, specificity: rule.nodes.length },
         property: declaration.property,
-        ...identifyAssetValue(declaration.value, bindings),
+        ...identifyDeclarationValue(declaration, bindings),
         important: declaration.important
       };
       const className = nameAllocator.createAtomicName(identity);
@@ -82,7 +82,7 @@ export function emitExternalRules(input: AtomicEmissionContext & {
         ...(moduleOrder.get(declaration, { rule, targetPath }) ?? {}),
         ownership: { moduleId, path: targetPath, specificity: rule.nodes.length },
         property: declaration.property,
-        ...identifyAssetValue(declaration.value, bindings),
+        ...identifyDeclarationValue(declaration, bindings),
         important: declaration.important
       };
       const className = nameAllocator.createAtomicName(identity);

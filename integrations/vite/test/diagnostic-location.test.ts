@@ -35,7 +35,7 @@ async function fixture(source: string, plugins: Plugin[] = [], listen = false) {
 }
 
 it('locates a cold JSX precompilation error in physical CSS, not the active JSX sourcemap', async () => {
-  const { server, id } = await fixture('.card {\n  color: red;\n  color: blue;\n}', [{
+  const { server, id } = await fixture('.card {\n  color: red; display: block;\n  color: blue;\n}', [{
     name: 'upstream-jsx-map', enforce: 'pre', transform(source, id) {
       if (!id.endsWith('.tsx')) return;
       return { code: source, map: { version: 3, sources: ['upstream.jsx'], sourcesContent: [source], names: [], mappings: 'AAAA;AACA;AACA;AACA' } };
@@ -44,7 +44,7 @@ it('locates a cold JSX precompilation error in physical CSS, not the active JSX 
   await expect(server.transformRequest('/Card.tsx')).rejects.toMatchObject({
     id, plugin: 'gss-l', message: expect.stringContaining('[GSS1204]'),
     loc: { file: id, line: 3, column: 2 },
-    frame: '1 | .card {\n2 |   color: red;\n3 |   color: blue;\n  |   ^^^^^^^^^^^^\n4 | }'
+    frame: '1 | .card {\n2 |   color: red; display: block;\n3 |   color: blue;\n  |   ^^^^^^^^^^^^\n4 | }'
   });
 });
 
@@ -60,7 +60,7 @@ it.each(['\n', '\r\n'].flatMap((newline) => ['', '\uFEFF', '\uFFFE'].map((bom) =
 );
 
 it('reports a real production error with physical file, location and source frame', async () => {
-  const { root, id } = await fixture('.card {\n  color: red;\n  color: blue;\n}');
+  const { root, id } = await fixture('.card {\n  color: red; display: block;\n  color: blue;\n}');
   await expect(build({
     root, configFile: false, plugins: [gss({ adapter: react() })], logLevel: 'silent',
     build: { write: false, rollupOptions: { input: `${root}/Card.tsx` } }
@@ -82,7 +82,7 @@ it.each([
 });
 
 it.each([
-  ['GSS1204', '.card {\n color: red;\n color: blue;\n}', 3, 1, '3 |  color: blue;'],
+  ['GSS1204', '.card {\n color: red; display: block;\n color: blue;\n}', 3, 1, '3 |  color: blue;'],
   ['GSS1001', '.card {\n broken\n}', 2, 1, '2 |  broken']
 ] as const)('sends native watcher %s location/frame, retains LKG and recovers with a CSS update', async (code, bad, line, column, frameLine) => {
   const { root, id, server, container } = await fixture('.card { color: red; }', [], true);
@@ -129,7 +129,7 @@ it('formats the failed read snapshot even if the file has already changed', asyn
   }]);
   await container.load((await container.resolveId('./Card.gss', `${root}/entry.ts`))!.id);
   const send = vi.spyOn(server.environments.client.hot, 'send');
-  await writeFile(id, '.card {\n color:red;\n color:blue;\n}');
+  await writeFile(id, '.card {\n color:red; display:block;\n color:blue;\n}');
   server.watcher.emit('change', id);
   await vi.waitFor(() => expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: 'error', err: expect.objectContaining({
     loc: { file: id, line: 3, column: 1 }, frame: expect.stringContaining('3 |  color:blue;')
@@ -155,7 +155,7 @@ it('never emits a superseded asynchronous failure or its old frame', async () =>
   await server.transformRequest('/Card.tsx');
   await server.transformRequest('/@gss-l/central.css?direct');
   const send = vi.spyOn(server.environments.client.hot, 'send');
-  await writeFile(id, '.card { color:red; color:blue; }');
+  await writeFile(id, '.card { color:red; display:block; color:blue; }');
   server.watcher.emit('change', id);
   await vi.waitFor(() => expect(release).toBeDefined());
   await writeFile(id, '.card { color:green; }');
@@ -176,7 +176,7 @@ it('recovers an unchanged scope through CSS only without reloading its JS import
   await server.transformRequest(dependency.replace('/@id/__x00__', '\0').replace('?import', ''));
   await server.transformRequest('/@gss-l/central.css?direct');
   const send = vi.spyOn(server.environments.client.hot, 'send');
-  await writeFile(id, '.card { color:blue; color:red; }');
+  await writeFile(id, '.card { color:blue; display:block; color:red; }');
   server.watcher.emit('change', id);
   await vi.waitFor(() => expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: 'error' })));
   send.mockClear();
@@ -214,7 +214,7 @@ it('reports an imported stylesheet deletion and preserves the delivered module t
   }) }));
   expect((await readCss())!.code).toBe(css);
   expect((await server.transformRequest(virtual.url))!.code).toBe(previousJs);
-  await writeFile(id, '.card { color:blue; color:red; }');
+  await writeFile(id, '.card { color:blue; display:block; color:red; }');
   server.watcher.emit('add', id);
   await vi.waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'error', err: expect.objectContaining({
     message: expect.stringContaining('GSS1204')
@@ -265,7 +265,7 @@ it('locates a failed cached production refresh and recovers on a later watch bui
     pluginCode: 'GSS1204', loc: { file: id, line: 3, column: 1 },
     frame: expect.stringContaining('3 |  future-paint: blue;')
   });
-  await writeFile(id, '.card {\n future-paint: red;\n future-paint: blue;\n}');
+  await writeFile(id, '.card {\n future-paint: red; display: block;\n future-paint: blue;\n}');
   await failure;
   const recovery = nextBuild();
   await writeFile(id, '.card { future-paint: green; }');

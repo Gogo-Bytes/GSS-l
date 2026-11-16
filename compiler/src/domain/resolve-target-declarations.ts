@@ -1,14 +1,9 @@
 import { effectsOfProperty } from './property-effects.js';
 import { comparePropertyRenderOrder } from './module-order-policy.js';
 import { getOwnershipPath, matchesOwnedTarget } from './ownership-path.js';
-import type { ParsedSelectorNode, SourceSpan } from './parsed-stylesheet.js';
+import type { ParsedDeclaration, ParsedSelectorNode } from './parsed-stylesheet.js';
 
-type DeclarationCandidate = {
-  property: string;
-  value: string;
-  important: boolean;
-  source: SourceSpan;
-};
+type DeclarationCandidate = ParsedDeclaration;
 
 type RuleCandidate = {
   nodes: readonly Pick<ParsedSelectorNode, 'name'>[];

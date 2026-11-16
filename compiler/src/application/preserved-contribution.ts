@@ -1,4 +1,5 @@
 import { renderWrappedCss } from './render-wrapped-css.js';
+import { declarationSequence } from '../domain/validate-declarations.js';
 import { getOwnershipPath } from '../domain/ownership-path.js';
 import selectorParser from 'postcss-selector-parser';
 import type { CompatibilityTransformer } from './compatibility-transformer.js';
@@ -96,7 +97,7 @@ function renderPreservedRule(
       });
     }
   }).processSync(rule.selector);
-  const physical = rule.declarations.flatMap((declaration) =>
+  const physical = rule.declarations.flatMap(declarationSequence).flatMap((declaration) =>
     (compatibility ? compatibility.expand(declaration)! : [declaration])
       .map((entry) => ({ entry, offset: declaration.source.start }))
   );

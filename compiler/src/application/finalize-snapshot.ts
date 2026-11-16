@@ -25,6 +25,7 @@ export function finalizeSnapshot(
   const sourceTexts = new Map([...modules.values()].map(({ artifact, sourceText }) =>
     [artifact.scopeSchema.moduleId, sourceText] as const));
   type Origin = { moduleId: string; offset: number; end: number;
+    declarationOffsets?: readonly number[];
     descriptorOffsets?: ReadonlyMap<string, number>;
     frameOffsets?: NonNullable<PlannedResource['frameOffsets']> };
   const uniqueResources = new Map<string, {
@@ -65,7 +66,8 @@ export function finalizeSnapshot(
       const registered = uniqueRules.get(key) ?? { rule, sources: new Set<string>(), origins: [] };
       registered.sources.add(contribution.artifact.scopeSchema.moduleId);
       registered.origins.push({ moduleId: contribution.artifact.scopeSchema.moduleId,
-        offset: rule.source.start, end: rule.source.end });
+        offset: rule.declarationOffsets?.[0] ?? rule.source.start, end: rule.source.end,
+        ...(rule.declarationOffsets ? { declarationOffsets: rule.declarationOffsets } : {}) });
       uniqueRules.set(key, registered);
     }
   }
@@ -107,7 +109,7 @@ export function finalizeSnapshot(
       css: renderCss?.(resolve) ?? css, origin: { moduleId, offset: source.start, declarationOffsets }
     })),
     orderedRules.map(({ rule, origins }) => ({
-      css: renderRule(rule, resolve), origin: primary(origins), declarationPositions: true
+      css: renderRule(rule, resolve), origin: primary(origins), declarationPositions: rule.declarationOffsets === undefined
     }))
   ];
   const rendered = renderCssWithSourceMap(sections, sourceTexts);
@@ -138,7 +140,7 @@ export function finalizeSnapshot(
         className,
         ...(kind === 'pure-atom' && 'state' in identity && identity.state === 'self' &&
           identity.layer === null && identity.condition === 'base' && !identity.pseudoElement &&
-          !identity.ownership && !identity.stateMarkers?.length
+          !identity.ownership && !identity.stateMarkers?.length && !identity.fallbackValues?.length
           ? { flatAtom: {
             ...(identity.atomRank === undefined ? {} : { atomRank: identity.atomRank }),
             ...(identity.orderSlot === undefined ? {} : { orderSlot: identity.orderSlot })
@@ -146,6 +148,7 @@ export function finalizeSnapshot(
         selector,
         property: identity.property,
         value: renderAssetValue(identity, resolve),
+        ...(identity.fallbackValues ? { fallbackValues: identity.fallbackValues.map(value => renderAssetValue(value, resolve)) } : {}),
         important: identity.important,
         sources: [...sources].sort(),
         origins: manifestOrigins(origins)
@@ -184,6 +187,11 @@ function renderRule(rule: PlannedDeclaration, resolve: AssetUrlResolver): string
 function serializeIdentity(identity: PlannedDeclaration['identity']): string {
   // Equal property-local ranks can occupy different output slots in different
   // modules. Keep the slot in identity as well as order; merging loses precedence.
+  if (identity.fallbackValues) {
+    const plain = { ...identity };
+    delete plain.fallbackValues;
+    return JSON.stringify(['fallback-group', identity.fallbackValues, serializeIdentity(plain)]);
+  }
   if (identity.assetValue) {
     const plain = { ...identity };
     delete plain.assetValue;

@@ -280,7 +280,7 @@ it('restores expanded margin output after an invalid replacement', () => {
   const source = '.box { margin: 1px 2px; margin-left: 9px; }';
   expect(session.replaceStylesheet({ id, source }).committed).toBe(true);
   const initial = session.finalize();
-  expect(session.replaceStylesheet({ id, source: '.box { color: red; color: blue; }' }).committed).toBe(false);
+  expect(session.replaceStylesheet({ id, source: '.box { color: red; display: block; color: blue; }' }).committed).toBe(false);
   expect(session.finalize()).toEqual(initial);
   expect(session.replaceStylesheet({ id, source }).committed).toBe(true);
   const recovered = session.finalize();

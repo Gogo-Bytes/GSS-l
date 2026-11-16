@@ -55,6 +55,8 @@
 
 ### Values 与 declaration sequence
 
+支持同一规则内相邻、同属性、同 importance 的声明回退组：例如 `display:block;display:flex` 作为一个完整有序原子输出，组内顺序和值均参与身份／复用。非相邻同级重复仍报 `GSS1204`；不同 importance 不组成同一组。资源、compatibility、整模块 preserved 及逐条来源遵循[回退组契约](PROPERTY-ORDER-DESIGN.md#相邻声明回退组owner-已批准)，不是一般 CSS 值合法性或浏览器支持度推理。
+
 - value 多数 opaque；没有完整 `var()`／fallback／CSS-wide keyword／复杂函数的语义类型系统。
 - compatibility transformer 的不可拆 sequence 只有有界 host-target 支持；更多 sequence/target 可能 preserved 或 fail-closed。
 - 未知／future property 不能默认当作 singleton；不能通过放松 fallback 掩盖 effect 不完整。

@@ -1,7 +1,7 @@
 import type { AtomicEmissionContext } from './atomic-emission-context.js';
 import type { ContextualRelationIdentity } from '../domain/readable-name.js';
 import type { RuntimeStructuralInstance } from '../domain/plan-structural-relations.js';
-import { identifyAssetValue } from './asset-values.js';
+import { identifyDeclarationValue } from './asset-values.js';
 import { canonicalCondition } from './condition-context.js';
 import { canonicalAttributeCondition, renderAttributeCondition, renderStateSuffix, renderRelationCombinator } from './selector-rendering.js';
 import { ensureScopePath } from './scope-exports.js';
@@ -67,7 +67,7 @@ export function emitStructuralRules(input: AtomicEmissionContext & {
         ...relationIdentity,
         ...(moduleOrder.get(declaration, instance) ?? {}),
         property: declaration.property,
-        ...identifyAssetValue(declaration.value, bindings),
+        ...identifyDeclarationValue(declaration, bindings),
         important: declaration.important
       };
       rules.push({

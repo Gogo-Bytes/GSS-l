@@ -96,6 +96,8 @@ export type FinalizedGssSnapshot = {
       selector: string;
       property: string;
       value: string;
+      /** Earlier alternatives in authored order; value is the final alternative. */
+      fallbackValues?: readonly string[];
       important: boolean;
       sources: readonly string[];
       origins: readonly GssManifestOrigin[];

@@ -2,7 +2,7 @@ import type { PhysicalDeclaration } from './compatibility-transformer.js';
 import type { ParsedCondition, ParsedHasGroup, SourceSpan } from '../domain/parsed-stylesheet.js';
 import type { ContextualRelationIdentity, ObservedRelationIdentity, PureDeclarationIdentity } from '../domain/readable-name.js';
 
-export type ContextualDeclarationIdentity = ContextualRelationIdentity & {
+export type ContextualDeclarationIdentity = ContextualRelationIdentity & Pick<PureDeclarationIdentity, 'fallbackValues'> & {
   property: string;
   value: string;
   assetValue?: true;
@@ -15,7 +15,7 @@ type GroupedObservationIdentity = Pick<ObservedRelationIdentity, 'moduleId' | 'l
   hasConditions: readonly ParsedHasGroup[];
 };
 
-export type ObservedDeclarationIdentity = (ObservedRelationIdentity | GroupedObservationIdentity) & {
+export type ObservedDeclarationIdentity = (ObservedRelationIdentity | GroupedObservationIdentity) & Pick<PureDeclarationIdentity, 'fallbackValues'> & {
   property: string;
   value: string;
   assetValue?: true;
@@ -34,6 +34,7 @@ export type PlannedDeclaration = {
   layer?: string | null;
   relationRank?: number;
   physicalDeclarations?: readonly PhysicalDeclaration[];
+  declarationOffsets?: readonly number[];
   source: SourceSpan;
 };
 

@@ -12,6 +12,7 @@ export type PureDeclarationIdentity = {
   ownership?: { moduleId: string; path: readonly string[]; specificity: number };
   property: string;
   value: string;
+  fallbackValues?: readonly { value: string; assetValue?: true }[];
   assetValue?: true;
   important: boolean;
 };
@@ -66,6 +67,7 @@ export function createReadableAtomicName(identity: PureDeclarationIdentity): str
       : undefined,
     `property_${encodeNamePart(identity.property)}`,
     `${identity.assetValue ? 'asset-value' : 'value'}_${encodeNamePart(identity.value)}`,
+    identity.fallbackValues?.length ? `fallbacks_${encodeNamePart(JSON.stringify(identity.fallbackValues))}` : undefined,
     `importance_${identity.important ? 'important' : 'normal'}`,
     identity.atomRank === undefined ? undefined : `rank_${identity.atomRank}`,
     identity.orderSlot === undefined ? undefined : `order_${identity.orderSlot}`,
@@ -416,7 +418,7 @@ export function decodeReadableAtomicName(name: string): PureDeclarationIdentity 
   const fields = new Map<string, string>();
   const allowed = new Set([
     'layer', 'named-layer', 'condition', 'state', 'pseudo', 'property', 'value', 'asset-value',
-    'importance', 'rank', 'order', 'module', 'target', 'specificity', 'markers'
+    'importance', 'rank', 'order', 'module', 'target', 'specificity', 'markers', 'fallbacks'
   ]);
   for (const part of parts) {
     const separator = part.indexOf('_');
@@ -452,7 +454,19 @@ export function decodeReadableAtomicName(name: string): PureDeclarationIdentity 
   const stateMarkers = fields.has('markers') ? decodePath(fields.get('markers')!) : undefined;
   if (fields.has('markers') && !stateMarkers?.length) return undefined;
 
+  const fallbackValues: { value: string; assetValue?: true }[] = [];
+  if (fields.has('fallbacks')) {
+    let decoded: unknown;
+    try { decoded = JSON.parse(fields.get('fallbacks')!); } catch { return undefined; }
+    if (!Array.isArray(decoded) || !decoded.length) return undefined;
+    for (const entry of decoded) {
+      if (!entry || typeof entry !== 'object' || typeof entry.value !== 'string' ||
+        (entry.assetValue !== undefined && entry.assetValue !== true)) return undefined;
+      fallbackValues.push({ value: entry.value, ...(entry.assetValue ? { assetValue: true } : {}) });
+    }
+  }
   const identity: PureDeclarationIdentity = {
+    ...(fallbackValues.length ? { fallbackValues } : {}),
     layer: fields.get('layer') === 'unlayered' ? null : layer,
     condition: fields.get('condition')!,
     state: fields.get('state')!,

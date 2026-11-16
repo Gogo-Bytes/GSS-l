@@ -160,7 +160,7 @@ describe('GssCompilerSession', () => {
     expect(compiler.replaceStylesheet({ id, source: '.button { color: red; }' }).generation).toBe(1);
     expect(compiler.replaceStylesheet({
       id,
-      source: '.button { color: red; color: blue; }'
+      source: '.button { color: red; display: block; color: blue; }'
     })).toMatchObject({ committed: false, generation: 1 });
     expect(compiler.finalize().css).toContain(`.${colorRedClass}`);
 
@@ -197,12 +197,12 @@ describe('GssCompilerSession', () => {
     });
   });
 
-  it('rejects an authored duplicate exact-property sequence transactionally', () => {
+  it('rejects an authored non-adjacent duplicate sequence transactionally', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 
     const replacement = compiler.replaceStylesheet({
       id: '/project/src/button.gss',
-      source: '.button { color: red; color: blue; }'
+      source: '.button { color: red; display: block; color: blue; }'
     });
 
     expect(replacement).toMatchObject({
