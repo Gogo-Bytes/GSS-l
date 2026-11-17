@@ -1,5 +1,6 @@
 import { getOwnershipPath } from './ownership-path.js';
-import { planDescendantConditions, type DescendantInstance, type DescendantRule } from './plan-descendant-conditions.js';
+import { bindDescendantConditions, type DescendantRule } from './bind-descendant-conditions.js';
+import { planDescendantConditions, type DescendantInstance } from './plan-descendant-conditions.js';
 
 type PseudoRule = DescendantRule & {
   relations: readonly string[];
@@ -34,7 +35,7 @@ export function planPseudoElementConditions<R extends PseudoRule>(
     }
     for (const { path, ownership } of targets.values()) {
       const applicable = ownership ? groupedRules : groupedRules.filter((rule) => rule.nodes.length === 1);
-      const planned = planDescendantConditions(applicable, [path]);
+      const planned = planDescendantConditions(bindDescendantConditions(applicable, [path]));
       if (planned.ambiguity) return { instances: [], candidates: [], ambiguity: `${planned.ambiguity} Subject ::${first.nodes.at(-1)?.pseudoElement}.` };
       instances.push(...planned.instances);
       candidates.push(...planned.candidates);

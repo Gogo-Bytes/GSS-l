@@ -1,6 +1,7 @@
 import { getOwnershipPath } from './ownership-path.js';
 import type { ParsedStyleRule } from './parsed-stylesheet.js';
 import type { OwnedTargetBinding, OrderInstance } from './order-occurrences.js';
+import { bindDescendantConditions } from './bind-descendant-conditions.js';
 import { planDescendantConditions } from './plan-descendant-conditions.js';
 import { planStructuralRelations } from './plan-structural-relations.js';
 import { planPseudoElementConditions } from './plan-pseudo-element-conditions.js';
@@ -22,7 +23,7 @@ export function planModuleRelations(localRules: readonly ParsedStyleRule[], sema
     const path = getOwnershipPath(nodes);
     return path.map((_, index) => path.slice(0, index + 1));
   });
-  const plannedDescendants = hasDescendantConditions ? planDescendantConditions(descendantRules, declaredPaths,
+  const plannedDescendants = hasDescendantConditions ? planDescendantConditions(bindDescendantConditions(descendantRules, declaredPaths),
     (target) => supportsCurrentBackgroundRanks(semanticRules, target)) : undefined;
   if (plannedDescendants?.ambiguity) return { ambiguity: plannedDescendants.ambiguity };
   const plannedStructural = planStructuralRelations(contextualRules, plannedDescendants?.instances ?? [], hasRules);
@@ -46,7 +47,7 @@ export function collectModuleOrderCandidates(
 ): OrderInstance[] {
   const { plannedDescendants, descendantRules, declaredPaths, plannedStructural, plannedPseudos, observedSubjects } = plan;
   return [
-    ...(plannedDescendants ?? planDescendantConditions(descendantRules, declaredPaths)).candidates,
+    ...(plannedDescendants ?? planDescendantConditions(bindDescendantConditions(descendantRules, declaredPaths))).candidates,
     ...plannedStructural.instances,
     ...plannedPseudos.candidates,
     ...[...sameNodeAnchors, ...externalAnchors].map(({ rule, targetPath }) => ({

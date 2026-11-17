@@ -1,8 +1,9 @@
 import type { ParsedDeclaration, ParsedHasCondition, ParsedStyleRule } from './parsed-stylesheet.js';
+import type { DescendantBinding } from './bind-descendant-conditions.js';
 import type { DescendantInstance } from './plan-descendant-conditions.js';
 
 /** A selector branch bound to its concrete emission paths, before atom reuse. */
-export type OrderBinding = Pick<DescendantInstance<ParsedStyleRule>, 'rule' | 'targetPath' | 'sourcePath'> & {
+export type OrderBinding = Pick<DescendantBinding<ParsedStyleRule>, 'rule' | 'targetPath' | 'sourcePath'> & {
   observation?: ParsedHasCondition;
 };
 

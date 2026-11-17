@@ -50,7 +50,7 @@ GSS 以 CSS 为输入，生成可组合的 scope 引用、原子 CSS 与必要�
 4. **保守输出**：从语义明确的绑定 occurrence 生成可执行 CSS，不做跨 occurrence 合并或可选覆盖消除。一个 occurrence 至少区分 authored 分支、声明序列及 target／source／observation 绑定，不以最终 class 名或最后一个声明值充当身份。多个属性可为必要排序分别输出；回退组内部顺序不变。
 5. **可选优化**：从同一份剪枝前语义输入出发，证明覆盖后才能删除、证明展开等价后才能展开、证明顺序与 membership 不变后才能共享。优化失败返回保守输出的前提是该输出已经定义并可保持 GSS 契约，不是捕获所有错误后透传源码。
 
-代码追踪进一步限定了切入点：`planDescendantConditions` 在一个函数中完成绑定候选、按 predicate 分组、effect 胜出剪枝与歧义检查，返回独立的 `candidates` 和存活 `instances`；`planModuleRelations` 将存活 descendants 传入结构规划，后者又先处理 equivalent group，再检查歧义并生成 relationRank。直接增加一个“不复用”开关拿不到完整基线。另一方面，现有 `OrderBinding`／`OrderOccurrence` 已区分分支和具体绑定，`collectOrderOccurrences` 特意从原 rule 的声明恢复完整序列，而非使用存活子集；这是应复用的基础，不应再造第二套身份。后续首先需要分离**完整绑定事实**与**基于它的筛选／证明结果**，保持原诊断顺序，再验证保守输出；不先统一所有 planner 的不同证明规则。
+拆分前的代码追踪限定了切入点：`planDescendantConditions` 原本在一个函数中完成绑定候选、按 predicate 分组、effect 胜出剪枝与歧义检查，返回独立的 `candidates` 和存活 `instances`；`planModuleRelations` 将存活 descendants 传入结构规划，后者又先处理 equivalent group，再检查歧义并生成 relationRank。直接增加一个“不复用”开关拿不到完整基线。另一方面，现有 `OrderBinding`／`OrderOccurrence` 已区分分支和具体绑定，`collectOrderOccurrences` 特意从原 rule 的声明恢复完整序列，而非使用存活子集；这是应复用的基础，不应再造第二套身份。后续首先需要分离**完整绑定事实**与**基于它的筛选／证明结果**，保持原诊断顺序，再验证保守输出；不先统一所有 planner 的不同证明规则。
 
 这是职责草案，不是新增五个框架层或已批准的 TypeScript 接口。优先复用现有 ownership、occurrence、资源、scope 输出和渲染入口；不能先调用现有 winner 剪枝，再把剩余声明称为“完整无优化基线”。各 planner 当前的绑定、候选生成、剪枝与歧义检查交织，需要先分清依赖再迁移。
 
@@ -64,6 +64,16 @@ GSS 以 CSS 为输入，生成可组合的 scope 引用、原子 CSS 与必要�
 - `tests/src/index.ts` 的现有 `compileGssReference` 是有界独立测试 oracle，不是通用 GSS 基线。保留其独立性，不让它改用生产 planner 来制造共同通过，也不另建平行的长期权威语义引擎。
 - 基线与既有已批准行为不符时，先区分实现违约、基线错误和契约空缺；不能直接把当前产物当作正确答案更新所有预期。
 - 只有基线及职责边界得到证据支持后，再提出成类放宽准入的具体范围。原生条件的新语法应尽量复用绑定与渲染；涉及新的名字语义、运行时关系或胜负规则时仍需明确设计。
+
+#### 已完成的第一步：后代条件绑定与筛选分离
+
+[bind-descendant-conditions.ts](../compiler/src/domain/bind-descendant-conditions.ts) 现在独立产生每个目标的完整绑定：原规则、target／source 路径、条件所在 authored 节点和既有 specificity。绑定字段与 rule 视图为只读；没有另一份可被覆盖的“存活声明”字段，完整声明仍从原 rule 读取。它不查询属性 effect、不判定胜出或共同状态歧义；只解释**现有已准入**的 ownership／条件来源，不扩大多条件或 selector 范围。
+
+`planDescendantConditions` 改为只消费这些绑定，另建候选和存活声明子集，保留原分组、重要性、胜出、歧义及 background 准入规则。贡献编排与 pseudo-element 规划的全部调用已迁移，删除旧的 rules + declaredPaths 调用形状；`OrderBinding` 的基础类型也改为依赖绑定事实，不再从存活 instance 类型派生。纯 ownership 的绑定仍在原先的排序阶段按需发生，没有提前到 compatibility／preserved 判定之前。
+
+`compiler/test/descendant-bindings.test.ts` 的六项回归验证 ownership 投影、重复名称的条件 witness、部分覆盖后原声明完整、成功绑定与政策拒绝分离、回退组及来源保留、selector-list 分支和共享声明身份；测试冻结输入绑定／规则／声明数组，确认筛选不写回它们。生产输入没有增加运行时冻结，也不把 TypeScript 的只读视图声称为深度不可变保障。
+
+这一步只是保留并隔离完整事实，**尚未实现无优化 CSS 输出**。结构 planner 仍消费现有存活 descendants，安全 shorthand 展开仍可能先于绑定发生，原有渲染和模式路径不变；不能据此宣称已完成统一语义或支持新 CSS。十个既有公共接口探针的完整 JSON 与拆分前逐字节一致。完整 verify、默认 Chromium 既有 gate 与回退组六组对照均已重跑；详细结果和提交见 #45，本机证据在 `artifacts/issue-45-architecture/binding-*.log` 及 `binding-browser.json`。下一步需沿结构／排序依赖验证哪些事实必须在筛选前保留，再形成保守输出，不能把旧剪枝结果直接改名为基线。
 
 未决事项包括：多条件／复杂原生 selector 的绑定表示、现有 `GSS1205` 保护范围能否由通用顺序规则替代、未知 effect 与整体 preserved 的后续关系。上述事项未经决定前不修改产品行为，也不新增统一 dispatcher 来包裹原有所有特例并称为架构完成。
 

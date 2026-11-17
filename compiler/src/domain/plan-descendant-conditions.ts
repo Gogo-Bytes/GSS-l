@@ -1,39 +1,13 @@
 import { effectsOfProperty } from './property-effects.js';
-import { getOwnershipPath, isSubsequence, matchesOwnedTarget } from './ownership-path.js';
+import type { BoundDescendantTarget, DescendantBinding, DescendantRule } from './bind-descendant-conditions.js';
 import { isStructuralPseudoState } from './pseudo-state-capabilities.js';
-import type { ParsedStyleRule } from './parsed-stylesheet.js';
 
-export type DescendantRule = Pick<ParsedStyleRule, 'nodes'> & {
-  conditions: readonly { kind: string; query: string }[];
-  layer: string | null;
-  sourceOrdinal: number;
-  declarations: readonly { property: string; value: string; important: boolean }[];
-};
-
-export type DescendantInstance<R extends DescendantRule> = {
-  rule: R;
-  targetPath: readonly string[];
-  sourcePath?: readonly string[];
-  sourceIndex: number;
-  specificity: number;
+export type DescendantInstance<R extends DescendantRule> = DescendantBinding<R> & {
   relationRank: number;
   declarations: R['declarations'];
 };
 
-/** Bind only condition positions with a proven prefix AND a suffix ending at the target.
- * Do not enumerate equivalent embeddings of the unconditional nodes (exponential for repeated names). */
-function conditionSourcePositions(path: readonly string[], target: readonly string[], sourceIndex: number): number[] {
-  if (!matchesOwnedTarget(path, target)) return [];
-  if (sourceIndex < 0) return [-1];
-  if (sourceIndex === path.length - 1) return [target.length - 1];
-  return target.flatMap((name, position) =>
-    name === path[sourceIndex] &&
-    isSubsequence(path.slice(0, sourceIndex), target.slice(0, position)) &&
-    matchesOwnedTarget(path.slice(sourceIndex + 1), target.slice(position + 1)) ? [position] : []
-  );
-}
-
-function predicate<R extends DescendantRule>(instance: DescendantInstance<R>): string[] {
+function predicate<R extends DescendantRule>(instance: DescendantBinding<R>): string[] {
   if (instance.sourceIndex < 0) return [];
   const { states, attributes } = instance.rule.nodes[instance.sourceIndex]!;
   return [
@@ -61,26 +35,14 @@ function exclusive<R extends DescendantRule>(a: DescendantInstance<R>, b: Descen
 /** Closed predicates retain their existing winner proof. Only explicitly eligible
  * current-node background conflicts receive local authored-order atom versions. */
 export function planDescendantConditions<R extends DescendantRule>(
-  rules: readonly R[], declaredPaths: readonly (readonly string[])[],
+  targets: readonly BoundDescendantTarget<R>[],
   canRankTarget: (target: readonly string[]) => boolean = () => false
 ): { instances: DescendantInstance<R>[]; candidates: DescendantInstance<R>[]; ambiguity?: string } {
   const allCandidates: DescendantInstance<R>[] = [];
-  const paths = new Map(declaredPaths.map((path) => [JSON.stringify(path), path]));
   const instances: DescendantInstance<R>[] = [];
-  for (const targetPath of paths.values()) {
-    const candidates: DescendantInstance<R>[] = [];
-    for (const rule of rules) {
-      const sourceIndex = rule.nodes.findIndex(({ states, attributes }) => states.length > 0 || attributes.length > 0);
-      for (const position of conditionSourcePositions(getOwnershipPath(rule.nodes), targetPath, sourceIndex)) {
-        const sourcePath = sourceIndex < 0 ? undefined : targetPath.slice(0, position + 1);
-        const predicate = sourceIndex < 0 ? undefined : rule.nodes[sourceIndex];
-        const states = sourceIndex < 0 ? [] : predicate!.states!;
-        const attributes = sourceIndex < 0 ? [] : predicate!.attributes!;
-        candidates.push({ rule, targetPath, ...(sourcePath ? { sourcePath } : {}), sourceIndex,
-          specificity: rule.nodes.length + states.filter((state) => !state.startsWith('where(')).length + attributes.length,
-          relationRank: states.length + attributes.length, declarations: rule.declarations });
-      }
-    }
+  for (const { targetPath, bindings } of targets) {
+    const candidates: DescendantInstance<R>[] = bindings.map(binding => ({ ...binding,
+      relationRank: predicate(binding).length, declarations: binding.rule.declarations }));
     allCandidates.push(...candidates);
     const groups = new Map<string, DescendantInstance<R>[]>();
     for (const candidate of candidates) {
