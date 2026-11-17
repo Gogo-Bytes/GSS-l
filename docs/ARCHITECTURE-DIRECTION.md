@@ -67,13 +67,23 @@ GSS 以 CSS 为输入，生成可组合的 scope 引用、原子 CSS 与必要�
 
 #### 已完成的第一步：后代条件绑定与筛选分离
 
-[bind-descendant-conditions.ts](../compiler/src/domain/bind-descendant-conditions.ts) 现在独立产生每个目标的完整绑定：原规则、target／source 路径、条件所在 authored 节点和既有 specificity。绑定字段与 rule 视图为只读；没有另一份可被覆盖的“存活声明”字段，完整声明仍从原 rule 读取。它不查询属性 effect、不判定胜出或共同状态歧义；只解释**现有已准入**的 ownership／条件来源，不扩大多条件或 selector 范围。
+[selector-bindings.ts](../compiler/src/domain/selector-bindings.ts) 中的 `bindDescendantConditions` 独立产生每个目标的完整绑定：原规则、target／source 路径、条件所在 authored 节点和既有 specificity。绑定字段与 rule 视图为只读；没有另一份可被覆盖的“存活声明”字段，完整声明仍从原 rule 读取。它不查询属性 effect、不判定胜出或共同状态歧义；只解释**现有已准入**的 ownership／条件来源，不扩大多条件或 selector 范围。
 
 `planDescendantConditions` 改为只消费这些绑定，另建候选和存活声明子集，保留原分组、重要性、胜出、歧义及 background 准入规则。贡献编排与 pseudo-element 规划的全部调用已迁移，删除旧的 rules + declaredPaths 调用形状；`OrderBinding` 的基础类型也改为依赖绑定事实，不再从存活 instance 类型派生。纯 ownership 的绑定仍在原先的排序阶段按需发生，没有提前到 compatibility／preserved 判定之前。
 
 `compiler/test/descendant-bindings.test.ts` 的六项回归验证 ownership 投影、重复名称的条件 witness、部分覆盖后原声明完整、成功绑定与政策拒绝分离、回退组及来源保留、selector-list 分支和共享声明身份；测试冻结输入绑定／规则／声明数组，确认筛选不写回它们。生产输入没有增加运行时冻结，也不把 TypeScript 的只读视图声称为深度不可变保障。
 
 这一步只是保留并隔离完整事实，**尚未实现无优化 CSS 输出**。结构 planner 仍消费现有存活 descendants，安全 shorthand 展开仍可能先于绑定发生，原有渲染和模式路径不变；不能据此宣称已完成统一语义或支持新 CSS。十个既有公共接口探针的完整 JSON 与拆分前逐字节一致。完整 verify、默认 Chromium 既有 gate 与回退组六组对照均已重跑；详细结果和提交见 #45，本机证据在 `artifacts/issue-45-architecture/binding-*.log` 及 `binding-browser.json`。下一步需沿结构／排序依赖验证哪些事实必须在筛选前保留，再形成保守输出，不能把旧剪枝结果直接改名为基线。
+
+#### 已完成的第二步：结构绑定共用事实模型，核实排序的完整输入
+
+后代条件与结构关系的绑定统一放在 `selector-bindings.ts`，共用只读 `ConditionBinding` 和现有强度计算，不另建结构绑定框架；旧文件与类型入口已迁移。`bindStructuralRelations` 保留完整 authored 规则、target 路径、首个运行时组合符的来源路径与节点位置，不把 ownership 前缀／尾部当成额外 DOM witness。误将纯 ownership 传入该入口会触发内部不变量错误，而不是产生虚假的结构绑定；这不是新的用户准入诊断。
+
+`planStructuralRelations` 现在接收完整结构绑定，另外建立可筛选、可赋 relationRank 的实例。原 effect 覆盖、条件蕴含、唯一 witness、observation、歧义和 rank 规则保持不变；调用方仍在原先阶段传入已筛选的 descendant 实例，因此这一步没有擅自改变跨路径的竞争集合。
+
+排序链路核查确认已有的 `collectOrderOccurrences` 会从原 rule 恢复全部声明和下标，即使结构实例的存活声明为空，也保留该 binding 的原竞争声明。这里无需另写恢复算法或换排序器；新增回归锁定其行为。`structural-bindings.test.ts` 的八项用例覆盖三种运行时组合符、ownership 前缀／尾部、错误入口、部分／全部被覆盖后的排序 occurrence、回退序列、政策拒绝和 descendant rank 保持。冻结输入验证规划不回写绑定事实。
+
+在改动前记录十个结构输入的公共接口结果，改动后完整 module／snapshot／诊断 JSON 逐字节一致；先前十个探针也保持一致。本机证据为 `artifacts/issue-45-architecture/structural-before.json`、`structural-after.json`、`structural-*.log`。完整检查与浏览器实际结果以 #45 为准。**仍未生成独立的无优化 CSS**：已证明绑定与筛选能够分离、排序保留原竞争者，但 observation 及跨路径语义验证仍依赖原 planner，不能把完整声明直接交给普通 CSS 渲染就宣布基线完成。
 
 未决事项包括：多条件／复杂原生 selector 的绑定表示、现有 `GSS1205` 保护范围能否由通用顺序规则替代、未知 effect 与整体 preserved 的后续关系。上述事项未经决定前不修改产品行为，也不新增统一 dispatcher 来包裹原有所有特例并称为架构完成。
 

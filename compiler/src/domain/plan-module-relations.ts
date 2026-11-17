@@ -1,7 +1,7 @@
 import { getOwnershipPath } from './ownership-path.js';
 import type { ParsedStyleRule } from './parsed-stylesheet.js';
 import type { OwnedTargetBinding, OrderInstance } from './order-occurrences.js';
-import { bindDescendantConditions } from './bind-descendant-conditions.js';
+import { bindDescendantConditions, bindStructuralRelations } from './selector-bindings.js';
 import { planDescendantConditions } from './plan-descendant-conditions.js';
 import { planStructuralRelations } from './plan-structural-relations.js';
 import { planPseudoElementConditions } from './plan-pseudo-element-conditions.js';
@@ -26,7 +26,7 @@ export function planModuleRelations(localRules: readonly ParsedStyleRule[], sema
   const plannedDescendants = hasDescendantConditions ? planDescendantConditions(bindDescendantConditions(descendantRules, declaredPaths),
     (target) => supportsCurrentBackgroundRanks(semanticRules, target)) : undefined;
   if (plannedDescendants?.ambiguity) return { ambiguity: plannedDescendants.ambiguity };
-  const plannedStructural = planStructuralRelations(contextualRules, plannedDescendants?.instances ?? [], hasRules);
+  const plannedStructural = planStructuralRelations(bindStructuralRelations(contextualRules), plannedDescendants?.instances ?? [], hasRules);
   if (plannedStructural.ambiguity) return { ambiguity: plannedStructural.ambiguity };
   const plannedPseudos = planPseudoElementConditions(localRules);
   if (plannedPseudos.ambiguity) return { ambiguity: plannedPseudos.ambiguity };

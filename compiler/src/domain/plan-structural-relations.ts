@@ -1,3 +1,4 @@
+import type { StructuralBinding } from './selector-bindings.js';
 import { getOwnershipPath } from './ownership-path.js';
 import { effectsOfProperty } from './property-effects.js';
 import type { DescendantInstance } from './plan-descendant-conditions.js';
@@ -147,19 +148,12 @@ function ambiguity(candidates: readonly Candidate[]): string | undefined {
 /** A rank is only a topological projection of proved implication, not its proof.
  * Keep all original rules/declarations (including source spans) as provenance. */
 export function planStructuralRelations(
-  rules: readonly ParsedStyleRule[], descendants: readonly StructuralInstance[], observed: readonly ParsedStyleRule[]
+  bindings: readonly StructuralBinding[], descendants: readonly StructuralInstance[], observed: readonly ParsedStyleRule[]
 ): { instances: RuntimeStructuralInstance[]; descendants: StructuralInstance[]; ambiguity?: string } {
-  if (!rules.length) return { instances: [], descendants: [...descendants] };
-  const structural: Candidate<RuntimeStructuralInstance>[] = rules.map((rule) => {
-    const targetPath = getOwnershipPath(rule.nodes);
-    const sourceIndex = rule.relations.findIndex((relation) => relation !== 'descendant');
-    const sourcePath = targetPath.slice(0, sourceIndex + 1);
-    // The session admits one or more trailing descendant ownership edges;
-    // they remain in the emitted selector but are not runtime implication edges.
-    const { states, attributes } = rule.nodes[sourceIndex]!;
-    const instance: RuntimeStructuralInstance = { rule, targetPath, sourcePath, sourceIndex,
-      specificity: rule.nodes.length + states!.filter((state) => !state.startsWith('where(')).length + attributes!.length,
-      relationRank: 0, declarations: rule.declarations };
+  if (!bindings.length) return { instances: [], descendants: [...descendants] };
+  const structural: Candidate<RuntimeStructuralInstance>[] = bindings.map(binding => {
+    const instance: RuntimeStructuralInstance = { ...binding,
+      relationRank: 0, declarations: binding.rule.declarations };
     return {
       instance,
       constraint: constraintForInstance(instance)

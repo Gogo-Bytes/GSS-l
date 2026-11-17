@@ -1,13 +1,13 @@
 import { effectsOfProperty } from './property-effects.js';
-import type { BoundDescendantTarget, DescendantBinding, DescendantRule } from './bind-descendant-conditions.js';
+import type { BoundDescendantTarget, ConditionBinding, DescendantRule } from './selector-bindings.js';
 import { isStructuralPseudoState } from './pseudo-state-capabilities.js';
 
-export type DescendantInstance<R extends DescendantRule> = DescendantBinding<R> & {
+export type DescendantInstance<R extends DescendantRule> = ConditionBinding<R> & {
   relationRank: number;
   declarations: R['declarations'];
 };
 
-function predicate<R extends DescendantRule>(instance: DescendantBinding<R>): string[] {
+function predicate<R extends DescendantRule>(instance: ConditionBinding<R>): string[] {
   if (instance.sourceIndex < 0) return [];
   const { states, attributes } = instance.rule.nodes[instance.sourceIndex]!;
   return [

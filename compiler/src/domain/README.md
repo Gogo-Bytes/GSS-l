@@ -8,7 +8,7 @@
 | 规则形态判断 | [rule-classification.ts](rule-classification.ts) | 谓词可重叠，不等同准入或 DOM 匹配；冲突检查还需单独排除 external target／condition。 |
 | Ownership 路径 | [ownership-path.ts](ownership-path.ts) | `getOwnershipPath` 从只读节点派生名称；实际 target／source 绑定独立。目标末节点相同，前缀按有序子序列匹配；声明胜出、关系规划、语义高度、背景准入和逻辑／物理冲突校验使用同一规则。这是 scope 组合关系，不证明 DOM 祖先或结构 selector。 |
 | 节点条件 | [parsed-stylesheet.ts](parsed-stylesheet.ts) | planner、语义高度与 ownership／结构输出直接读取同一 authored 节点的状态与属性，不合并 descendant 和结构 planner 的蕴含／互斥证明。 |
-| 后代条件绑定 | [bind-descendant-conditions.ts](bind-descendant-conditions.ts) | 完整绑定先于 effect 胜出筛选；原 rule 保留全部声明，绑定不保存可覆写的存活子集。planner 消费绑定另建实例，政策拒绝不等于无法绑定；只覆盖现有准入，尚非完整无优化输出。 |
+| 条件与结构绑定 | [selector-bindings.ts](selector-bindings.ts) | 后代条件与结构关系共用完整绑定事实，先于各自的 effect 胜出筛选；原 rule 保留全部声明，绑定不保存可覆写的存活子集。ownership 前缀／尾部不是额外 DOM witness；结构入口要求真实运行时关系。planner 另建实例，不回写绑定；政策拒绝不等于无法绑定，尚非完整无优化输出。 |
 | 关系规划编排 | [plan-module-relations.ts](plan-module-relations.ts) | descendant、结构和 pseudo 按既有顺序规划与报告歧义；排序候选按原路径收集，candidate 与存活 instance 不能混用。 |
 | 排序 occurrence 身份 | [order-occurrences.ts](order-occurrences.ts) | 声明对象、selector 分支和 target／source／observation 绑定共同标识 occurrence；它不是可复用 atom 的身份。收集保留剪枝前的声明及位置。 |
 | 属性写入与重置 | [property-effects.ts](property-effects.ts)、[expand-safe-box.ts](expand-safe-box.ts) | 安全展开策略集中在 `boxExpansions`，effect 登记不自动授权展开；shorthand 与 longhand 对同一 effect 的竞争按原生强度和声明顺序处理；安全展开与保留原声明各有边界；scroll 物理两族与五族逻辑轴展开均要求无其他潜在别名竞争；逻辑轴只写 start/end，方向映射交给浏览器。border-width 仅允许隔离的同规则静态非负 px／零与物理侧宽度竞争，其他 authored 宽度竞争、复杂值及 fallback 保留原路径；静态 em／rem 可用于原五族；静态百分比仅对 margin／padding／inset／scroll-padding 安全展开，负值过滤仍只针对已批准的 padding 路径。 |
@@ -16,7 +16,7 @@
 | 模块内排序和复用 | [fixed-module-ranks.ts](fixed-module-ranks.ts)、[rule-order-planner.ts](rule-order-planner.ts) | rank 保留必要的竞争顺序和 scope membership；相同值不一定可跨竞争者复用。`atomRank` 在同属性内编号，`orderSlot` 保留潜在重叠族的输出投影；二者共同约束身份，最终排序不比较局部 rank。完整竞争组只有同一已登记物理单 effect longhand 时可复用合格连续同值桶；混合属性／逻辑别名／shorthand 及状态／结构屏障仍保留；完整有序条件链相同可共享，不能推理不同查询等价或重排嵌套；后续版本不重编号。 |
 | 方向别名与准入 | [module-order-policy.ts](module-order-policy.ts)、[validate-logical-physical-conflicts.ts](validate-logical-physical-conflicts.ts) | 逻辑／物理潜在重叠与 shorthand 的确定包含关系不同；潜在别名不构成确定覆盖或删除证明。 |
 
-#45 的后续工作已转向[正确性基线与优化分离](../../../docs/ARCHITECTURE-DIRECTION.md#正确性基线与优化分离)的设计与有界迁移，已分离后代条件的完整绑定和筛选，不继续把未知 selector 当作逐项适配队列。该节区分已批准的探索方向、当前模式差异和未定稿的责任边界；不代表新基线已实现或旧拒绝范围已放开。
+#45 的后续工作已转向[正确性基线与优化分离](../../../docs/ARCHITECTURE-DIRECTION.md#正确性基线与优化分离)的设计与有界迁移，已分离后代条件／结构关系的完整绑定和筛选，并核实排序使用原竞争声明，不继续把未知 selector 当作逐项适配队列。该节区分已批准的探索方向、当前模式差异和未定稿的责任边界；不代表新基线已实现或旧拒绝范围已放开。
 
 新增 CSS 能力或检查重复登记时，按 [CSS 能力接入清单](../../../docs/PROPERTY-ORDER-DESIGN.md#css-能力接入清单与策略归属2026-11-01) 区分 effect、方向策略、准入、展开和复用；该清单含三个代表属性、文件级变更范围、保留特例与回归入口。
 

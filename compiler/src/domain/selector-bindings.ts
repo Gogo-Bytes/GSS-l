@@ -9,7 +9,7 @@ export type DescendantRule = Pick<ParsedStyleRule, 'nodes'> & {
 };
 
 /** Authored declarations remain on rule; only the later plan owns a surviving subset. */
-export type DescendantBinding<R extends DescendantRule> = {
+export type ConditionBinding<R extends DescendantRule> = {
   readonly rule: Readonly<R>;
   readonly targetPath: readonly string[];
   readonly sourcePath?: readonly string[];
@@ -19,7 +19,7 @@ export type DescendantBinding<R extends DescendantRule> = {
 
 export type BoundDescendantTarget<R extends DescendantRule> = {
   readonly targetPath: readonly string[];
-  readonly bindings: readonly DescendantBinding<R>[];
+  readonly bindings: readonly ConditionBinding<R>[];
 };
 
 export function bindDescendantConditions<R extends DescendantRule>(
@@ -29,16 +29,32 @@ export function bindDescendantConditions<R extends DescendantRule>(
   return [...paths.values()].map(targetPath => ({ targetPath,
     bindings: rules.flatMap(rule => {
       const sourceIndex = rule.nodes.findIndex(({ states, attributes }) => states.length > 0 || attributes.length > 0);
-      const predicate = sourceIndex < 0 ? undefined : rule.nodes[sourceIndex];
-      const states = predicate?.states ?? [];
-      const attributes = predicate?.attributes ?? [];
       return conditionSourcePositions(getOwnershipPath(rule.nodes), targetPath, sourceIndex).map(position => ({
         rule, targetPath, sourceIndex,
         ...(sourceIndex < 0 ? {} : { sourcePath: targetPath.slice(0, position + 1) }),
-        specificity: rule.nodes.length + states.filter(state => !state.startsWith('where(')).length + attributes.length
+        specificity: conditionSpecificity(rule, sourceIndex)
       }));
     })
   }));
+}
+
+export type StructuralBinding = ConditionBinding<ParsedStyleRule> & { readonly sourcePath: readonly string[] };
+
+/** Callers supply admitted runtime relations; ownership prefixes and tails stay on the rule. */
+export function bindStructuralRelations(rules: readonly ParsedStyleRule[]): readonly StructuralBinding[] {
+  return rules.map(rule => {
+    const targetPath = getOwnershipPath(rule.nodes);
+    const sourceIndex = rule.relations.findIndex(relation => relation !== 'descendant');
+    if (sourceIndex < 0) throw new Error('Structural binding requires a runtime relation.');
+    return { rule, targetPath, sourceIndex, sourcePath: targetPath.slice(0, sourceIndex + 1),
+      specificity: conditionSpecificity(rule, sourceIndex) };
+  });
+}
+
+function conditionSpecificity(rule: DescendantRule, sourceIndex: number): number {
+  const predicate = sourceIndex < 0 ? undefined : rule.nodes[sourceIndex];
+  return rule.nodes.length + (predicate?.states ?? []).filter(state => !state.startsWith('where(')).length +
+    (predicate?.attributes.length ?? 0);
 }
 
 /** Bind condition witnesses, not every embedding of unconditional ownership nodes. */

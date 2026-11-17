@@ -1,5 +1,5 @@
 import { getOwnershipPath } from './ownership-path.js';
-import { bindDescendantConditions, type DescendantRule } from './bind-descendant-conditions.js';
+import { bindDescendantConditions, type DescendantRule } from './selector-bindings.js';
 import { planDescendantConditions, type DescendantInstance } from './plan-descendant-conditions.js';
 
 type PseudoRule = DescendantRule & {

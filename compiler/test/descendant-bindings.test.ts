@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bindDescendantConditions } from '../src/domain/bind-descendant-conditions.js';
+import { bindDescendantConditions } from '../src/domain/selector-bindings.js';
 import { planDescendantConditions } from '../src/domain/plan-descendant-conditions.js';
 import { groupAdjacentDeclarations } from '../src/domain/validate-declarations.js';
 import { parseStylesheet } from '../src/infrastructure/postcss-stylesheet-parser.js';
