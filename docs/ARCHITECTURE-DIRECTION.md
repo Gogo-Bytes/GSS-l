@@ -19,6 +19,54 @@ GSS 以 CSS 为输入，生成可组合的 scope 引用、原子 CSS 与必要�
 
 现状入口：[compiler-session](../compiler/src/application/compiler-session.ts)、[module-contribution](../compiler/src/application/module-contribution.ts)、[finalize-snapshot](../compiler/src/application/finalize-snapshot.ts)、[CSS parser](../compiler/src/infrastructure/postcss-stylesheet-parser.ts)、[React Adapter](../adapters/react/src/index.ts)、[Vite](../integrations/vite/src/index.ts)。
 
+### 正确性基线与优化分离
+
+负责人在 #45 的后续讨论中同意：暂停逐项扩选择器白名单，先确立保留 GSS 语义的正确性基线，再逐步分离语义解释与优化。**获准的是该方向及设计核查，不是以下候选模型已定稿，也不是放开现有拒绝行为。** 本节为设计探索；当前实现仍以上述工作流及既有契约为准。[当前讨论与证据](https://github.com/Gogo-Bytes/GSS-l/issues/45)。
+
+#### 基线不是普通 CSS 改名，也不是现有 preserved
+
+在 `8e1c28d` 上通过公共 Compiler 接口核查十个输入，全部符合探针中独立写出的提交／拒绝预期；输出及诊断保存在本机 `artifacts/issue-45-architecture/probe-built.json`（初次记录另存 `probe-first.json`），可执行入口 `probe.mjs`；已重新运行 Compiler build 后复测。这是编译输出核查，没有运行浏览器或新基线实现。
+
+| 输入 | 当前结果 | 对基线的约束 |
+| --- | --- | --- |
+| `.card .title { color:red }` | atomic 输出单 class 声明，无 DOM 祖先 selector | ownership 必须由绑定阶段解释，不能直接保留 authored 空格 |
+| 上例增加 `future-property:1` | preserved 输出两个 marker 的真实 DOM 后代 selector | 现有 preserved 是另一条有界路径，不是与 atomic 普遍等价的无优化实现；本核查不将既有模式差异直接定性为新 Bug |
+| `.card:hover .title { color:red }` | 输出带 hover 的来源 marker 与目标 marker 的后代关系 | 原生条件依附的来源节点不能因 ownership 投影而丢失 |
+| `.button[data-kind^="warn"]:hover { color:red }` | `GSS1101` | 语法表达、scope 绑定与优化能力目前没有完全分离 |
+| `.item:is(.active, .selected) { color:red }` | 条件中的两个本地 class 已重写并导出 marker | 条件不能只当作不透明字符串；内部名字引用必须可识别，现有可复用能力也不应推倒重写 |
+| `.item:hover { color:red } .item:focus { color:blue }` | `GSS1205` | 共同命中时的胜负目前受拒绝契约保护，不能以“停止优化”为由自动改成后写胜出 |
+| 将上一例属性换成 `background-color` | atomic，已有有界排序特例 | 属性特例不能未经证明泛化；需找出通用规则缺少的证据，而不是复制分支 |
+| `.item { margin-left:2px; margin-inline-start:1px }` | 输出逻辑属性在前、物理属性在后 | “不优化”也必须执行已批准的 GSS 顺序，不能等同原样输出声明块 |
+| 上例增加 `future-property:1` | `GSS1206` | 现有 preserved 不能提供上述顺序保证，默认 fallback 不等于统一基线 |
+| `.item { margin:1px; margin:2px; margin-left:3px }` | margin 的有序组保持完整，随后输出 margin-left | 声明序列是不可拆单元；不应再在每个输出分支重新解释组内回退 |
+
+因此，“不删除、不拆分、不复用”的说法需要收紧：基线禁止的是**可选优化**，不是必要的语义 lowering。可以为表达既定顺序把不同属性分成不同输出规则；不能因此拆散有序回退组，或把 shorthand 展开冒充纯渲染。语义排序本身必须保留。
+
+#### 候选责任边界
+
+1. **语法与来源**：保留 selector／条件／声明序列的结构及原始位置；区分能解析、能绑定和能优化。采用通用语法结构不代表接受任意未知 at-rule，资源和名称引用仍需明确处理。
+2. **GSS 绑定与语义**：统一产生声明适用的 target、条件来源 source／observation、外部名字及本地引用绑定，并保留浏览器需要的 selector 结构。ownership 的有序子序列匹配和真实 DOM 关系不能相互替代。
+3. **语义顺序**：在绑定完成但尚未删除候选时，表达既有强度、可比较上下文及必要先后关系。原生 layer／importance／specificity 继续由正确输出的 CSS 承担，不能统一压成一个简单标量；条件蕴含、互斥以及 GSS 语义细化只在已有证明成立处使用。
+4. **保守输出**：从语义明确的绑定 occurrence 生成可执行 CSS，不做跨 occurrence 合并或可选覆盖消除。一个 occurrence 至少区分 authored 分支、声明序列及 target／source／observation 绑定，不以最终 class 名或最后一个声明值充当身份。多个属性可为必要排序分别输出；回退组内部顺序不变。
+5. **可选优化**：从同一份剪枝前语义输入出发，证明覆盖后才能删除、证明展开等价后才能展开、证明顺序与 membership 不变后才能共享。优化失败返回保守输出的前提是该输出已经定义并可保持 GSS 契约，不是捕获所有错误后透传源码。
+
+代码追踪进一步限定了切入点：`planDescendantConditions` 在一个函数中完成绑定候选、按 predicate 分组、effect 胜出剪枝与歧义检查，返回独立的 `candidates` 和存活 `instances`；`planModuleRelations` 将存活 descendants 传入结构规划，后者又先处理 equivalent group，再检查歧义并生成 relationRank。直接增加一个“不复用”开关拿不到完整基线。另一方面，现有 `OrderBinding`／`OrderOccurrence` 已区分分支和具体绑定，`collectOrderOccurrences` 特意从原 rule 的声明恢复完整序列，而非使用存活子集；这是应复用的基础，不应再造第二套身份。后续首先需要分离**完整绑定事实**与**基于它的筛选／证明结果**，保持原诊断顺序，再验证保守输出；不先统一所有 planner 的不同证明规则。
+
+这是职责草案，不是新增五个框架层或已批准的 TypeScript 接口。优先复用现有 ownership、occurrence、资源、scope 输出和渲染入口；不能先调用现有 winner 剪枝，再把剩余声明称为“完整无优化基线”。各 planner 当前的绑定、候选生成、剪枝与歧义检查交织，需要先分清依赖再迁移。
+
+条件关系的“未知”必须与“互斥”“等价”区分。已能确定正确输出但无法证明优化关系时，未知只限制优化；无法确定绑定或既定胜负时，未知仍可阻止编译。这是不同能力状态，不应共用一个笼统的 unsupported 分支。
+
+#### 迁移和验证边界
+
+- 第一阶段只研究**现有已准入 atomic 范围**的基线，保留既有拒绝和 last-known-good；不新增公共配置或自动切换整模块模式。preserved 保留为既有模式，不宣称已经与新基线统一。
+- 先追踪绑定／排序如何依赖已剪枝结果，再用上表中 ownership、条件来源、逻辑／物理顺序和回退组等代表输入做有界内部验证。这里的输入是区分职责的反例，不是逐项新功能队列。
+- 用独立的字面 GSS 预期和可适用的原生浏览器对照检验正确性，再比较优化输出与基线。两者共享语义解释，只能帮助定位优化差异，不能相互证明共享解释正确。
+- `tests/src/index.ts` 的现有 `compileGssReference` 是有界独立测试 oracle，不是通用 GSS 基线。保留其独立性，不让它改用生产 planner 来制造共同通过，也不另建平行的长期权威语义引擎。
+- 基线与既有已批准行为不符时，先区分实现违约、基线错误和契约空缺；不能直接把当前产物当作正确答案更新所有预期。
+- 只有基线及职责边界得到证据支持后，再提出成类放宽准入的具体范围。原生条件的新语法应尽量复用绑定与渲染；涉及新的名字语义、运行时关系或胜负规则时仍需明确设计。
+
+未决事项包括：多条件／复杂原生 selector 的绑定表示、现有 `GSS1205` 保护范围能否由通用顺序规则替代、未知 effect 与整体 preserved 的后续关系。上述事项未经决定前不修改产品行为，也不新增统一 dispatcher 来包裹原有所有特例并称为架构完成。
+
 ### 生产 CSS 交付粒度
 
 负责人在 [#41](https://github.com/Gogo-Bytes/GSS-l/issues/41) 的方案讨论后决定：本阶段保留单份聚合 CSS，不实施按入口／懒加载拆分。最终可达的静态与 lazy GSS 模块共同进入该资产；JS 懒加载不意味着对应 CSS 延迟下载。
