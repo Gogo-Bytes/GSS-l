@@ -182,6 +182,7 @@ const families: readonly PropertyFamily[] = [
   ['view-timeline', ['view-timeline-name', 'view-timeline-axis', 'view-timeline-inset']],
   ['position-try', ['position-try-order', 'position-try-fallbacks']],
   ['text-box', ['text-box-trim', 'text-box-edge']],
+  ['white-space', ['white-space-collapse', 'text-wrap-mode', 'white-space-trim']],
   ['text-wrap', ['text-wrap-mode', 'text-wrap-style']],
   ['animation', [
     'animation-name',
@@ -246,7 +247,6 @@ export const PROPERTY_EFFECT_INDEPENDENT_PROPERTIES = [
   'object-position',
   'table-layout',
   'vertical-align',
-  'white-space',
   'word-break',
   'overflow-wrap',
   'aspect-ratio',

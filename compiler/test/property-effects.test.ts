@@ -79,6 +79,7 @@ const registeredShorthandEffects = {
   'view-timeline': ['view-timeline-name', 'view-timeline-axis', 'view-timeline-inset'],
   'position-try': ['position-try-order', 'position-try-fallbacks'],
   'text-box': ['text-box-trim', 'text-box-edge'],
+  'white-space': ['white-space-collapse', 'text-wrap-mode', 'white-space-trim'],
   'text-wrap': ['text-wrap-mode', 'text-wrap-style'],
   'font-synthesis': ['font-synthesis-weight', 'font-synthesis-style', 'font-synthesis-small-caps', 'font-synthesis-position'],
   'font-variant': ['font-variant-ligatures', 'font-variant-caps', 'font-variant-numeric', 'font-variant-east-asian', 'font-variant-alternates', 'font-variant-position', 'font-variant-emoji'],

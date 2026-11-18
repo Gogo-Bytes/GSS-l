@@ -391,6 +391,8 @@ Compiler build 与已有三组定向测试 **435** 项通过：fixed-module-rank
 
 本项完整 `verify` **2537** 项（Compiler 1991／React 49／Vite 163／Testing 334）及 lint／build／types 通过，定向初测 159 项通过。feature-red 日志保留 9 项预期行为失败及 1 项测试本身误读嵌套 scope 的失败；后者已改为有真实独立 scope 的派生目标屏障，未修改产品逻辑兜底测试。原子化 compatibility 使用相同复用条件；preserved 输出不进入复用，失败更新／恢复保持原事务路径。浏览器执行范围与结果见当前计划，证据在 `artifacts/conditional-atom-reuse/`。
 
+`white-space` 按 [CSS Text 的简写定义](https://drafts.csswg.org/css-text-4/#white-space-property)登记 `white-space-collapse`、`text-wrap-mode`、`white-space-trim` 三个写入；`text-wrap` 写入 `text-wrap-mode` 和 `text-wrap-style`。两者只部分重叠：同强度时后写者决定换行，但空白折叠与换行风格不能一起被剪掉。复用已有 effect 排序，不展开声明，也不推断浏览器对 `white-space-trim` 的支持。
+
 ## CSS 能力接入清单与策略归属（2026-11-01）
 
 本轮按 owner 授权梳理现有接入路径，以 `opacity`（独立 longhand）、`margin-left`／`margin-inline-start`（方向 longhand）、`border-width`（shorthand）为代表。以下是维护当前编译器的接入清单，不是公共注册 API，也不授权新的 CSS 语义。新属性的规范依据应在实际扩展时核实；本轮没有扩展属性或值域。

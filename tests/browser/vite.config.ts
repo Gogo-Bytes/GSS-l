@@ -5,6 +5,7 @@ import { compileGssReference } from '../src/index.js';
 import { fixtures, type CompiledReferenceFixture, type ReferenceFixture } from './fixtures.js';
 import { contextualBoundaryFixtures } from './contextual-boundary-fixtures.js';
 import { structuralRelationFixtures, structuralObservedFixtures } from './structural-relation-fixtures.js';
+import { whiteSpaceFixtures } from './white-space-fixtures.js';
 import { fontResetFixtures } from './font-reset-fixtures.js';
 import { groupedHasFixture, hasSpecificityDedupFixtures, hasSpecificityFixtures, hasTypeListFixtures } from './has-specificity-fixtures.js';
 import { conditionalKeyframeFixtures } from './conditional-keyframe-fixtures.js';
@@ -88,7 +89,7 @@ export default defineConfig({
         ...fixtures.map((fixture) => compile(fixture)),
         ...contextualBoundaryFixtures.map((fixture) => compile(fixture, fixture.reference, 'contextual boundary')),
         ...[...structuralRelationFixtures, ...structuralObservedFixtures].map((fixture) => compile(fixture, fixture.reference, 'structural relations')),
-        ...fontResetFixtures.map((fixture) => compile(fixture, fixture.reference, 'property-effect resets')),
+        ...[...fontResetFixtures, ...whiteSpaceFixtures].map((fixture) => compile(fixture, fixture.reference, 'property-effect resets')),
         compile(groupedHasFixture, groupedHasFixture.reference, 'grouped has conditions'),
         ...hasSpecificityFixtures.map((fixture) => compile(fixture, fixture.reference, 'has specificity')),
         ...hasTypeListFixtures.map((fixture) => compile(fixture, fixture.reference, 'type-only has lists')),
