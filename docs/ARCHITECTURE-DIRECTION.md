@@ -105,6 +105,17 @@ Chromium 145 中，页面始终没有 `.layout` 节点。同一目标在属性�
 
 本机探针 `artifacts/issue-45-architecture/ancestor-probe.mjs` 连跑两次，JSON 结果相同。这只验证单一来源的存在判断；此例不能证明一般 selector 强度、多个来源绑定、结构组合符或 `:has()` 的匹配行为。
 
+#### JSX 先选 scope，DOM 再决定关系是否命中
+
+以 `.title{color:red}` 和 `.layout .card > .title{color:blue}` 为例，父节点写 `className={styles.layout.card}`，不需要额外的 `.layout` DOM 节点。**放进这个父节点不会自动改变子元素引用的 scope**：
+
+| 子元素的 JSX `className` | 直接子节点 | 中间隔一层 `<section>` |
+| --- | --- | --- |
+| `styles.title` | 红 | 红 |
+| `styles.layout.card.title` | 蓝 | 红 |
+
+浅路径只取得基础红色 class。深路径还取得关系目标 marker，所以有资格命中蓝色规则，但仍须满足 `>`。用真实 React JSX 切换路径或插入中间层，Vite 生产预览在 Chromium 145 得到上表结果：只改 DOM 时 class 字符串不变；只改引用时，是否带有目标 marker 随之改变。本机用例与构建记录：`artifacts/issue-45-architecture/jsx-path/`。
+
 #### Child 关系：匹配集合相同，不代表层叠结果相同
 
 `.layout .card > .title{color:blue}` 不要求 `.layout` DOM 祖先，但要求目标是 `card` 的直接子节点。Chromium 145 中，对同一目标依次测试直接子节点、插入中间节点、移除中间层、移到无关父节点、移回。候选 `.source > .target` 与当前 atomic 输出都是蓝／红／蓝／红／蓝；把 `>` 换成空格会使第二步错误命中。
