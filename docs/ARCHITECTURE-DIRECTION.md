@@ -97,6 +97,14 @@ GSS 以 CSS 为输入，生成可组合的 scope 引用、原子 CSS 与必要�
 
 六次 Chromium 观测中，候选与当前 atomic 输出各自符合独立写出的计算值，二者截图尺寸和 RGBA 像素完全相同。倒置候选规则顺序，深层 ownership 和 LTR 别名两个负向控制均检出错误。本机复跑：`node artifacts/issue-45-architecture/conservative-probe.mjs`。这只验证上述固定输入；原型复用生产排序器，不是独立排序 oracle，也未验证条件来源、结构或 observation 的匹配。
 
+#### 祖先属性条件：区分 ownership 前缀和真实来源
+
+对 `.layout .card[data-ready] .title{color:blue}.title{color:red}`，`layout` 只参与 scope 路径；`card` 则必须是目标的真实 DOM 祖先，并且带有该属性。原型用未剪枝绑定的 `sourcePath` 给来源分配 class，生成 `.s0[data-ready] .t0`，没有为 `.layout` 生成 DOM 条件。目标同时保留红色声明。
+
+Chromium 145 中，页面始终没有 `.layout` 节点。同一目标在属性缺失、设为空值、改为非空、移除、恢复时依次为红／蓝／蓝／红／蓝。移到其他祖先下变红，给该祖先也加 `[data-ready]` 仍为红，移回原来源才变蓝。候选与当前 atomic 的八次计算值各自符合字面预期，对应截图逐像素相同。去掉来源 class 会让其他祖先误触发；去掉属性条件会让无属性的来源误触发。
+
+本机探针 `artifacts/issue-45-architecture/ancestor-probe.mjs` 连跑两次，JSON 结果相同。这只验证单一来源的存在判断；此例不能证明一般 selector 强度、多个来源绑定、结构组合符或 `:has()` 的匹配行为。
+
 ### 生产 CSS 交付粒度
 
 负责人在 [#41](https://github.com/Gogo-Bytes/GSS-l/issues/41) 的方案讨论后决定：本阶段保留单份聚合 CSS，不实施按入口／懒加载拆分。最终可达的静态与 lazy GSS 模块共同进入该资产；JS 懒加载不意味着对应 CSS 延迟下载。
