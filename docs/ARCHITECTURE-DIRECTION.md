@@ -128,7 +128,7 @@ Chromium 145 中，页面始终没有 `.layout` 节点。同一目标在属性�
 
 [Compiler 测试入口](../compiler/test/conservative-output.mjs)从剪枝前的规则和绑定生成 CSS，每个绑定声明组使用独立 class，不做 shorthand 展开、声明删除或 atom 共享。祖先条件和结构选择器与生产路径共用渲染函数，保留 ownership 前缀的强度。它不是独立排序 oracle，也不导出为 Compiler API 或用于生产 fallback。
 
-[浏览器回归](../tests/browser/conservative-check.mjs)由现有 `browser:check` 运行。首批固定输入为基础 `.title` 分别与深层 child 或祖先存在条件竞争。两种输出都必须符合浅／深路径、隔层、属性缺失和后置普通 CSS 竞争的字面颜色预期，再比较截图。这里测量 Compiler 的 scope 和 CSS，不把它当作 JSX 构建验证，也不宣称覆盖所有已准入输入。
+[浏览器回归](../tests/browser/conservative-check.mjs)由现有 `browser:check` 运行。首批固定输入为基础 `.title` 分别与深层 child 或祖先存在条件竞争。两种输出都必须符合浅／深路径、隔层、属性缺失和后置普通 CSS 竞争的字面颜色预期，再比较截图。纯 ownership 的六项回归另行检查：没有 DOM 祖先的深／浅目标，shorthand 与物理长手并存，末个候选不受支持时保留前值，以及 LTR／RTL 下逻辑／物理边距的实际写入。两种输出各自检查字面计算值，再比较包含边距的容器截图。这里测量 Compiler 的 scope 和 CSS，不把它当作 JSX 构建验证，也不宣称覆盖所有已准入输入。
 
 ### 生产 CSS 交付粒度
 
