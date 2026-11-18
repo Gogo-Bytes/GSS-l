@@ -6,7 +6,7 @@ import type { DescendantInstance } from '../domain/plan-descendant-conditions.js
 import type { PlannedOwnershipGroup } from './ownership-planning.js';
 import { identifyDeclarationValue } from './asset-values.js';
 import { canonicalCondition } from './condition-context.js';
-import { canonicalAttributeCondition, renderAttributeCondition, renderStateSuffix } from './selector-rendering.js';
+import { canonicalAttributeCondition, renderAncestorSelector, renderAttributeCondition, renderStateSuffix } from './selector-rendering.js';
 import { ensureScopePath } from './scope-exports.js';
 
 /** Emit already-planned ownership targets and ancestor predicates. Ownership
@@ -44,8 +44,7 @@ export function emitOwnershipRules(input: AtomicEmissionContext & {
         const targetMarker = nameAllocator.createTargetMarker(relationIdentity);
         ensureScopePath(roots, sourcePath).classNames.add(sourceMarker);
         scope.classNames.add(targetMarker);
-        // Repeat an existing marker, rather than inventing ancestors, to retain authored specificity.
-        const selector = `.${sourceMarker}${suffix} ${`.${targetMarker}`.repeat(rule.nodes.length - 1)}`;
+        const selector = renderAncestorSelector(sourceMarker, suffix, targetMarker, rule.nodes.length);
         for (const declaration of instance.declarations) rules.push({
           kind: 'contextual-atom', className: targetMarker, selector, wrappers, layer, relationRank,
           source: declaration.source, identity: { ...relationIdentity, ...(moduleOrder.get(declaration, instance) ?? {}), property: declaration.property,

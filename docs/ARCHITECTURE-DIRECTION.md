@@ -124,6 +124,12 @@ Chromium 145 中，页面始终没有 `.layout` 节点。同一目标在属性�
 
 本机探针 `artifacts/issue-45-architecture/child-baseline.mjs` 及 `child-competition-{first,final}.json` 保留两次运行结果。连同前两节，已完成 ownership、祖先条件、child、逻辑／物理排序和回退组这些代表输入的原型核查。尚无可在编译器内选择的保守输出路径，也未证明任意已准入输入均可生成等价输出。
 
+#### 仅供测试的保守输出（负责人已批准）
+
+[Compiler 测试入口](../compiler/test/conservative-output.mjs)从剪枝前的规则和绑定生成 CSS，每个绑定声明组使用独立 class，不做 shorthand 展开、声明删除或 atom 共享。祖先条件和结构选择器与生产路径共用渲染函数，保留 ownership 前缀的强度。它不是独立排序 oracle，也不导出为 Compiler API 或用于生产 fallback。
+
+[浏览器回归](../tests/browser/conservative-check.mjs)由现有 `browser:check` 运行。首批固定输入为基础 `.title` 分别与深层 child 或祖先存在条件竞争。两种输出都必须符合浅／深路径、隔层、属性缺失和后置普通 CSS 竞争的字面颜色预期，再比较截图。这里测量 Compiler 的 scope 和 CSS，不把它当作 JSX 构建验证，也不宣称覆盖所有已准入输入。
+
 ### 生产 CSS 交付粒度
 
 负责人在 [#41](https://github.com/Gogo-Bytes/GSS-l/issues/41) 的方案讨论后决定：本阶段保留单份聚合 CSS，不实施按入口／懒加载拆分。最终可达的静态与 lazy GSS 模块共同进入该资产；JS 懒加载不意味着对应 CSS 延迟下载。

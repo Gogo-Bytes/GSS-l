@@ -3,7 +3,7 @@ import type { ContextualRelationIdentity } from '../domain/readable-name.js';
 import type { RuntimeStructuralInstance } from '../domain/plan-structural-relations.js';
 import { identifyDeclarationValue } from './asset-values.js';
 import { canonicalCondition } from './condition-context.js';
-import { canonicalAttributeCondition, renderAttributeCondition, renderStateSuffix, renderRelationCombinator } from './selector-rendering.js';
+import { canonicalAttributeCondition, renderAttributeCondition, renderStateSuffix, renderStructuralSelector } from './selector-rendering.js';
 import { ensureScopePath } from './scope-exports.js';
 import type { ContextualDeclarationIdentity } from './planned-declaration.js';
 
@@ -51,16 +51,9 @@ export function emitStructuralRules(input: AtomicEmissionContext & {
       ensureScopePath(roots, path).classNames.add(marker);
       return marker;
     });
-    const selector = markers.map((marker, index) => {
-      if (index === 0) {
-        // The source marker represents the whole ownership prefix, not one authored class.
-        return `${`.${marker}`.repeat(sourcePath.length)}${renderStateSuffix(predicate?.states ?? [], moduleId, nameAllocator, roots)}${
-          sourceAttributeCondition ? renderAttributeCondition(sourceAttributeCondition) : ''
-        }`;
-      }
-      const combinator = renderRelationCombinator(runtimeRelations[index - 1]!);
-      return `${combinator ? ` ${combinator} ` : ' '}.${marker}`;
-    }).join('');
+    const suffix = renderStateSuffix(predicate?.states ?? [], moduleId, nameAllocator, roots) +
+      (sourceAttributeCondition ? renderAttributeCondition(sourceAttributeCondition) : '');
+    const selector = renderStructuralSelector(markers, sourcePath.length, suffix, runtimeRelations);
 
     for (const declaration of declarations) {
       const identity: ContextualDeclarationIdentity = {

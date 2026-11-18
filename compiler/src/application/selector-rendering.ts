@@ -72,6 +72,20 @@ export function renderNativeSelector(
   return root.toString();
 }
 
+export function renderAncestorSelector(source: string, suffix: string, target: string, nodeCount: number): string {
+  return `.${source}${suffix} ${`.${target}`.repeat(nodeCount - 1)}`;
+}
+
+export function renderStructuralSelector(markers: readonly string[], prefixLength: number, suffix: string,
+  relations: ContextualRelationIdentity['relations']): string {
+  // The source marker represents the ownership prefix without inventing DOM ancestors.
+  return markers.map((marker, index) => {
+    if (index === 0) return `${`.${marker}`.repeat(prefixLength)}${suffix}`;
+    const combinator = renderRelationCombinator(relations[index - 1]!);
+    return `${combinator ? ` ${combinator} ` : ' '}.${marker}`;
+  }).join('');
+}
+
 export function renderRelationCombinator(
   relation: ContextualRelationIdentity['relations'][number]
 ): '>' | '+' | '~' | '' {
