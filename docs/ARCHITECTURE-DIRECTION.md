@@ -87,6 +87,16 @@ GSS 以 CSS 为输入，生成可组合的 scope 引用、原子 CSS 与必要�
 
 未决事项包括：多条件／复杂原生 selector 的绑定表示、现有 `GSS1205` 保护范围能否由通用顺序规则替代、未知 effect 与整体 preserved 的后续关系。上述事项未经决定前不修改产品行为，也不新增统一 dispatcher 来包裹原有所有特例并称为架构完成。
 
+#### 纯 ownership：保守输出的浏览器原型
+
+在 `3719d60` 上，原型从展开 shorthand 之前的规则出发，保留相邻回退组，为每个「绑定目标 × 声明组」单独生成 class。不剪枝也不共享 class，但仍使用现有 `orderSlot` 排列规则。公共 Compiler 先确认输入已按 atomic 准入；原型不承担准入，也不是新增的编译模式。
+
+- `.card .title{color:blue}.title{color:red}`：不提供 `.card` 祖先时，使用 `card.title` 的元素仍为蓝色，使用 `title` 的元素为红色。前者同时拿到红、蓝声明，靠顺序而非删除红色得到蓝色。
+- `margin:1px 2px;margin-left:3px` 保留 shorthand，右侧仍为 2px；`margin:1px;margin:unsupported;margin-left:3px` 保留完整回退，上侧仍为 1px。
+- `margin-left:2px;margin-inline-start:1px` 需要先输出逻辑属性。LTR 的左右边距为 2px／0px，RTL 为 2px／1px，不能用作者顺序替代语义排序。
+
+六次 Chromium 观测中，候选与当前 atomic 输出各自符合独立写出的计算值，二者截图尺寸和 RGBA 像素完全相同。倒置候选规则顺序，深层 ownership 和 LTR 别名两个负向控制均检出错误。本机复跑：`node artifacts/issue-45-architecture/conservative-probe.mjs`。这只验证上述固定输入；原型复用生产排序器，不是独立排序 oracle，也未验证条件来源、结构或 observation 的匹配。
+
 ### 生产 CSS 交付粒度
 
 负责人在 [#41](https://github.com/Gogo-Bytes/GSS-l/issues/41) 的方案讨论后决定：本阶段保留单份聚合 CSS，不实施按入口／懒加载拆分。最终可达的静态与 lazy GSS 模块共同进入该资产；JS 懒加载不意味着对应 CSS 延迟下载。
