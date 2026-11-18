@@ -105,6 +105,14 @@ Chromium 145 中，页面始终没有 `.layout` 节点。同一目标在属性�
 
 本机探针 `artifacts/issue-45-architecture/ancestor-probe.mjs` 连跑两次，JSON 结果相同。这只验证单一来源的存在判断；此例不能证明一般 selector 强度、多个来源绑定、结构组合符或 `:has()` 的匹配行为。
 
+#### Child 关系：匹配集合相同，不代表层叠结果相同
+
+`.layout .card > .title{color:blue}` 不要求 `.layout` DOM 祖先，但要求目标是 `card` 的直接子节点。Chromium 145 中，对同一目标依次测试直接子节点、插入中间节点、移除中间层、移到无关父节点、移回。候选 `.source > .target` 与当前 atomic 输出都是蓝／红／蓝／红／蓝；把 `>` 换成空格会使第二步错误命中。
+
+仅看这五次匹配会错过原型缺陷。在样式表末尾添加 `.theme .control{color:green}` 并令它同时命中目标，原型五步全绿，而当前 atomic 在三个直接子节点状态仍为蓝。`structural-emission.ts` 按 `sourcePath.length` 重复来源 marker，保留 ownership 前缀贡献的选择器强度，却不要求额外 DOM 节点。候选改为 `.source.source > .target` 后，五步均符合独立的蓝／绿／蓝／绿／蓝预期，也与 atomic 逐像素一致。**这是原型丢失强度，不是生产缺陷**；保守输出也不能省略这种转换。
+
+本机探针 `artifacts/issue-45-architecture/child-baseline.mjs` 及 `child-competition-{first,final}.json` 保留两次运行结果。连同前两节，已完成 ownership、祖先条件、child、逻辑／物理排序和回退组这些代表输入的原型核查。尚无可在编译器内选择的保守输出路径，也未证明任意已准入输入均可生成等价输出。
+
 ### 生产 CSS 交付粒度
 
 负责人在 [#41](https://github.com/Gogo-Bytes/GSS-l/issues/41) 的方案讨论后决定：本阶段保留单份聚合 CSS，不实施按入口／懒加载拆分。最终可达的静态与 lazy GSS 模块共同进入该资产；JS 懒加载不意味着对应 CSS 延迟下载。
