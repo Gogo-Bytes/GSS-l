@@ -26,6 +26,18 @@ export const Card = () => <div className={styles.card} />;`
   expect(result.map?.sourcesContent).toEqual([input.source]);
 });
 
+it('accepts TS angle assertions when discovering and lowering a GSS import', () => {
+  const adapter = react();
+  const input = { id: '/project/main.ts', source: `import styles from './Card.gss';
+    document.title = String(<number>123); document.body.className = styles.card;` };
+  expect(adapter.discoverImports(input)).toEqual(['./Card.gss']);
+  const result = adapter.transform({ ...input, resolveScopeSchema: () => ({
+    moduleId: 'Card.gss', exports: { card: { targets: {}, selfClassName: 'red' } }
+  }) });
+  expect(result.diagnostics).toEqual([]);
+  expect(result.code).toContain('className = styles.card.$class');
+});
+
 it('fails closed when a discovered GSS import has no ScopeSchema', () => {
   const result = react().transform({
     id: '/project/Card.tsx',

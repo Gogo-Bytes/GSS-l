@@ -51,15 +51,18 @@ type GssBinding = {
   importNode: t.ImportDefaultSpecifier;
 };
 
+function parseReactSource(id: string, source: string) {
+  return parse(source, {
+    sourceType: 'module', sourceFilename: id,
+    plugins: /\.[cm]?ts$/.test(id) ? ['typescript'] : ['typescript', 'jsx']
+  });
+}
+
 export function react(): GssSourceAdapter {
   return {
     supports: (id) => /\.[cm]?[jt]sx?$/.test(id),
     discoverImports({ id, source }) {
-      const ast = parse(source, {
-        sourceType: 'module',
-        sourceFilename: id,
-        plugins: ['typescript', 'jsx']
-      });
+      const ast = parseReactSource(id, source);
       return [...new Set(ast.program.body
         .filter((node) => t.isImportDeclaration(node) && node.source.value.endsWith('.gss'))
         .map((node) => (node as t.ImportDeclaration).source.value))];
@@ -76,11 +79,7 @@ function diagnosticRange(node: t.Node): Pick<ReactGssDiagnostic, 'range'> {
 export function transformReactGssUsage(
   input: TransformReactGssUsageInput
 ): TransformReactGssUsageResult {
-  const ast = parse(input.source, {
-    sourceType: 'module',
-    sourceFilename: input.id,
-    plugins: ['typescript', 'jsx']
-  });
+  const ast = parseReactSource(input.id, input.source);
   const diagnostics: ReactGssDiagnostic[] = [];
   const bindings = collectGssBindings(ast.program, input, diagnostics);
   const verifiedBindings = resolveReferenceBindings(ast, bindings);

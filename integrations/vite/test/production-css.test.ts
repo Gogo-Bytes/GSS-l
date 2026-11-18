@@ -60,6 +60,11 @@ it('emits one central CSS asset and injects its final name into built HTML', asy
   expect(html).not.toContain('/@gss-l/central.css');
 });
 
+it('builds a plain TS entry with an angle assertion and no GSS dependency', async () => {
+  const output = await bundle(await fixture({ 'main.ts': 'document.title = String(<number>123);' }));
+  expect(output.output.some(entry => entry.type === 'chunk' && entry.code.includes('document.title'))).toBe(true);
+});
+
 it('builds a same-rule logical and physical longhand pair in fixed order', async () => {
   const output = await bundle(await fixture({ 'Card.gss': '.card { margin-left: 2px; margin-inline-start: 1px; }' }));
   const manifest = JSON.parse(asset(output, 'gss-manifest.json'));

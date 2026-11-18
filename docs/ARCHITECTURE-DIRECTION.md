@@ -236,6 +236,8 @@ Vite 当前将 transform 的原始 `id` 与源码交给 adapter；对发现的 s
 
 #### React 引用与 TypeScript 契约
 
+React Adapter 在导入扫描和静态引用转换时共用解析入口。普通 `.ts` 文件按 TypeScript 而非 JSX 解析，例如 `String(<number>123)` 不会因启用插件而阻断构建；`.tsx` 保留 JSX 解析。此选择不改变 scope 的引用或导出方式。
+
 用户在 React 源码直接写 `styles.card` 或 `styles.card.title`。适配器按 schema 验证静态路径，在支持的字符串消费位置自动读取节点的内部 `$class` 字段。[GssScope](../types/src/index.ts) 用带 brand 的 `string & children` 描述源码引用，允许传给普通 `className?: string`，不提供逐文件精确补全，负责人已明确决定不做该能力，见下。
 
 不可变别名同时用于父节点和子路径时，初始化保留选中的 scope 对象。读取 `className={branch}` 或 `branch.title` 时才取对应节点的字符串。对条件别名，适配器检查每个可能分支都声明了目标，生成代码仍读取原别名，因此条件只在初始化时求值一次。
