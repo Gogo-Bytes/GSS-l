@@ -28,6 +28,14 @@ export function isStructuralRuntimeRule(rule: ParsedStyleRule): boolean {
     rule.nodes.every((node) => node.pseudoElement === null);
 }
 
+/** An ownership prefix selects a scope; it is not a second DOM witness. */
+export function isOwnedCurrentSubject(rule: ParsedStyleRule): boolean {
+  return !rule.externalTarget && !rule.externalCondition && rule.relations.every(r => r === 'descendant') &&
+    rule.nodes.every((node, index) => !node.pseudoElement && !node.hasConditions.length &&
+      (index === rule.nodes.length - 1 ? node.states.every(state => !state.includes('(')) :
+        !node.states.length && !node.attributes.length));
+}
+
 export function isCurrentAttributeRule(rule: ParsedStyleRule): boolean {
   return rule.relations.every((relation) => relation === 'descendant') &&
     rule.nodes.at(-1)!.attributes.length > 0 &&

@@ -138,7 +138,7 @@ Chromium 145 中，页面始终没有 `.layout` 节点。同一目标在属性�
 
 #### #68 设计提案：先确定条件落在哪个元素，再决定能否优化
 
-**负责人决定，已实施同节点首段：** 不同条件可各自生成 atom，复用不是准入前提。`.a:hover:focus` 与 `.a[data-on]:hover` 不共用条件身份；`styles.a` 取得两条规则的类名，匹配交给浏览器。同一模块内，若竞争写入均为同一个已登记长手、主体都是一个本地类且只带属性或已支持的无参数状态，则同强度并发按 CSS 书写顺序决定胜负。其他层叠环境与多节点、函数参数的边界不随之放开。下表是修改前的定位，不是当前能力清单。 `styles.button` 决定元素取得哪组类名；`[data-mode]`、`:focus-visible` 决定浏览器此刻是否匹配。属性或焦点变化不该改变 JSX 引用，也不需要 React 在运行时解释 CSS。
+**负责人决定，已实施同节点首段：** 不同条件可各自生成 atom，复用不是准入前提。`.a:hover:focus` 与 `.a[data-on]:hover` 不共用条件身份；`styles.a` 取得两条规则的类名，匹配交给浏览器。同一模块内，若竞争写入均为同一个已登记长手、条件只在完整 ownership 路径的目标节点上测试属性或已支持的无参数状态，则同强度并发按 CSS 书写顺序决定胜负。其他层叠环境与多节点、函数参数的边界不随之放开。下表是修改前的定位，不是当前能力清单。 `styles.button` 决定元素取得哪组类名；`[data-mode]`、`:focus-visible` 决定浏览器此刻是否匹配。属性或焦点变化不该改变 JSX 引用，也不需要 React 在运行时解释 CSS。
 
 **现状定位（`11124e1`，单条 `color:red` 规则实测）。** 以下结果来自 `parseStylesheet` 和公开 Compiler session 的 `replaceStylesheet`／`finalize`，不是按选择器文本猜测：
 
@@ -263,13 +263,11 @@ Parser 与规划共用 `ParsedStyleRule` 节点规则结构，删除过渡的 `P
 
 通用 ownership 路径匹配位于 [ownership-path.ts](../compiler/src/domain/ownership-path.ts)：规则路径和目标末节点必须相同，前缀按顺序匹配子序列，因此 `.root .item` 的 ownership 可以与包含额外中间 scope 的目标组合。它不证明真实 DOM 祖先；结构组合符、条件来源和运行时 witness 仍由各自 planner 证明。声明胜出、关系规划、语义高度、background 准入与逻辑／物理冲突校验共同使用此函数，不再让通用规划依赖特定属性的准入模块。声明胜出和冲突校验此前单独匹配完整子序列并要求末节点相同；末节点相同时，完整子序列可将最后一次匹配放在目标末尾，与匹配前缀子序列等价，包括重复名称和空路径。匹配边界、声明胜出、冲突准入与排序未变；验证见 [当前计划](NEXT-STAGE.md)。
 
-### 当前节点 background 排序准入
+### 当前节点的属性竞争与 ownership 排序准入
 
-`planDescendantConditions` 对已保留、同一 layer／条件及 specificity 下可同时生效且无法证明蕴含、互斥或存在更强交集的不同声明，通常返回 `GSS1205`。仅当冲突 effect 是 `background-color` 且 `supportsCurrentBackgroundRanks` 通过时，才允许现有模块排序处理这种冲突；这不是所有属性或所有状态均可按源码顺序处理的证明。检查所有潜在竞争规则的原始声明，而非仅检查剪枝后的胜出者，以免遗漏后续仍可能生效的竞争。
+`supportsCurrentSubjectRanks` 检查能绑定到具体目标路径的原始声明。竞争者须写同一已登记长手，条件仅测试目标节点。比如 `.button:hover` 和 `.panel .button[data-tone^="warn" i]:focus` 的条件都在按钮上；纯 ownership 前缀不要求 DOM 里有 panel。`color` 和 `background-color` 走同一条 rank 路径。相反，`.panel:hover .button` 需要另一个 DOM 节点满足 hover，不属于这类输入。简写、潜在别名、函数条件、观察或其他真实关系不由此新增准入。external target 可能匹配任意 anchor 下的元素，不能按路径排除它的竞争写入。
 
-该准入只允许相关背景声明是 `background-color` longhand，未分层、无条件、无 external、结构关系、observation 或 pseudo-element；状态只能是目标节点单个 `hover`／`focus`，属性条件也只能在目标节点且每个节点最多一个。路径判断是 ownership 子序列，不推断 DOM 祖先。external target 可能落在任意 anchor 下，因此其背景 effect 要在整个模块检查；不竞争的 external 属性不应触发此屏障。普通 `background` shorthand、`:active`、祖先状态及其他属性冲突不能借此特例放行；例如两条 `color` 状态冲突仍可能报告 `GSS1205`。
-
-在通过准入的路径中，关系规划仍先保留各 predicate 的胜出声明，再将剪枝前 candidates 提供给固定模块排序；原生 importance／specificity、语义高度、同属性 rank 和输出位置继续各司其职。没有触发冲突种子的既有可用输入不因为此检查而额外拒绝；已有 external selector 准入诊断也先于关系规划。此特例是保守准入规则，并非通用 CSS 覆盖证明；是否替代或扩展须先证明竞争闭包、marker 与复用等价，不能仅把属性名泛化。现有回归与验证范围见 [当前计划](NEXT-STAGE.md)。
+排序以剪枝前的 occurrence 为输入。在可按当前节点排序的竞争者之间，同强度保持源码先后；不能因为模块内另一条无关路径使用祖先条件而翻转这组平局。深路径组合匹配的浅声明；浅路径不靠 DOM 位置取得深样式。浏览器对照见 `tests/browser/current-condition-check.mjs`。
 
 ### Adapter 与宿主接缝：已实现和未验证部分
 

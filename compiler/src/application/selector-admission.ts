@@ -3,7 +3,7 @@ import selectorParser from 'postcss-selector-parser';
 import type { ParsedStyleRule } from '../domain/parsed-stylesheet.js';
 import type { GssDiagnostic } from '../public-types.js';
 import { classifyPropertyEffect } from '../domain/property-effects.js';
-import { isAncestorStateRule, isAncestorAttributeRule, isObservedRule, isStructuralRuntimeRule, isCurrentAttributeRule, isPseudoElementRule, isCurrentStateRule, isPureOwnershipRule } from '../domain/rule-classification.js';
+import { isOwnedCurrentSubject, isAncestorStateRule, isAncestorAttributeRule, isObservedRule, isStructuralRuntimeRule, isCurrentAttributeRule, isPseudoElementRule, isCurrentStateRule, isPureOwnershipRule } from '../domain/rule-classification.js';
 
 /** Preserve the existing external admission checks before later condition,
  * declaration, relation and fallback validation. */
@@ -166,7 +166,9 @@ export function validateSelectorShapes(id: string, rules: readonly ParsedStyleRu
     };
   }
 
-  const unsupportedAttribute = rules.find(({ relations, nodes }) => {
+  const unsupportedAttribute = rules.find(rule => {
+    const { relations, nodes } = rule;
+    if (isOwnedCurrentSubject(rule)) return false;
     if (nodes.length === 1 && !nodes[0]!.pseudoElement && !nodes[0]!.hasConditions.length) return false;
     if (nodes.some(node => node.attributes.some(attr => attr.operator === 'native'))) return true;
     const attributeIndexes = nodes.flatMap((node, index) =>

@@ -306,9 +306,9 @@ Tailwind 参考：[margin utilities](https://tailwindcss.com/docs/margin)、[冲
 
 例如 `.a{margin-inline-start:1px}.b{margin-inline-start:2px}.c{margin-left:3px}` 的 `(atomRank, orderSlot)` 分别为 `(1,1)`、`(2,2)`、`(1,3)`。物理属性的局部 rank 1 不会让它跑到第二条逻辑属性前；更强语义仍先在输出投影中得到较后位置。对于 `.a{margin:var(--space)}.b{margin-left:9px}`，两属性各为 rank 1、输出位置依次为 1 和 2；交换源码时输出位置交换，不强制 longhand 胜出。
 
-**先绑定路径，再讨论 rank。** `.button` 与 `.panel .button` 不是因末名相同就要互争的两个 DOM 选择器。先按[完整 scope 路径](ARCHITECTURE-DIRECTION.md#scope-path-selection)确定每个目标具备哪些声明；rank 负责保住输出顺序，不授予 scope 成员资格。`collectOrderOccurrences` 的绑定键包含具体 `targetPath`，并不限于长度 1；同模块多个 scope 可显式组合，排序仍须维护模块内约束。#68 的 `isFlatNativeSubject` 要求规则只有一个本地节点，是放行同强度条件竞争的实现限制，不是 rank 的定义。不能仅以路径长度断言需要真实 DOM 关系或专门的属性排序算法。
+**先绑定路径，再讨论 rank。** `.button` 与 `.panel .button` 不是因末名相同就要互争的两个 DOM 选择器。先按[完整 scope 路径](ARCHITECTURE-DIRECTION.md#scope-path-selection)确定每个目标具备哪些声明；rank 负责保住输出顺序，不授予 scope 成员资格。`collectOrderOccurrences` 的绑定键包含具体 `targetPath`，并不限于长度 1；同模块多个 scope 可显式组合，排序仍须维护模块内约束。#68 按目标路径检查潜在竞争写入；纯 ownership 前缀不构成额外 DOM 条件。不能仅以路径长度断言需要真实 DOM 关系或专门的属性排序算法。
 
-#68 的同节点补充：当竞争族都是单一本地类、无参数状态／属性且写同一属性时，将原生强度相同的 occurrence 对齐到同一语义高度，之后由源码顺序裁决。不这样处理，插入仅细化某一分支的弱条件（例如 `.a:focus`）就可能错误翻转 `.a:hover:focus` 与 `.a[data-on]:hover` 的平局。条件仍各自参与 atom 身份，不假设它们互斥；跨节点、简写竞争等不借此绕过准入。
+#68 的同节点补充：当竞争规则只在各自 ownership 目标节点测试无参数状态／属性且写同一已登记长手时，将原生强度相同的 occurrence 对齐到同一语义高度，之后由源码顺序裁决。不这样处理，插入仅细化某一分支的弱条件（例如 `.a:focus`）就可能错误翻转 `.a:hover:focus` 与 `.a[data-on]:hover` 的平局。条件仍各自参与 atom 身份，不假设它们互斥；跨节点、简写竞争等不借此绕过准入。
 
 **为何输出位置必须进入身份**：模块 A 中 `margin-left:1px` 可能在输出位置 2，模块 B 的相同属性／值／rank 1 却需要在三条逻辑声明之后、处于位置 4。若只按属性／值／局部 rank 复用 class，汇总时保留 A 的较早位置会破坏 B 自己的 scope 组合；这里并没有在同一节点混用两个模块。保留输出位置避免这种新合并，仍允许满足原条件且位置相同的共享。生成 class 因增加 `--order_` 片段而改变；公共配置、manifest 字段和作者写法不变。class 字符串应由当前 schema／导出取得。
 
@@ -432,7 +432,7 @@ Compiler build 与已有三组定向测试 **435** 项通过：fixed-module-rank
 | GSS1206 表的 18 个逻辑名称 | 每族每轴的 shorthand／start／end 重复相同物理列表；消费方仍排序逻辑 key，并按物理数组顺序选首条诊断 | 集中为三族 × 两轴的生成定义，同轴共享列表，保留原名称集合、值顺序和诊断行为 |
 | GSS1206 表与 module-order-policy directions | 前者是历史有限准入白名单，后者覆盖更宽的潜在别名与 writing-mode 竞争；两者范围不同 | 保持分离。直接使用 overlap 替代白名单会扩大拒绝范围，不能作为重构实施 |
 | effects family、directions、boxExpansions 都出现 margin／border 等名字 | 分别表达确定 effects、潜在方向竞争、已证明的值分配，是不同事实 | 保持职责分离；不建一个自动派生所有能力的 registry |
-| `supportsCurrentBackgroundRanks` 与通用 rank planner | 前者由 `plan-module-relations.ts` 提供给 descendant planner，仅允许指定 background-color 状态／属性组合越过原歧义拒绝；后者负责已准入 occurrence 的排序 | 保留特例。需检查剪枝前全部相关规则及模块级 external effects；background shorthand、条件／layer、复杂关系等仍阻止放行，不能因有通用 rank 就删除此门槛 |
+| `supportsCurrentSubjectRanks` 与通用 rank planner | 检查绑定到目标的完整竞争写入；通过后由固定模块排序处理。external target 可能跨 anchor 匹配，须在模块内检查 | #68 已移除按背景色和状态名设置的例外。属性简写、潜在别名与真实多节点关系不由同节点准入放行 |
 | 各 planner 都消费 effects 并选择胜出 | ownership／结构／状态的目标、强度与共存证明不同 | 本轮未发现可直接合并的相同决策；不以循环形似为由建立通用 planner |
 
 特别注意 background：`.a:hover{background-color:red}.a:focus{background-color:blue}` 的有界排序资格来自该准入策略；同一模块增加写入 background-color effect 的 opaque shorthand／external 竞争者时，必须重新核对整个竞争闭包。先剪枝再检查会遗漏竞争者；把 color 等其他属性加入特例属于能力决策。

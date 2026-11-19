@@ -1,6 +1,7 @@
 import type { ParsedDeclaration, ParsedStyleRule } from './parsed-stylesheet.js';
 import { collectOrderOccurrences, type OrderBinding, type OrderInstance, type OrderOccurrence as Occurrence } from './order-occurrences.js';
-import { isFlatNativeSubject } from './module-local-atom-ranks.js';
+import { isOwnedCurrentSubject } from './rule-classification.js';
+import { supportsCurrentSubjectRanks } from './module-local-atom-ranks.js';
 import { semanticOrderHeights } from './semantic-order-heights.js';
 import { propertiesMayOverlapForModuleOrder, propertyOrderPriority, isPropertyOrderReuseBarrier, isPhysicalSingleEffectLonghand } from './module-order-policy.js';
 
@@ -31,13 +32,18 @@ export function planFixedModuleOrder(rules: readonly ParsedStyleRule[], instance
     }
     if (new Set(family.map(({ declaration }) => declaration)).size < 2) continue;
     const heights = new Map(semanticOrderHeights(family));
-    if (family.every(o => isFlatNativeSubject(o.instance.rule) && o.declaration.property === first.declaration.property)) {
-      // A weaker co-matching rule on just one subject must not reorder two native ties.
-      const bySpecificity = new Map<number, number>();
-      for (const o of family) bySpecificity.set(o.instance.specificity,
-        Math.max(heights.get(o)!, bySpecificity.get(o.instance.specificity) ?? 0));
-      for (const o of family) heights.set(o, bySpecificity.get(o.instance.specificity)!);
-    }
+    // Use the same ownership boundary as admission: an unrelated DOM witness must not disable tie ordering.
+    const eligible = new Map<string, boolean>();
+    const current = family.every(o => isOwnedCurrentSubject(o.instance.rule) && o.declaration.property === first.declaration.property)
+      ? family : family.filter(o => {
+        const key = JSON.stringify([o.instance.targetPath, o.declaration.property]);
+        if (!eligible.has(key)) eligible.set(key, supportsCurrentSubjectRanks(rules, o.instance.targetPath, o.declaration.property));
+        return eligible.get(key);
+      });
+    const byStrength = new Map<string, number>();
+    const strength = (o: Occurrence) => JSON.stringify([o.declaration.property, o.instance.specificity]);
+    for (const o of current) byStrength.set(strength(o), Math.max(heights.get(o)!, byStrength.get(strength(o)) ?? 0));
+    for (const o of current) heights.set(o, byStrength.get(strength(o))!);
     const compare = (a: Occurrence, b: Occurrence) => heights.get(a)! - heights.get(b)! ||
       propertyOrderPriority(a.declaration.property) - propertyOrderPriority(b.declaration.property) ||
       a.instance.rule.sourceOrdinal - b.instance.rule.sourceOrdinal || a.index - b.index;

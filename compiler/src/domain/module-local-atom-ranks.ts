@@ -1,40 +1,14 @@
 import type { ParsedStyleRule } from './parsed-stylesheet.js';
-import { classifyPropertyEffect, effectsOfProperty } from './property-effects.js';
+import { classifyPropertyEffect } from './property-effects.js';
 import { getOwnershipPath, matchesOwnedTarget } from './ownership-path.js';
 import { propertiesMayOverlapForModuleOrder } from './module-order-policy.js';
+import { isOwnedCurrentSubject } from './rule-classification.js';
 
-export function isFlatNativeSubject(rule: ParsedStyleRule): boolean {
-  const node = rule.nodes[0]!;
-  return rule.nodes.length === 1 && !rule.externalTarget && !rule.externalCondition &&
-    !node.pseudoElement && !node.hasConditions.length && node.states.every(state => !state.includes('('));
-}
-
-/** Inspect all possibly competing writes, including other classes on the same element. */
-export function supportsFlatNativeRanks(rules: readonly ParsedStyleRule[], effect: string): boolean {
-  return classifyPropertyEffect(effect).kind === 'longhand' && rules.every(rule =>
-    rule.declarations.every(d => !propertiesMayOverlapForModuleOrder(effect, d.property) ||
-      (d.property === effect && isFlatNativeSubject(rule))));
-}
-
-/** Admission envelope only, not a general cascade model. Called on all module rules,
- * before pruning, so an opaque competing declaration cannot escape rank closure.
- * Existing accepted inputs never depend on this opt-in check. */
-export function supportsCurrentBackgroundRanks(rules: readonly ParsedStyleRule[], target: readonly string[]): boolean {
-  // An external residual selects a browser descendant, not the owned anchor in
-  // the authored nodes. It may match this target under any anchor; no disjointness proof
-  // exists here, so competing external effects must be checked module-wide.
-  return rules.filter((rule) => rule.externalTarget !== undefined || matchesOwnedTarget(getOwnershipPath(rule.nodes), target)).every((rule) => {
-    const competing = rule.declarations.filter((declaration) => effectsOfProperty(declaration.property).includes('background-color'));
-    if (!competing.length) return true;
-    return rule.layer === null && rule.conditions.length === 0 &&
-      !rule.externalTarget && !rule.externalCondition &&
-      rule.relations.every((relation) => relation === 'descendant') &&
-      rule.nodes.every((node) => node.hasConditions.length === 0) &&
-      rule.nodes.every((node) => node.pseudoElement === null) &&
-      competing.every((declaration) => declaration.property === 'background-color') &&
-      rule.nodes.every(({ states }, index) => states.length === 0 ||
-        (index === rule.nodes.length - 1 && states.length === 1 && (states[0] === 'hover' || states[0] === 'focus'))) &&
-      rule.nodes.every(({ attributes }, index) => attributes.length === 0 ||
-        (index === rule.nodes.length - 1 && attributes.length === 1));
+export function supportsCurrentSubjectRanks(rules: readonly ParsedStyleRule[], target: readonly string[], effect: string): boolean {
+  return classifyPropertyEffect(effect).kind === 'longhand' && rules.every(rule => {
+    // External descendants can match this target even under an unrelated anchor.
+    if (!rule.externalTarget && !matchesOwnedTarget(getOwnershipPath(rule.nodes), target)) return true;
+    return rule.declarations.every(d => !propertiesMayOverlapForModuleOrder(effect, d.property) ||
+      (d.property === effect && isOwnedCurrentSubject(rule)));
   });
 }
