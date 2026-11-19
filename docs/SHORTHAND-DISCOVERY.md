@@ -27,4 +27,18 @@ function declaredLonghands(property, value) {
 
 沿用项目已有 mdn-data 2.27.1 的 484 个 standard 非前缀名称，每项在新 style 对象上设置 `initial`。Chromium 实测 83 项枚举到多个名称；其中 21 项有至少一个名称不在当前 `effectsOfProperty` 集合中。分母包括未登记属性，浏览器还可能暴露实现名，因此这是差异候选，不是 21 个 Bug，更不是 CSS 支持率。
 
-建议先用上述独立观测对**已经登记为独立属性**的条目做离线审计。验收是临时还原 #65 旧分类后，无需在扫描器点名 white-space 也能检出。保留规范补充、版本和差异理由，不自动用单引擎列表覆盖 Compiler。在写入集合已知但值拆分不可靠时，保留简写并维持必要顺序；若连语义顺序都未知，不以原样 CSS 偷换 GSS ownership。本次未安装库、未验证其他引擎或 Rust 绑定。
+建议先用上述独立观测对**已经登记为独立属性**的条目做离线审计。验收是临时还原 #65 旧分类后，无需在扫描器点名 white-space 也能检出。保留规范补充、版本和差异理由，不自动用单引擎列表覆盖 Compiler。在写入集合已知但值拆分不可靠时，保留简写并维持必要顺序；若连语义顺序都未知，不以原样 CSS 偷换 GSS ownership。该调研未验证其他引擎或 Rust 绑定。
+
+## 复跑 #70 离线审计
+
+从仓库根目录执行 `corepack pnpm --filter @gss-l/testing property-effects:audit`。前提是按 lockfile 安装 workspace 依赖，并已安装该版 Playwright 的 Chromium。命令先构建当前 Compiler，再对 MDN 目录的每个属性单独设置 `initial`，把枚举结果和登记分类逐项写入 `artifacts/property-effects-audit/report.json`。两个故障对照只修改比较时传入的登记：把 `white-space` 退回独立属性、从 `border` 删除五个 `border-image-*`。任一漏项未检出或当前登记丢失对应写入，命令失败。其他差异生成报告供复核，不自动失败或改表。工具只在私有测试工作区运行。
+
+本次基线（mdn-data 2.27.1、Playwright 1.58.2、Chromium 145.0.7632.6）：484 项中 83 项枚举到多个名字，其中 21 项有浏览器列出而 Compiler 未登记的名字：
+
+| 属性数 | 复核结果 |
+| ---: | --- |
+| 17 | 简写本身未登记，如 `container`；不能仅凭展开结果判断编译有误。 |
+| 3 | `border-spacing`、`mask`、`mask-position` 的缺项全是引擎前缀名，不当成标准长手登记。 |
+| 1 | `columns` 的 Level 1 登记与 [Multi-column Level 2 草案](https://drafts.csswg.org/css-multicol-2/#columns) 有差距：后者还写 `column-height`，并隐式重置 `column-wrap`。Chromium 与草案一致。实测 `.a { column-wrap:nowrap; columns:2 }` 和相反顺序都触发 `GSS1104`、保留原声明顺序，没有据此复现错误排序。 |
+
+报告同时保留反向差异（登记有、浏览器未列出）和空观测；两者均需另查规范、引擎或具体输入。例如 `white-space-trim` 不因 Chromium 未列出而删除。名称相同也不是语义等价证明（如 `all`），此工具不判断值能否拆分、方向别名或多引擎支持。
