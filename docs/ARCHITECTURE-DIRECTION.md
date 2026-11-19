@@ -105,7 +105,13 @@ Chromium 145 中，页面始终没有 `.layout` 节点。同一目标在属性�
 
 本机探针 `artifacts/issue-45-architecture/ancestor-probe.mjs` 连跑两次，JSON 结果相同。这只验证单一来源的存在判断；此例不能证明一般 selector 强度、多个来源绑定、结构组合符或 `:has()` 的匹配行为。
 
+<a id="scope-path-selection"></a>
+
 #### JSX 先选 scope，DOM 再决定关系是否命中
+
+**既定设计：GSS 用完整路径区分联级样式，不靠 DOM 位置猜路径。** `.button` 和 `.panel .button` 分别声明 `styles.button` 和 `styles.panel.button` 两个目标。即使两个按钮挨在一起，或都放进同一个 panel，写浅路径的那个也不会得到深路径专有的声明。反过来，纯 ownership 的 `styles.panel.button` 不需要页面上真有一个 panel 祖先。这让作者可以沿用熟悉的联级写法，却必须在 JSX 中明确选择要用的那套样式。显式结构关系（如 `>`）仍由浏览器匹配，见下表。
+
+**当前编译行为：不同目标不等于声明集合必须互斥。** 例如 `.button { color:red; padding-top:7px } .panel .button { color:blue }`，公开 Compiler 的 atomic 输出中浅路径取红色和 7px；深路径取蓝色和同一条基础 7px，颠倒两条规则的源码顺序仍如此。[路径匹配](../compiler/src/domain/ownership-path.ts)要求末名相同，且声明的前缀是目标前缀的有序子序列；这是编译期组合，不是 CSS 从 DOM 父节点继承，也不是把深规则加回浅路径。
 
 以 `.title{color:red}` 和 `.layout .card > .title{color:blue}` 为例，父节点写 `className={styles.layout.card}`，不需要额外的 `.layout` DOM 节点。**放进这个父节点不会自动改变子元素引用的 scope**：
 

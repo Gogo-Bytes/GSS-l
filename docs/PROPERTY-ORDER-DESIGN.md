@@ -306,6 +306,8 @@ Tailwind 参考：[margin utilities](https://tailwindcss.com/docs/margin)、[冲
 
 例如 `.a{margin-inline-start:1px}.b{margin-inline-start:2px}.c{margin-left:3px}` 的 `(atomRank, orderSlot)` 分别为 `(1,1)`、`(2,2)`、`(1,3)`。物理属性的局部 rank 1 不会让它跑到第二条逻辑属性前；更强语义仍先在输出投影中得到较后位置。对于 `.a{margin:var(--space)}.b{margin-left:9px}`，两属性各为 rank 1、输出位置依次为 1 和 2；交换源码时输出位置交换，不强制 longhand 胜出。
 
+**先绑定路径，再讨论 rank。** `.button` 与 `.panel .button` 不是因末名相同就要互争的两个 DOM 选择器。先按[完整 scope 路径](ARCHITECTURE-DIRECTION.md#scope-path-selection)确定每个目标具备哪些声明；rank 负责保住输出顺序，不授予 scope 成员资格。`collectOrderOccurrences` 的绑定键包含具体 `targetPath`，并不限于长度 1；同模块多个 scope 可显式组合，排序仍须维护模块内约束。#68 的 `isFlatNativeSubject` 要求规则只有一个本地节点，是放行同强度条件竞争的实现限制，不是 rank 的定义。不能仅以路径长度断言需要真实 DOM 关系或专门的属性排序算法。
+
 #68 的同节点补充：当竞争族都是单一本地类、无参数状态／属性且写同一属性时，将原生强度相同的 occurrence 对齐到同一语义高度，之后由源码顺序裁决。不这样处理，插入仅细化某一分支的弱条件（例如 `.a:focus`）就可能错误翻转 `.a:hover:focus` 与 `.a[data-on]:hover` 的平局。条件仍各自参与 atom 身份，不假设它们互斥；跨节点、简写竞争等不借此绕过准入。
 
 **为何输出位置必须进入身份**：模块 A 中 `margin-left:1px` 可能在输出位置 2，模块 B 的相同属性／值／rank 1 却需要在三条逻辑声明之后、处于位置 4。若只按属性／值／局部 rank 复用 class，汇总时保留 A 的较早位置会破坏 B 自己的 scope 组合；这里并没有在同一节点混用两个模块。保留输出位置避免这种新合并，仍允许满足原条件且位置相同的共享。生成 class 因增加 `--order_` 片段而改变；公共配置、manifest 字段和作者写法不变。class 字符串应由当前 schema／导出取得。
