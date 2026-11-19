@@ -21,7 +21,7 @@
 
 ## React 别名错误的表达式位置
 
-在 `className={card}` 中读取可变别名（GSS2103）或混有普通值的条件别名（GSS2104）时，诊断覆盖这一次读取的 `card`。重新赋值的 typed props 触发 GSS2103 时，`className={props.scope}` 的范围覆盖整个 `props.scope`。同名引用出现多次，每条错误都取自己的 Babel 节点在本次 Adapter 输入中的 UTF-16 半开区间。节点没有完整起止位置时，保留文件名及错误消息。
+在 `className={card}` 中读取可变别名（GSS2103）或混有普通值的条件别名（GSS2104）时，诊断覆盖这一次读取的 `card`。#67 之后组件 props 按普通字符串消费，不再因 typed prop 的重新赋值产生 GSS2103。同名引用出现多次，每条错误都取自己的 Babel 节点在本次 Adapter 输入中的 UTF-16 半开区间。节点没有完整起止位置时，保留文件名及错误消息。
 
 Vite 用传给 Adapter 的源码生成原生 `loc/frame`。webpack、Rspack 和 Rsbuild 在 loader 的终端诊断中展示同一快照上的文件、一基行列和首行代码框。多行表达式的首行下划线止于行末，诊断对象仍保存完整范围。已有前置转换时，位置对应转换后交给 Adapter 的文本。
 

@@ -83,11 +83,11 @@ it('retains prior alias errors alongside the nonblocking warning', () => {
   ]);
 });
 
-it('does not suppress existing implicit string-coercion errors', () => {
+it('warns about composition without treating concatenated class strings as objects', () => {
   const { result } = fixture("styles.card + ' ' + other.other");
   expect(result.code).toContain("styles.card.$class + ' ' + other.other.$class");
   expect(result.diagnostics.map(({ code, severity }) => [code, severity])).toEqual([
-    ['GSS2107', 'warning'], ['GSS2105', 'error'], ['GSS2105', 'error']
+    ['GSS2107', 'warning']
   ]);
 });
 

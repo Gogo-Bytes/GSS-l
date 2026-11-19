@@ -20,7 +20,7 @@ const cardScope: ScopeSchema = {
 };
 
 describe('transformReactGssUsage', () => {
-  it('treats inline and named callback bodies alike while retaining direct scope props', () => {
+  it('treats inline and named callback bodies alike and passes strings in arbitrary props', () => {
     const source = `import styles from './Card.gss';
 const named = e => { e.currentTarget.className = styles.card; };
 const view = <Child scope={styles.card} onHover={named}
@@ -31,10 +31,10 @@ const view = <Child scope={styles.card} onHover={named}
     });
     expect(result.diagnostics).toEqual([]);
     expect(result.code).toBe(source.replaceAll('currentTarget.className = styles.card;',
-      'currentTarget.className = styles.card.$class;').replace('className={styles.card}', 'className={styles.card.$class}'));
+      'currentTarget.className = styles.card.$class;').replaceAll('={styles.card}', '={styles.card.$class}'));
   });
 
-  it('resolves type aliases at the parameter and typeof values at the annotation', () => {
+  it('does not infer component prop transforms from local type annotations', () => {
     const source = `import styles from './Card.gss';
 type Props = { scope: typeof styles.card };
 function Outer(props: Props) {
@@ -54,8 +54,7 @@ const Real = ({ scope }: Props) => <i className={scope} />;`;
       id: '/project/card.tsx', source, resolveScopeSchema: () => cardScope
     });
     expect(result.diagnostics).toEqual([]);
-    expect(result.code).toBe(source.replace('<div className={props.scope}', '<div className={props.scope.$class}')
-      .replace('<i className={scope}', '<i className={scope.$class}'));
+    expect(result.code).toBe(source);
   });
 
   it('uses only declared schema keys, including explicitly declared prototype names', () => {
@@ -91,7 +90,7 @@ export const App = () => <div className={cls}/>;`,
     expect(result.code).toContain('const cls = styles.card.self.$class');
   });
 
-  it('reads both an immutable alias and its self child without author suffixes', () => {
+  it('never exposes an internal node even when an alias is later used for a child read', () => {
     const result = transformReactGssUsage({
       id: '/project/Card.tsx',
       source: `import styles from './Card.gss';
@@ -100,8 +99,8 @@ const view = <div className={card}><span className={card.self} /></div>;`,
       resolveScopeSchema: () => ({ exports: { card: { targets: { self: { targets: {} } } } } })
     });
     expect(result.diagnostics).toEqual([]);
-    expect(result.code).toContain('const card = styles.card;');
-    expect(result.code).toContain('<div className={card.$class}><span className={card.self.$class} /></div>');
+    expect(result.code).toContain('const card = styles.card.$class;');
+    expect(result.code).toContain('<div className={card}><span className={card.self} /></div>');
   });
 
   it.each([
@@ -245,7 +244,7 @@ useClassName(styles.card.icon.$class);`);
     expect(result.diagnostics).toEqual([]);
   });
 
-  it('lowers a target read from an immutable conditional scope alias', () => {
+  it('leaves ordinary member reads on a conditional string alias unchanged', () => {
     const source = `import styles from './Card.gss';
 const branch = active ? styles.card : styles.panel;
 const view = <span className={branch.title} />;`;
@@ -256,16 +255,17 @@ const view = <span className={branch.title} />;`;
     });
 
     expect(result.diagnostics).toEqual([]);
-    expect(result.code).toContain('className={branch.title.$class}');
+    expect(result.code).toContain('active ? styles.card.$class : styles.panel.$class');
+    expect(result.code).toContain('className={branch.title}');
   });
 
-  it('keeps a conditional alias selection at initialization across repeated child reads', () => {
+  it('evaluates a conditional selection of nested class strings only once', () => {
     const source = `import styles from './Card.gss';
 let calls = 0;
 const select = () => ++calls === 1;
-const branch = select() ? styles.card : styles.panel;
-const first = branch.title + ' extra';
-const second = branch.title;`;
+const branch = select() ? styles.card.title : styles.panel.title;
+const first = branch + ' extra';
+const second = branch;`;
     const result = transformReactGssUsage({
       id: '/project/App.js', source, resolveScopeSchema: () => cardScope
     });
@@ -276,7 +276,7 @@ const second = branch.title;`;
       .toEqual([1, 'red extra', 'red']);
   });
 
-  it('lowers a renamed property-destructured scope alias', () => {
+  it('does not expose a node to destructuring', () => {
     const result = transformReactGssUsage({
       id: '/project/src/Card.tsx',
       source: `import styles from './Card.gss';\n` +
@@ -285,7 +285,8 @@ const second = branch.title;`;
       resolveScopeSchema() { return cardScope; }
     });
 
-    expect(result.code).toContain('className={glyph.$class}');
+    expect(result.code).toContain('const { icon: glyph } = styles.card.$class;');
+    expect(result.code).toContain('className={glyph}');
     expect(result.diagnostics).toEqual([]);
   });
 
@@ -328,7 +329,7 @@ const second = branch.title;`;
     }]);
   });
 
-  it('lowers a destructured prop explicitly typed as a GSS scope', () => {
+  it('leaves a destructured string prop alone despite a GSS type annotation', () => {
     const result = transformReactGssUsage({
       id: '/project/src/CardBody.tsx',
       source: `import type styles from './Card.gss';\n` +
@@ -338,11 +339,11 @@ const second = branch.title;`;
       resolveScopeSchema() { return cardScope; }
     });
 
-    expect(result.code).toContain('className={cx(scope.$class, className)}');
+    expect(result.code).toContain('className={cx(scope, className)}');
     expect(result.diagnostics).toEqual([]);
   });
 
-  it('lowers a destructured scope prop with an inline type annotation', () => {
+  it('leaves an inline-annotated string prop alone', () => {
     const result = transformReactGssUsage({
       id: '/project/src/CardBody.tsx',
       source: `import type styles from './Card.gss';\n` +
@@ -352,11 +353,11 @@ const second = branch.title;`;
       resolveScopeSchema() { return cardScope; }
     });
 
-    expect(result.code).toContain('className={scope.$class}');
+    expect(result.code).toContain('className={scope}');
     expect(result.diagnostics).toEqual([]);
   });
 
-  it('supports a typed scope passed from a parent component to a child', () => {
+  it('passes a class string without requiring a child-side transform', () => {
     const parentSource = `import styles from './Card.gss';\n` +
       `import { CardBody } from './CardBody';\n` +
       `export const Card = () => <CardBody scope={styles.card} />;`;
@@ -375,13 +376,13 @@ const second = branch.title;`;
       resolveScopeSchema() { return cardScope; }
     });
 
-    expect(parent.code).toBe(parentSource);
+    expect(parent.code).toBe(parentSource.replace('{styles.card}', '{styles.card.$class}'));
     expect(parent.diagnostics).toEqual([]);
-    expect(child.code).toContain('className={scope.$class}');
+    expect(child.code).toBe(childSource);
     expect(child.diagnostics).toEqual([]);
   });
 
-  it('lowers a scope property read from a typed props object', () => {
+  it('leaves a member read on a typed props object unchanged', () => {
     const result = transformReactGssUsage({
       id: '/project/src/CardBody.tsx',
       source: `import type styles from './Card.gss';\n` +
@@ -391,12 +392,12 @@ const second = branch.title;`;
       resolveScopeSchema() { return cardScope; }
     });
 
-    expect(result.code).toContain('className={props.scope.$class}');
+    expect(result.code).toContain('className={props.scope}');
     expect(result.code).toContain('{props.title}');
     expect(result.diagnostics).toEqual([]);
   });
 
-  it('locates each use of a reassigned typed prop in the original JSX input', () => {
+  it('does not inspect type imports or diagnose ordinary prop reads', () => {
     const expression = 'props.\r\n        scope';
     const source = [
       "import type styles from './Card.gss';",
@@ -406,13 +407,11 @@ const second = branch.title;`;
       `  return <><div title="😀" className={${expression}}/><i className={props.scope}/></>;`,
       '}'
     ].join('\r\n');
-    const { diagnostics } = transformReactGssUsage({
-      id: '/project/src/Card.tsx', source, resolveScopeSchema: () => cardScope
+    const result = transformReactGssUsage({
+      id: '/project/src/Card.tsx', source, resolveScopeSchema: () => { throw new Error('type-only dependency'); }
     });
-    expect(diagnostics).toMatchObject([expression, 'props.scope'].map(text => ({
-      code: 'GSS2103', severity: 'error', id: '/project/src/Card.tsx',
-      range: { start: source.indexOf(text), end: source.indexOf(text) + text.length }
-    })));
+    expect(result.code).toBe(source);
+    expect(result.diagnostics).toEqual([]);
   });
 
   it('does not rewrite a local binding that shadows a GSS import', () => {
@@ -441,7 +440,7 @@ const second = branch.title;`;
     expect(result.diagnostics).toEqual([]);
   });
 
-  it('diagnoses implicit string coercion of a GSS scope outside className', () => {
+  it('supports interpolation of a static GSS path outside className', () => {
     const source = `import styles from './Card.gss';\n` +
       `export const className = \`prefix \${styles.card}\`;`;
     const result = transformReactGssUsage({
@@ -471,7 +470,7 @@ export const Card = ({ active, fallback }) => { const branch = active ? styles.c
     }]);
   });
 
-  it('diagnoses implicit string coercion of a local GSS scope alias', () => {
+  it('allows concatenation of a local class string', () => {
     const source = `import styles from './Card.gss';\n` +
       `const card = styles.card; export const className = 'prefix ' + card;`;
     const result = transformReactGssUsage({
@@ -480,10 +479,8 @@ export const Card = ({ active, fallback }) => { const branch = active ? styles.c
       resolveScopeSchema() { return cardScope; }
     });
 
-    expect(result.diagnostics).toMatchObject([{
-      code: 'GSS2105',
-      reason: 'scope-string-coercion'
-    }]);
+    expect(result.code).toContain('const card = styles.card.$class;');
+    expect(result.diagnostics).toEqual([]);
   });
 
   it('allows generated class field in a non-className string context', () => {

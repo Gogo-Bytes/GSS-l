@@ -1,763 +1,165 @@
 import type { GssSourceAdapter } from '@gss-l/compiler';
 import { parse } from '@babel/parser';
-import traverseModule, {
-  type Binding,
-  type NodePath,
-  type Scope,
-  type TraverseOptions
-} from '@babel/traverse';
+import traverseModule, { type Binding, type NodePath, type TraverseOptions } from '@babel/traverse';
 import * as t from '@babel/types';
 import MagicString, { type SourceMap } from 'magic-string';
 
-const traverse = (
-  typeof traverseModule === 'function' ? traverseModule : traverseModule.default
-) as unknown as (node: t.Node, options?: TraverseOptions) => void;
+const traverse = (typeof traverseModule === 'function' ? traverseModule : traverseModule.default) as unknown as
+  (node: t.Node, options?: TraverseOptions) => void;
 
 export type ReactScopeSchema = {
   /** Compiler module identity; absent in legacy schema views, so provenance is unknown. */
   moduleId?: string;
   exports: Readonly<Record<string, ReactScopeNodeSchema>>;
 };
-
-export type ReactScopeNodeSchema = {
-  targets: Readonly<Record<string, ReactScopeNodeSchema>>;
-};
-
+export type ReactScopeNodeSchema = { targets: Readonly<Record<string, ReactScopeNodeSchema>> };
 export type ReactGssDiagnostic = {
-  code: string;
-  severity: 'error' | 'warning';
-  phase: 'transform';
-  message: string;
-  id: string;
-  reason: string;
-  suggestion?: string;
-  range?: { start: number; end: number };
+  code: string; severity: 'error' | 'warning'; phase: 'transform'; message: string; id: string;
+  reason: string; suggestion?: string; range?: { start: number; end: number };
 };
-
 export type TransformReactGssUsageInput = {
-  id: string;
-  source: string;
-  resolveScopeSchema(importId: string): ReactScopeSchema | undefined;
+  id: string; source: string; resolveScopeSchema(importId: string): ReactScopeSchema | undefined;
 };
-
-export type TransformReactGssUsageResult = {
-  code: string;
-  map: SourceMap;
-  diagnostics: readonly ReactGssDiagnostic[];
-};
-
-type GssBinding = {
-  schema: ReactScopeSchema;
-  importNode: t.ImportDefaultSpecifier;
-};
+export type TransformReactGssUsageResult = { code: string; map: SourceMap; diagnostics: readonly ReactGssDiagnostic[] };
 
 function parseReactSource(id: string, source: string) {
-  return parse(source, {
-    sourceType: 'module', sourceFilename: id,
-    plugins: /\.[cm]?ts$/.test(id) ? ['typescript'] : ['typescript', 'jsx']
-  });
+  return parse(source, { sourceType: 'module', sourceFilename: id,
+    plugins: /\.[cm]?ts$/.test(id) ? ['typescript'] : ['typescript', 'jsx'] });
+}
+
+function runtimeStyleImport(node: t.Node): node is t.ImportDeclaration {
+  return t.isImportDeclaration(node) && node.importKind !== 'type' && node.source.value.endsWith('.gss');
 }
 
 export function react(): GssSourceAdapter {
   return {
     supports: (id) => /\.[cm]?[jt]sx?$/.test(id),
     discoverImports({ id, source }) {
-      const ast = parseReactSource(id, source);
-      return [...new Set(ast.program.body
-        .filter((node) => t.isImportDeclaration(node) && node.source.value.endsWith('.gss'))
-        .map((node) => (node as t.ImportDeclaration).source.value))];
+      return [...new Set(parseReactSource(id, source).program.body.filter(runtimeStyleImport).map(n => n.source.value))];
     },
     transform: transformReactGssUsage
   };
 }
 
 function diagnosticRange(node: t.Node): Pick<ReactGssDiagnostic, 'range'> {
-  if (node.start == null || node.end == null) return {};
-  return { range: { start: node.start, end: node.end } };
+  return node.start == null || node.end == null ? {} : { range: { start: node.start, end: node.end } };
 }
 
-export function transformReactGssUsage(
-  input: TransformReactGssUsageInput
-): TransformReactGssUsageResult {
+type KnownReference = { schema: ReactScopeSchema; known: boolean; explicitClass: boolean };
+type AliasKind = 'scope' | 'non-scope' | 'mutable' | 'ambiguous';
+
+export function transformReactGssUsage(input: TransformReactGssUsageInput): TransformReactGssUsageResult {
   const ast = parseReactSource(input.id, input.source);
-  const diagnostics: ReactGssDiagnostic[] = [];
-  const bindings = collectGssBindings(ast.program, input, diagnostics);
-  const verifiedBindings = resolveReferenceBindings(ast, bindings);
-  const typedProperties = collectTypedScopeProperties(ast, bindings);
-  const aliasReferences = resolveAliasReferences(ast, bindings, verifiedBindings, typedProperties);
-  const typedPropReferences = resolveTypedPropMemberReferences(ast, bindings, typedProperties);
   const output = new MagicString(input.source);
-  const loweredReferences = new WeakSet<t.MemberExpression>();
-  const stringAliasBindings = new WeakSet<Binding>();
-  const aliasInitializers = new WeakMap<Binding, t.Expression>();
-  traverse(ast, {
-    VariableDeclarator(path) {
-      if (!t.isIdentifier(path.node.id) || !path.node.init) return;
-      const binding = path.scope.getBinding(path.node.id.name);
-      if (binding) aliasInitializers.set(binding, path.node.init);
-      const expressionKind = classifyScopeExpression(path.node.init, verifiedBindings);
-      if (expressionKind === 'scope' && binding) stringAliasBindings.add(binding);
-    }
-  });
-  const aliasMemberBindings = new WeakSet<Binding>();
-  traverse(ast, {
-    MemberExpression(path) {
-      const reference = readStaticReference(path.node);
-      if (!reference) return;
-      const binding = path.scope.getBinding(reference.binding);
-      if (binding && aliasInitializers.has(binding)) aliasMemberBindings.add(binding);
-    }
-  });
-  const stringAliasReferences = new WeakSet<t.Identifier>();
-  traverse(ast, {
-    Identifier(path) {
-      if (!path.isReferencedIdentifier()) return;
-      const binding = path.scope.getBinding(path.node.name);
-      // Aliases used for child reads retain their scope object at initialization.
-      if (binding && stringAliasBindings.has(binding) && !aliasMemberBindings.has(binding)) {
-        stringAliasReferences.add(path.node);
-      }
-    }
-  });
-
-  visitWithParent(ast.program, undefined, (node, parent) => {
-    if (
-      !t.isJSXAttribute(node) ||
-      !t.isJSXIdentifier(node.name, { name: 'className' }) ||
-      !t.isJSXExpressionContainer(node.value)
-    ) return;
-
-    if (
-      t.isJSXOpeningElement(parent) && t.isJSXIdentifier(parent.name) &&
-      /^[a-z]/.test(parent.name.name) &&
-      definiteClassModules(node.value.expression, verifiedBindings).size > 1
-    ) {
-      diagnostics.push({
-        code: 'GSS2107',
-        severity: 'warning',
-        phase: 'transform',
-        message: 'Same-element className composition from multiple GSS modules is unsupported; there is no cross-module precedence guarantee.',
-        id: input.id,
-        reason: 'cross-module-class-composition',
-        suggestion: 'Use scopes from one GSS module on this element.',
-        ...diagnosticRange(node)
-      });
-    }
-
-    visitWithParent(node.value.expression, undefined, (expression, parent) => {
-      if (t.isIdentifier(expression)) {
-        if (t.isMemberExpression(parent) && parent.object === expression) return;
-        const aliasKind = aliasReferences.get(expression);
-        if (aliasKind === 'optional-scope' && expression.end != null) {
-          output.appendLeft(expression.end, '?.$class');
-        } else if (aliasKind === 'scope' && !stringAliasReferences.has(expression)) {
-          if (expression.end != null) output.appendLeft(expression.end, '.$class');
-        } else if (aliasKind === 'mutable') {
-          diagnostics.push({
-            code: 'GSS2103',
-            severity: 'error',
-            phase: 'transform',
-            message: `Mutable GSS scope alias ${expression.name} cannot be lowered safely.`,
-            id: input.id,
-            reason: 'mutable-scope-alias',
-            suggestion: 'Use a const scope alias or use the imported path directly in className.',
-            ...diagnosticRange(expression)
-          });
-        } else if (aliasKind === 'ambiguous') {
-          diagnostics.push({
-            code: 'GSS2104',
-            severity: 'error',
-            phase: 'transform',
-            message: `Alias ${expression.name} mixes a GSS scope with a non-scope value.`,
-            id: input.id,
-            reason: 'ambiguous-scope-alias',
-            suggestion: 'Make every branch a GSS scope or pass explicit class strings.',
-            ...diagnosticRange(expression)
-          });
-        }
-        return;
-      }
-      if (!t.isMemberExpression(expression)) return;
-      if (t.isMemberExpression(parent) && parent.object === expression) return;
-
-      const typedPropKind = typedPropReferences.get(expression);
-      if ((typedPropKind === 'scope' || typedPropKind === 'optional-scope') && expression.end != null) {
-        output.appendLeft(expression.end, typedPropKind === 'optional-scope' ? '?.$class' : '.$class');
-        return;
-      }
-      if (typedPropKind === 'mutable') {
-        diagnostics.push({
-          code: 'GSS2103',
-          severity: 'error',
-          phase: 'transform',
-          message: 'A mutable typed GSS scope prop cannot be lowered safely.',
-          id: input.id,
-          reason: 'mutable-scope-alias',
-          suggestion: 'Do not reassign the props binding before className use.',
-          ...diagnosticRange(expression)
-        });
-        return;
-      }
-
-    });
-  });
-
-  // Keep the initializer as the one place that evaluates the branch. Each
-  // possible scope must declare the target before we read its class string.
-  traverse(ast, {
-    MemberExpression(path) {
-      const expression = path.node;
-      if (t.isMemberExpression(path.parent) && path.parent.object === expression) return;
-      const reference = readStaticReference(expression);
-      if (!reference || reference.path.length === 0) return;
-      const rootBinding = path.scope.getBinding(reference.binding);
-      const init = rootBinding && rootBinding.constant && t.isVariableDeclarator(rootBinding.path.node)
-        ? rootBinding.path.node.init ?? undefined
-        : undefined;
-      if (init && expression.end != null && aliasHasTarget(init, reference.path, verifiedBindings)) {
-        output.appendLeft(expression.end, '.$class');
-      }
-    }
-  });
-
-  // GSS references are compile-time paths, not JSX-only values. Lower direct
-  // static paths in direct expression contexts so ordinary string consumers
-  // (for example custom functions or document APIs) receive a primitive at
-  // runtime. A callback body has its own consumption context, even when
-  // the function itself is supplied as a JSX prop.
-  traverse(ast, {
-    MemberExpression(path) {
-      const expression = path.node;
-      if (t.isMemberExpression(path.parent) && path.parent.object === expression) return;
-      let inClassName = false;
-      let ancestor: NodePath<t.Node> | null = path.parentPath;
-      while (ancestor) {
-        if (ancestor.isFunction()) break;
-        if (t.isJSXAttribute(ancestor.node)) {
-          if (!t.isJSXIdentifier(ancestor.node.name, { name: 'className' })) return;
-          inClassName = true;
-          break;
-        }
-        if (t.isVariableDeclarator(ancestor.node)) {
-          const id = ancestor.node.id;
-          if (t.isObjectPattern(id)) return;
-          const binding = t.isIdentifier(id) ? path.scope.getBinding(id.name) : undefined;
-          if (binding && aliasMemberBindings.has(binding)) return;
-        }
-        ancestor = ancestor.parentPath;
-      }
-      const binding = verifiedBindings.get(expression);
-      if (!binding) return;
-      const reference = readStaticReference(expression);
-      if (!reference) return;
-      if (!resolveScopePath(binding.schema, reference.path)) return;
-      if (expression.end != null) {
-        output.appendLeft(expression.end, '.$class');
-        if (!inClassName) loweredReferences.add(expression);
-      }
-    }
-  });
-
-  diagnoseScopeStringCoercions(
-    ast,
-    input.id,
-    verifiedBindings,
-    aliasReferences,
-    diagnostics,
-    loweredReferences
-  );
-
-  return {
-    code: output.toString(),
-    map: output.generateMap({ source: input.id, includeContent: true, hires: true }),
-    diagnostics
-  };
-}
-
-/** Only string composition with definite, schema-backed provenance, never arbitrary calls. */
-function definiteClassModules(
-  expression: t.Node,
-  bindings: WeakMap<t.MemberExpression, GssBinding>
-): ReadonlySet<string> {
-  if (t.isMemberExpression(expression)) {
-    const binding = bindings.get(expression);
-    const reference = readStaticReference(expression);
-    const path = reference && isScopeClassRead(reference.path) ? reference.path.slice(0, -1) : reference?.path;
-    if (binding?.schema.moduleId && path && resolveScopePath(binding.schema, path)) {
-      return new Set([binding.schema.moduleId]);
-    }
+  const diagnostics: ReactGssDiagnostic[] = [];
+  const imports = new Map<t.Node, ReactScopeSchema>();
+  for (const node of ast.program.body.filter(runtimeStyleImport)) {
+    const schema = input.resolveScopeSchema(node.source.value);
+    if (!schema) diagnostics.push({ code: 'GSS2106', severity: 'error', phase: 'transform', id: input.id,
+      message: `Missing GSS ScopeSchema for ${node.source.value}.`, reason: 'missing-scope-schema',
+      suggestion: 'Compile the imported stylesheet successfully before source transformation.' });
+    const specifier = node.specifiers.find(t.isImportDefaultSpecifier);
+    if (schema && specifier) imports.set(specifier, schema);
   }
-  if (t.isBinaryExpression(expression, { operator: '+' })) {
-    return new Set([
-      ...definiteClassModules(expression.left, bindings),
-      ...definiteClassModules(expression.right, bindings)
-    ]);
-  }
-  if (t.isTemplateLiteral(expression)) {
-    return new Set(expression.expressions.flatMap((part) => [...definiteClassModules(part, bindings)]));
-  }
-  if (
-    t.isCallExpression(expression) &&
-    t.isMemberExpression(expression.callee) && !expression.callee.computed &&
-    t.isIdentifier(expression.callee.property, { name: 'join' }) &&
-    t.isArrayExpression(expression.callee.object) &&
-    expression.arguments.length === 1 && t.isStringLiteral(expression.arguments[0], { value: ' ' })
-  ) {
-    const elements = expression.callee.object.elements;
-    // A literal list only: unknown values/spreads/calls cannot establish join semantics.
-    if (elements.every((element) => element && (
-      t.isStringLiteral(element) ||
-      (t.isMemberExpression(element) && definiteClassModules(element, bindings).size === 1)
-    ))) {
-      return new Set(elements.flatMap((element) => [...definiteClassModules(element!, bindings)]));
-    }
-  }
-  // Conditional/logical branches, aliases, typed props and arbitrary calls are not proof.
-  return new Set();
-}
-
-function collectGssBindings(
-  program: t.Program,
-  input: TransformReactGssUsageInput,
-  diagnostics: ReactGssDiagnostic[]
-): ReadonlyMap<string, GssBinding> {
-  const bindings = new Map<string, GssBinding>();
-  for (const statement of program.body) {
-    if (!t.isImportDeclaration(statement) || !statement.source.value.endsWith('.gss')) continue;
-    const defaultImport = statement.specifiers.find(t.isImportDefaultSpecifier);
-    const schema = input.resolveScopeSchema(statement.source.value);
-    if (!schema) {
-      diagnostics.push({
-        code: 'GSS2106',
-        severity: 'error',
-        phase: 'transform',
-        message: `Missing GSS ScopeSchema for ${statement.source.value}.`,
-        id: input.id,
-        reason: 'missing-scope-schema',
-        suggestion: 'Compile the imported stylesheet successfully before source transformation.'
-      });
-    }
-    if (defaultImport && schema) {
-      bindings.set(defaultImport.local.name, { schema, importNode: defaultImport });
-    }
-  }
-  return bindings;
-}
-
-function resolveReferenceBindings(
-  ast: t.File,
-  bindings: ReadonlyMap<string, GssBinding>
-): WeakMap<t.MemberExpression, GssBinding> {
-  const resolved = new WeakMap<t.MemberExpression, GssBinding>();
-  traverse(ast, {
-    MemberExpression(path) {
-      const bindingName = readReferenceRoot(path.node);
-      if (!bindingName) return;
-      const candidate = bindings.get(bindingName);
-      const lexicalBinding = path.scope.getBinding(bindingName);
-      if (candidate && lexicalBinding?.path.node === candidate.importNode) {
-        resolved.set(path.node, candidate);
-      }
-    }
-  });
-  return resolved;
-}
-
-type ScopePropKind = 'scope' | 'optional-scope';
-type ScopeProperties = ReadonlyMap<string, ScopePropKind>;
-type LocalTypes = WeakMap<t.Node, Map<string, ScopeProperties | undefined>>;
-type AliasKind = ScopePropKind | 'mutable' | 'ambiguous';
-
-type ScopeExpressionKind = 'scope' | 'non-scope' | 'ambiguous';
-
-function diagnoseScopeStringCoercions(
-  ast: t.File,
-  id: string,
-  verifiedBindings: WeakMap<t.MemberExpression, GssBinding>,
-  aliasReferences: WeakMap<t.Identifier, AliasKind>,
-  diagnostics: ReactGssDiagnostic[],
-  loweredReferences: WeakSet<t.MemberExpression>
-): void {
-  const reported = new Set<number>();
-  const report = (node: t.Node): void => {
-    if (node.start == null || reported.has(node.start)) return;
-    reported.add(node.start);
-    diagnostics.push({
-      code: 'GSS2105',
-      severity: 'error',
-      phase: 'transform',
-      message: 'A GSS scope object is being coerced to a string.',
-      id,
-      reason: 'scope-string-coercion',
-      suggestion: 'Pass the imported scope path to className or combine class names with an array joined by a space.'
-    });
-  };
+  const references = new WeakMap<t.MemberExpression, KnownReference>();
   traverse(ast, {
     MemberExpression(path) {
       if (t.isMemberExpression(path.parent) && path.parent.object === path.node) return;
-      const reference = readStaticReference(path.node);
-      const binding = verifiedBindings.get(path.node);
-      if (
-        !binding ||
-        !reference ||
-        isScopeClassRead(reference.path) ||
-        !isStringCoercionPath(path)
-      ) return;
-      if (loweredReferences.has(path.node)) return;
-      report(path.node);
-    },
-    Identifier(path) {
-      if (!path.isReferencedIdentifier()) return;
-      if (t.isMemberExpression(path.parent) && path.parent.object === path.node) return;
-      const kind = aliasReferences.get(path.node);
-      if ((kind === 'scope' || kind === 'optional-scope') && isStringCoercionPath(path)) {
-        report(path.node);
+      let root: t.Expression | t.Super = path.node;
+      const names: string[] = [];
+      let dynamic = false;
+      while (t.isMemberExpression(root)) {
+        if (root.computed || !t.isIdentifier(root.property)) dynamic = true;
+        else names.unshift(root.property.name);
+        root = root.object;
       }
+      if (!t.isIdentifier(root)) return;
+      const binding = path.scope.getBinding(root.name);
+      const schema = binding && imports.get(binding.path.node);
+      if (!schema) return;
+      const explicitClass = names.length > 1 && names.at(-1) === '$class';
+      if (explicitClass) names.pop();
+      const known = !dynamic && !!resolveScopePath(schema, names);
+      references.set(path.node, { schema, known, explicitClass });
+      if (known && !explicitClass && path.node.end != null) output.appendLeft(path.node.end, '.$class');
     }
   });
-}
 
-function isStringCoercionPath(path: NodePath): boolean {
-  let current = path.parentPath;
-  while (current) {
-    if (
-      t.isJSXAttribute(current.node) &&
-      t.isJSXIdentifier(current.node.name, { name: 'className' })
-    ) return false;
-    if (t.isTemplateLiteral(current.node)) return true;
-    if (t.isBinaryExpression(current.node, { operator: '+' })) return true;
-    current = current.parentPath;
+  function classify(node: t.Node): AliasKind {
+    if (t.isConditionalExpression(node)) {
+      const left = classify(node.consequent), right = classify(node.alternate);
+      return left === right ? left : 'ambiguous';
+    }
+    const ref = t.isMemberExpression(node) && references.get(node);
+    return !ref ? 'non-scope' : !ref.known ? 'ambiguous' : ref.explicitClass ? 'non-scope' : 'scope';
   }
-  return false;
-}
-
-function resolveTypedPropMemberReferences(
-  ast: t.File,
-  gssBindings: ReadonlyMap<string, GssBinding>,
-  typedProperties: LocalTypes
-): WeakMap<t.MemberExpression, ScopePropKind | 'mutable'> {
-  const propsBindings = new Map<Binding, ScopeProperties>();
-  traverse(ast, {
-    Function(path) {
-      for (const parameter of path.node.params) {
-        if (!t.isIdentifier(parameter)) continue;
-        const properties = resolveTypedScopeProperties(
-          parameter.typeAnnotation,
-          path,
-          typedProperties,
-          gssBindings
-        );
-        if (!properties || properties.size === 0) continue;
-        const binding = path.scope.getBinding(parameter.name);
-        if (binding) {
-          propsBindings.set(binding, properties);
-        }
-      }
-    }
-  });
-
-  const references = new WeakMap<t.MemberExpression, ScopePropKind | 'mutable'>();
-  traverse(ast, {
-    MemberExpression(path) {
-      const { object, property, computed } = path.node;
-      if (computed || !t.isIdentifier(object) || !t.isIdentifier(property)) return;
-      const binding = path.scope.getBinding(object.name);
-      const props = binding ? propsBindings.get(binding) : undefined;
-      const kind = props?.get(property.name);
-      if (binding && kind) references.set(path.node, binding.constant ? kind : 'mutable');
-    }
-  });
-  return references;
-}
-
-function resolveAliasReferences(
-  ast: t.File,
-  gssBindings: ReadonlyMap<string, GssBinding>,
-  verifiedBindings: WeakMap<t.MemberExpression, GssBinding>,
-  typedProperties: LocalTypes
-): WeakMap<t.Identifier, AliasKind> {
   const aliases = new Map<Binding, AliasKind>();
   traverse(ast, {
     VariableDeclarator(path) {
-      const { id, init } = path.node;
-      if (!init) return;
-      if (t.isIdentifier(id)) {
-        const expressionKind = classifyScopeExpression(init, verifiedBindings);
-        if (expressionKind === 'non-scope') return;
-        const binding = path.scope.getBinding(id.name);
-        if (!binding) return;
-        aliases.set(binding, aliasKindForBinding(binding, expressionKind));
-        return;
-      }
-      if (!t.isObjectPattern(id) || !t.isMemberExpression(init)) return;
-      const base = readVerifiedScopeExpression(init, verifiedBindings);
-      if (!base) return;
-      for (const property of id.properties) {
-        if (!t.isObjectProperty(property) || property.computed || !t.isIdentifier(property.value)) {
-          continue;
-        }
-        const targetName = t.isIdentifier(property.key)
-          ? property.key.name
-          : t.isStringLiteral(property.key)
-            ? property.key.value
-            : undefined;
-        if (!targetName) continue;
-        const targetPath = [...base.path, targetName];
-        if (!resolveScopePath(base.binding.schema, targetPath)) continue;
-        const binding = path.scope.getBinding(property.value.name);
-        if (binding) aliases.set(binding, aliasKindForBinding(binding, 'scope'));
-      }
+      if (!t.isIdentifier(path.node.id) || !path.node.init) return;
+      const kind = classify(path.node.init);
+      const binding = path.scope.getBinding(path.node.id.name);
+      if (kind !== 'non-scope' && binding) aliases.set(binding, binding.kind === 'const' && binding.constant ? kind : 'mutable');
     }
   });
-
   traverse(ast, {
-    Function(path) {
-      for (const parameter of path.node.params) {
-        if (!t.isObjectPattern(parameter)) continue;
-        const scopeProperties = resolveTypedScopeProperties(
-          parameter.typeAnnotation,
-          path,
-          typedProperties,
-          gssBindings
-        );
-        if (!scopeProperties) continue;
-        for (const property of parameter.properties) {
-          if (!t.isObjectProperty(property) || property.computed || !t.isIdentifier(property.value)) {
-            continue;
-          }
-          const propName = t.isIdentifier(property.key)
-            ? property.key.name
-            : t.isStringLiteral(property.key)
-              ? property.key.value
-              : undefined;
-          const kind = propName && scopeProperties.get(propName);
-          if (!kind) continue;
-          const binding = path.scope.getBinding(property.value.name);
-          if (binding) aliases.set(binding, binding.constant ? kind : 'mutable');
-        }
+    JSXAttribute(path) {
+      const { name, value } = path.node;
+      if (!t.isJSXIdentifier(name, { name: 'className' }) || !t.isJSXExpressionContainer(value)) return;
+      if (t.isJSXOpeningElement(path.parent) && t.isJSXIdentifier(path.parent.name) && /^[a-z]/.test(path.parent.name.name) &&
+          definiteClassModules(value.expression, references).size > 1) {
+        diagnostics.push({ code: 'GSS2107', severity: 'warning', phase: 'transform', id: input.id,
+          message: 'Same-element className composition from multiple GSS modules is unsupported; there is no cross-module precedence guarantee.',
+          reason: 'cross-module-class-composition', suggestion: 'Use scopes from one GSS module on this element.', ...diagnosticRange(path.node) });
       }
-    }
-  });
-
-  const references = new WeakMap<t.Identifier, AliasKind>();
-  traverse(ast, {
-    Identifier(path) {
-      if (!path.isReferencedIdentifier()) return;
-      const binding = path.scope.getBinding(path.node.name);
-      const kind = binding ? aliases.get(binding) : undefined;
-      if (kind) references.set(path.node, kind);
-    }
-  });
-  return references;
-}
-
-function collectTypedScopeProperties(
-  ast: t.File,
-  gssBindings: ReadonlyMap<string, GssBinding>
-): LocalTypes {
-  const aliases: LocalTypes = new WeakMap();
-  function declare(path: NodePath, name: string, properties?: ScopeProperties) {
-    const container = path.findParent(p =>
-      p.isProgram() || p.isBlockStatement() || p.isTSModuleBlock() || p.isSwitchStatement());
-    if (!container) return;
-    let names = aliases.get(container.node);
-    if (!names) aliases.set(container.node, names = new Map());
-    names.set(name, properties);
-  }
-  traverse(ast, {
-    TSTypeAliasDeclaration(path) {
-      const type = path.node.typeAnnotation;
-      declare(path, path.node.id.name, t.isTSTypeLiteral(type)
-        ? readScopePropertiesFromLiteral(type, path.scope, gssBindings) : undefined);
     },
-    TSInterfaceDeclaration(path) { declare(path, path.node.id.name); },
-    TSEnumDeclaration(path) { declare(path, path.node.id.name); },
-    ClassDeclaration(path) { if (path.node.id) declare(path, path.node.id.name); }
+    Identifier(path) {
+      if (!path.isReferencedIdentifier() || !inClassName(path)) return;
+      const binding = path.scope.getBinding(path.node.name);
+      const kind = binding && aliases.get(binding);
+      if (kind === 'mutable' || kind === 'ambiguous') diagnostics.push({
+        code: kind === 'mutable' ? 'GSS2103' : 'GSS2104', severity: 'error', phase: 'transform', id: input.id,
+        message: kind === 'mutable' ? `Mutable GSS scope alias ${path.node.name} cannot be lowered safely.` :
+          `Alias ${path.node.name} mixes a GSS scope with a non-scope value.`,
+        reason: kind === 'mutable' ? 'mutable-scope-alias' : 'ambiguous-scope-alias',
+        suggestion: 'Use the imported path directly in className.', ...diagnosticRange(path.node) });
+    }
   });
-  return aliases;
+  return { code: output.toString(), map: output.generateMap({ source: input.id, includeContent: true, hires: true }), diagnostics };
 }
 
-function resolveTypedScopeProperties(
-  annotation: t.Noop | t.TypeAnnotation | t.TSTypeAnnotation | null | undefined,
-  owner: NodePath<t.Function>,
-  aliases: LocalTypes,
-  gssBindings: ReadonlyMap<string, GssBinding>
-): ScopeProperties | undefined {
-  if (!annotation || !t.isTSTypeAnnotation(annotation)) return undefined;
-  const type = annotation.typeAnnotation;
-  if (t.isTSTypeReference(type) && t.isIdentifier(type.typeName)) {
-    const name = type.typeName.name;
-    for (let current: NodePath | null = owner; current; current = current.parentPath) {
-      const node = current.node;
-      if ('typeParameters' in node && t.isTSTypeParameterDeclaration(node.typeParameters) &&
-        node.typeParameters.params.some(parameter => parameter.name === name)) return undefined;
-      const names = aliases.get(node);
-      if (names?.has(name)) return names.get(name);
-    }
-    return undefined;
-  }
-  return t.isTSTypeLiteral(type)
-    ? readScopePropertiesFromLiteral(type, owner.scope, gssBindings)
-    : undefined;
+function inClassName(path: NodePath): boolean {
+  const parent = path.findParent(p => p.isJSXAttribute() || p.isFunction());
+  return !!parent && t.isJSXAttribute(parent.node) && t.isJSXIdentifier(parent.node.name, { name: 'className' });
 }
 
-function readScopePropertiesFromLiteral(
-  literal: t.TSTypeLiteral,
-  scope: Scope,
-  gssBindings: ReadonlyMap<string, GssBinding>
-): ScopeProperties {
-  const properties = new Map<string, ScopePropKind>();
-  for (const member of literal.members) {
-    if (!t.isTSPropertySignature(member) || member.computed || !member.typeAnnotation) continue;
-    const propertyName = t.isIdentifier(member.key)
-      ? member.key.name
-      : t.isStringLiteral(member.key)
-        ? member.key.value
-        : undefined;
-    if (
-      propertyName &&
-      isGssScopeTypeQuery(member.typeAnnotation.typeAnnotation, scope, gssBindings)
-    ) properties.set(propertyName, member.optional ? 'optional-scope' : 'scope');
-  }
-  return properties;
-}
-
-function isGssScopeTypeQuery(
-  type: t.TSType,
-  scope: Scope,
-  gssBindings: ReadonlyMap<string, GssBinding>
-): boolean {
-  if (!t.isTSTypeQuery(type)) return false;
-  if (!t.isIdentifier(type.exprName) && !t.isTSQualifiedName(type.exprName)) return false;
-  const path = readTypeEntityPath(type.exprName);
-  if (!path) return false;
-  const [bindingName, ...scopePath] = path;
-  const binding = bindingName ? gssBindings.get(bindingName) : undefined;
-  return Boolean(bindingName && binding && scope.getBinding(bindingName)?.path.node === binding.importNode &&
-    resolveScopePath(binding.schema, scopePath));
-}
-
-function readTypeEntityPath(entity: t.TSEntityName): readonly string[] | undefined {
-  if (t.isIdentifier(entity)) return [entity.name];
-  if (!t.isTSQualifiedName(entity)) return undefined;
-  const left = readTypeEntityPath(entity.left);
-  return left ? [...left, entity.right.name] : undefined;
-}
-
-function aliasKindForBinding(
-  binding: Binding,
-  expressionKind: Exclude<ScopeExpressionKind, 'non-scope'>
-): AliasKind {
-  return binding.kind === 'const' && binding.constant ? expressionKind : 'mutable';
-}
-
-function aliasHasTarget(
-  initializer: t.Expression,
-  targetPath: readonly string[],
-  verifiedBindings: WeakMap<t.MemberExpression, GssBinding>
-): boolean {
-  if (t.isMemberExpression(initializer)) {
-    const scope = readVerifiedScopeExpression(initializer, verifiedBindings);
-    return !!scope && !!resolveScopePath(scope.binding.schema, [...scope.path, ...targetPath]);
-  }
-  return t.isConditionalExpression(initializer) &&
-    aliasHasTarget(initializer.consequent, targetPath, verifiedBindings) &&
-    aliasHasTarget(initializer.alternate, targetPath, verifiedBindings);
-}
-
-function classifyScopeExpression(
-  expression: t.Expression,
-  verifiedBindings: WeakMap<t.MemberExpression, GssBinding>
-): ScopeExpressionKind {
-  if (t.isMemberExpression(expression)) {
-    const binding = verifiedBindings.get(expression);
-    if (!binding) return 'non-scope';
-    const reference = readStaticReference(expression);
-    if (!reference) return 'ambiguous';
-    const path = reference.path;
-    if (isScopeClassRead(path)) {
-      const parent = resolveScopePath(binding.schema, path.slice(0, -1));
-      return parent ? 'non-scope' : 'ambiguous';
-    }
-    return resolveScopePath(binding.schema, path) ? 'scope' : 'ambiguous';
-  }
-  if (t.isConditionalExpression(expression)) {
-    const consequent = classifyScopeExpression(expression.consequent, verifiedBindings);
-    const alternate = classifyScopeExpression(expression.alternate, verifiedBindings);
-    if (consequent === 'scope' && alternate === 'scope') return 'scope';
-    if (consequent !== 'non-scope' || alternate !== 'non-scope') return 'ambiguous';
-  }
-  return 'non-scope';
-}
-
-function readVerifiedScopeExpression(
-  expression: t.MemberExpression,
-  verifiedBindings: WeakMap<t.MemberExpression, GssBinding>
-): { binding: GssBinding; path: readonly string[] } | undefined {
-  const binding = verifiedBindings.get(expression);
-  const reference = readStaticReference(expression);
-  if (
-    !binding ||
-    !reference ||
-    isScopeClassRead(reference.path) ||
-    !resolveScopePath(binding.schema, reference.path)
-  ) return undefined;
-  return { binding, path: reference.path };
-}
-
-// The module root may itself export an authored scope named $class.
-function isScopeClassRead(path: readonly string[]): boolean {
-  return path.length > 1 && path.at(-1) === '$class';
-}
-
-function readStaticReference(
-  expression: t.MemberExpression
-): { binding: string; path: readonly string[] } | undefined {
-  const path: string[] = [];
-  let current: t.Expression | t.Super = expression;
-  while (t.isMemberExpression(current)) {
-    if (current.computed || !t.isIdentifier(current.property)) return undefined;
-    path.unshift(current.property.name);
-    current = current.object;
-  }
-  return t.isIdentifier(current) && path.length > 0
-    ? { binding: current.name, path }
-    : undefined;
-}
-
-function readReferenceRoot(expression: t.MemberExpression): string | undefined {
-  let current: t.Expression | t.Super = expression;
-  while (t.isMemberExpression(current)) current = current.object;
-  return t.isIdentifier(current) ? current.name : undefined;
-}
-
-function resolveScopePath(
-  schema: ReactScopeSchema,
-  path: readonly string[]
-): ReactScopeNodeSchema | undefined {
-  const [root, ...targets] = path;
-  if (!root || !Object.hasOwn(schema.exports, root)) return undefined;
-  let scope = schema.exports[root];
-  for (const target of targets) {
-    if (!scope || !Object.hasOwn(scope.targets, target)) return undefined;
-    scope = scope.targets[target];
+function resolveScopePath(schema: ReactScopeSchema, names: readonly string[]): ReactScopeNodeSchema | undefined {
+  let nodes = schema.exports;
+  let scope: ReactScopeNodeSchema | undefined;
+  for (const name of names) {
+    if (!Object.hasOwn(nodes, name)) return undefined;
+    scope = nodes[name]!;
+    nodes = scope.targets;
   }
   return scope;
 }
 
-function visitWithParent(
-  node: t.Node,
-  parent: t.Node | undefined,
-  callback: (node: t.Node, parent: t.Node | undefined) => void
-): void {
-  callback(node, parent);
-  const keys = t.VISITOR_KEYS[node.type] ?? [];
-  for (const key of keys) {
-    const child = node[key as keyof t.Node] as unknown;
-    if (Array.isArray(child)) {
-      for (const item of child) if (t.isNode(item)) visitWithParent(item, node, callback);
-    } else if (t.isNode(child)) {
-      visitWithParent(child, node, callback);
+/** Only string composition with definite, schema-backed provenance, never arbitrary calls. */
+function definiteClassModules(node: t.Node, refs: WeakMap<t.MemberExpression, KnownReference>): ReadonlySet<string> {
+  if (t.isMemberExpression(node)) {
+    const ref = refs.get(node);
+    return new Set(ref?.known && ref.schema.moduleId ? [ref.schema.moduleId] : []);
+  }
+  if (t.isBinaryExpression(node, { operator: '+' })) return new Set([
+    ...definiteClassModules(node.left, refs), ...definiteClassModules(node.right, refs)]);
+  if (t.isTemplateLiteral(node)) return new Set(node.expressions.flatMap(e => [...definiteClassModules(e, refs)]));
+  if (t.isCallExpression(node) && t.isMemberExpression(node.callee) && !node.callee.computed &&
+      t.isIdentifier(node.callee.property, { name: 'join' }) && t.isArrayExpression(node.callee.object) &&
+      node.arguments.length === 1 && t.isStringLiteral(node.arguments[0], { value: ' ' })) {
+    const elements = node.callee.object.elements;
+    if (elements.every(e => e && (t.isStringLiteral(e) || (t.isMemberExpression(e) && definiteClassModules(e, refs).size === 1)))) {
+      return new Set(elements.flatMap(e => [...definiteClassModules(e!, refs)]));
     }
   }
+  return new Set();
 }

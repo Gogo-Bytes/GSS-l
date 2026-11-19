@@ -65,6 +65,15 @@ it('builds a plain TS entry with an angle assertion and no GSS dependency', asyn
   expect(output.output.some(entry => entry.type === 'chunk' && entry.code.includes('document.title'))).toBe(true);
 });
 
+it('ignores a missing type-only stylesheet but still builds real style imports', async () => {
+  const root = await fixture({ 'main.ts': `import type S from './Absent.gss'; export type Scope = typeof S;
+    import styles from './Card.gss'; document.body.className = styles.card;` });
+  const output = await bundle(root);
+  expect(asset(output, JSON.parse(asset(output, 'gss-manifest.json')).cssAsset)).toContain('color: red;');
+  await rm(join(root, 'Card.gss'));
+  await expect(bundle(root)).rejects.toThrow('Cannot resolve GSS dependency ./Card.gss');
+});
+
 it('builds a same-rule logical and physical longhand pair in fixed order', async () => {
   const output = await bundle(await fixture({ 'Card.gss': '.card { margin-left: 2px; margin-inline-start: 1px; }' }));
   const manifest = JSON.parse(asset(output, 'gss-manifest.json'));
@@ -109,17 +118,17 @@ it('renders optional scopes and shadowed string props using their lexical types'
   }
 });
 
-it('renders both the selected scope and its child from one immutable alias', async () => {
+it('passes parent and nested class strings to a child that imports no stylesheet', async () => {
   const root = await fixture({
-    'Card.gss': '.card { color: red } .card .title { color: blue } .panel .title { color: green }',
-    'App.tsx': `import React from 'react'; import styles from './Card.gss';
+    'Card.gss': '.card { color: red } .card .title { color: blue }',
+    'Child.tsx': `import React from 'react';
+      export function Child({ card, title }: { card: string; title: string }) {
+        if (typeof card !== 'string' || typeof title !== 'string') throw new Error('Expected primitive class strings');
+        return <div className={card}><span className={title} /></div>;
+      }`,
+    'App.tsx': `import React from 'react'; import styles from './Card.gss'; import { Child } from './Child';
       export const expected = [styles.card, styles.card.title];
-      export function App() {
-        let active = true;
-        const branch = active ? styles.card : styles.panel;
-        active = false;
-        return <div className={branch}><span className={branch.title} /></div>;
-      }`
+      export function App() { return <Child card={styles.card} title={styles.card.title} />; }`
   });
   await symlink(join(process.cwd(), 'node_modules'), join(root, 'node_modules'), 'dir');
   const server = await createServer({ root, configFile: false, plugins: [gss({ adapter: react() })],

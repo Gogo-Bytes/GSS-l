@@ -38,6 +38,22 @@ it('accepts TS angle assertions when discovering and lowering a GSS import', () 
   expect(result.code).toContain('className = styles.card.$class');
 });
 
+it('ignores declaration-level type imports without skipping runtime imports', () => {
+  const adapter = react();
+  const input = { id: '/project/main.ts', source: `import type S from './Absent.gss';
+    import type * as Types from './Types.gss'; import './SideEffect.gss';
+    import styles from './Card.gss'; export type T = typeof S; document.body.className = styles.card;` };
+  expect(adapter.discoverImports(input)).toEqual(['./SideEffect.gss', './Card.gss']);
+  const requested: string[] = [];
+  const result = adapter.transform({ ...input, resolveScopeSchema(moduleId) {
+    requested.push(moduleId);
+    return { moduleId, exports: { card: { targets: {}, selfClassName: 'red' } } };
+  } });
+  expect(requested).toEqual(['./SideEffect.gss', './Card.gss']);
+  expect(result.diagnostics).toEqual([]);
+  expect(result.code).toContain('className = styles.card.$class');
+});
+
 it('fails closed when a discovered GSS import has no ScopeSchema', () => {
   const result = react().transform({
     id: '/project/Card.tsx',

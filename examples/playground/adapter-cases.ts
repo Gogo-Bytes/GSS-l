@@ -7,10 +7,10 @@ const cases = [
   { id: 'composition', title: 'Nested className expression, external class untouched', source: "<div className={cx(styles.card, 'external')} />;", contains: "cx(styles.card.$class, 'external')" },
   { id: 'direct-alias', title: 'Immutable direct alias', source: 'const card = styles.card; const view = <div className={card} />;', contains: 'const card = styles.card.$class' },
   { id: 'conditional-alias', title: 'All-scope conditional alias', source: 'const branch = active ? styles.card : styles.panel; const view = <div className={branch} />;', contains: 'const branch = active ? styles.card.$class : styles.panel.$class' },
-  { id: 'destructured-alias', title: 'Property alias destructured from a known scope', source: 'const { title: glyph } = styles.card; const view = <span className={glyph} />;', contains: 'className={glyph.$class}' },
-  { id: 'local-typed-prop', title: 'Local type alias + destructured typed prop', source: 'type Props = { scope: typeof styles.card }; const Card = ({ scope }: Props) => <div className={scope} />;', contains: 'className={scope.$class}' },
-  { id: 'inline-typed-prop', title: 'Inline typed prop', source: 'const Card = ({ scope }: { scope: typeof styles.card }) => <div className={scope} />;', contains: 'className={scope.$class}' },
-  { id: 'props-member', title: 'Direct typed props.scope read', source: 'type Props = { scope: typeof styles.card }; const Card = (props: Props) => <div className={props.scope} />;', contains: 'className={props.scope.$class}' },
+  { id: 'destructured-alias', title: 'Class string selected at the full path', source: 'const glyph = styles.card.title; const view = <span className={glyph} />;', contains: 'const glyph = styles.card.title.$class' },
+  { id: 'local-typed-prop', title: 'Local type alias + destructured typed prop', source: 'type Props = { scope: typeof styles.card }; const Card = ({ scope }: Props) => <div className={scope} />;', contains: 'className={scope}' },
+  { id: 'inline-typed-prop', title: 'Inline typed prop', source: 'const Card = ({ scope }: { scope: string }) => <div className={scope} />;', contains: 'className={scope}' },
+  { id: 'props-member', title: 'Direct typed props.scope read', source: 'type Props = { scope: typeof styles.card }; const Card = (props: Props) => <div className={props.scope} />;', contains: 'className={props.scope}' },
   { id: 'self-child', title: 'Authored child named self', source: '<div className={styles.card.self} />;', contains: 'className={styles.card.self.$class}' },
   { id: 'cross-module-warning', title: 'Same-element cross-module composition warning', source: "import other from './Other.gss'; const view = <div className={[styles.card, other.badge].join(' ')} />;", diagnostic: 'GSS2107' },
   { id: 'unknown-path', title: 'Unknown static path stays undefined', source: '<div className={styles.missing} />;', contains: 'className={styles.missing}' },
@@ -18,8 +18,8 @@ const cases = [
   { id: 'mixed-alias', title: 'Scope/string branch diagnostic', source: "const branch = active ? styles.card : 'external'; const view = <div className={branch} />;", diagnostic: 'GSS2104' },
   { id: 'string-coercion', title: 'Static path string lowering', source: "const name = styles.card + ' external';", contains: 'styles.card.$class + \' external\'' },
   { id: 'alias-member', title: 'Conditional alias target path',
-    source: 'const branch = active ? styles.card : styles.panel; const view = <span className={branch.title} />;',
-    contains: 'className={branch.title.$class}' }
+    source: 'const branch = active ? styles.card.title : styles.panel.title; const view = <span className={branch} />;',
+    contains: 'styles.card.title.$class : styles.panel.title.$class' }
 ];
 
 export function transformPlaygroundCases() {

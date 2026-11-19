@@ -134,11 +134,11 @@ export function compilerTitle(entry: { id: string; title: string }) {
 }
 export const adapterTitles: Record<string, string> = {
   direct: '直接引用静态路径', composition: '保留外部 class 组合', 'direct-alias': '局部不可变 alias',
-  'conditional-alias': '全 scope 的条件分支', 'destructured-alias': '从已知 scope 解构属性',
+  'conditional-alias': '全 scope 的条件分支', 'destructured-alias': '按完整路径取得类名',
   'local-typed-prop': '本地类型别名与 typed prop', 'inline-typed-prop': '内联 typed prop',
   'props-member': '直接读取 props.scope', 'self-child': '读取名为 self 的子节点',
   'cross-module-warning': '同一元素跨 Module 组合：警告而非错误',
   'unknown-path': '未知路径保持 undefined', 'mutable-alias': '可变 alias 的诊断',
   'mixed-alias': 'scope / 字符串混合分支的诊断', 'string-coercion': '隐式字符串强制转换的诊断',
-  'alias-member': '条件 alias 的目标路径转换'
+  'alias-member': '按条件选择完整路径的类名'
 };

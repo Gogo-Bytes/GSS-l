@@ -106,7 +106,7 @@ async function explorerChecks() {
   await page.locator('[data-testid="sweep-status"]:is([data-state="passed"], [data-state="failed"])').waitFor({ timeout: 120_000 });
   const sweep = await page.getByTestId('sweep-status').textContent();
   assert.equal(await page.getByTestId('sweep-status').getAttribute('data-state'), 'passed', sweep);
-  assert.match(sweep, /125 个案例 \/ 1267 项对比/);
+  assert.match(sweep, /133 个案例 \/ 1304 项对比/);
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
   assert.ok(await page.evaluate(() => window.scrollY > 0), 'Exercise navigation from a scrolled fixture page');
   await page.getByTestId('nav-compiler').click();
@@ -216,7 +216,7 @@ try {
   await writeFile(sourcePath, changed);
   await color('live-title', 'rgb(255, 165, 0)');
   expectedError = true;
-  await writeFile(sourcePath, changed + '\n.invalid { color: red; color: blue; }\n');
+  await writeFile(sourcePath, changed + '\n.invalid { color: red; display: block; color: blue; }\n');
   await page.locator('vite-error-overlay').waitFor({ state: 'attached' });
   await color('live-title', 'rgb(255, 165, 0)');
   await writeFile(sourcePath, original);
@@ -240,7 +240,7 @@ try {
   await page.screenshot({ path: join(artifacts, 'preview.png'), fullPage: true });
   assert.deepEqual(report.pageErrors, []);
   report.passed = true;
-  console.log('Playground passed: dev HMR/LKG/recovery; JSX/TSX/state/external/asset/lazy; production census; 125 fixtures / 1267 comparisons in both dev and preview; Compiler-only negative rollback; guided scenes/reset/native states; all sections/scenes at 320/390/768/1440px.');
+  console.log('Playground passed: dev HMR/LKG/recovery; JSX/TSX/state/external/asset/lazy; production census; 133 fixtures / 1304 comparisons in both dev and preview; Compiler-only negative rollback; guided scenes/reset/native states; all sections/scenes at 320/390/768/1440px.');
 } catch (error) {
   report.passed = false; report.error = String(error);
   await page?.screenshot({ path: join(artifacts, 'failure.png'), fullPage: true }).catch(() => {});

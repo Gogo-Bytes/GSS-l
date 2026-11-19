@@ -15,7 +15,7 @@ const scenes = [
   { id: 'states', label: '样式切换', title: '同一张卡片，不同的状态',
     description: '点击按钮，观察标题颜色。样式来自 .gss，状态仍由 React 管理。',
     expected: '基础标题是红色；选中后变蓝；换一组样式后变绿。',
-    concept: '嵌套路径、属性条件、conditional alias 与 typed scope prop。', file: 'Live.gss', source: liveSource.split('\n').slice(0, 5).join('\n') },
+    concept: '嵌套路径、属性条件、条件分支与字符串 prop。', file: 'Live.gss', source: liveSource.split('\n').slice(0, 5).join('\n') },
   { id: 'interactions', label: '浏览器状态', title: '悬停、焦点和伪元素，照常工作',
     description: '把鼠标放上按钮，或用 Tab 键聚焦。也可以切换 disabled 状态。',
     expected: '悬停时背景变蓝；键盘焦点出现蓝色轮廓；禁用后按钮变淡。',
@@ -38,7 +38,7 @@ const scenes = [
     concept: '这里是 JSX 的隐式 lowering。JSX 和 TSX 都直接使用样式路径。', file: 'ImplicitDemo.jsx', source: implicitSource }
 ] as const;
 type SceneId = typeof scenes[number]['id'];
-type TitleProps = { scope: typeof styles.card.title };
+type TitleProps = { scope: string };
 function Title({ scope }: TitleProps) {
   return <span data-testid="live-title" className={[scope, 'sample-title'].join(' ')}>一份声明，三种状态。</span>;
 }

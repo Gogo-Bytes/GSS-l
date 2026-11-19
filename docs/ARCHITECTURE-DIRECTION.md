@@ -240,13 +240,9 @@ React Adapter 在导入扫描和静态引用转换时共用解析入口。普通
 
 用户在 React 源码直接写 `styles.card` 或 `styles.card.title`。适配器按 schema 验证静态路径，在支持的字符串消费位置自动读取节点的内部 `$class` 字段。[GssScope](../types/src/index.ts) 用带 brand 的 `string & children` 描述源码引用，允许传给普通 `className?: string`，不提供逐文件精确补全，负责人已明确决定不做该能力，见下。
 
-不可变别名同时用于父节点和子路径时，初始化保留选中的 scope 对象。读取 `className={branch}` 或 `branch.title` 时才取对应节点的字符串。对条件别名，适配器检查每个可能分支都声明了目标，生成代码仍读取原别名，因此条件只在初始化时求值一次。
+负责人在 #67 明确：已知的完整静态路径在使用它的文件内转换成普通字符串，不把节点作为业务值传递。`const card = styles.card` 保存类名，不能再靠 `card.title` 或解构取得子节点。迁移时分别写 `styles.card`、`styles.card.title`；需要分支时选择完整路径。`<Child card={styles.card} title={styles.card.title} />` 的两个 prop 都是字符串，子组件按 `string` 接收，无需导入样式或读取内部字段。可选 prop 未传时仍为 `undefined`。
 
-适配器在参数声明处解析可见的本地类型别名，并在类型声明处确认 `typeof styles.card` 的值绑定确实指向 GSS 导入。内层同名类型或普通变量不继承外层 scope 身份。
-
-同文件已识别的可选 prop（例如 `scope?: typeof styles.card`）可直接用于 `className`。省略时保留 `undefined`，传入时读取节点字符串。解构参数和 `props.scope` 遵循同一规则。
-
-父组件 `<Child className={styles.title} />` 在父文件完成 lowering，子组件接收普通字符串；这不需要跨文件 scope 推导。事件处理函数体中的静态路径按普通 JS 表达式转换，具名和 JSX 内联函数一致；直接传给子组件的 scope prop 保留节点。普通函数、DOM API、模板字符串的直接静态引用以及已支持的不可变条件 alias 有既有回归；可变 alias、未知／动态路径、跨文件传播继续按当前实现边界处理，不能扩大成完整数据流分析或任意 namespace 逃逸支持。不可证明的动态／未知路径保留已确认的普通 JS 行为，不新增拒绝规则。
+React Adapter 不从组件参数的 TypeScript 标注推导节点，不跨文件跟踪 prop。声明级 `import type` 不发现运行时依赖、不读取样式 schema；值导入和副作用导入仍要求文件可解析。不以变量使用位置猜测类型擦除，不承诺 TypeScript 本身放行缺失的类型声明。
 
 **2026-11-13 owner 决定：不做逐文件 scope 精确类型、字段补全或拼写检查。** 写错样式名由作者负责，例如未声明的 `styles.missing` 保持普通 JavaScript 的 `undefined`，不为未知静态／动态 scope 增加 warning、error 或构建失败。继续对该值解引用仍遵循普通 JavaScript 行为，不新增运行时兜底。保留通用 `*.gss` 类型声明、现有已识别路径的 lowering 和其他既有诊断。
 
@@ -254,7 +250,7 @@ React Adapter 在导入扫描和静态引用转换时共用解析入口。普通
 
 **2026-11-13 owner 决定：不扩展变量索引式 scope 引用。** [#38](https://github.com/Gogo-Bytes/GSS-l/issues/38) 不实施 `styles[variant]` 的动态解析或字符串转换；继续使用 `styles.primary`、`active ? styles.primary : styles.secondary` 等已支持的静态路径及条件选择。当前 computed member（包括 `styles['primary']`）不转换：有效名字可能取得 scope 对象，不保证可直接用作 className；不存在的名字保持普通 JavaScript 的 `undefined`。不新增 runtime resolver、诊断或兜底，也不扩大已有别名分析。该项明确不做、不是暂缓，不再列为待办；只有 owner 主动明确提出新要求才恢复。
 
-验证路径时，每一段都必须是当前 schema 自有的成员；显式声明的 `constructor`、`self` 等名字遵循同一规则。组合 class 时可写 `className={[styles.card, 'external'].join(' ')}`。既有的隐式字符串强制转换诊断仍适用。旧的生成对象把父节点字符串和名为 `self` 的子节点写到了同一个键，导致父元素收到对象。现在 `.card .self` 对应源码 `styles.card.self`，父节点仍使用 `styles.card`。已有项目中用于读取当前节点字符串的旧后缀 `.self` 应移除。混合类型的别名仍按既有规则处理，例如可将条件直接写在 JSX 的 `className` 中。
+验证路径时，每一段都必须是当前 schema 自有的成员；显式声明的 `constructor`、`self` 等名字遵循同一规则。组合 class 时可写 `className={[styles.card, 'external'].join(' ')}`。已转换的值可以按普通字符串拼接。旧的生成对象把父节点字符串和名为 `self` 的子节点写到了同一个键，导致父元素收到对象。现在 `.card .self` 对应源码 `styles.card.self`，父节点仍使用 `styles.card`。已有项目中用于读取当前节点字符串的旧后缀 `.self` 应移除。混合类型的别名仍按既有规则处理，例如可将条件直接写在 JSX 的 `className` 中。
 
 编译器只保留 ownership 路径第二段及以后、CSS 转义解码后精确为 `$class` 的名称。命中时在原规则范围报告 `GSS1105`，本次替换失败；同一规则适用于 atomic 与 preserved 输出。顶层 `.\$class`、其他 `$` 前缀及外部类不占用子节点的内部字段。schema 保留 `selfClassName` 与 `targets` 两个独立成员；生成模块和适配器通过 `.$class` 读取自身字符串，业务源码继续使用静态路径。
 
