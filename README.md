@@ -65,7 +65,7 @@ React Router Framework Mode 的真实 SSR 外部验收：`corepack pnpm framewor
 
 这是有明确准入与 fallback 契约的实现，不是“任意 CSS 都能安全原子化”的承诺。普通场景使用独立编写的原生 CSS 对照；GSS 所有权／结构语义允许与原生 source order 不同，应使用明确的 GSS 预期。
 
-React 中直接写 `<div className={styles.card} />`，子节点使用 `styles.card.title`。升级旧代码时，移除用于取当前节点字符串的 `.self` 后缀。样式表实际声明的 `.card .self` 仍通过 `styles.card.self` 访问。
+React 中，`styles.card` 和 `styles.card.title` 各自取得一个 class 字符串。子组件需要两者时，写 `<Child cardClass={styles.card} titleClass={styles.card.title} />`，按 `string` 接收；不要传 `styles.card` 再从 prop 上取 `.title`。见 [React 引用与 TypeScript 契约](docs/ARCHITECTURE-DIRECTION.md#react-引用与-typescript-契约)。升级旧代码时，移除用于取当前节点字符串的 `.self` 后缀。样式表实际声明的 `.card .self` 仍通过 `styles.card.self` 访问。
 
 同一模块的多个 scope 可以组合。负责人明确：GSS 作者用法不需要在同一个节点组合不同文件的 GSS 样式，项目不保证这种组合的覆盖顺序，也不计划设计跨文件优先级。这是既定边界，不是待补能力，不再主动提案。React 适配器现有的非阻塞警告 `GSS2107` 保留，不移除 class。
 

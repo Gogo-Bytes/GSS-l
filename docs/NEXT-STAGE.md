@@ -38,6 +38,8 @@ Owner 再授权的 [诊断与错误定位只读核查](DIAGNOSTIC-LOCATION-REVIE
 
 ## 明确不做的能力
 
+React 不支持传递 scope 节点或跨文件推断节点。立项前先核对[静态路径的字符串契约](ARCHITECTURE-DIRECTION.md#react-引用与-typescript-契约)：父组件传类名字符串是支持的；要求子组件从这个字符串继续取子路径，不是缺陷或待办。
+
 负责人已明确否决 [#39](https://github.com/Gogo-Bytes/GSS-l/issues/39) 的逐文件 scope 精确类型、补全和拼写诊断。未知 scope 保持普通 JavaScript 行为，不新增 warning/error；这不是暂缓事项，不再列入排序、优化建议或实验队列。只有负责人主动明确改变决定才能恢复，长期契约见 [React 引用与 TypeScript 契约](ARCHITECTURE-DIRECTION.md#react-引用与-typescript-契约)。
 
 负责人也已明确不需要 [#38](https://github.com/Gogo-Bytes/GSS-l/issues/38) 的变量索引式 scope 支持。保持静态路径和条件分支写法，不实现 `styles[variant]` 的动态解析、转换或兜底；不作为暂缓任务重新排期，恢复须由负责人主动提出。具体行为见同一 [React 引用契约](ARCHITECTURE-DIRECTION.md#react-引用与-typescript-契约)。

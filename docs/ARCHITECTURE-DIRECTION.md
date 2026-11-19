@@ -240,9 +240,9 @@ React Adapter 在导入扫描和静态引用转换时共用解析入口。普通
 
 用户在 React 源码直接写 `styles.card` 或 `styles.card.title`。适配器按 schema 验证静态路径，在支持的字符串消费位置自动读取节点的内部 `$class` 字段。[GssScope](../types/src/index.ts) 用带 brand 的 `string & children` 描述源码引用，允许传给普通 `className?: string`，不提供逐文件精确补全，负责人已明确决定不做该能力，见下。
 
-负责人在 #67 明确：已知的完整静态路径在使用它的文件内转换成普通字符串，不把节点作为业务值传递。`const card = styles.card` 保存类名，不能再靠 `card.title` 或解构取得子节点。迁移时分别写 `styles.card`、`styles.card.title`；需要分支时选择完整路径。`<Child card={styles.card} title={styles.card.title} />` 的两个 prop 都是字符串，子组件按 `string` 接收，无需导入样式或读取内部字段。可选 prop 未传时仍为 `undefined`。
+**既定设计：静态路径取字符串，不传递 scope 节点。** 负责人在 [#67](https://github.com/Gogo-Bytes/GSS-l/issues/67) 重申这一决定。路径描述的是在导入文件里选哪个类名，不是组件间传递的对象结构。因此，已知的完整静态路径在使用它的文件内转换成普通字符串，不把节点作为业务值传递。`const card = styles.card` 保存类名，不能再靠 `card.title` 或解构取得子节点。迁移时分别写 `styles.card`、`styles.card.title`；需要分支时选择完整路径。`<Child card={styles.card} title={styles.card.title} />` 的两个 prop 都是字符串，子组件按 `string` 接收，无需导入样式或读取内部字段。可选 prop 未传时仍为 `undefined`。
 
-React Adapter 不从组件参数的 TypeScript 标注推导节点，不跨文件跟踪 prop。声明级 `import type` 不发现运行时依赖、不读取样式 schema；值导入和副作用导入仍要求文件可解析。不以变量使用位置猜测类型擦除，不承诺 TypeScript 本身放行缺失的类型声明。
+React Adapter 不从组件参数的 TypeScript 标注推导节点，不跨文件跟踪 prop。声明级 `import type` 不发现运行时依赖、不读取样式 schema；值导入和副作用导入仍要求文件可解析。不以变量使用位置猜测类型擦除，不承诺 TypeScript 本身放行缺失的类型声明。跨组件传节点和按接收方类型恢复节点不是待补能力；除非负责人明确改变决定，不再以缺陷、优化或探索 Issue 重提。如果直接静态引用实际传出了对象，则是违反此契约的缺陷。
 
 **2026-11-13 owner 决定：不做逐文件 scope 精确类型、字段补全或拼写检查。** 写错样式名由作者负责，例如未声明的 `styles.missing` 保持普通 JavaScript 的 `undefined`，不为未知静态／动态 scope 增加 warning、error 或构建失败。继续对该值解引用仍遵循普通 JavaScript 行为，不新增运行时兜底。保留通用 `*.gss` 类型声明、现有已识别路径的 lowering 和其他既有诊断。
 
