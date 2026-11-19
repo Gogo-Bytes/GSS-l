@@ -30,9 +30,8 @@ export function isStructuralRuntimeRule(rule: ParsedStyleRule): boolean {
 
 export function isCurrentAttributeRule(rule: ParsedStyleRule): boolean {
   return rule.relations.every((relation) => relation === 'descendant') &&
-    rule.nodes.at(-1)!.attributes.length === 1 &&
-    rule.nodes.slice(0, -1).every((node) => node.attributes.length === 0) &&
-    rule.nodes.every((node) => node.states.length === 0) &&
+    rule.nodes.at(-1)!.attributes.length > 0 &&
+    rule.nodes.slice(0, -1).every((node) => node.attributes.length === 0 && node.states.length === 0) &&
     rule.nodes.every((node) => node.hasConditions.length === 0) &&
     rule.nodes.every((node) => node.pseudoElement === null);
 }

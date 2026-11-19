@@ -167,6 +167,8 @@ export function validateSelectorShapes(id: string, rules: readonly ParsedStyleRu
   }
 
   const unsupportedAttribute = rules.find(({ relations, nodes }) => {
+    if (nodes.length === 1 && !nodes[0]!.pseudoElement && !nodes[0]!.hasConditions.length) return false;
+    if (nodes.some(node => node.attributes.some(attr => attr.operator === 'native'))) return true;
     const attributeIndexes = nodes.flatMap((node, index) =>
       node.attributes.length > 0 ? [index] : []
     );

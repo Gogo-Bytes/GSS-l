@@ -27,9 +27,10 @@ export function emitOwnershipRules(input: AtomicEmissionContext & {
       const layer = rule.layer;
       const predicate = sourceIndex < 0 ? undefined : rule.nodes[sourceIndex];
       const states = sourceIndex < 0 ? [] : predicate!.states!;
-      const attribute = sourceIndex < 0 ? undefined : predicate!.attributes![0];
+      const attributes = predicate?.attributes ?? [];
+      const attribute = attributes[0];
       const localMarkers = new Set<string>();
-      const suffix = attribute ? renderAttributeCondition(attribute) : renderStateSuffix(states, moduleId, nameAllocator, roots, localMarkers);
+      const suffix = attributes.map(renderAttributeCondition).join('') + renderStateSuffix(states, moduleId, nameAllocator, roots, localMarkers);
       const ancestor = sourcePath !== undefined && sourcePath.length < targetPath.length;
       const scope = ensureScopePath(roots, targetPath);
       if (ancestor) {
@@ -54,7 +55,9 @@ export function emitOwnershipRules(input: AtomicEmissionContext & {
         const stateMarkers = [...localMarkers];
         for (const declaration of instance.declarations) {
           const identity: PureDeclarationIdentity = {
-            layer, condition, state: attribute ? canonicalAttributeCondition(attribute) : states.join(':') || 'self',
+            layer, condition, state: attribute && (attributes.length > 1 || states.length > 0)
+              ? `compound:${JSON.stringify([attributes, states])}`
+              : attribute ? canonicalAttributeCondition(attribute) : states.join(':') || 'self',
             ...(moduleOrder.get(declaration, instance) ?? {}),
             ...(stateMarkers.length ? { stateMarkers } : {}),
             property: declaration.property, ...identifyDeclarationValue(declaration, bindings), important: declaration.important,

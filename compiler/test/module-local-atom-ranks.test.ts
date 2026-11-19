@@ -88,14 +88,18 @@ describe('rank closure, isolation and reuse through the public session', () => {
   });
 });
 
+it.each([forward.replaceAll('background-color', 'color'), `@media (min-width: 1px) { ${forward} }`,
+  `@layer theme { ${forward} }`, forward + ' .button:hover:focus { background-color: green; }',
+  forward + ' .button:active { background-color: green; }'])('keeps native current-subject competitors: %s', source => {
+  const session = createGssCompilerSession({ projectRoot: '/project', layers: ['theme'], conditions: { media: ['(min-width: 1px)'] } });
+  expect(session.replaceStylesheet({ id: '/project/A.gss', source })).toMatchObject({ committed: true, diagnostics: [] });
+  const rules = session.finalize().manifest.rules;
+  expect(rules.map(rule => rule.value)).toEqual(source.includes('green') ? ['red', 'blue', 'green'] : ['red', 'blue']);
+});
+
 const unsupported = [
-  { name: 'other property', source: forward.replaceAll('background-color', 'color'), message: 'Coactive descendant conditions assign ambiguous color on button.' },
-  { name: 'media band', source: `@media (min-width: 1px) { ${forward} }` },
-  { name: 'layer band', source: `@layer theme { ${forward} }` },
   { name: 'functional refinement', source: forward + ' .button:where(:focus) { background-color: green; }' },
   { name: 'is refinement', source: forward + ' .button:is(:focus) { background-color: green; }' },
-  { name: 'compound refinement', source: forward + ' .button:hover:focus { background-color: green; }' },
-  { name: 'unapproved live state', source: forward + ' .button:active { background-color: green; }' },
   { name: 'ancestor', source: forward + ' .root:hover .button { background-color: green; }', target: 'root.button' },
   { name: 'runtime relation', source: forward + ' .root > .button { background-color: green; }', target: 'root.button' },
   { name: 'observation', source: forward + ' .button:has(.child) { background-color: green; }' },
@@ -137,7 +141,7 @@ describe.each(['error', 'preserve-module'] as const)('bounded rank rejection und
     expect(session.finalize()).toEqual(before);
   });
 
-  it.each(unsupported)('preserves exact GSS1205 and last-good state: $name', ({ source, message, target }) => {
+  it.each(unsupported)('preserves exact GSS1205 and last-good state: $name', ({ source, target }) => {
     const session = createGssCompilerSession({ projectRoot: '/project', atomizationFallback });
     expect(session.replaceStylesheet({ id: '/project/A.gss', source: forward }).committed).toBe(true);
     const before = session.finalize();
@@ -146,7 +150,7 @@ describe.each(['error', 'preserve-module'] as const)('bounded rank rejection und
     expect(result.committed).toBe(false);
     expect(result.diagnostics).toEqual([{
       code: 'GSS1205', severity: 'error', phase: 'resolve', id: '/project/A.gss', reason: 'ambiguous-coactive-state-conflict',
-      message: message ?? `Coactive descendant conditions assign ambiguous background-color on ${target ?? 'button'}.`
+      message: `Coactive descendant conditions assign ambiguous background-color on ${target ?? 'button'}.`
     }]);
     expect(session.finalize()).toEqual(before);
     expect(session.getScopeSchema('/project/A.gss')).toEqual(schema);

@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { chromium } from 'playwright';
 import { checkViteHostCompatibility, checkViteSsgHydration } from './vite-host-check.mjs';
+import { checkCurrentConditions } from './current-condition-check.mjs';
 import { checkConservativeOutput } from './conservative-check.mjs';
 import { checkDeclarationFallback } from './declaration-fallback-check.mjs';
 import { checkViteMultipageLazy } from './vite-multipage-lazy-check.mjs';
@@ -87,6 +88,7 @@ try {
   let declarationFallback;
   try { declarationFallback = await checkDeclarationFallback(browser); }
   catch (error) { declarationFallback = { detected: false, error: String(error) }; }
+  await checkCurrentConditions(browser);
   const conservative = await checkConservativeOutput(browser);
   await mkdir(path.dirname(artifact), { recursive: true });
   await writeFile(artifact, JSON.stringify({ result, hostCompatibility, ssgHydration, multipageLazy, declarationFallback, conservative, errors }, null, 2));

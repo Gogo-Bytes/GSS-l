@@ -132,7 +132,7 @@ Chromium 145 中，页面始终没有 `.layout` 节点。同一目标在属性�
 
 #### #68 设计提案：先确定条件落在哪个元素，再决定能否优化
 
-**状态：设计评审，不是已支持范围。** `styles.button` 决定元素取得哪组类名；`[data-mode]`、`:focus-visible` 决定浏览器此刻是否匹配。属性或焦点变化不该改变 JSX 引用，也不需要 React 在运行时解释 CSS。
+**负责人决定，已实施同节点首段：** 不同条件可各自生成 atom，复用不是准入前提。`.a:hover:focus` 与 `.a[data-on]:hover` 不共用条件身份；`styles.a` 取得两条规则的类名，匹配交给浏览器。同一模块内，若竞争写入均为同一个已登记长手、主体都是一个本地类且只带属性或已支持的无参数状态，则同强度并发按 CSS 书写顺序决定胜负。其他层叠环境与多节点、函数参数的边界不随之放开。下表是修改前的定位，不是当前能力清单。 `styles.button` 决定元素取得哪组类名；`[data-mode]`、`:focus-visible` 决定浏览器此刻是否匹配。属性或焦点变化不该改变 JSX 引用，也不需要 React 在运行时解释 CSS。
 
 **现状定位（`11124e1`，单条 `color:red` 规则实测）。** 以下结果来自 `parseStylesheet` 和公开 Compiler session 的 `replaceStylesheet`／`finalize`，不是按选择器文本猜测：
 
@@ -165,7 +165,7 @@ Chromium 145 中，页面始终没有 `.layout` 节点。同一目标在属性�
 .button[aria-expanded="true"] { color:green }
 ```
 
-用 `<button className={styles.button} data-mode="WARNING" aria-expanded="true" />`：未聚焦绿 → 键盘 Tab 蓝 → 模式改 `safe` 绿 → 移除 `aria-expanded` 红。本轮 Chromium 145 的**独立原生 CSS**得到以上四值；当前 GSS 仍拒绝该输入。同一目标测试还要反转同强度竞争规则的源码顺序，排除“匹配正确、胜负错误”。跨节点的后续用例用 `styles.panel` 和 `styles.panel.button`，分别移除父属性、移动焦点、插入中间层、仅把目标换成浅路径 `styles.button`：四种变化均应取消深路径蓝色；中间层有同属性但没有来源 marker 不应恢复蓝色。复用现有 `tests/browser` 原生对照与 #45 深浅路径字面预期，不能仅以共用渲染器的两个输出相等为验收。
+用 `<button className={styles.button} data-mode="WARNING" aria-expanded="true" />`：未聚焦绿 → 键盘 Tab 蓝 → 模式改 `safe` 绿 → 移除 `aria-expanded` 红。本轮 Chromium 145 的**独立原生 CSS**得到以上四值；实施前 GSS 拒绝该输入；当前回归要求全部属性与焦点保留在目标 atom 上。同一目标测试还要反转同强度竞争规则的源码顺序，排除“匹配正确、胜负错误”。跨节点的后续用例用 `styles.panel` 和 `styles.panel.button`，分别移除父属性、移动焦点、插入中间层、仅把目标换成浅路径 `styles.button`：四种变化均应取消深路径蓝色；中间层有同属性但没有来源 marker 不应恢复蓝色。复用现有 `tests/browser` 原生对照与 #45 深浅路径字面预期，不能仅以共用渲染器的两个输出相等为验收。
 
 **声明与 @ 规则另算。** 选择器回答“何时命中”，[属性效果](PROPERTY-ORDER-DESIGN.md)回答“哪些写入竞争”。已知独立属性只写自身，别名映射同一 effect；简写包含隐式重置。`white-space:pre; text-wrap:pretty` 的共享 `text-wrap-mode` 为 `wrap`，倒序为 `nowrap`；两者都不能删掉未被覆盖的 `white-space-collapse` 或 `text-wrap-style`。`margin:var(--space)` 知道写四侧不等于能拆四个值；逻辑／物理方向可能重叠也不等于必然覆盖。能证明完整顺序才 atomic，现有 preserved 仅在其契约成立时使用，否则拒绝；未知属性不借目录或单引擎补准入，见 [#70 离线审计](SHORTHAND-DISCOVERY.md)。`@media/@supports/@container` 的上下文、`@layer` 的顺序、`@keyframes` 等资源依赖与命名空间声明都不是元素条件，继续各走原入口。
 

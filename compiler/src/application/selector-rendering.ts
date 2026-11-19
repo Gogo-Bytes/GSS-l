@@ -18,11 +18,13 @@ export function renderObservedCombinator(
 }
 
 export function canonicalAttributeCondition(condition: ParsedAttributeCondition): string {
+  if (condition.operator === 'native') return `native:${condition.selector}`;
   // Only the separator is an unescaped equals sign before the value.
   return `attribute:${ident.encode(condition.attribute)}${condition.operator === '=' ? `=${condition.value}` : ''}`;
 }
 
 export function renderAttributeCondition(condition: ParsedAttributeCondition): string {
+  if (condition.operator === 'native') return condition.selector;
   if (condition.operator === null) return `[${ident.encode(condition.attribute)}]`;
   const attribute = selectorParser.attribute({ attribute: condition.attribute, operator: condition.operator,
     value: condition.value, quoteMark: '"', raws: { attribute: ident.encode(condition.attribute) } });

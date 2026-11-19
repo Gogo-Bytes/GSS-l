@@ -5,7 +5,7 @@ import { bindDescendantConditions, bindStructuralRelations } from './selector-bi
 import { planDescendantConditions } from './plan-descendant-conditions.js';
 import { planStructuralRelations } from './plan-structural-relations.js';
 import { planPseudoElementConditions } from './plan-pseudo-element-conditions.js';
-import { supportsCurrentBackgroundRanks } from './module-local-atom-ranks.js';
+import { supportsCurrentBackgroundRanks, supportsFlatNativeRanks } from './module-local-atom-ranks.js';
 import { isPureOwnershipRule, isCurrentStateRule, isCurrentAttributeRule, isAncestorStateRule, isAncestorAttributeRule } from './rule-classification.js';
 
 /** Coordinate existing proofs in their established diagnostic order. The
@@ -24,7 +24,8 @@ export function planModuleRelations(localRules: readonly ParsedStyleRule[], sema
     return path.map((_, index) => path.slice(0, index + 1));
   });
   const plannedDescendants = hasDescendantConditions ? planDescendantConditions(bindDescendantConditions(descendantRules, declaredPaths),
-    (target) => supportsCurrentBackgroundRanks(semanticRules, target)) : undefined;
+    (target, effect) => supportsFlatNativeRanks(semanticRules, effect) ||
+      (effect === 'background-color' && supportsCurrentBackgroundRanks(semanticRules, target))) : undefined;
   if (plannedDescendants?.ambiguity) return { ambiguity: plannedDescendants.ambiguity };
   const plannedStructural = planStructuralRelations(bindStructuralRelations(contextualRules), plannedDescendants?.instances ?? [], hasRules);
   if (plannedStructural.ambiguity) return { ambiguity: plannedStructural.ambiguity };

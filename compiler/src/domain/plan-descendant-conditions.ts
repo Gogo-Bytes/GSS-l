@@ -32,11 +32,10 @@ function exclusive<R extends DescendantRule>(a: DescendantInstance<R>, b: Descen
   return aa?.operator === '=' && ba?.operator === '=' && aa.attribute === ba.attribute && aa.value !== ba.value;
 }
 
-/** Closed predicates retain their existing winner proof. Only explicitly eligible
- * current-node background conflicts receive local authored-order atom versions. */
+/** Closed predicates retain their winner proof; current-subject ties need an eligible order projection. */
 export function planDescendantConditions<R extends DescendantRule>(
   targets: readonly BoundDescendantTarget<R>[],
-  canRankTarget: (target: readonly string[]) => boolean = () => false
+  canRankTarget: (target: readonly string[], effect: string) => boolean = () => false
 ): { instances: DescendantInstance<R>[]; candidates: DescendantInstance<R>[]; ambiguity?: string } {
   const allCandidates: DescendantInstance<R>[] = [];
   const instances: DescendantInstance<R>[] = [];
@@ -83,7 +82,7 @@ export function planDescendantConditions<R extends DescendantRule>(
                 (Number(declaration.important) > Number(a.important) ||
                   (declaration.important === a.important && candidate.specificity > left.specificity))));
             if (!intersection) {
-              if (!(effect === 'background-color' && canRankTarget(targetPath))) return { instances: [], candidates: [], ambiguity: `Coactive descendant conditions assign ambiguous ${effect} on ${targetPath.join('.')}.` };
+              if (!canRankTarget(targetPath, effect)) return { instances: [], candidates: [], ambiguity: `Coactive descendant conditions assign ambiguous ${effect} on ${targetPath.join('.')}.` };
             }
           }
         }

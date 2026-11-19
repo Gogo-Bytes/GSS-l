@@ -1997,7 +1997,7 @@ describe('GssCompilerSession', () => {
     expect(compiler.finalize().css).toContain('--state_focus_3a_hover--property_color--value_purple');
   });
 
-  it('rejects an ambiguous coactive state conflict transactionally', () => {
+  it('rejects a coactive conflict between different DOM witnesses transactionally', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
     const id = '/project/src/button.gss';
     compiler.replaceStylesheet({ id, source: '.button { display: block; }' });
@@ -2005,8 +2005,8 @@ describe('GssCompilerSession', () => {
     const replacement = compiler.replaceStylesheet({
       id,
       source: `
-        .button:hover { color: red; }
-        .button:focus { color: blue; }
+        .root:hover .button { color: red; }
+        .root .button:focus { color: blue; }
       `
     });
 

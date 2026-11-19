@@ -435,7 +435,7 @@ function parseClassPath(nodes: readonly Node[]): ParsedSelectorPath | undefined 
       continue;
     }
     if (!expectClass && node.type === 'attribute') {
-      const condition = parseAttributeCondition(node as Attribute);
+      const condition = parseAttributeCondition(node as Attribute) ?? parseNativeAttribute(node as Attribute);
       if (!condition) return undefined;
       segments.at(-1)?.attributes.push(condition);
       continue;
@@ -597,6 +597,14 @@ function isNativeFunctionalBranch(nodes: readonly Node[]): boolean {
     if (node.type === 'attribute') return parseAttributeCondition(node as Attribute) !== undefined;
     return node.type === 'pseudo' && (!node.nodes || isNativeFunctionalBranch(node.nodes.flatMap((selector) => selector.nodes)));
   });
+}
+
+function parseNativeAttribute(node: Attribute): ParsedAttributeCondition | undefined {
+  if (node.namespace !== undefined || !node.operator || !['=', '~=', '|=', '^=', '$=', '*='].includes(node.operator) ||
+      typeof node.value !== 'string') return undefined;
+  const flag = node.raws && 'insensitiveFlag' in node.raws ? node.raws.insensitiveFlag : undefined;
+  if (flag !== undefined && (typeof flag !== 'string' || !/^[is]$/i.test(flag))) return undefined;
+  return { operator: 'native', selector: node.toString() };
 }
 
 function parseAttributeCondition(attribute: Attribute): ParsedAttributeCondition | undefined {

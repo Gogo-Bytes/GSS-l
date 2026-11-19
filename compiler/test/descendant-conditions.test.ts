@@ -41,17 +41,19 @@ describe('Compiler descendant condition ownership', () => {
 
   it.each(['.button[data-mode] { color: red; } .button[data-mode=""] { color: blue; }',
     '.button[data-mode] { color: red; } .button[data-mode=ready] { color: blue; }'])('does not treat presence and equality as mutually exclusive: %s', (source) => {
-    const { session } = compile('.button { color: black; }');
-    const before = session.finalize();
-    expect(session.replaceStylesheet({ id: '/project/Tree.gss', source })).toMatchObject({
-      committed: false, diagnostics: [expect.objectContaining({ code: 'GSS1205' })]
-    });
-    expect(session.finalize()).toEqual(before);
+    const { rules } = compile(source);
+    expect(declarationValues(rules('button'), 'color')).toEqual(['red', 'blue']);
   });
 
-  it.each(['.button[disabled]:hover', '.button[disabled][data-ready]', '.button[disabled]::before',
-    '.button[ns|disabled]', '.button[disabled i]', '.button[data-mode^=ready]', '.button[data-mode$=ready]',
-    '.button[data-mode*=ready]', '.button[data-mode~=ready]', '.button[data-mode|=ready]'])('keeps unsupported attribute combinations transactional: %s', (selector) => {
+  it.each(['[disabled]:hover', '[disabled][data-ready]', '[data-mode^=ready]', '[data-mode$=ready]',
+    '[data-mode*=ready]', '[data-mode~=ready]', '[data-mode|=ready]', '[data-mode^="warn" i][aria-expanded="true"]:focus-visible',
+    '[data-mode="a" s]'])('retains every native attribute test on the selected subject: %s', suffix => {
+    const { rules } = compile(`.button${suffix} { color:red }`);
+    expect(rules('button')[0]!.selector.endsWith(suffix)).toBe(true);
+  });
+
+  it.each(['.button[disabled]::before', '.button[ns|disabled]', '.button[disabled i]', '.button[data-x=v Z]',
+    '.a[data-on] > .button:focus', '.a[data-x^=v] .button'])('keeps unsupported attribute combinations transactional: %s', (selector) => {
     const { session } = compile('.button[disabled] { color: red; }');
     const before = session.finalize();
     const schema = session.getScopeSchema('/project/Tree.gss');
@@ -60,6 +62,13 @@ describe('Compiler descendant condition ownership', () => {
     expect(session.getScopeSchema('/project/Tree.gss')).toEqual(schema);
     expect(session.replaceStylesheet({ id: '/project/Tree.gss', source: '.button[disabled] { color: blue; }' }).committed).toBe(true);
     expect(session.finalize().css).toContain('color: blue;');
+  });
+
+  it('rewrites the local class in an admitted functional test, not the same name in an attribute value', () => {
+    const { rules, scope } = compile('.button[data-mode="ready"]:not(.ready) { color: red }');
+    const marker = scope('ready').selfClassName;
+    expect(marker).not.toBe('ready');
+    expect(rules('button')[0]!.selector).toContain(`[data-mode="ready"]:not(.${marker})`);
   });
 
   it.each(['.button:not([disabled])', '.button:is([disabled])', '.button:has(> [disabled])'])('retains presence in an already admitted native fragment: %s', (selector) => {

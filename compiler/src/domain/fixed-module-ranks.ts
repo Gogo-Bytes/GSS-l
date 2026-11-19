@@ -1,5 +1,6 @@
 import type { ParsedDeclaration, ParsedStyleRule } from './parsed-stylesheet.js';
 import { collectOrderOccurrences, type OrderBinding, type OrderInstance, type OrderOccurrence as Occurrence } from './order-occurrences.js';
+import { isFlatNativeSubject } from './module-local-atom-ranks.js';
 import { semanticOrderHeights } from './semantic-order-heights.js';
 import { propertiesMayOverlapForModuleOrder, propertyOrderPriority, isPropertyOrderReuseBarrier, isPhysicalSingleEffectLonghand } from './module-order-policy.js';
 
@@ -29,7 +30,14 @@ export function planFixedModuleOrder(rules: readonly ParsedStyleRule[], instance
       }
     }
     if (new Set(family.map(({ declaration }) => declaration)).size < 2) continue;
-    const heights = semanticOrderHeights(family);
+    const heights = new Map(semanticOrderHeights(family));
+    if (family.every(o => isFlatNativeSubject(o.instance.rule) && o.declaration.property === first.declaration.property)) {
+      // A weaker co-matching rule on just one subject must not reorder two native ties.
+      const bySpecificity = new Map<number, number>();
+      for (const o of family) bySpecificity.set(o.instance.specificity,
+        Math.max(heights.get(o)!, bySpecificity.get(o.instance.specificity) ?? 0));
+      for (const o of family) heights.set(o, bySpecificity.get(o.instance.specificity)!);
+    }
     const compare = (a: Occurrence, b: Occurrence) => heights.get(a)! - heights.get(b)! ||
       propertyOrderPriority(a.declaration.property) - propertyOrderPriority(b.declaration.property) ||
       a.instance.rule.sourceOrdinal - b.instance.rule.sourceOrdinal || a.index - b.index;

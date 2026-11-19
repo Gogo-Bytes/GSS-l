@@ -26,6 +26,10 @@ export type ParsedAttributeCondition = {
 } | {
   attribute: string;
   operator: null;
+} | {
+  /** Browser-matched attribute; do not infer equality or exclusivity. */
+  operator: 'native';
+  selector: string;
 };
 
 export type ParsedHasCondition = {

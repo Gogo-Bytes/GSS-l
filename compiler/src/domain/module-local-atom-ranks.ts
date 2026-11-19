@@ -1,6 +1,20 @@
 import type { ParsedStyleRule } from './parsed-stylesheet.js';
-import { effectsOfProperty } from './property-effects.js';
+import { classifyPropertyEffect, effectsOfProperty } from './property-effects.js';
 import { getOwnershipPath, matchesOwnedTarget } from './ownership-path.js';
+import { propertiesMayOverlapForModuleOrder } from './module-order-policy.js';
+
+export function isFlatNativeSubject(rule: ParsedStyleRule): boolean {
+  const node = rule.nodes[0]!;
+  return rule.nodes.length === 1 && !rule.externalTarget && !rule.externalCondition &&
+    !node.pseudoElement && !node.hasConditions.length && node.states.every(state => !state.includes('('));
+}
+
+/** Inspect all possibly competing writes, including other classes on the same element. */
+export function supportsFlatNativeRanks(rules: readonly ParsedStyleRule[], effect: string): boolean {
+  return classifyPropertyEffect(effect).kind === 'longhand' && rules.every(rule =>
+    rule.declarations.every(d => !propertiesMayOverlapForModuleOrder(effect, d.property) ||
+      (d.property === effect && isFlatNativeSubject(rule))));
+}
 
 /** Admission envelope only, not a general cascade model. Called on all module rules,
  * before pruning, so an opaque competing declaration cannot escape rank closure.

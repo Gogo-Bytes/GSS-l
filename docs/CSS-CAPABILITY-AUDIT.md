@@ -31,7 +31,7 @@
 
 已登记的原生伪类和伪元素按 ASCII 大小写匹配，包括函数内部的伪类。`.Card:HaS(> .Item:EmPtY)` 与小写关键字的写法生成相同的 selector、marker 和 scope 导出。解析只处理伪类／伪元素名称，保留 `.Card`、`.Item`、属性值以及 GSS 指令 `:global()` 各自的拼写语义。[Selectors 4 伪类](https://www.w3.org/TR/selectors-4/#pseudo-classes) · [伪元素](https://www.w3.org/TR/selectors-4/#pseudo-elements)
 
-2026-11-13 owner 批准的属性存在判断已实现：`.button[disabled]` 与 `.group[data-ready] .leaf` 可按现有关系准入，空值和非空值均匹配，移除属性后不匹配。`[data-mode]` 与 `[data-mode=""]` 保持不同身份；其他运算符、namespace、标志及原有组合限制不变。存在与等值条件可同时命中，不新增蕴含排序证明；具体冲突边界见[属性存在判断契约](ARCHITECTURE-DIRECTION.md#属性存在判断2026-11-13-owner-决定)。
+2026-11-13 owner 批准的属性存在判断已实现：`.button[disabled]` 与 `.group[data-ready] .leaf` 可按现有关系准入，空值和非空值均匹配，移除属性后不匹配。`[data-mode]` 与 `[data-mode=""]` 保持不同身份；#68 后，单一本地类上的多属性、属性加状态及无命名空间属性的其他标准运算符和 `i/s` 标志保留给浏览器匹配；并不为目标浏览器模拟未支持的匹配。多节点与 namespace 未扩大。存在与等值条件可同时命中，不新增蕴含排序证明；具体冲突边界见[属性存在判断契约](ARCHITECTURE-DIRECTION.md#属性存在判断2026-11-13-owner-决定)。
 
 ## 本轮一致性核查：正确性，不是数量
 
