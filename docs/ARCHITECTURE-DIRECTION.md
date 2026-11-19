@@ -130,6 +130,45 @@ Chromium 145 中，页面始终没有 `.layout` 节点。同一目标在属性�
 
 [浏览器回归](../tests/browser/conservative-check.mjs)由现有 `browser:check` 运行。首批固定输入为基础 `.title` 分别与深层 child 或祖先存在条件竞争。两种输出都必须符合浅／深路径、隔层、属性缺失和后置普通 CSS 竞争的字面颜色预期，再比较截图。纯 ownership 的六项回归另行检查：没有 DOM 祖先的深／浅目标，shorthand 与物理长手并存，末个候选不受支持时保留前值，以及 LTR／RTL 下逻辑／物理边距的实际写入。两种输出各自检查字面计算值，再比较包含边距的容器截图。这里测量 Compiler 的 scope 和 CSS，不把它当作 JSX 构建验证，也不宣称覆盖所有已准入输入。
 
+#### #68 设计提案：先确定条件落在哪个元素，再决定能否优化
+
+**状态：设计评审，不是已支持范围。** `styles.button` 决定元素取得哪组类名；`[data-mode]`、`:focus-visible` 决定浏览器此刻是否匹配。属性或焦点变化不该改变 JSX 引用，也不需要 React 在运行时解释 CSS。
+
+**现状定位（`11124e1`，单条 `color:red` 规则实测）。** 以下结果来自 `parseStylesheet` 和公开 Compiler session 的 `replaceStylesheet`／`finalize`，不是按选择器文本猜测：
+
+| 输入 | 当前结果 | 限制在哪 |
+| --- | --- | --- |
+| `.a:hover:focus`、`.a[data-x=""]` | atomic | 同一节点已有多个状态、单个属性的路径。存在判断不等于等于空串。 |
+| `.a[data-on]:hover`、`.a[data-on][disabled]` | 解析成功；准入 `GSS1101` | 节点已含条件，但分类和输出路径仍分属性与状态，不能仅删除准入检查。 |
+| `.a[data-x^="a"]`、`.a[data-x="x" i]`、`.a:lang(en)` | 解析阶段 `GSS1101` | selector AST 可表达；投影到 Compiler 的属性结构只有存在／等于，原生伪类也有准入限制。 |
+| `.a:hover .b:focus`、`.panel[data-open] > .button:focus` | 解析成功；准入 `GSS1101` | 不再是一个元素上的条件；来源与目标都要绑定。 |
+| `.a:is(.x,.y)`、`.a:where(.x)`、`.a:nth-child(2 of .x)`、`.a:has(> .x)` | 此组 atomic | 已有受限的本地名字重写或观察绑定；单例通过不证明任意嵌套或竞争。 |
+| `.a.active` / `.a:global(.active)` | 前者解析阶段拒绝；后者此例 atomic | 本地第二个类的取得方式和外部 class 条件不是一个问题。 |
+
+**代码分工。** [parser](../compiler/src/infrastructure/postcss-stylesheet-parser.ts) 将 selector AST 投影为 [nodes／relations](../compiler/src/domain/parsed-stylesheet.ts)；[准入](../compiler/src/application/selector-admission.ts) 决定形态是否能交给后续代码。[绑定](../compiler/src/domain/selector-bindings.ts) 先选合格的 targetPath，但后代条件只记录一个 `sourceIndex`，结构绑定从第一个非后代组合符取来源。这个索引不能表示两个节点各自的条件。其标量强度也不是通用 CSS specificity。[排序](../compiler/src/domain/rule-order-planner.ts) 还要保住竞争声明的先后；[渲染](../compiler/src/application/selector-rendering.ts) 已能改写局部 marker、保留 global 并生成真实组合符，但不会替 planner 证明哪条声明可删。
+
+| 语义类别 | 推荐处理／不可省略的信息 |
+| --- | --- |
+| 同一目标的原生属性测试 | 存在、`=`、`~=`、`\|=`、`^=`、`$=`、`*=` 共用属性 AST 的序列化，不在 JS 实现子串／词匹配。保留转义后的名称和值边界、引号语义、空值及 `i`／`s` 标志；例如 `[x]`、`[x=""]`、`[x^=""]` 不能合并。保留标志不代表所有目标浏览器支持。带命名空间的属性须保住前缀与 `@namespace` 声明环境，首版不支持。 |
+| 同一目标的原生状态或参数 | `:hover`、`:focus-visible` 没有局部名字；`:lang(en)` 的参数是语言范围，不是 selector。匹配交给浏览器，不把函数参数一律当选择器遍历。连续条件是 AND，保留每个条件的强度。 |
+| 包含选择器的参数 | `:is()` 是分支 OR，`:not()` 排除，`:where()` 整体零强度；按原分支递归改写本地类，`:global()` 内保持原名。`:is/:not/:has` 用参数列表最大 specificity，不是命中哪支就算哪支，也不是条件数。顶层逗号分支则各自参与层叠。`:nth-child(An+B of S)` 保留公式、重写过滤列表，计入伪类本身及列表最大强度。 |
+| 相对关系、作用对象 | `:has(> .x)` 在锚点生效，`.x` 是被观察元素；不能把声明落到 `.x` 或把 `>` 当 ownership。`.panel[data-open] > .button:focus` 要分别把属性放在来源 marker、焦点放在目标 marker。`::before` 等伪元素改变绘制对象，单列，不能拼成布尔条件。 |
+| 同一节点第二个本地类 | `.a.active` 不等于 `.a .active`。前者若解释为同时具有 `styles.a` 和 `styles.active`，与直接使用 `styles.a.active` 的可观察行为不同。没有本地复合类的产品决定则继续拒绝；外部状态已有有界的 `.a:global(.active)`。不为此改变 `styles` 字符串契约。 |
+
+**两条路线。** A：继续扩充属性／状态分类、绑定和 emission 的交叉分支。单个已知形态改动小、旧诊断易保留；每增加一种组合却要在多个阶段重复证明，单源模型仍无法表达双节点。B（推荐）：复用现有绑定，先在一个已确定的目标上保留完整的原生条件片段，只改写必须改名的本地引用。条件身份必须包括操作符、值、标志、分支结构及绑定位置；宁可不共享，也不能将不同条件折叠。先以测试专用保守输出验证；未证明等价前不剪枝、不跨条件共享。按切片替换重复分支，不同时重写全部 planner，不先造通用选择器解释器。**仅仅不能证明互斥，不代表允许改变胜负**：若现有排序与渲染无法保留 ownership、重要性、强度和必要先后，继续拒绝，不以整模块原样 CSS 或测试基线作为新生产 fallback。
+
+**迁移和验收建议。** 第一步只取单一 ownership 名、同一目标上的无命名空间属性 AND 已支持的无参数状态、已登记单长手。在测试载体先覆盖完整属性节点及多条件组合（包括过去已支持的形态）；生产准入不先放开。第二步确认独立预期、旧输出／诊断、scope schema、声明顺序及宿主最终 CSS 都符合预期，再对已证明的这一类启用。原生函数、递归本地绑定和多 DOM 节点分别举证，不借第一步一并放行。
+
+```css
+.button { color:red }
+.button[data-mode^="warn" i][aria-expanded="true"]:focus-visible { color:blue }
+.button[aria-expanded="true"] { color:green }
+```
+
+用 `<button className={styles.button} data-mode="WARNING" aria-expanded="true" />`：未聚焦绿 → 键盘 Tab 蓝 → 模式改 `safe` 绿 → 移除 `aria-expanded` 红。本轮 Chromium 145 的**独立原生 CSS**得到以上四值；当前 GSS 仍拒绝该输入。同一目标测试还要反转同强度竞争规则的源码顺序，排除“匹配正确、胜负错误”。跨节点的后续用例用 `styles.panel` 和 `styles.panel.button`，分别移除父属性、移动焦点、插入中间层、仅把目标换成浅路径 `styles.button`：四种变化均应取消深路径蓝色；中间层有同属性但没有来源 marker 不应恢复蓝色。复用现有 `tests/browser` 原生对照与 #45 深浅路径字面预期，不能仅以共用渲染器的两个输出相等为验收。
+
+**声明与 @ 规则另算。** 选择器回答“何时命中”，[属性效果](PROPERTY-ORDER-DESIGN.md)回答“哪些写入竞争”。已知独立属性只写自身，别名映射同一 effect；简写包含隐式重置。`white-space:pre; text-wrap:pretty` 的共享 `text-wrap-mode` 为 `wrap`，倒序为 `nowrap`；两者都不能删掉未被覆盖的 `white-space-collapse` 或 `text-wrap-style`。`margin:var(--space)` 知道写四侧不等于能拆四个值；逻辑／物理方向可能重叠也不等于必然覆盖。能证明完整顺序才 atomic，现有 preserved 仅在其契约成立时使用，否则拒绝；未知属性不借目录或单引擎补准入，见 [#70 离线审计](SHORTHAND-DISCOVERY.md)。`@media/@supports/@container` 的上下文、`@layer` 的顺序、`@keyframes` 等资源依赖与命名空间声明都不是元素条件，继续各走原入口。
+
 ### 生产 CSS 交付粒度
 
 负责人在 [#41](https://github.com/Gogo-Bytes/GSS-l/issues/41) 的方案讨论后决定：本阶段保留单份聚合 CSS，不实施按入口／懒加载拆分。最终可达的静态与 lazy GSS 模块共同进入该资产；JS 懒加载不意味着对应 CSS 延迟下载。
