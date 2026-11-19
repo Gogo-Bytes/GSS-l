@@ -13,9 +13,12 @@ const sameSourcePredicate = (a: OrderOccurrence, b: OrderOccurrence) => {
 };
 
 /** Only proven ownership/structural relations form semantic edges; authored order is not an edge. */
-export function semanticOrderHeights(family: readonly OrderOccurrence[]): ReadonlyMap<OrderOccurrence, number> {
+export function semanticOrderHeights(family: readonly OrderOccurrence[], withinNativeStrength = false): ReadonlyMap<OrderOccurrence, number> {
   const opaque = (rule: ParsedStyleRule) => Boolean(rule.externalTarget || rule.externalCondition || rule.nodes.some((node) => node.hasConditions.length));
+  const strength = (o: OrderOccurrence) => o.instance.rule.functionalStrength ?? `0,${o.instance.specificity},0`;
   const precedes = (a: OrderOccurrence, b: OrderOccurrence) => {
+    // The browser already resolves unequal strengths. Do not carry that edge into an unrelated native tie.
+    if (withinNativeStrength && strength(a) !== strength(b)) return false;
     if (opaque(a.instance.rule) || opaque(b.instance.rule) ||
       !propertiesMayOverlapForModuleOrder(a.declaration.property, b.declaration.property) ||
       context(a.instance.targetPath) !== context(b.instance.targetPath)) return false;

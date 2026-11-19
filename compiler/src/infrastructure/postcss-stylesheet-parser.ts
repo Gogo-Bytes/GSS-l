@@ -1,3 +1,4 @@
+import { selectorSpecificity } from '@csstools/selector-specificity';
 import { ident } from 'css-tree/utils';
 import { tokenize, tokenTypes } from 'css-tree/tokenizer';
 import postcss, { CssSyntaxError, type Declaration } from 'postcss';
@@ -341,7 +342,7 @@ function parsePropertyRegistration(
   return { kind: 'property', name, declarations, source: spanOf(node) };
 }
 
-type ParsedSelectorPath = Pick<ParsedStyleRule, 'nodes' | 'relations' | 'externalTarget' | 'externalCondition'>;
+type ParsedSelectorPath = Pick<ParsedStyleRule, 'nodes' | 'relations' | 'externalTarget' | 'externalCondition' | 'functionalStrength'>;
 
 function isNamedLayer(value: string): boolean {
   return /^[-_A-Za-z][-_A-Za-z0-9]*(?:\.[-_A-Za-z][-_A-Za-z0-9]*)*$/.test(value);
@@ -373,9 +374,21 @@ function parseDescendantClassPaths(
   for (const branch of root.nodes) {
     const path = parseClassPath(branch.nodes);
     if (!path) return undefined;
-    paths.push({ ...path, selector: branch.toString() });
+    const functionalStrength = currentFunctionalStrength(branch, path);
+    paths.push({ ...path, selector: branch.toString(), ...(functionalStrength && { functionalStrength }) });
   }
   return paths.length > 0 ? paths : undefined;
+}
+
+function currentFunctionalStrength(branch: selectorParser.Selector, path: ParsedSelectorPath): string | undefined {
+  if (!path.nodes.at(-1)!.states.some(s => s.includes('(')) || path.externalTarget || path.externalCondition ||
+      path.relations.some(r => r !== 'descendant') || path.nodes.some((n, i) => n.pseudoElement || n.hasConditions.length ||
+        (i < path.nodes.length - 1 && (n.states.length || n.attributes.length)))) return undefined;
+  let hasGlobal = false;
+  branch.walkPseudos(pseudo => { if (pseudo.value === ':global') hasGlobal = true; });
+  if (hasGlobal) return undefined;
+  const { a, b, c } = selectorSpecificity(branch);
+  return `${a},${b},${c}`;
 }
 
 function parseClassPath(nodes: readonly Node[]): ParsedSelectorPath | undefined {

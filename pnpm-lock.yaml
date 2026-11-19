@@ -51,6 +51,9 @@ importers:
 
   compiler:
     dependencies:
+      '@csstools/selector-specificity':
+        specifier: 5.0.0
+        version: 5.0.0(postcss-selector-parser@7.1.6)
       '@gss-l/types':
         specifier: workspace:*
         version: link:../types

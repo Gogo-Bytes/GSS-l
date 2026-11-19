@@ -31,7 +31,10 @@ export function planFixedModuleOrder(rules: readonly ParsedStyleRule[], instance
       }
     }
     if (new Set(family.map(({ declaration }) => declaration)).size < 2) continue;
-    const heights = new Map(semanticOrderHeights(family));
+    const nativeFunctionFamily = family.some(o => o.instance.rule.functionalStrength) &&
+      family.every(o => o.declaration.property === first.declaration.property &&
+        (o.instance.rule.functionalStrength || isOwnedCurrentSubject(o.instance.rule)));
+    const heights = new Map(semanticOrderHeights(family, nativeFunctionFamily));
     // Use the same ownership boundary as admission: an unrelated DOM witness must not disable tie ordering.
     const eligible = new Map<string, boolean>();
     const current = family.every(o => isOwnedCurrentSubject(o.instance.rule) && o.declaration.property === first.declaration.property)

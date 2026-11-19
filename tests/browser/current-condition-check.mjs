@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createGssCompilerSession } from '@gss-l/compiler';
 
 export async function checkCurrentConditions(browser) {
+  await checkFunctionalCompositionOrder(browser);
   await checkFunctionalAttributes(browser);
   await checkOwnedCurrentConditions(browser);
   const base = '.a,.other {color:black}';
@@ -30,6 +31,28 @@ export async function checkCurrentConditions(browser) {
       } finally { await page.close(); }
     }
   }
+}
+
+async function checkFunctionalCompositionOrder(browser) {
+  const page = await browser.newPage();
+  try {
+    for (const fn of ['is', 'where', 'not']) for (const redLast of [true, false]) {
+      // Only [x] matches :is, but the unmatched [z][w] branch supplies its specificity.
+      const argument = fn === 'not' ? '[z],[z][w]' : '[x],[z][w]';
+      const red = `.a:${fn}(${argument}){color:red}`, blue = '.b[x][y]{color:blue}';
+      const source = '.b[x]{color:green}' + (redLast ? blue + red : red + blue);
+      const session = createGssCompilerSession({ projectRoot: '/p' });
+      const update = session.replaceStylesheet({ id: '/p/T.gss', source });
+      assert.deepEqual(update.diagnostics, []);
+      assert.equal(update.module.compilationMode, 'atomic');
+      const { a, b } = update.module.scopeSchema.exports;
+      const expected = fn !== 'where' && redLast ? 'rgb(255, 0, 0)' : 'rgb(0, 0, 255)';
+      for (const [css, classes] of [[source, 'a b'], [session.finalize().css, `${a.selfClassName} ${b.selfClassName}`]]) {
+        await page.setContent(`<style>${css}</style><button x y class="${classes}">both</button>`);
+        assert.equal(await page.locator('button').evaluate(node => node.ownerDocument.defaultView.getComputedStyle(node).color), expected, `${fn}, red last: ${redLast}`);
+      }
+    }
+  } finally { await page.close(); }
 }
 
 async function checkFunctionalAttributes(browser) {
