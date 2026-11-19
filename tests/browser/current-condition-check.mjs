@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createGssCompilerSession } from '@gss-l/compiler';
 
 export async function checkCurrentConditions(browser) {
+  await checkFunctionalAttributes(browser);
   await checkOwnedCurrentConditions(browser);
   const base = '.a,.other {color:black}';
   const focus = '.a:hover:focus {color:blue}';
@@ -28,6 +29,31 @@ export async function checkCurrentConditions(browser) {
         await second.hover(); await second.focus(); assert.equal(await color(second), 'rgb(0, 0, 0)');
       } finally { await page.close(); }
     }
+  }
+}
+
+async function checkFunctionalAttributes(browser) {
+  const source = '.button{color:black}.button:is([data-mode^="warn" i],.flag):not(:where([data-tags~="muted" i])){color:red}';
+  const session = createGssCompilerSession({ projectRoot: '/p' });
+  const update = session.replaceStylesheet({ id: '/p/F.gss', source });
+  assert.deepEqual(update.diagnostics, []);
+  assert.equal(update.module.compilationMode, 'atomic');
+  const { button, flag } = update.module.scopeSchema.exports;
+  for (const [css, classes, marker] of [[source, 'button', 'flag'], [session.finalize().css, button.selfClassName, flag.selfClassName]]) {
+    const page = await browser.newPage();
+    try {
+      await page.setContent(`<style>${css}</style><button class="${classes}">A</button>`);
+      const readings = await page.locator('button').evaluate((node, local) => {
+        const color = () => node.ownerDocument.defaultView.getComputedStyle(node).color;
+        const values = [color()];
+        node.dataset.mode = 'WARNING'; values.push(color());
+        node.dataset.tags = 'live MUTED'; values.push(color());
+        delete node.dataset.mode; delete node.dataset.tags; values.push(color());
+        node.classList.add(local); values.push(color());
+        return values;
+      }, marker);
+      assert.deepEqual(readings, ['rgb(0, 0, 0)', 'rgb(255, 0, 0)', 'rgb(0, 0, 0)', 'rgb(0, 0, 0)', 'rgb(255, 0, 0)']);
+    } finally { await page.close(); }
   }
 }
 

@@ -76,6 +76,18 @@ describe('Compiler descendant condition ownership', () => {
     expect(session.finalize().css).toContain('[disabled]');
   });
 
+  it.each(['[data-x]', '[data-x=""]', '[data-x=on i]', '[data-x~=on s]', '[data-x|=on]',
+    '[data-x^=on]', '[data-x$=on]', '[data-x*=on]'])('retains %s inside nested selector lists', attribute => {
+    const { rules, scope } = compile(`.button:not(:where(:is(.flag,${attribute}))) { color:red }`);
+    expect(rules('button')[0]!.selector).toContain(`:not(:where(:is(.${scope('flag').selfClassName},${attribute})))`);
+  });
+
+  it.each(['[ns|data-x^=on]', '[data-x=on z]'])('rejects unsupported attributes inside a function: %s', attribute => {
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    expect(session.replaceStylesheet({ id: '/project/Tree.gss', source: `.button:is(.flag,${attribute}) {color:red}` }))
+      .toMatchObject({ committed: false, diagnostics: [expect.objectContaining({ code: 'GSS1101' })] });
+  });
+
   it('preserves presence selectors through whole-module fallback', () => {
     const session = createGssCompilerSession({ projectRoot: '/project' });
     expect(session.replaceStylesheet({ id: '/project/Tree.gss', source: '.button[disabled] { future-paint: red; }' }))

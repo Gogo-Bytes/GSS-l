@@ -435,7 +435,7 @@ function parseClassPath(nodes: readonly Node[]): ParsedSelectorPath | undefined 
       continue;
     }
     if (!expectClass && node.type === 'attribute') {
-      const condition = parseAttributeCondition(node as Attribute) ?? parseNativeAttribute(node as Attribute);
+      const condition = parseLocalAttribute(node as Attribute);
       if (!condition) return undefined;
       segments.at(-1)?.attributes.push(condition);
       continue;
@@ -594,12 +594,14 @@ function parseFunctionalState(pseudo: Pseudo): string | undefined {
 function isNativeFunctionalBranch(nodes: readonly Node[]): boolean {
   return nodes.every((node) => {
     if (node.type === 'class' || node.type === 'tag' || node.type === 'universal' || node.type === 'combinator') return true;
-    if (node.type === 'attribute') return parseAttributeCondition(node as Attribute) !== undefined;
+    if (node.type === 'attribute') return parseLocalAttribute(node as Attribute) !== undefined;
     return node.type === 'pseudo' && (!node.nodes || isNativeFunctionalBranch(node.nodes.flatMap((selector) => selector.nodes)));
   });
 }
 
-function parseNativeAttribute(node: Attribute): ParsedAttributeCondition | undefined {
+function parseLocalAttribute(node: Attribute): ParsedAttributeCondition | undefined {
+  const simple = parseAttributeCondition(node);
+  if (simple) return simple;
   if (node.namespace !== undefined || !node.operator || !['=', '~=', '|=', '^=', '$=', '*='].includes(node.operator) ||
       typeof node.value !== 'string') return undefined;
   const flag = node.raws && 'insensitiveFlag' in node.raws ? node.raws.insensitiveFlag : undefined;
