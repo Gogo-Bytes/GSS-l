@@ -52,7 +52,9 @@ function constraintForInstance(instance: StructuralInstance): Constraint {
   const firstRuntime = instance.rule.relations.findIndex((relation) => relation !== 'descendant');
   return { targetPath: instance.targetPath,
     ...(instance.sourcePath ? { sourcePath: instance.sourcePath } : {}),
-    predicates: predicates(instance.rule, instance.sourceIndex),
+    // Never treat the same test on the parent and on the target as interchangeable.
+    predicates: [...predicates(instance.rule, instance.sourceIndex), ...(firstRuntime >= 0
+      ? predicates(instance.rule, instance.rule.nodes.length - 1).map(test => `target:${test}`) : [])],
     ...(firstRuntime >= 0 ? { runtime: {
       edges: instance.rule.relations.slice(firstRuntime).filter((relation) => relation !== 'descendant')
     } } : {}) };

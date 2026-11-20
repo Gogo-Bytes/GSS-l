@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createGssCompilerSession } from '@gss-l/compiler';
 
 export async function checkCurrentConditions(browser) {
+  await checkChildConditions(browser);
   await checkFunctionalCompositionOrder(browser);
   await checkFunctionalAttributes(browser);
   await checkOwnedCurrentConditions(browser);
@@ -31,6 +32,44 @@ export async function checkCurrentConditions(browser) {
       } finally { await page.close(); }
     }
   }
+}
+
+async function checkChildConditions(browser) {
+  const page = await browser.newPage();
+  try {
+    for (const blueLast of [false, true]) {
+      const rules = (base, deep) => {
+        const whenFocused = `.panel[data-open] > .${deep}:focus`;
+        const colors = blueLast ? ['green', 'blue'] : ['blue', 'green'];
+        return `.${base}{color:red}` + colors.map(color => `${whenFocused}{color:${color}}`).join('') +
+          `.panel[data-open] > .${deep}[data-mode^="warn" i]{color:${colors[1]}}`;
+      };
+      const session = createGssCompilerSession({ projectRoot: '/p' });
+      const update = session.replaceStylesheet({ id: '/p/C.gss', source: rules('button', 'button') });
+      assert.deepEqual(update.diagnostics, []);
+      const { panel, button } = update.module.scopeSchema.exports;
+      for (const [css, parent, deep, shallow] of [[rules('button', 'owned'), 'panel', 'button owned', 'button'],
+        [session.finalize().css, panel.selfClassName, panel.targets.button.selfClassName, button.selfClassName]]) {
+        await page.setContent(`<style>${css}</style><section data-open class="${parent}"><button class="${deep}">child</button></section>`);
+        const readings = await page.locator('button').evaluate((node, shallowClass) => {
+          const parent = node.parentElement;
+          const color = () => node.ownerDocument.defaultView.getComputedStyle(node).color;
+          const colors = [color()];
+          node.focus(); colors.push(color());
+          parent.removeAttribute('data-open'); node.setAttribute('data-open', ''); colors.push(color());
+          parent.setAttribute('data-open', ''); node.blur(); colors.push(color());
+          node.dataset.mode = 'WARNING'; colors.push(color()); delete node.dataset.mode;
+          const wrapper = node.ownerDocument.createElement('div'); wrapper.setAttribute('data-open', '');
+          parent.append(wrapper); wrapper.append(node); node.focus(); colors.push(color());
+          parent.append(node); node.focus(); colors.push(color());
+          node.className = shallowClass; colors.push(color());
+          return colors;
+        }, shallow);
+        const red = 'rgb(255, 0, 0)', winner = blueLast ? 'rgb(0, 0, 255)' : 'rgb(0, 128, 0)';
+        assert.deepEqual(readings, [red, winner, red, red, winner, red, winner, red]);
+      }
+    }
+  } finally { await page.close(); }
 }
 
 async function checkFunctionalCompositionOrder(browser) {

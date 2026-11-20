@@ -171,7 +171,9 @@ Chromium 145 中，页面始终没有 `.layout` 节点。同一目标在属性�
 .button[aria-expanded="true"] { color:green }
 ```
 
-用 `<button className={styles.button} data-mode="WARNING" aria-expanded="true" />`：未聚焦绿 → 键盘 Tab 蓝 → 模式改 `safe` 绿 → 移除 `aria-expanded` 红。本轮 Chromium 145 的**独立原生 CSS**得到以上四值；实施前 GSS 拒绝该输入；当前回归要求全部属性与焦点保留在目标 atom 上。同一目标测试还要反转同强度竞争规则的源码顺序，排除“匹配正确、胜负错误”。跨节点的后续用例用 `styles.panel` 和 `styles.panel.button`，分别移除父属性、移动焦点、插入中间层、仅把目标换成浅路径 `styles.button`：四种变化均应取消深路径蓝色；中间层有同属性但没有来源 marker 不应恢复蓝色。复用现有 `tests/browser` 原生对照与 #45 深浅路径字面预期，不能仅以共用渲染器的两个输出相等为验收。
+用 `<button className={styles.button} data-mode="WARNING" aria-expanded="true" />`：未聚焦绿 → 键盘 Tab 蓝 → 模式改 `safe` 绿 → 移除 `aria-expanded` 红。本轮 Chromium 145 的**独立原生 CSS**得到以上四值；实施前 GSS 拒绝该输入；当前回归要求全部属性与焦点保留在目标 atom 上。同一目标测试还要反转同强度竞争规则的源码顺序，排除“匹配正确、胜负错误”。
+
+**直接子元素的条件。** `.panel[data-open] > .button:focus` 用 `styles.panel` 标记父元素，`styles.panel.button` 标记按钮；浏览器判断真实 `>`、父属性和子焦点。两个端点的测试都计入强度，互换测试所在节点不构成等价规则。只对两个本地节点、一条 `>` 开放新的目标条件：两端可用已支持的无参数状态和无命名空间属性，来源至多一个属性；不推广到多段关系或函数。原有 `GSS1205` 竞争检查仍生效。[浏览器回归](../tests/browser/current-condition-check.mjs) 独立断言移除父属性、移走焦点、插入带同属性但无来源类名的中间层、只改用浅路径 `styles.button` 均取消深层颜色；交换重复声明顺序会翻转胜者。
 
 **声明与 @ 规则另算。** 选择器回答“何时命中”，[属性效果](PROPERTY-ORDER-DESIGN.md)回答“哪些写入竞争”。已知独立属性只写自身，别名映射同一 effect；简写包含隐式重置。`white-space:pre; text-wrap:pretty` 的共享 `text-wrap-mode` 为 `wrap`，倒序为 `nowrap`；两者都不能删掉未被覆盖的 `white-space-collapse` 或 `text-wrap-style`。`margin:var(--space)` 知道写四侧不等于能拆四个值；逻辑／物理方向可能重叠也不等于必然覆盖。能证明完整顺序才 atomic，现有 preserved 仅在其契约成立时使用，否则拒绝；未知属性不借目录或单引擎补准入，见 [#70 离线审计](SHORTHAND-DISCOVERY.md)。`@media/@supports/@container` 的上下文、`@layer` 的顺序、`@keyframes` 等资源依赖与命名空间声明都不是元素条件，继续各走原入口。
 

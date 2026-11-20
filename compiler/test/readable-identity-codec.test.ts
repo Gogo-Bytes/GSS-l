@@ -175,7 +175,7 @@ it('round-trips every encoded contextual target field, including both condition 
     { ...identity, moduleId: 'café.gss' }, { ...identity, layer: 'framework.utilities' },
     { ...identity, condition: 'media:y' }, { ...identity, relations: ['child', 'general-sibling'] },
     { ...identity, authoredPath: ['card', 'a', 'b'] }, { ...identity, sourceState: 'focus' },
-    { ...identity, sourceAttribute: 'data-mode=idle' },
+    { ...identity, sourceAttribute: 'data-mode=idle' }, { ...identity, targetSuffix: ':focus[data-mode="a/b"]' },
     { ...identity, sourcePath: ['card', 'a', 'b'] }, { ...identity, targetPath: ['card', 'a/b', 'd'] }
   ];
   expect(new Set([name, ...variants.map(createReadableTargetMarker)]).size).toBe(variants.length + 1);

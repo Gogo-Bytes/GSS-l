@@ -22,6 +22,12 @@ describe('structural binding before optimization', () => {
     expect(binding!.rule.relations).toEqual(['descendant', { '>': 'child', '+': 'adjacent', '~': 'general-sibling' }[relation], 'descendant']);
   });
 
+  it('counts both endpoint tests without identifying a parent test with a child test', () => {
+    const bindings = bindStructuralRelations(rules('.a[x] > .b:focus { color:red } .a:focus > .b[x] { color:blue }'));
+    expect(bindings.map(binding => binding.specificity)).toEqual([4, 4]);
+    expect(planStructuralRelations(bindings, [], []).ambiguity).toContain('ambiguous color');
+  });
+
   it('cannot reinterpret a pure ownership path as a runtime relation', () => {
     expect(() => bindStructuralRelations(rules('.root .item { color:red }')))
       .toThrow('Structural binding requires a runtime relation.');

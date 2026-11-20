@@ -30,6 +30,9 @@ export function emitStructuralRules(input: AtomicEmissionContext & {
       ? canonicalAttributeCondition(sourceAttributeCondition)
       : undefined;
     const sourceMarker = nameAllocator.createSourceMarker(moduleId, sourcePath, condition, layer);
+    const target = rule.nodes.at(-1)!;
+    const targetSuffix = renderStateSuffix(target.states, moduleId, nameAllocator, roots) +
+      target.attributes.map(renderAttributeCondition).join('');
     const relationIdentity: ContextualRelationIdentity = {
       moduleId,
       layer,
@@ -37,6 +40,7 @@ export function emitStructuralRules(input: AtomicEmissionContext & {
       relations: runtimeRelations,
       ...(sourceState ? { sourceState } : {}),
       ...(sourceAttribute ? { sourceAttribute } : {}),
+      ...(targetSuffix ? { targetSuffix } : {}),
       sourcePath,
       targetPath
     };
@@ -53,7 +57,7 @@ export function emitStructuralRules(input: AtomicEmissionContext & {
     });
     const suffix = renderStateSuffix(predicate?.states ?? [], moduleId, nameAllocator, roots) +
       (sourceAttributeCondition ? renderAttributeCondition(sourceAttributeCondition) : '');
-    const selector = renderStructuralSelector(markers, sourcePath.length, suffix, runtimeRelations);
+    const selector = renderStructuralSelector(markers, sourcePath.length, suffix, runtimeRelations) + targetSuffix;
 
     for (const declaration of declarations) {
       const identity: ContextualDeclarationIdentity = {

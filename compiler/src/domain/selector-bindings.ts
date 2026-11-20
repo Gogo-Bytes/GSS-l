@@ -47,7 +47,7 @@ export function bindStructuralRelations(rules: readonly ParsedStyleRule[]): read
     const sourceIndex = rule.relations.findIndex(relation => relation !== 'descendant');
     if (sourceIndex < 0) throw new Error('Structural binding requires a runtime relation.');
     return { rule, targetPath, sourceIndex, sourcePath: targetPath.slice(0, sourceIndex + 1),
-      specificity: conditionSpecificity(rule, sourceIndex) };
+      specificity: conditionSpecificity(rule, sourceIndex) + rule.nodes.at(-1)!.states.length + rule.nodes.at(-1)!.attributes.length };
   });
 }
 

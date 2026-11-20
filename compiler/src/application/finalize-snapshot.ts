@@ -223,6 +223,7 @@ function serializeIdentity(identity: PlannedDeclaration['identity']): string {
       identity.relations,
       identity.sourceState,
       identity.sourceAttribute,
+      ...(identity.targetSuffix ? ['target-test', identity.targetSuffix] : []),
       identity.sourcePath,
       identity.targetPath,
       identity.authoredPath,

@@ -36,6 +36,7 @@ export type ContextualRelationIdentity = {
   authoredPath?: readonly string[];
   sourceState?: string;
   sourceAttribute?: string;
+  targetSuffix?: string;
   sourcePath: readonly string[];
   targetPath: readonly string[];
 };
@@ -154,6 +155,7 @@ export function createReadableTargetMarker(identity: ContextualRelationIdentity)
     identity.sourceAttribute
       ? `condition_${encodeNamePart(identity.sourceAttribute)}`
       : undefined,
+    identity.targetSuffix ? `target-test_${encodeNamePart(identity.targetSuffix)}` : undefined,
     ...(identity.authoredPath ? [`authored_${encodePath(identity.authoredPath)}`] : []),
     `source_${encodePath(identity.sourcePath)}`,
     `target_${encodePath(identity.targetPath)}`
@@ -304,6 +306,7 @@ export function decodeReadableTargetMarker(name: string): ContextualRelationIden
   if (!relations.length || !relations.every(isRelation)) return undefined;
   const sourceState = take('state');
   const sourceAttribute = take('condition');
+  const targetSuffix = take('target-test');
   const authored = take('authored');
   const source = take('source');
   const target = take('target');
@@ -319,6 +322,7 @@ export function decodeReadableTargetMarker(name: string): ContextualRelationIden
     ...(condition !== undefined ? { condition } : {}),
     ...(sourceState !== undefined ? { sourceState } : {}),
     ...(sourceAttribute !== undefined ? { sourceAttribute } : {}),
+    ...(targetSuffix !== undefined ? { targetSuffix } : {}),
     ...(authoredPath !== undefined ? { authoredPath } : {}) };
   return createReadableTargetMarker(identity) === name ? identity : undefined;
 }
