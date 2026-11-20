@@ -24,13 +24,13 @@ it('routes generated names through the injected allocator without changing the s
   expect(compiler.finalize().css).toBe('.test-atomic-name {\n  color: red;\n}');
 });
 
-it('keeps distinct authored ownership paths separate in a public preserved Module', () => {
+it('keeps distinct authored ownership paths separate for opaque declarations', () => {
   const compiler = createCompilerSession({ projectRoot: '/project' }, { parseStylesheet });
   const result = compiler.replaceStylesheet({ id: '/project/tree.gss', source: [
     '.a\\.b .c { future-paint: red; }',
     '.a .b\\.c { future-paint: blue; }'
   ].join('\n') });
-  expect(result).toMatchObject({ committed: true, module: { compilationMode: 'preserved' } });
+  expect(result).toMatchObject({ committed: true, module: { compilationMode: 'atomic' } });
   const exports = result.module!.scopeSchema.exports;
   const first = exports['a.b']!.targets.c!.selfClassName;
   const second = exports.a!.targets['b.c']!.selfClassName;

@@ -673,19 +673,15 @@ describe('GssCompilerSession', () => {
   });
 
   it.each(['is(.flag)', 'where(.flag)', 'not(.flag)', 'nth-child(1 of .flag)', 'has(.flag.other)'])(
-    'exports each local class used by preserved :%s at the right ownership path', pseudo => {
+    'keeps the last good scope instead of inventing an ancestor for :%s on unknown-effect fallback', pseudo => {
       const session = createGssCompilerSession({ projectRoot: '/project' });
       const id = '/project/card.gss';
       const source = `.root .card:${pseudo} { color: red }`;
       expect(session.replaceStylesheet({ id, source }).module?.compilationMode).toBe('atomic');
-      const preserved = session.replaceStylesheet({ id, source: source.replace('color: red', 'color: red; all: unset') });
-      expect(preserved.module?.compilationMode).toBe('preserved');
-      const scopes = preserved.module!.scopeSchema.exports;
-      const argument = pseudo.replace(/\.(flag|other)/g, (_, name: string) => '.' + scopes[name]!.selfClassName);
-      expect(scopes.card).toBeUndefined();
-      expect(session.finalize().css).toContain(
-        `.${scopes.root!.selfClassName} .${scopes.root!.targets.card!.selfClassName}:${argument}`
-      );
+      const before = session.finalize();
+      const rejected = session.replaceStylesheet({ id, source: source.replace('color: red', 'color: red; all: unset') });
+      expect(rejected).toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1101' }] });
+      expect(session.finalize()).toEqual(before);
       expect(session.replaceStylesheet({ id, source }).module?.compilationMode).toBe('atomic');
     }
   );
@@ -699,16 +695,17 @@ describe('GssCompilerSession', () => {
     });
 
     const father = replacement.module?.scopeSchema.exports.father;
-    expect(father?.selfClassName).toBe(
-      'gss-s--module_src_2f_nested_2d_fallback_2e_gss--path_father'
-    );
-    expect(father?.targets.son?.selfClassName).toBe(
-      'gss-s--module_src_2f_nested_2d_fallback_2e_gss--path_father_2f_son'
-    );
-    expect(compiler.finalize().css).toContain(
-      '.gss-s--module_src_2f_nested_2d_fallback_2e_gss--path_father ' +
-      '.gss-s--module_src_2f_nested_2d_fallback_2e_gss--path_father_2f_son'
-    );
+    expect(replacement.module?.compilationMode).toBe('atomic');
+    expect(father?.selfClassName).toBe('');
+    const atom = father!.targets.son!.selfClassName;
+    expect(compiler.finalize().css).toContain(`.${atom}.${atom} {\n  all: unset;`);
+  });
+
+  it('does not license unsafe logical/physical order across composable scopes with unknown effects', () => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    expect(compiler.replaceStylesheet({ id: '/project/T.gss', source:
+      '.x .y { margin-left:1px; future-paint:1 } .z .w { margin-inline-start:2px }' }))
+      .toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1206' }] });
   });
 
   it('falls back the whole module when a property effect is not registered', () => {

@@ -594,6 +594,10 @@ import { react } from '@gss-l/react';
 
 ### Preserved fallback 贡献边界
 
+**#69 负责人决定：不认识属性不是丢弃声明或改变 scope 的理由。** 浏览器可以忽略不认识的 `future-paint`，也可能支持未在 GSS 登记的 `order`。声明可成为 atom；未知的是它写哪些效果，不是它属于哪个目标。不要按未知效果删除声明、拆值或跨越其他声明复用。不能保证路径归属与顺序时，拒绝更新并保留上一成功版本，而不是要求作者额外渲染一个 DOM 祖先。
+
+本次迁移首先覆盖已复现的深路径：默认模式下，模块含未登记属性、带深路径，且样式规则均为无条件、无 layer 的纯 ownership 时，为每个声明组按原序发出专属 atom，并按既有有序子序列规则加入匹配 scope。相邻同属性 fallback 组保持完整。举例：单独渲染 `styles.panel.button` 仍取得深规则的红背景、`order:4` 及浅层的 7px；浅按钮放在 panel 里仍为蓝色。混入尚不能保证的条件或真实节点绑定时不再静默降为后代选择器；显式严格模式、声明验证与逻辑／物理冲突保护不放开。无深路径的既有保留输出不在本次迁移范围。
+
 [preserved-contribution.ts](../compiler/src/application/preserved-contribution.ts) 接收贡献准备已经选择的整模块 preserved 路径，生成原顺序 CSS、scope marker／schema、资源绑定、来源位置及 `GSS1104` warning。是否可进入该路径仍由贡献准备按既有 unknown effect、compatibility、`atomizationFallback`、`:global()` 和逻辑／物理冲突检查决定；该模块不决定准入，也不把 preserved 内容当成 atomic rule。
 
 正常与 preserved 路径共享 scope 导出和已规划资源，但 selector 的 marker 改写各有专用规则；preserved 必须保留原声明顺序、条件／layer wrapper、`:has()` 观察 class、asset 身份及 compatibility 展开的来源偏移。不能从普通路径的固定逻辑／物理顺序推导 preserved 同样安全，也不能因为 fallback 提取就移除现有冲突拒绝。失败更新仍由 session 保留旧贡献；本次不改变任何诊断顺序、语法或公共接口。验证范围见 [当前计划](NEXT-STAGE.md)。

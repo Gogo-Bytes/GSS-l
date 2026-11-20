@@ -33,6 +33,23 @@ export async function checkDeclarationFallback(browser) {
         passed: pixelsEqual && JSON.stringify(readings.native) === JSON.stringify(expected) &&
           JSON.stringify(readings.atomic) === JSON.stringify(expected) });
     }
+    // An unregistered name is not evidence that a declaration is inert: order works in this browser.
+    for (const reverse of [false, true]) {
+      const session = createGssCompilerSession({ projectRoot: '/project' });
+      const sized = 'container-type:size;', reset = 'container:card / inline-size;';
+      const shallow = '.button{background-color:blue;padding-top:7px;order:1}';
+      const deep = `.panel .button{background:var(--paint);order:4;future-paint:1;${reverse ? reset + sized : sized + reset}}`;
+      const update = session.replaceStylesheet({ id: '/project/Owned.gss', source: reverse ? deep + shallow : shallow + deep });
+      if (!update.committed || update.module.compilationMode !== 'atomic') throw new Error(JSON.stringify(update.diagnostics));
+      const { button, panel } = update.module.scopeSchema.exports, css = session.finalize().css;
+      if (!css.includes('future-paint: 1;')) throw new Error('Unknown declaration was lost');
+      await page.setContent(`<style>body{--paint:red}${css}</style><button class="${panel.targets.button.selfClassName}"></button>
+        <section class="${panel.selfClassName}"><button class="${button.selfClassName}"></button></section>`);
+      const actual = await page.locator('button').evaluateAll(nodes => nodes.map(n => {
+        const s = getComputedStyle(n); return [s.backgroundColor, s.paddingTop, s.order, s.containerType];
+      }));
+      if (JSON.stringify(actual) !== JSON.stringify([['rgb(255, 0, 0)', '7px', '4', reverse ? 'size' : 'inline-size'], ['rgb(0, 0, 255)', '7px', '1', 'normal']])) throw new Error(JSON.stringify(actual));
+    }
     // Corrupt the actual output; the independently written expected values must detect both faults.
     const lost = results.find(result => result.name === 'unsupported-last');
     const ordered = results.find(result => result.name === 'last-supported');

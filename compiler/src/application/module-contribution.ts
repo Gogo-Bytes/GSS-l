@@ -4,6 +4,7 @@ import { type AssetUrlResolver } from './asset-values.js';
 import { collectAssetDependencies } from './stylesheet-assets.js';
 import { toLogicalModuleId } from './module-identity.js';
 import { prepareSelectorContexts, validateConditionalSelectorShapes, validateSelectorShapes } from './selector-admission.js';
+import { orderedOwnershipAtoms } from './ordered-ownership-atoms.js';
 import { emitAtomicRules } from './atomic-emission.js';
 import type { PlannedDeclaration } from './planned-declaration.js';
 import { analyzeCompatibility } from './compatibility-analysis.js';
@@ -13,6 +14,7 @@ import { rewriteKeyframeReferences, planResource, type PlannedResource } from '.
 import { toScopeSchema, renderModuleCode, renderDeclarationCode, type MutableScopeNode } from './scope-exports.js';
 import type { NameAllocatorPort } from './name-allocator.js';
 import { isRegisteredPropertyEffect } from '../domain/property-effects.js';
+import { propertiesMayOverlapForModuleOrder, propertyOrderPriority } from '../domain/module-order-policy.js';
 import { planModuleRelations } from '../domain/plan-module-relations.js';
 import { discardInvalidStaticPadding, expandSafeBoxRules } from '../domain/expand-safe-box.js';
 import { isPureOwnershipRule } from '../domain/rule-classification.js';
@@ -178,7 +180,21 @@ export function prepareContribution(
         : 'Compatibility transformation changed declaration importance.' }] };
   }
   const { getPhysicalDeclarations, getDeclarationOffsets, compatibilityFallback } = compatibilityAnalysis;
-  if (compatibilityFallback.length > 0) {
+  const unsupportedProperties = [...new Set(semanticRules.flatMap(rule => rule.declarations.map(d => d.property))
+    .filter(property => !isRegisteredPropertyEffect(property)))].sort();
+  const needsOwnershipBinding = unsupportedProperties.length > 0 && semanticRules.some(rule => rule.nodes.length > 1);
+  if (needsOwnershipBinding) {
+    // Any two exported scopes can be explicitly composed, even if neither path contains the other.
+    const properties = [...new Set(semanticRules.flatMap(r => r.declarations.map(d => d.property)))];
+    if (properties.some(left => properties.some(right => propertyOrderPriority(left) !== propertyOrderPriority(right) &&
+      propertiesMayOverlapForModuleOrder(left, right)))) return { diagnostics: [{ code: 'GSS1206', severity: 'error', phase: 'resolve',
+      id: input.id, reason: 'logical-physical-property-conflict', message: 'Unknown effects cannot preserve both authored order and logical/physical priority for composable scopes.' }] };
+  }
+  if (needsOwnershipBinding && (hasExplicitGlobal || !semanticRules.every(rule => isPureOwnershipRule(rule) && !rule.layer && !rule.conditions.length))) {
+    return { diagnostics: [{ code: 'GSS1101', severity: 'error', phase: 'validate', id: input.id,
+      reason: 'capability-not-registered', message: 'Cannot preserve scope binding for unknown property effects with these selectors or contexts.' }] };
+  }
+  if (compatibilityFallback.length > 0 && !needsOwnershipBinding) {
     // Preserved CSS keeps authored order, so it cannot implement the new fixed
     // logical/physical order. Retain the old conflict guard for this path.
     const preservedConflicts = validateLogicalPhysicalConflicts(input.id, parsed.rules, false);
@@ -192,11 +208,6 @@ export function prepareContribution(
       nameAllocator, compatibility, resources });
   }
 
-  const unsupportedProperties = [...new Set(
-    semanticRules
-      .flatMap(({ declarations }) => declarations.map(({ property }) => property))
-      .filter((property) => !isRegisteredPropertyEffect(property))
-  )].sort();
   if (unsupportedProperties.length > 0) {
     const preservedConflicts = validateLogicalPhysicalConflicts(input.id, parsed.rules, false);
     if (preservedConflicts.length) return { diagnostics: preservedConflicts };
@@ -214,20 +225,12 @@ export function prepareContribution(
         }]
       };
     }
-    return preparePreservedContribution({
-      input,
-      moduleId,
-      parsed,
-      rules: semanticRules,
-      conditionDiagnostics,
-      fallbackProperties: unsupportedProperties,
-      nameAllocator,
-      compatibility,
-      resources
-    });
+    if (!needsOwnershipBinding) return preparePreservedContribution({ input, moduleId, parsed, rules: semanticRules,
+      conditionDiagnostics, fallbackProperties: unsupportedProperties, nameAllocator, compatibility, resources });
   }
 
-  const emission = emitAtomicRules({ id: input.id, moduleId, semanticRules, localRules, sameNodeRules,
+  const emission = needsOwnershipBinding ? { rules: orderedOwnershipAtoms(semanticRules, relationPlanning.plan.declaredPaths,
+    moduleId, bindings, nameAllocator, roots) } : emitAtomicRules({ id: input.id, moduleId, semanticRules, localRules, sameNodeRules,
     externalRules, relationPlan: relationPlanning.plan, bindings, nameAllocator, roots });
   if ('diagnostics' in emission) return emission;
   const { rules } = emission;
