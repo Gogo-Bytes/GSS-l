@@ -1,74 +1,77 @@
 # GSS-l
 
-GSS 的有限 MVP：框架无关的 CSS 编译核心，加上 React 源码适配器，以及 Vite、Rspack／Rsbuild 和有界 webpack 集成。当前实现覆盖编译会话、作用域映射、资源与源码映射，以及真实页面中的开发更新和生产输出。
+GSS-l 把 `.gss` 样式表编译成 CSS，让 React 组件按静态路径选类名：`styles.card.title` 是卡片标题的 class 字符串，可以直接传给 `className`。如果你想用联级写法组织组件样式，又不希望一个元素只因放进某张卡片就自动换样式，可以先试下面的 Playground。
 
-现有四宿主阶段收尾已完成，当前维护既有能力并修复可复现问题，暂不扩展更多宿主或新能力。配置要求、实际版本、验证证据和限制统一见 [宿主支持清单](docs/HOST-SUPPORT.md)；进度见 [STATUS](docs/STATUS.md)，当前授权见 [NEXT-STAGE](docs/NEXT-STAGE.md)。有界验证不等于所有 CSS、框架或浏览器支持。
+**当前是未发布的 MVP。** 从源码即可试用；已有 Vite、Rspack、Rsbuild 和 webpack 集成，但不保证任意 CSS 都能原子化，也不保证所有宿主配置都能接入。[查看已验证的宿主和版本](docs/HOST-SUPPORT.md)。
 
-核心语义与职责见 [架构方向](docs/ARCHITECTURE-DIRECTION.md)和[排序设计](docs/PROPERTY-ORDER-DESIGN.md)。新 session 从 [HANDOFF](docs/HANDOFF.md) 接续，遵循 [AGENTS.md](AGENTS.md)；必要验证及本机恢复信息见 [证据入口](docs/VALIDATION-EVIDENCE.md)，过期过程文档通过 Git 历史追溯。
+## 快速开始
 
-## 本地运行
-
-需要 Node.js >= 20.19.0，使用仓库声明的 pnpm 版本。
+准备 Git、Node.js 和 Corepack。仓库要求 Node.js ≥ 20.19.0，推荐使用已验证的 22.22.3；在仓库目录中由 Corepack 选择锁定的 pnpm 8.6.2。若 `pnpm` 不在 PATH，先运行 `corepack enable pnpm`，因为仓库脚本也会调用它。
 
 ```sh
+git clone https://github.com/Gogo-Bytes/GSS-l.git
+cd GSS-l
 corepack pnpm install --frozen-lockfile
-corepack pnpm verify
 corepack pnpm playground
 ```
 
-真实页面示例：
+打开终端打印的本地地址。在「样式切换」场景里，卡片标题起初是红色；点击「切换选中态」变蓝，再点击「换一组样式」变绿。前一次点击改变 DOM 属性，后一次改用另一条样式路径。按 `Ctrl+C` 停止服务。
 
-```sh
-corepack pnpm task-board
-corepack pnpm article
+## 写一张卡片
+
+下面是该场景的红／蓝两态，摘自 [Live.gss](examples/playground/Live.gss) 和 [LiveDemo.tsx](examples/playground/LiveDemo.tsx)，省略了第三种配色和页面控件。
+
+`Live.gss`：
+
+```css
+.card { padding: 16px; background-color: white; }
+.card .title { color: red; }
+.card[data-active="yes"] .title { color: blue; }
 ```
 
-Playground 的 dev、构建、预览及类型检查由 `@gss-l/playground` 工作区负责；独立浏览器参考与验收脚本位于 `tests/`。
+```tsx
+// Card.tsx，与 Live.gss 同目录
+import { useState } from 'react';
+import styles from './Live.gss';
 
-`verify` 包括 lint、build、单元测试和类型检查，**不包括浏览器验收**。其他脚本以根目录及 `tests/package.json` 为准；运行浏览器验收前先读 [验收边界](docs/STATUS.md#验收与已知边界)。
+function Title({ className }: { className: string }) {
+  return <h2 className={className}>卡片标题</h2>;
+}
 
-## TypeScript 声明
-
-使用通用 `@gss-l/types/client` 声明 `.gss` 导入。在项目的环境声明文件中添加：
-
-```ts
-/// <reference types="@gss-l/types/client" />
+export function Card() {
+  const [active, setActive] = useState(false);
+  return (
+    <section className={styles.card} data-active={active ? 'yes' : 'no'}>
+      <Title className={styles.card.title} />
+      <button onClick={() => setActive(!active)}>切换选中态</button>
+    </section>
+  );
+}
 ```
 
-也可以将 `@gss-l/types/client` 加入 tsconfig 的 `compilerOptions.types`。消费项目应将 `@gss-l/types` 声明为直接开发依赖；目前仓库包仍未发布，外部验证使用本地 tarball。
+**先选路径，再判断 DOM 条件。** `styles.card.title` 选中 `.card .title` 的红色；这条纯路径规则不要求真实的卡片祖先。蓝色规则不同：浏览器还要找到带 `styles.card` 类名和 `data-active="yes"` 的真实祖先。切换状态时不必替换标题的 class。
 
-已有 Vite 项目可继续使用 `@gss-l/vite/client`，它引用通用声明并保留 Vite 专属 `virtual:gss.css?url`。Rspack／Rsbuild 不需要引用 Vite client。通用声明沿用现有 scope 类型，也不产生运行时代码。负责人已明确决定不做逐文件 scope 补全或拼写检查：未声明的 `styles.missing` 保持普通 JavaScript 的 `undefined`，不新增相关 warning/error。这不是待补能力，除非负责人主动改变决定，否则不重新提案；详见 [React 引用契约](docs/ARCHITECTURE-DIRECTION.md#react-引用与-typescript-契约)。
+如果再声明 `.title { font-weight: bold }`，`styles.card.title` 会组合浅层的粗体和深层的红色；单用 `styles.title` 只能取得浅层样式，即使这个标题恰好渲染在卡片里。`Title` 收到的是字符串，不是样式节点：需要标题类名就传 `styles.card.title`，不要先传 `styles.card` 再让子组件取 `.title`。[路径与 DOM 的设计说明](docs/ARCHITECTURE-DIRECTION.md#scope-path-selection)
 
-## 代码导航
+## 接入项目
 
-| 位置 | 职责 |
+- **React + Vite：** 在现有 Vite React 插件旁配置 `gss({ adapter: gssReact() })`。包尚未发布；要在仓库外试用，按 [React TS 模板接入指南](docs/VITE-TEMPLATE-ACCEPTANCE.md) 从本地 tarball 安装。服务端渲染另见 [React Router Framework SSR](docs/FRAMEWORK-SSR-ACCEPTANCE.md)。
+- **Rspack、Rsbuild、webpack：** 使用各自的 [Rspack](integrations/rspack/README.md)、[Rsbuild](integrations/rsbuild/README.md)、[webpack](integrations/webpack/README.md) 配置。不要把 Vite 专属的虚拟 CSS URL 搬到其他宿主。
+- **TypeScript：** 消费项目直接声明开发依赖 `@gss-l/types`，在环境声明文件中添加 `/// <reference types="@gss-l/types/client" />`。已有 Vite 项目也可用 `@gss-l/vite/client`。这是通用声明，不提供逐文件路径补全或拼写诊断。
+
+## 了解设计
+
+| 想了解什么 | 从这里读起 |
 | --- | --- |
-| [compiler/src/domain](compiler/src/domain) | 属性效果、所有权／结构关系、模块内排序与原子标识；[模块设计入口](compiler/src/domain/README.md) |
-| [compiler/src/application](compiler/src/application) | 编译会话、模块生命周期、资源与输出组织 |
-| [compiler/src/public-types.ts](compiler/src/public-types.ts) | 当前编译器公共类型与配置契约 |
-| [adapters/react/src](adapters/react/src) | React／JSX 分析和转换，包括跨模块组合诊断 |
-| [integrations/vite/src](integrations/vite/src) | 开发更新、生产汇总、资源与宿主集成 |
-| [types/src](types/src) | 作用域类型辅助 |
-| [examples/playground](examples/playground) | 中文编译器、适配器及生命周期演示；沿用 `tests/` 中的独立参考及验收 |
-| [tests/acceptance](tests/acceptance) | task-board、article 和排序验收 |
-| [tests/browser](tests/browser) | 原生 CSS 对照及 Vite 宿主浏览器验证 |
+| 样式如何变成 CSS？ | [Compiler 设计入口](compiler/src/domain/README.md)：框架无关的核心绑定路径、处理声明；[排序与复用](docs/PROPERTY-ORDER-DESIGN.md)解释哪些声明可以共享 atom，哪些必须保留顺序。 |
+| 哪些 CSS 能写？ | [CSS 能力边界](docs/CSS-CAPABILITY-AUDIT.md)和[回退策略](docs/ARCHITECTURE-DIRECTION.md#preserved-fallback-贡献边界)：区分已支持的转换、保留原声明和无法保证语义时的拒绝。 |
+| JSX 为什么能直接传字符串？ | [React 引用契约](docs/ARCHITECTURE-DIRECTION.md#react-引用与-typescript-契约)：适配器在引用所在文件转换静态路径，不跨组件追踪样式节点，也不支持用 `styles[variant]` 动态选路径。 |
+| 生成的 CSS 如何加载？ | [宿主支持清单](docs/HOST-SUPPORT.md)：开发更新、生产提取和资源加载由宿主集成处理。开发与生产类名不同，SSR 与客户端应使用一致的命名模式。 |
 
-官方 create-vite React TS 的 workspace 外 tarball 消费验收：`corepack pnpm vite-template:check`。已验证 Vite 8.3.5 与 React Router 8.5.0 Declarative／BrowserRouter 的有界 Chromium 客户端路由路径，workspace 仍保留 Vite 7；接入步骤与限制见 [模板验收](docs/VITE-TEMPLATE-ACCEPTANCE.md)。
+同一模块的多个类名可以组合；不保证同一元素上不同 GSS 模块之间的覆盖顺序。更多完整页面可用 `corepack pnpm task-board` 或 `corepack pnpm article` 启动。
 
-React Router Framework Mode 的真实 SSR 外部验收：`corepack pnpm framework-ssr:check`。通过公共 `virtual:gss.css?url` 与框架正常 `links()` 连接 aggregate CSS；版本、接入步骤及 Chromium 有界范围见 [Framework SSR 验收](docs/FRAMEWORK-SSR-ACCEPTANCE.md)。
+## 反馈与贡献
 
-## 生成名称
+[GitHub Issues](https://github.com/Gogo-Bytes/GSS-l/issues) 跟踪缺陷和后续工作。报告样式问题时，请附上最小 `.gss`、实际使用的 JSX 路径、宿主与版本，以及期望和实际效果。
 
-宿主开发模式生成属性／值可读标签加短摘要，生产构建生成九字符 hash 名称。独立 Compiler 可设置 `namingMode: 'development' | 'production'`，默认开发。SSR 与客户端必须使用相同模式；不要将开发服务器生成的 HTML 与生产 CSS 混用。名称不承诺携带来源信息，定位使用 source map／manifest origins；检测到不同身份同名时构建失败，不静默合并。详见[命名契约](docs/PROPERTY-ORDER-DESIGN.md#开发生产命名2026-11-14-owner-决定)。
-
-## 使用边界
-
-这是有明确准入与 fallback 契约的实现，不是“任意 CSS 都能安全原子化”的承诺。普通场景使用独立编写的原生 CSS 对照；GSS 所有权／结构语义允许与原生 source order 不同，应使用明确的 GSS 预期。
-
-React 中，`styles.card` 和 `styles.card.title` 各自取得一个 class 字符串。子组件需要两者时，写 `<Child cardClass={styles.card} titleClass={styles.card.title} />`，按 `string` 接收；不要传 `styles.card` 再从 prop 上取 `.title`。见 [React 引用与 TypeScript 契约](docs/ARCHITECTURE-DIRECTION.md#react-引用与-typescript-契约)。升级旧代码时，移除用于取当前节点字符串的 `.self` 后缀。样式表实际声明的 `.card .self` 仍通过 `styles.card.self` 访问。
-
-同一模块的多个 scope 可以组合。负责人明确：GSS 作者用法不需要在同一个节点组合不同文件的 GSS 样式，项目不保证这种组合的覆盖顺序，也不计划设计跨文件优先级。这是既定边界，不是待补能力，不再主动提案。React 适配器现有的非阻塞警告 `GSS2107` 保留，不移除 class。
-
-仓库尚未发布包；发布、release 和 tag 都需要单独授权。
-
-Rsbuild／Rspack 的公开入口与 workspace 外 tarball 有限消费结果见 [新宿主消费报告](docs/RSPACK-RSBUILD-CONSUMPTION.md)，包含最小配置、TypeScript 声明、实际验证及保留边界；包尚未发布。
+修改代码前阅读[仓库协作规范](AGENTS.md)。`corepack pnpm verify` 运行 lint、构建、单元测试与类型检查，**不含浏览器验收**；按改动范围选择[验证入口](docs/VALIDATION-EVIDENCE.md)。维护交接见 [HANDOFF](docs/HANDOFF.md)。
