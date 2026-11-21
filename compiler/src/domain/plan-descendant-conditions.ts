@@ -1,5 +1,5 @@
 import { effectsOfProperty } from './property-effects.js';
-import type { BoundDescendantTarget, ConditionBinding, DescendantRule } from './selector-bindings.js';
+import { exclusiveWitnesses, type BoundDescendantTarget, type ConditionBinding, type DescendantRule } from './selector-bindings.js';
 import { isStructuralPseudoState } from './pseudo-state-capabilities.js';
 
 export type DescendantInstance<R extends DescendantRule> = ConditionBinding<R> & {
@@ -21,15 +21,6 @@ function sameNode<R extends DescendantRule>(a: DescendantInstance<R>, b: Descend
 function implies<R extends DescendantRule>(a: DescendantInstance<R>, b: DescendantInstance<R>) {
   const required = predicate(b);
   return required.length === 0 || (sameNode(a, b) && required.every((part) => predicate(a).includes(part)));
-}
-function exclusive<R extends DescendantRule>(a: DescendantInstance<R>, b: DescendantInstance<R>) {
-  if (!sameNode(a, b)) return false;
-  const left = predicate(a);
-  const right = predicate(b);
-  if (left.some((part) => right.includes(`not(:${part})`)) || right.some((part) => left.includes(`not(:${part})`))) return true;
-  const aa = a.rule.nodes[a.sourceIndex]?.attributes[0];
-  const ba = b.rule.nodes[b.sourceIndex]?.attributes[0];
-  return aa?.operator === '=' && ba?.operator === '=' && aa.attribute === ba.attribute && aa.value !== ba.value;
 }
 
 /** Closed predicates retain their winner proof; current-subject ties need an eligible order projection. */
@@ -70,13 +61,15 @@ export function planDescendantConditions<R extends DescendantRule>(
         if (left.rule.nodes.some((node) => node.states.some(isStructuralPseudoState)) ||
           right.rule.nodes.some((node) => node.states.some(isStructuralPseudoState))) continue;
         if (left.rule.layer !== right.rule.layer || JSON.stringify(left.rule.conditions) !== JSON.stringify(right.rule.conditions) ||
-          left.specificity !== right.specificity || implies(left, right) || implies(right, left) || exclusive(left, right)) continue;
+          left.specificity !== right.specificity || implies(left, right) || implies(right, left) || exclusiveWitnesses(left, right)) continue;
         for (const a of left.declarations) for (const b of right.declarations) {
           if (a.important !== b.important || (a.property === b.property && a.value === b.value)) continue;
           for (const effect of effectsOfProperty(a.property).filter((effect) => effectsOfProperty(b.property).includes(effect))) {
             const intersection = retained.some((candidate) => candidate.rule.layer === left.rule.layer &&
               JSON.stringify(candidate.rule.conditions) === JSON.stringify(left.rule.conditions) &&
               implies(candidate, left) && implies(candidate, right) &&
+              (implies(left, candidate) || implies(right, candidate) || (candidate.witnesses.length === 1 &&
+                predicate(candidate).every(test => predicate(left).includes(test) || predicate(right).includes(test)))) &&
               candidate.declarations.some((declaration) =>
                 effectsOfProperty(declaration.property).includes(effect) &&
                 (Number(declaration.important) > Number(a.important) ||

@@ -1,5 +1,5 @@
 import type { OrderInstance } from './order-occurrences.js';
-import type { StructuralBinding } from './selector-bindings.js';
+import { exclusiveWitnesses, type StructuralBinding } from './selector-bindings.js';
 import { getOwnershipPath } from './ownership-path.js';
 import { effectsOfProperty } from './property-effects.js';
 import type { DescendantInstance } from './plan-descendant-conditions.js';
@@ -84,13 +84,8 @@ function sameUniqueWitness(a: Constraint, b: Constraint): boolean {
     a.runtime.edges.every((edge) => edge === 'child' || edge === 'adjacent'));
 }
 function exclusive(a: Candidate, b: Candidate): boolean {
-  if (!sameUniqueWitness(a.constraint, b.constraint)) return false;
-  const left = predicates(a.instance.rule, a.instance.sourceIndex);
-  const right = predicates(b.instance.rule, b.instance.sourceIndex);
-  if (left.some((part) => right.includes(`:not(${part})`)) || right.some((part) => left.includes(`:not(${part})`))) return true;
-  const aa = a.instance.rule.nodes[a.instance.sourceIndex]?.attributes[0];
-  const ba = b.instance.rule.nodes[b.instance.sourceIndex]?.attributes[0];
-  return aa?.operator === '=' && ba?.operator === '=' && aa.attribute === ba.attribute && aa.value !== ba.value;
+  const left = a.instance.witnesses, right = b.instance.witnesses;
+  return !!left && !!right && exclusiveWitnesses({ rule: a.instance.rule, witnesses: left }, { rule: b.instance.rule, witnesses: right });
 }
 function resolveEquivalentGroups(candidates: readonly Candidate[]): void {
   const pending = new Set(candidates);

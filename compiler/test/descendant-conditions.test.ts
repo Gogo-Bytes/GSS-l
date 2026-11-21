@@ -286,6 +286,8 @@ describe('Compiler descendant condition cascade', () => {
 
   it.each([
     '.a:disabled .c { color: red; } .a .c:checked { color: blue; }',
+    '.a[data-mode=ready] .c { color:red } .a[data-mode=waiting] .c { color:blue }',
+    '.a:checked .c { color:red } .a:disabled .c { color:blue } .a:checked:disabled .c { color:green }',
     '.a[data-mode=ready] .c { color: red; } .a .c:checked { color: blue; }',
     '.a:disabled .b .c { color: red; } .b:disabled .a .c { color: blue; } .a .b .a .b .c {}'
   ])('rejects incomparable equal-specificity runtime conflicts transactionally: %s', (source) => {
@@ -309,8 +311,8 @@ describe('Compiler descendant condition cascade', () => {
     compile([
       '.a:disabled .c { color: red; }',
       '.a .b .c:checked { color: blue; }',
-      '.a[data-mode=ready] .c { margin-left: 1px; }',
-      '.a[data-mode=waiting] .c { margin-left: 2px; }',
+      '.c[data-mode=ready] { margin-left: 1px; }',
+      '.c[data-mode=waiting] { margin-left: 2px; }',
       '.c:checked { padding-left: 1px; }',
       '.c:disabled { padding-left: 2px; }',
       '.c:checked:disabled { padding-left: 3px; }',

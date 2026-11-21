@@ -60,6 +60,7 @@ describe('Compiler structural relation implication', () => {
     '.input:checked + .label { color: red; } .input .label:has(:checked) { color: blue; }',
     '.root .input:checked ~ .label { color: red; } .root .input .label:has(.observed) { color: blue; }',
     '.input[data-mode=on] ~ .label { color: red; } .input[data-mode=off] ~ .label { color: blue; }',
+    '.input[type=button] + .label { color:red } .input[type=BUTTON] + .label { color:blue }',
     '.input:checked ~ .label { color: red; } .input:not(:checked) ~ .label { color: blue; }',
     '.input > .label { color: red; } .input + .label { color: blue; }',
     '.p > .m .b { color:red } .p .m > .b { color:blue }',
@@ -92,6 +93,7 @@ describe('Compiler structural relation implication', () => {
   it.each([
     '.input:checked + .label { color: red; } .input:not(:checked) + .label { color: blue; }',
     '.input[data-mode=on] > .middle + .label { color: red; } .input[data-mode=off] > .middle + .label { color: blue; }',
+    '.input[x] > .label[data-mode=A] { color:red } .input[y] > .label[data-mode=a] { color:blue }',
     '.input:checked + .label { color: red; } .input:disabled + .label { color: blue; } .input:checked:disabled + .label { color: green; }'
   ])('accepts proved unique-witness exclusions or covering intersections: %s', (source) => {
     const session = createGssCompilerSession({ projectRoot: '/project' });

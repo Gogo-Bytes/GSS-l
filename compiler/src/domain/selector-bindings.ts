@@ -26,6 +26,26 @@ export type ConditionBinding<R extends DescendantRule> = {
   readonly specificity: number;
 };
 
+type WitnessBinding = Pick<ConditionBinding<DescendantRule>, 'witnesses' | 'rule'>;
+
+/** For coactive selectors, start at the same target. Only a matching child/adjacent
+ * step backwards guarantees both tests are still on one and the same DOM element. */
+export function exclusiveWitnesses(a: WitnessBinding, b: WitnessBinding): boolean {
+  for (let i = a.witnesses.length - 1, j = b.witnesses.length - 1; i >= 0 && j >= 0; i--, j--) {
+    const aw = a.witnesses[i]!, bw = b.witnesses[j]!;
+    const left = a.rule.nodes[aw.nodeIndex]!, right = b.rule.nodes[bw.nodeIndex]!;
+    if (left.states.some(s => right.states.includes(`not(:${s})`)) || right.states.some(s => left.states.includes(`not(:${s})`))) return true;
+    // HTML may match unflagged enumerated values ASCII-insensitively. Native tests stay opaque.
+    if (left.attributes.some(x => x.operator === '=' && right.attributes.some(y => y.operator === '=' &&
+      x.attribute === y.attribute && x.value !== y.value &&
+      (x.attribute.startsWith('data-') || asciiFold(x.value) !== asciiFold(y.value))))) return true;
+    if (aw.incoming !== bw.incoming || (aw.incoming !== 'child' && aw.incoming !== 'adjacent')) break;
+  }
+  return false;
+}
+
+const asciiFold = (value: string) => value.replace(/[A-Z]/g, letter => letter.toLowerCase());
+
 export type BoundDescendantTarget<R extends DescendantRule> = {
   readonly targetPath: readonly string[];
   readonly bindings: readonly ConditionBinding<R>[];

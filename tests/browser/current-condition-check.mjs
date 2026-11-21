@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createGssCompilerSession } from '@gss-l/compiler';
 
 export async function checkCurrentConditions(browser) {
+  await checkExclusiveWitnesses(browser);
   await checkStructuralEdgePositions(browser);
   await checkChildConditions(browser);
   await checkFunctionalCompositionOrder(browser);
@@ -33,6 +34,39 @@ export async function checkCurrentConditions(browser) {
       } finally { await page.close(); }
     }
   }
+}
+
+async function checkExclusiveWitnesses(browser) {
+  const page = await browser.newPage();
+  const red = 'rgb(255, 0, 0)', blue = 'rgb(0, 0, 255)';
+  try {
+    for (const [left, right, html] of [
+      ['.a[type=button] + .b', '.a[type=BUTTON] + .b', '<button type=button class=a></button><i class=b></i>'],
+      ['.a[data-mode=on] .b', '.a[data-mode=off] .b', '<div class=a data-mode=on><div class=a data-mode=off><i class=b></i></div></div>']
+    ]) for (const reverse of [false, true]) {
+      const rules = [`${left}{color:red}`, `${right}{color:blue}`];
+      const source = (reverse ? rules.reverse() : rules).join('');
+      await page.setContent(`<style>${source}</style>${html}`);
+      assert.deepEqual(await page.locator('i').evaluate((el, selectors) => [
+        ...selectors.map(s => el.matches(s)), el.ownerDocument.defaultView.getComputedStyle(el).color
+      ], [left, right]), [true, true, reverse ? red : blue]);
+      const session = createGssCompilerSession({ projectRoot: '/p' });
+      assert.equal(session.replaceStylesheet({ id: '/p/S.gss', source }).diagnostics[0]?.code, 'GSS1205');
+    }
+    const source = '.a[x] > .b[data-mode=A]{color:red}.a[y] > .b[data-mode=a]{color:blue}';
+    const session = createGssCompilerSession({ projectRoot: '/p' });
+    const update = session.replaceStylesheet({ id: '/p/S.gss', source });
+    assert.deepEqual(update.diagnostics, []);
+    const { a } = update.module.scopeSchema.exports;
+    for (const [css, parent, child] of [[source, 'a', 'b'], [session.finalize().css, a.selfClassName, a.targets.b.selfClassName]]) {
+      await page.setContent(`<style>${css}</style><div x y class="${parent}"><i class="${child}"></i></div>`);
+      for (const [mode, expected] of [['A', red], ['a', blue]]) {
+        assert.equal(await page.locator('i').evaluate((el, value) => {
+          el.dataset.mode = value; return el.ownerDocument.defaultView.getComputedStyle(el).color;
+        }, mode), expected);
+      }
+    }
+  } finally { await page.close(); }
 }
 
 async function checkStructuralEdgePositions(browser) {
