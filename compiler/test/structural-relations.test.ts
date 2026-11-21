@@ -62,6 +62,7 @@ describe('Compiler structural relation implication', () => {
     '.input[data-mode=on] ~ .label { color: red; } .input[data-mode=off] ~ .label { color: blue; }',
     '.input:checked ~ .label { color: red; } .input:not(:checked) ~ .label { color: blue; }',
     '.input > .label { color: red; } .input + .label { color: blue; }',
+    '.p > .m .b { color:red } .p .m > .b { color:blue }',
     '.input:checked .label { color: red; } .input:disabled + .label { color: blue; }',
     '.input:checked > .middle ~ .label { color: red; } .input:not(:checked) > .middle ~ .label { color: blue; }',
     '.input:checked + .label { margin: 1px; } .input:disabled ~ .label { margin-left: 2px; }'

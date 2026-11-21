@@ -10,7 +10,9 @@ export type OrderBinding = Pick<ConditionBinding<ParsedStyleRule>, 'rule' | 'tar
 /** An owned target shared by ordering and emission; not a DOM witness. */
 export type OwnedTargetBinding = Pick<OrderBinding, 'rule' | 'targetPath'>;
 
-export type OrderInstance = Omit<DescendantInstance<ParsedStyleRule>, 'witnesses'> & OrderBinding;
+// Observation/external order candidates do not have a linear witness chain.
+export type OrderInstance = Omit<DescendantInstance<ParsedStyleRule>, 'witnesses'> &
+  Partial<Pick<ConditionBinding<ParsedStyleRule>, 'witnesses'>> & OrderBinding;
 export type OrderOccurrence = { instance: OrderInstance; declaration: ParsedDeclaration; index: number; key: string };
 
 /** Identity is local to this preparation, not a generated class name. Selector-list

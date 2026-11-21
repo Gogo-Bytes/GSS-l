@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createGssCompilerSession } from '@gss-l/compiler';
 
 export async function checkCurrentConditions(browser) {
+  await checkStructuralEdgePositions(browser);
   await checkChildConditions(browser);
   await checkFunctionalCompositionOrder(browser);
   await checkFunctionalAttributes(browser);
@@ -32,6 +33,32 @@ export async function checkCurrentConditions(browser) {
       } finally { await page.close(); }
     }
   }
+}
+
+async function checkStructuralEdgePositions(browser) {
+  const page = await browser.newPage();
+  try {
+    for (const reverse of [false, true]) {
+      const rules = ['.p > .m .b{color:red!important}', '.p .m > .b{color:blue}'];
+      const session = createGssCompilerSession({ projectRoot: '/p' });
+      const update = session.replaceStylesheet({ id: '/p/Edges.gss', source: (reverse ? rules.reverse() : rules).join('') });
+      assert.deepEqual(update.diagnostics, []);
+      const { p } = update.module.scopeSchema.exports, m = p.targets.m, b = m.targets.b;
+      // The second rule binds m > b; p is an ownership prefix, not a required ancestor.
+      const refs = ['.p > .m .b{color:red!important}', '.m.m > .b{color:blue}'];
+      for (const [css, parent, middle, target] of [[(reverse ? refs.reverse() : refs).join(''), 'p', 'm', 'b'],
+        [session.finalize().css, p.selfClassName, m.selfClassName, b.selfClassName]]) {
+        const leaf = `<button class="${target}"></button>`, wrap = html => `<div>${html}</div>`;
+        const container = (name, html) => `<section class="${name}">${html}</section>`;
+        for (const [html, expected] of [[container(middle, leaf), 'rgb(0, 0, 255)'],
+          [container(parent, container(middle, wrap(leaf))), 'rgb(255, 0, 0)'],
+          [container(parent, container(middle, leaf)), 'rgb(255, 0, 0)'], [container(middle, wrap(leaf)), 'rgb(0, 128, 0)']]) {
+          await page.setContent(`<style>button{color:green}${css}</style>${html}`);
+          assert.equal(await page.locator('button').evaluate(el => el.ownerDocument.defaultView.getComputedStyle(el).color), expected);
+        }
+      }
+    }
+  } finally { await page.close(); }
 }
 
 async function checkChildConditions(browser) {

@@ -1,3 +1,4 @@
+import type { OrderInstance } from './order-occurrences.js';
 import type { StructuralBinding } from './selector-bindings.js';
 import { getOwnershipPath } from './ownership-path.js';
 import { effectsOfProperty } from './property-effects.js';
@@ -18,7 +19,7 @@ export type StructuralInstance = DescendantInstance<ParsedStyleRule>;
  * instances may be unconditional and keep the broader shared shape. */
 export type RuntimeStructuralInstance = StructuralInstance & { sourcePath: readonly string[] };
 // Ordering also compares observation-only candidates, which have no linear DOM binding.
-type ComparisonInstance = Omit<StructuralInstance, 'witnesses'>;
+type ComparisonInstance = OrderInstance;
 type Candidate<I extends ComparisonInstance = ComparisonInstance> = {
   instance: I; constraint: Constraint; typeSpecificity?: number;
 };
@@ -48,25 +49,24 @@ function implies(a: Constraint, b: Constraint): boolean {
   if (!b.predicates.length) return true;
   if (!samePath(a.sourcePath, b.sourcePath) || !b.predicates.every((part) => a.predicates.includes(part))) return false;
   // A sibling witness is not an ancestor, even if its exported path is a prefix.
-  return Boolean(b.runtime) || !a.runtime || a.runtime.edges.every((edge) => edge === 'child');
+  return Boolean(b.runtime) || !a.runtime || a.runtime.edges.every((edge) => edge === 'child' || edge === 'descendant');
 }
 function constraintForInstance(instance: ComparisonInstance): Constraint {
-  const firstRuntime = instance.rule.relations.findIndex((relation) => relation !== 'descendant');
+  const witnesses = instance.witnesses ?? [];
+  const edges = witnesses.flatMap(w => w.incoming === null ? [] : [w.incoming]);
   return { targetPath: instance.targetPath,
     ...(instance.sourcePath ? { sourcePath: instance.sourcePath } : {}),
-    // Never treat the same test on the parent and on the target as interchangeable.
-    predicates: [...predicates(instance.rule, instance.sourceIndex), ...(firstRuntime >= 0
-      ? predicates(instance.rule, instance.rule.nodes.length - 1).map(test => `target:${test}`) : [])],
-    ...(firstRuntime >= 0 ? { runtime: {
-      edges: instance.rule.relations.slice(firstRuntime).filter((relation) => relation !== 'descendant')
-    } } : {}) };
+    predicates: witnesses.flatMap(w => predicates(instance.rule, w.nodeIndex).map(test => JSON.stringify([w.path, test]))),
+    // Once a structural edge is present, every edge to the target constrains the match.
+    ...(edges.some(edge => edge !== 'descendant') ? { runtime: { edges } } : {}) };
 }
 
 /** Strict implication at one emission context. Numeric relationRank is deliberately
  * not used: it is a target-local projection, not a transferable semantic proof. */
 export function strictlyRefines(a: ComparisonInstance, b: ComparisonInstance): boolean {
-  return sameContext(a, b) && implies(constraintForInstance(a), constraintForInstance(b)) &&
-    !implies(constraintForInstance(b), constraintForInstance(a));
+  if (!a.witnesses || !b.witnesses || !sameContext(a, b)) return false;
+  const left = constraintForInstance(a), right = constraintForInstance(b);
+  return implies(left, right) && !implies(right, left);
 }
 
 function sameContext(a: ComparisonInstance, b: ComparisonInstance) {
@@ -85,8 +85,8 @@ function sameUniqueWitness(a: Constraint, b: Constraint): boolean {
 }
 function exclusive(a: Candidate, b: Candidate): boolean {
   if (!sameUniqueWitness(a.constraint, b.constraint)) return false;
-  const left = a.constraint.predicates;
-  const right = b.constraint.predicates;
+  const left = predicates(a.instance.rule, a.instance.sourceIndex);
+  const right = predicates(b.instance.rule, b.instance.sourceIndex);
   if (left.some((part) => right.includes(`:not(${part})`)) || right.some((part) => left.includes(`:not(${part})`))) return true;
   const aa = a.instance.rule.nodes[a.instance.sourceIndex]?.attributes[0];
   const ba = b.instance.rule.nodes[b.instance.sourceIndex]?.attributes[0];
@@ -163,10 +163,8 @@ export function planStructuralRelations(
       constraint: constraintForInstance(instance)
     };
   });
-  const inherited: Candidate<StructuralInstance>[] = descendants.map((instance) => ({ instance: { ...instance }, constraint: {
-    targetPath: instance.targetPath, ...(instance.sourcePath ? { sourcePath: instance.sourcePath } : {}),
-    predicates: predicates(instance.rule, instance.sourceIndex)
-  } }));
+  const inherited: Candidate<StructuralInstance>[] = descendants.map(instance => ({ instance: { ...instance },
+    constraint: constraintForInstance(instance) }));
   resolveEquivalentGroups(structural);
   const candidates = [...inherited, ...structural];
   // Complex residuals retain native list specificity, not an estimated class/type count.

@@ -190,6 +190,8 @@ Chromium 145 中，页面始终没有 `.layout` 节点。同一目标在属性�
 
 **已迁移：现有后代条件和结构规则的选择器输出。** 两种绑定都在声明筛选前记录 `witnesses`：原节点下标、实际路径、前一节点到此处的关系和本 marker 承担的 class 强度。生成 CSS 时共用 `renderWitnessSelector`。`.p[x] .b` 绑定到 `p.p.b` 时仍可有两个不同的来源，不枚举无条件节点的所有嵌入；`.layout .p > .m .b` 保留 `>` 和末尾真实后代边，不添加 `layout` 祖先。为保持既有输出和诊断，本步不改准入、marker 身份、排序或剪枝；它们还不能从“能渲染”推导“能开放”。
 
+**已迁移：结构规则的等价、细化与竞争判断。** 证明与渲染读取同一条实际关系链；条件按绑定路径比较，结构边之后的后代边不能从证明中删掉。`.p > .m .b { color:red!important }` 与 `.p .m > .b { color:blue }` 都作用在 `styles.p.m.b`，但前者要求真实 `p > m`，后者只要求真实 `m > b`。只命中后者必须是蓝色；同时命中才由 `!important` 得到红色。若两条写入同等强度且无法证明胜负，则沿用 `GSS1205`，而非当成等价组剪枝。此步不改命名身份或选择器准入。
+
 **可重跑的设计实验**（维护者已安装 Playwright Chromium）：`corepack pnpm --filter @gss-l/compiler build && node tests/browser/witness-binding-audit.mjs`。脚本对照三者：手写原生参考 CSS、按上述绑定且不优化的测试输出、现有 Compiler 能编译时的真实输出，否则断言诊断。每个 DOM 有独立字面颜色；原生参考显式标记目标资格，不把 `.p .b` 的原生后代含义当作 GSS 预期。测试包括四种边、移错属性、重复名字、插入节点、浅 scope、两兄弟分担条件、规则反序，以及相邻优先于一般兄弟的**预期差异**。它只核验简单本地条件和 `color`；既不是排序 oracle，也不是生产 fallback。
 
 ### 生产 CSS 交付粒度
@@ -687,7 +689,7 @@ descendant、结构 planner、语义高度比较与 ownership／结构输出按�
 
 两个 planner 的证明不能因为读取入口相同就合并：descendant 的状态 predicate 使用原状态字符串，结构 planner 使用带 `:` 的形式；前者按 ownership 路径和 source 绑定证明，后者还要证明 runtime witness、组合符和 sibling 约束。它们各自的互斥／蕴含判断、specificity 与 ambiguity 规则均未改变。此视图不是 DOM 节点或完整 selector 语义模型；更完整的规则绑定仍需设计。验证见 [当前计划](NEXT-STAGE.md)。
 
-结构关系 planner 中，结构实例的约束与排序语义高度所用的严格细化证明共用同一个实例到约束的构造：从首个非 descendant 关系开始提取 runtime edges，尾部 descendant 仍是 ownership 而非 runtime 证明；source predicate 仍绑定实例的原位置。例如 sibling witness 不因 scope 路径前缀而成为祖先。约束的外层 `sourcePath` 用于 predicate／唯一 witness 比较；runtime 只存实际用于关系推理的 edges，不再保存未读取的重复路径。descendant 输入与 `:has()` observation 仍有各自的约束构造，不因共享结构实例转换而合并证明；`relationRank` 仍是证明后的投影，不能反过来作为关系证明。此改动不改变 selector 准入、诊断、排序或 fallback，验证见 [当前计划](NEXT-STAGE.md)。
+结构关系 planner 中，结构实例的约束与排序语义高度所用的严格细化证明共用同一个实例到约束的构造：从首个非 descendant 关系开始提取 runtime edges，当时忽略的尾部 descendant 已在 #68 迁移中改为按实际绑定保留（见上文反例）；source predicate 仍绑定实例的原位置。例如 sibling witness 不因 scope 路径前缀而成为祖先。约束的外层 `sourcePath` 用于 predicate／唯一 witness 比较；runtime 只存实际用于关系推理的 edges，不再保存未读取的重复路径。descendant 输入与 `:has()` observation 仍有各自的约束构造，不因共享结构实例转换而合并证明；`relationRank` 仍是证明后的投影，不能反过来作为关系证明。此改动不改变 selector 准入、诊断、排序或 fallback，验证见 [当前计划](NEXT-STAGE.md)。
 
 ## 排序：已确认的目标
 
