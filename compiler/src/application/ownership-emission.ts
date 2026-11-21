@@ -6,7 +6,7 @@ import type { DescendantInstance } from '../domain/plan-descendant-conditions.js
 import type { PlannedOwnershipGroup } from './ownership-planning.js';
 import { identifyDeclarationValue } from './asset-values.js';
 import { canonicalCondition } from './condition-context.js';
-import { canonicalAttributeCondition, renderAncestorSelector, renderAttributeCondition, renderStateSuffix } from './selector-rendering.js';
+import { canonicalAttributeCondition, renderWitnessSelector, renderAttributeCondition, renderStateSuffix } from './selector-rendering.js';
 import { ensureScopePath } from './scope-exports.js';
 
 /** Emit already-planned ownership targets and ancestor predicates. Ownership
@@ -21,19 +21,18 @@ export function emitOwnershipRules(input: AtomicEmissionContext & {
   if (descendants) {
     for (const rule of localRules) ensureScopePath(roots, getOwnershipPath(rule.nodes));
     for (const instance of descendants) {
-      const { rule, targetPath, sourcePath, sourceIndex, relationRank } = instance;
+      const { rule, targetPath, sourceIndex, witnesses, relationRank } = instance;
+      const first = witnesses[0]!;
       const wrappers = rule.conditions;
       const condition = canonicalCondition(wrappers);
       const layer = rule.layer;
-      const predicate = sourceIndex < 0 ? undefined : rule.nodes[sourceIndex];
-      const states = sourceIndex < 0 ? [] : predicate!.states!;
-      const attributes = predicate?.attributes ?? [];
+      const { states, attributes } = rule.nodes[first.nodeIndex]!;
       const attribute = attributes[0];
       const localMarkers = new Set<string>();
       const suffix = attributes.map(renderAttributeCondition).join('') + renderStateSuffix(states, moduleId, nameAllocator, roots, localMarkers);
-      const ancestor = sourcePath !== undefined && sourcePath.length < targetPath.length;
       const scope = ensureScopePath(roots, targetPath);
-      if (ancestor) {
+      if (witnesses.length > 1) {
+        const sourcePath = first.path;
         const authoredPath = getOwnershipPath(rule.nodes);
         const sourceMarker = nameAllocator.createSourceMarker(moduleId, sourcePath, condition, layer);
         const relationIdentity: ContextualRelationIdentity = {
@@ -45,7 +44,8 @@ export function emitOwnershipRules(input: AtomicEmissionContext & {
         const targetMarker = nameAllocator.createTargetMarker(relationIdentity);
         ensureScopePath(roots, sourcePath).classNames.add(sourceMarker);
         scope.classNames.add(targetMarker);
-        const selector = renderAncestorSelector(sourceMarker, suffix, targetMarker, rule.nodes.length);
+        const selector = renderWitnessSelector(witnesses, (_, i) => i === 0
+          ? { marker: sourceMarker, suffix } : { marker: targetMarker, suffix: '' });
         for (const declaration of instance.declarations) rules.push({
           kind: 'contextual-atom', className: targetMarker, selector, wrappers, layer, relationRank,
           source: declaration.source, identity: { ...relationIdentity, ...(moduleOrder.get(declaration, instance) ?? {}), property: declaration.property,
@@ -66,7 +66,7 @@ export function emitOwnershipRules(input: AtomicEmissionContext & {
           const className = nameAllocator.createAtomicName(identity);
           scope.classNames.add(className);
           rules.push({ kind: sourceIndex < 0 ? 'pure-atom' : 'contextual-atom', identity, className,
-            selector: `${`.${className}`.repeat(rule.nodes.length)}${suffix}`, wrappers, layer, relationRank,
+            selector: renderWitnessSelector(witnesses, () => ({ marker: className, suffix })), wrappers, layer, relationRank,
             source: declaration.source });
         }
       }

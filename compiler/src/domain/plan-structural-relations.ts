@@ -17,7 +17,9 @@ export type StructuralInstance = DescendantInstance<ParsedStyleRule>;
 /** Runtime structural outputs always bind a source; inherited descendant
  * instances may be unconditional and keep the broader shared shape. */
 export type RuntimeStructuralInstance = StructuralInstance & { sourcePath: readonly string[] };
-type Candidate<I extends StructuralInstance = StructuralInstance> = {
+// Ordering also compares observation-only candidates, which have no linear DOM binding.
+type ComparisonInstance = Omit<StructuralInstance, 'witnesses'>;
+type Candidate<I extends ComparisonInstance = ComparisonInstance> = {
   instance: I; constraint: Constraint; typeSpecificity?: number;
 };
 
@@ -48,7 +50,7 @@ function implies(a: Constraint, b: Constraint): boolean {
   // A sibling witness is not an ancestor, even if its exported path is a prefix.
   return Boolean(b.runtime) || !a.runtime || a.runtime.edges.every((edge) => edge === 'child');
 }
-function constraintForInstance(instance: StructuralInstance): Constraint {
+function constraintForInstance(instance: ComparisonInstance): Constraint {
   const firstRuntime = instance.rule.relations.findIndex((relation) => relation !== 'descendant');
   return { targetPath: instance.targetPath,
     ...(instance.sourcePath ? { sourcePath: instance.sourcePath } : {}),
@@ -62,12 +64,12 @@ function constraintForInstance(instance: StructuralInstance): Constraint {
 
 /** Strict implication at one emission context. Numeric relationRank is deliberately
  * not used: it is a target-local projection, not a transferable semantic proof. */
-export function strictlyRefines(a: StructuralInstance, b: StructuralInstance): boolean {
+export function strictlyRefines(a: ComparisonInstance, b: ComparisonInstance): boolean {
   return sameContext(a, b) && implies(constraintForInstance(a), constraintForInstance(b)) &&
     !implies(constraintForInstance(b), constraintForInstance(a));
 }
 
-function sameContext(a: StructuralInstance, b: StructuralInstance) {
+function sameContext(a: ComparisonInstance, b: ComparisonInstance) {
   return samePath(a.targetPath, b.targetPath) && a.rule.layer === b.rule.layer &&
     JSON.stringify(a.rule.conditions) === JSON.stringify(b.rule.conditions);
 }
@@ -161,7 +163,7 @@ export function planStructuralRelations(
       constraint: constraintForInstance(instance)
     };
   });
-  const inherited: Candidate[] = descendants.map((instance) => ({ instance: { ...instance }, constraint: {
+  const inherited: Candidate<StructuralInstance>[] = descendants.map((instance) => ({ instance: { ...instance }, constraint: {
     targetPath: instance.targetPath, ...(instance.sourcePath ? { sourcePath: instance.sourcePath } : {}),
     predicates: predicates(instance.rule, instance.sourceIndex)
   } }));

@@ -18,6 +18,11 @@ describe('structural binding before optimization', () => {
     const [binding] = bindStructuralRelations(input);
     expect(binding).toMatchObject({ targetPath: ['group', 'source', 'target', 'leaf'],
       sourcePath: ['group', 'source'], sourceIndex: 1, specificity: 5 });
+    expect(binding!.witnesses.map(w => [w.nodeIndex, w.path, w.incoming, w.classWeight])).toEqual([
+      [1, ['group', 'source'], null, 2],
+      [2, ['group', 'source', 'target'], input[0]!.relations[1], 1],
+      [3, ['group', 'source', 'target', 'leaf'], 'descendant', 1]
+    ]);
     expect(binding!.rule).toBe(input[0]);
     expect(binding!.rule.relations).toEqual(['descendant', { '>': 'child', '+': 'adjacent', '~': 'general-sibling' }[relation], 'descendant']);
   });

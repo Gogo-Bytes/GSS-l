@@ -15,14 +15,18 @@ describe('descendant binding before optimization', () => {
     const targets = bind('.root:hover .item { color:red }', [['root', 'middle', 'item'], ['other', 'item']]);
     expect(targets[0]!.bindings).toHaveLength(1);
     expect(targets[0]!.bindings[0]).toMatchObject({
-      targetPath: ['root', 'middle', 'item'], sourcePath: ['root'], sourceIndex: 0, specificity: 3
+      targetPath: ['root', 'middle', 'item'], sourcePath: ['root'], sourceIndex: 0, specificity: 3,
+      witnesses: [
+        { nodeIndex: 0, path: ['root'], incoming: null, classWeight: 1 },
+        { nodeIndex: 1, path: ['root', 'middle', 'item'], incoming: 'descendant', classWeight: 1 }
+      ]
     });
     expect(targets[1]!.bindings).toEqual([]);
   });
 
   it('retains distinct condition witnesses but does not multiply unconditional embeddings', () => {
     const paths = [['root', 'root', 'item']];
-    expect(bind('.root:hover .item { color:red }', paths)[0]!.bindings.map(binding => binding.sourcePath))
+    expect(bind('.root:hover .item { color:red }', paths)[0]!.bindings.map(binding => binding.witnesses[0]!.path))
       .toEqual([['root'], ['root', 'root']]);
     expect(bind('.root .item { color:red }', paths)[0]!.bindings).toHaveLength(1);
   });

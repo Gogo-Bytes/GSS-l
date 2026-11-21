@@ -1,5 +1,6 @@
 import { ident } from 'css-tree/utils';
 import selectorParser from 'postcss-selector-parser';
+import type { DomWitness } from '../domain/selector-bindings.js';
 import type { ParsedAttributeCondition } from '../domain/parsed-stylesheet.js';
 import type { ContextualRelationIdentity, ObservedRelationIdentity } from '../domain/readable-name.js';
 import type { NameAllocatorPort } from './name-allocator.js';
@@ -74,17 +75,12 @@ export function renderNativeSelector(
   return root.toString();
 }
 
-export function renderAncestorSelector(source: string, suffix: string, target: string, nodeCount: number): string {
-  return `.${source}${suffix} ${`.${target}`.repeat(nodeCount - 1)}`;
-}
-
-export function renderStructuralSelector(markers: readonly string[], prefixLength: number, suffix: string,
-  relations: ContextualRelationIdentity['relations']): string {
-  // The source marker represents the ownership prefix without inventing DOM ancestors.
-  return markers.map((marker, index) => {
-    if (index === 0) return `${`.${marker}`.repeat(prefixLength)}${suffix}`;
-    const combinator = renderRelationCombinator(relations[index - 1]!);
-    return `${combinator ? ` ${combinator} ` : ' '}.${marker}`;
+export function renderWitnessSelector(witnesses: readonly DomWitness[],
+  resolve: (witness: DomWitness, index: number) => { marker: string; suffix: string }): string {
+  return witnesses.map((witness, index) => {
+    const { marker, suffix } = resolve(witness, index);
+    const edge = witness.incoming && renderRelationCombinator(witness.incoming);
+    return (edge === null ? '' : edge ? ` ${edge} ` : ' ') + `.${marker}`.repeat(witness.classWeight) + suffix;
   }).join('');
 }
 

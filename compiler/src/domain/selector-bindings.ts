@@ -1,5 +1,5 @@
 import { getOwnershipPath, isSubsequence, matchesOwnedTarget } from './ownership-path.js';
-import type { ParsedStyleRule } from './parsed-stylesheet.js';
+import type { ParsedStyleRule, SelectorRelation } from './parsed-stylesheet.js';
 
 export type DescendantRule = Pick<ParsedStyleRule, 'nodes'> & {
   conditions: readonly { kind: string; query: string }[];
@@ -8,9 +8,18 @@ export type DescendantRule = Pick<ParsedStyleRule, 'nodes'> & {
   declarations: readonly { property: string; value: string; important: boolean }[];
 };
 
+export type DomWitness = {
+  readonly nodeIndex: number;
+  readonly path: readonly string[];
+  readonly incoming: SelectorRelation | null;
+  /** Authored class strength carried by this marker, not its concrete scope depth. */
+  readonly classWeight: number;
+};
+
 /** Authored declarations remain on rule; only the later plan owns a surviving subset. */
 export type ConditionBinding<R extends DescendantRule> = {
   readonly rule: Readonly<R>;
+  readonly witnesses: readonly DomWitness[];
   readonly targetPath: readonly string[];
   readonly sourcePath?: readonly string[];
   readonly sourceIndex: number;
@@ -29,11 +38,17 @@ export function bindDescendantConditions<R extends DescendantRule>(
   return [...paths.values()].map(targetPath => ({ targetPath,
     bindings: rules.flatMap(rule => {
       const sourceIndex = rule.nodes.findIndex(({ states, attributes }) => states.length > 0 || attributes.length > 0);
-      return conditionSourcePositions(getOwnershipPath(rule.nodes), targetPath, sourceIndex).map(position => ({
-        rule, targetPath, sourceIndex,
-        ...(sourceIndex < 0 ? {} : { sourcePath: targetPath.slice(0, position + 1) }),
-        specificity: conditionSpecificity(rule, sourceIndex)
-      }));
+      return conditionSourcePositions(getOwnershipPath(rule.nodes), targetPath, sourceIndex).map(position => {
+        const last = rule.nodes.length - 1;
+        const sourcePath = position < 0 ? undefined : targetPath.slice(0, position + 1);
+        const ancestor = sourcePath && sourceIndex !== last;
+        const witnesses: DomWitness[] = ancestor ? [
+          { nodeIndex: sourceIndex, path: sourcePath, incoming: null, classWeight: 1 },
+          { nodeIndex: last, path: targetPath, incoming: 'descendant', classWeight: last }
+        ] : [{ nodeIndex: last, path: targetPath, incoming: null, classWeight: rule.nodes.length }];
+        return { rule, targetPath, sourceIndex, witnesses, ...(sourcePath ? { sourcePath } : {}),
+          specificity: conditionSpecificity(rule, sourceIndex) };
+      });
     })
   }));
 }
@@ -46,7 +61,12 @@ export function bindStructuralRelations(rules: readonly ParsedStyleRule[]): read
     const targetPath = getOwnershipPath(rule.nodes);
     const sourceIndex = rule.relations.findIndex(relation => relation !== 'descendant');
     if (sourceIndex < 0) throw new Error('Structural binding requires a runtime relation.');
-    return { rule, targetPath, sourceIndex, sourcePath: targetPath.slice(0, sourceIndex + 1),
+    const witnesses = rule.nodes.slice(sourceIndex).map((_, i) => {
+      const nodeIndex = sourceIndex + i;
+      return { nodeIndex, path: targetPath.slice(0, nodeIndex + 1),
+        incoming: i === 0 ? null : rule.relations[nodeIndex - 1]!, classWeight: i === 0 ? sourceIndex + 1 : 1 };
+    });
+    return { rule, targetPath, sourceIndex, witnesses, sourcePath: witnesses[0]!.path,
       specificity: conditionSpecificity(rule, sourceIndex) + rule.nodes.at(-1)!.states.length + rule.nodes.at(-1)!.attributes.length };
   });
 }

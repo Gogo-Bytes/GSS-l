@@ -3,7 +3,7 @@ import type { ContextualRelationIdentity } from '../domain/readable-name.js';
 import type { RuntimeStructuralInstance } from '../domain/plan-structural-relations.js';
 import { identifyDeclarationValue } from './asset-values.js';
 import { canonicalCondition } from './condition-context.js';
-import { canonicalAttributeCondition, renderAttributeCondition, renderStateSuffix, renderStructuralSelector } from './selector-rendering.js';
+import { canonicalAttributeCondition, renderAttributeCondition, renderStateSuffix, renderWitnessSelector } from './selector-rendering.js';
 import { ensureScopePath } from './scope-exports.js';
 import type { ContextualDeclarationIdentity } from './planned-declaration.js';
 
@@ -14,25 +14,28 @@ export function emitStructuralRules(input: AtomicEmissionContext & {
 }): void {
   const { rules, instances, moduleId, bindings, nameAllocator, roots, moduleOrder } = input;
   for (const instance of instances) {
-    const { rule, declarations, relationRank, targetPath, sourceIndex } = instance;
+    const { rule, declarations, relationRank, targetPath, witnesses } = instance;
     const wrappers = rule.conditions;
     const condition = canonicalCondition(wrappers);
     const layer = rule.layer;
     // Only structural planner instances enter this branch; their source binding
     // is already established. Keep trailing descendant edges in emitted selectors.
-    const sourcePath = instance.sourcePath;
-    const runtimeRelations = rule.relations.slice(sourceIndex);
-    const runtimePaths = targetPath.slice(sourceIndex);
-    const predicate = rule.nodes[sourceIndex];
-    const sourceState = predicate?.states.join(':') || undefined;
-    const sourceAttributeCondition = predicate?.attributes[0];
+    const first = witnesses[0]!;
+    const sourcePath = first.path;
+    const runtimeRelations = witnesses.slice(1).map(witness => witness.incoming!);
+    const predicate = rule.nodes[first.nodeIndex]!;
+    // Keep the existing marker identity for the admitted single source attribute.
+    const sourceState = predicate.states.join(':') || undefined;
+    const sourceAttributeCondition = predicate.attributes[0];
     const sourceAttribute = sourceAttributeCondition
       ? canonicalAttributeCondition(sourceAttributeCondition)
       : undefined;
     const sourceMarker = nameAllocator.createSourceMarker(moduleId, sourcePath, condition, layer);
-    const target = rule.nodes.at(-1)!;
-    const targetSuffix = renderStateSuffix(target.states, moduleId, nameAllocator, roots) +
-      target.attributes.map(renderAttributeCondition).join('');
+    const suffixAt = (nodeIndex: number) => {
+      const node = rule.nodes[nodeIndex]!;
+      return renderStateSuffix(node.states, moduleId, nameAllocator, roots) + node.attributes.map(renderAttributeCondition).join('');
+    };
+    const targetSuffix = suffixAt(witnesses.at(-1)!.nodeIndex);
     const relationIdentity: ContextualRelationIdentity = {
       moduleId,
       layer,
@@ -45,19 +48,17 @@ export function emitStructuralRules(input: AtomicEmissionContext & {
       targetPath
     };
     const targetMarker = nameAllocator.createTargetMarker(relationIdentity);
-    const markers = runtimePaths.map((_, index) => {
-      const path = targetPath.slice(0, sourceIndex + index + 1);
+    const markers = witnesses.map(({ path }, index) => {
       const marker = index === 0
         ? sourceMarker
-        : index === runtimePaths.length - 1
+        : index === witnesses.length - 1
           ? targetMarker
           : nameAllocator.createContextMarker(relationIdentity, index, path);
       ensureScopePath(roots, path).classNames.add(marker);
       return marker;
     });
-    const suffix = renderStateSuffix(predicate?.states ?? [], moduleId, nameAllocator, roots) +
-      (sourceAttributeCondition ? renderAttributeCondition(sourceAttributeCondition) : '');
-    const selector = renderStructuralSelector(markers, sourcePath.length, suffix, runtimeRelations) + targetSuffix;
+    const selector = renderWitnessSelector(witnesses, ({ nodeIndex }, i) => ({ marker: markers[i]!,
+      suffix: i === witnesses.length - 1 ? targetSuffix : suffixAt(nodeIndex) }));
 
     for (const declaration of declarations) {
       const identity: ContextualDeclarationIdentity = {

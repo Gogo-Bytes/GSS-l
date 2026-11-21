@@ -6,7 +6,7 @@ import { getOwnershipPath } from '../dist/domain/ownership-path.js';
 import { bindDescendantConditions, bindStructuralRelations } from '../dist/domain/selector-bindings.js';
 import { collectOrderOccurrences } from '../dist/domain/order-occurrences.js';
 import { planFixedModuleOrder } from '../dist/domain/fixed-module-ranks.js';
-import { renderAncestorSelector, renderAttributeCondition, renderStructuralSelector } from '../dist/application/selector-rendering.js';
+import { renderAttributeCondition } from '../dist/application/selector-rendering.js';
 
 export function conservativeFixtureOutput(source) {
   const parsed = parseStylesheet('/project/Case.gss', source);
@@ -44,8 +44,8 @@ export function conservativeFixtureOutput(source) {
     if (b.sourcePath) {
       const sourceMarker = member(b.sourcePath, `s${i}`);
       selector = childRules.includes(b.rule)
-        ? renderStructuralSelector([sourceMarker, target], b.sourcePath.length, '', ['child'])
-        : renderAncestorSelector(sourceMarker, renderAttributeCondition(b.rule.nodes[b.sourceIndex].attributes[0]), target, b.rule.nodes.length);
+        ? `${`.${sourceMarker}`.repeat(b.sourcePath.length)} > .${target}`
+        : `.${sourceMarker}${renderAttributeCondition(b.rule.nodes[b.sourceIndex].attributes[0])} ${`.${target}`.repeat(b.rule.nodes.length - 1)}`;
     }
     const block = [...(d.fallbacks ?? []), d].map(v => `${d.property}:${v.value}${d.important ? '!important' : ''};`).join('');
     return { css: `${selector}{${block}}`, slot: order.get(d, b)?.orderSlot ?? 0 };
