@@ -87,14 +87,17 @@ export function bindStructuralRelations(rules: readonly ParsedStyleRule[]): read
         incoming: i === 0 ? null : rule.relations[nodeIndex - 1]!, classWeight: i === 0 ? sourceIndex + 1 : 1 };
     });
     return { rule, targetPath, sourceIndex, witnesses, sourcePath: witnesses[0]!.path,
-      specificity: conditionSpecificity(rule, sourceIndex) + rule.nodes.at(-1)!.states.length + rule.nodes.at(-1)!.attributes.length };
+      specificity: witnesses.reduce((sum, w) => sum + nodeStrength(rule, w.nodeIndex), rule.nodes.length) };
   });
 }
 
 function conditionSpecificity(rule: DescendantRule, sourceIndex: number): number {
-  const predicate = sourceIndex < 0 ? undefined : rule.nodes[sourceIndex];
-  return rule.nodes.length + (predicate?.states ?? []).filter(state => !state.startsWith('where(')).length +
-    (predicate?.attributes.length ?? 0);
+  return rule.nodes.length + (sourceIndex < 0 ? 0 : nodeStrength(rule, sourceIndex));
+}
+
+function nodeStrength(rule: DescendantRule, index: number): number {
+  const { states, attributes } = rule.nodes[index]!;
+  return states.filter(state => !state.startsWith('where(')).length + attributes.length;
 }
 
 /** Bind condition witnesses, not every embedding of unconditional ownership nodes. */

@@ -28,13 +28,15 @@ export function isStructuralRuntimeRule(rule: ParsedStyleRule): boolean {
     rule.nodes.every((node) => node.pseudoElement === null);
 }
 
-/** Two owned endpoints, one real parent, no function-specific strength or name binding. */
-export function isConditionedChildRule(rule: ParsedStyleRule): boolean {
-  const target = rule.nodes[1];
-  return rule.relations.length === 1 && rule.relations[0] === 'child' && !!target &&
-    (target.states.length > 0 || target.attributes.length > 0) && rule.nodes[0]!.attributes.length <= 1 &&
-    !rule.externalTarget && !rule.externalCondition && rule.nodes.every(node => !node.pseudoElement &&
-      !node.hasConditions.length && node.states.every(state => !state.includes('(')));
+/** Compound conditions require actual bound witnesses, not nodes in the ownership-only prefix. */
+export function hasBoundStructuralTests(rule: ParsedStyleRule): boolean {
+  const start = rule.relations.findIndex(edge => edge !== 'descendant');
+  if (start < 0 || rule.externalTarget || rule.externalCondition) return false;
+  const source = rule.nodes[start]!;
+  return rule.nodes.every((n, i) => !n.pseudoElement && !n.hasConditions.length && n.states.every(s => !s.includes('(')) &&
+    (i >= start || (!n.states.length && !n.attributes.length))) &&
+    (rule.nodes.slice(start + 1).some(n => n.states.length || n.attributes.length) || source.attributes.length > 1 ||
+      source.attributes.some(a => a.operator === 'native') || (source.attributes.length > 0 && source.states.length > 0));
 }
 
 /** An ownership prefix selects a scope; it is not a second DOM witness. */

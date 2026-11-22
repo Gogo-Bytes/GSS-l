@@ -17,7 +17,7 @@ import { isRegisteredPropertyEffect } from '../domain/property-effects.js';
 import { propertiesMayOverlapForModuleOrder, propertyOrderPriority } from '../domain/module-order-policy.js';
 import { planModuleRelations } from '../domain/plan-module-relations.js';
 import { discardInvalidStaticPadding, expandSafeBoxRules } from '../domain/expand-safe-box.js';
-import { isConditionedChildRule, isPureOwnershipRule } from '../domain/rule-classification.js';
+import { hasBoundStructuralTests, isPureOwnershipRule } from '../domain/rule-classification.js';
 import { disjointKeyframeWidthBounds } from '../domain/keyframe-condition-exclusivity.js';
 import { groupAdjacentDeclarations, validateDeclarationSequences } from '../domain/validate-declarations.js';
 import { validateLogicalPhysicalConflicts } from '../domain/validate-logical-physical-conflicts.js';
@@ -199,7 +199,7 @@ export function prepareContribution(
     // logical/physical order. Retain the old conflict guard for this path.
     const preservedConflicts = validateLogicalPhysicalConflicts(input.id, parsed.rules, false);
     if (preservedConflicts.length) return { diagnostics: preservedConflicts };
-    if (hasExplicitGlobal || config.atomizationFallback === 'error' || semanticRules.some(isConditionedChildRule)) {
+    if (hasExplicitGlobal || config.atomizationFallback === 'error' || semanticRules.some(hasBoundStructuralTests)) {
       return { diagnostics: [{ code: 'GSS1101', severity: 'error', phase: 'validate', id: input.id,
         reason: 'capability-not-registered', message: 'Compatibility sequence cannot be safely atomized.' }] };
     }

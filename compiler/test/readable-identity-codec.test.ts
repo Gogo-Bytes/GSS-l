@@ -176,6 +176,7 @@ it('round-trips every encoded contextual target field, including both condition 
     { ...identity, condition: 'media:y' }, { ...identity, relations: ['child', 'general-sibling'] },
     { ...identity, authoredPath: ['card', 'a', 'b'] }, { ...identity, sourceState: 'focus' },
     { ...identity, sourceAttribute: 'data-mode=idle' }, { ...identity, targetSuffix: ':focus[data-mode="a/b"]' },
+    { ...identity, witnessKey: '[[],["[data-mode=a/b]"],[]]' },
     { ...identity, sourcePath: ['card', 'a', 'b'] }, { ...identity, targetPath: ['card', 'a/b', 'd'] }
   ];
   expect(new Set([name, ...variants.map(createReadableTargetMarker)]).size).toBe(variants.length + 1);
@@ -230,6 +231,9 @@ it('round-trips emitted intermediate context markers with a derived source path'
     sourcePath: ['input'], targetPath: ['input', 'label', 'icon']
   };
   const path = ['input', 'label'];
+  const conditional = { ...identity, witnessKey: '[[],["[data-mode=a/b]"],[]]' };
+  expect(decodeReadableContextMarker(createReadableContextMarker(conditional, 1, path)))
+    .toEqual({ identity: conditional, position: 1, path });
   const name = createReadableContextMarker(identity, 1, path);
   expect(decodeReadableContextMarker(name)).toEqual({ identity, position: 1, path });
   for (const invalid of [

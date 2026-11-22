@@ -37,6 +37,7 @@ export type ContextualRelationIdentity = {
   sourceState?: string;
   sourceAttribute?: string;
   targetSuffix?: string;
+  witnessKey?: string;
   sourcePath: readonly string[];
   targetPath: readonly string[];
 };
@@ -156,6 +157,7 @@ export function createReadableTargetMarker(identity: ContextualRelationIdentity)
       ? `condition_${encodeNamePart(identity.sourceAttribute)}`
       : undefined,
     identity.targetSuffix ? `target-test_${encodeNamePart(identity.targetSuffix)}` : undefined,
+    identity.witnessKey ? `tests_${encodeNamePart(identity.witnessKey)}` : undefined,
     ...(identity.authoredPath ? [`authored_${encodePath(identity.authoredPath)}`] : []),
     `source_${encodePath(identity.sourcePath)}`,
     `target_${encodePath(identity.targetPath)}`
@@ -181,6 +183,7 @@ export function createReadableContextMarker(
     identity.sourceAttribute
       ? `condition_${encodeNamePart(identity.sourceAttribute)}`
       : undefined,
+    identity.witnessKey ? `tests_${encodeNamePart(identity.witnessKey)}` : undefined,
     `position_${position}`,
     `path_${encodePath(path)}`,
     `target_${encodePath(identity.targetPath)}`
@@ -307,6 +310,7 @@ export function decodeReadableTargetMarker(name: string): ContextualRelationIden
   const sourceState = take('state');
   const sourceAttribute = take('condition');
   const targetSuffix = take('target-test');
+  const witnessKey = take('tests');
   const authored = take('authored');
   const source = take('source');
   const target = take('target');
@@ -323,6 +327,7 @@ export function decodeReadableTargetMarker(name: string): ContextualRelationIden
     ...(sourceState !== undefined ? { sourceState } : {}),
     ...(sourceAttribute !== undefined ? { sourceAttribute } : {}),
     ...(targetSuffix !== undefined ? { targetSuffix } : {}),
+    ...(witnessKey !== undefined ? { witnessKey } : {}),
     ...(authoredPath !== undefined ? { authoredPath } : {}) };
   return createReadableTargetMarker(identity) === name ? identity : undefined;
 }
@@ -354,6 +359,7 @@ export function decodeReadableContextMarker(name: string): DecodedContextMarker 
   if (!relations.length || !relations.every(isRelation)) return undefined;
   const sourceState = take('state');
   const sourceAttribute = take('condition');
+  const witnessKey = take('tests');
   const positionValue = take('position');
   const encodedPath = take('path');
   const encodedTarget = take('target');
@@ -372,7 +378,8 @@ export function decodeReadableContextMarker(name: string): DecodedContextMarker 
     ...(layer !== undefined ? { layer } : {}),
     ...(condition !== undefined ? { condition } : {}),
     ...(sourceState !== undefined ? { sourceState } : {}),
-    ...(sourceAttribute !== undefined ? { sourceAttribute } : {}) };
+    ...(sourceAttribute !== undefined ? { sourceAttribute } : {}),
+    ...(witnessKey !== undefined ? { witnessKey } : {}) };
   return createReadableContextMarker(identity, position, path) === name ? { identity, position, path } : undefined;
 }
 

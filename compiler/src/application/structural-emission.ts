@@ -36,14 +36,23 @@ export function emitStructuralRules(input: AtomicEmissionContext & {
       return renderStateSuffix(node.states, moduleId, nameAllocator, roots) + node.attributes.map(renderAttributeCondition).join('');
     };
     const targetSuffix = suffixAt(witnesses.at(-1)!.nodeIndex);
+    // Endpoint fields keep their historical names; they cannot identify conditions between endpoints
+    // or a second source attribute. Those chains use all authored tests, including empty positions.
+    const needsWitnessKey = predicate.attributes.length > 1 || witnesses.slice(1, -1).some(w => {
+      const node = rule.nodes[w.nodeIndex]!;
+      return node.states.length || node.attributes.length;
+    }) || (witnesses.length > 2 && !!targetSuffix);
+    const tests = needsWitnessKey ? { witnessKey: JSON.stringify(witnesses.map(w => {
+      const { states, attributes } = rule.nodes[w.nodeIndex]!;
+      return [states, attributes];
+    })) } : { ...(sourceState ? { sourceState } : {}), ...(sourceAttribute ? { sourceAttribute } : {}),
+      ...(targetSuffix ? { targetSuffix } : {}) };
     const relationIdentity: ContextualRelationIdentity = {
       moduleId,
       layer,
       condition,
       relations: runtimeRelations,
-      ...(sourceState ? { sourceState } : {}),
-      ...(sourceAttribute ? { sourceAttribute } : {}),
-      ...(targetSuffix ? { targetSuffix } : {}),
+      ...tests,
       sourcePath,
       targetPath
     };

@@ -173,7 +173,7 @@ Chromium 145 中，页面始终没有 `.layout` 节点。同一目标在属性�
 
 用 `<button className={styles.button} data-mode="WARNING" aria-expanded="true" />`：未聚焦绿 → 键盘 Tab 蓝 → 模式改 `safe` 绿 → 移除 `aria-expanded` 红。本轮 Chromium 145 的**独立原生 CSS**得到以上四值；实施前 GSS 拒绝该输入；当前回归要求全部属性与焦点保留在目标 atom 上。同一目标测试还要反转同强度竞争规则的源码顺序，排除“匹配正确、胜负错误”。
 
-**直接子元素的条件。** `.panel[data-open] > .button:focus` 用 `styles.panel` 标记父元素，`styles.panel.button` 标记按钮；浏览器判断真实 `>`、父属性和子焦点。两个端点的测试都计入强度，互换测试所在节点不构成等价规则。只对两个本地节点、一条 `>` 开放新的目标条件：两端可用已支持的无参数状态和无命名空间属性，来源至多一个属性；不推广到多段关系或函数。原有 `GSS1205` 竞争检查仍生效。[浏览器回归](../tests/browser/current-condition-check.mjs) 独立断言移除父属性、移走焦点、插入带同属性但无来源类名的中间层、只改用浅路径 `styles.button` 均取消深层颜色；交换重复声明顺序会翻转胜者。
+**直接子元素的条件。** `.panel[data-open] > .button:focus` 用 `styles.panel` 标记父元素，`styles.panel.button` 标记按钮；浏览器判断真实 `>`、父属性和子焦点。两个端点的测试都计入强度，互换测试所在节点不构成等价规则。首版只允许两个本地节点、一条 `>` 和一个来源属性；现有显式结构链已按下文的有序节点绑定扩展。原有 `GSS1205` 竞争检查仍生效。[浏览器回归](../tests/browser/current-condition-check.mjs) 独立断言移除父属性、移走焦点、插入带同属性但无来源类名的中间层、只改用浅路径 `styles.button` 均取消深层颜色；交换重复声明顺序会翻转胜者。
 
 **声明与 @ 规则另算。** 选择器回答“何时命中”，[属性效果](PROPERTY-ORDER-DESIGN.md)回答“哪些写入竞争”。已知独立属性只写自身，别名映射同一 effect；简写包含隐式重置。`white-space:pre; text-wrap:pretty` 的共享 `text-wrap-mode` 为 `wrap`，倒序为 `nowrap`；两者都不能删掉未被覆盖的 `white-space-collapse` 或 `text-wrap-style`。`margin:var(--space)` 知道写四侧不等于能拆四个值；逻辑／物理方向可能重叠也不等于必然覆盖。能证明完整顺序才 atomic，现有 preserved 仅在其契约成立时使用，否则拒绝；未知属性不借目录或单引擎补准入，见 [#70 离线审计](SHORTHAND-DISCOVERY.md)。`@media/@supports/@container` 的上下文、`@layer` 的顺序、`@keyframes` 等资源依赖与命名空间声明都不是元素条件，继续各走原入口。
 
@@ -193,6 +193,8 @@ Chromium 145 中，页面始终没有 `.layout` 节点。同一目标在属性�
 **已迁移：结构规则的等价、细化与竞争判断。** 证明与渲染读取同一条实际关系链；条件按绑定路径比较，结构边之后的后代边不能从证明中删掉。`.p > .m .b { color:red!important }` 与 `.p .m > .b { color:blue }` 都作用在 `styles.p.m.b`，但前者要求真实 `p > m`，后者只要求真实 `m > b`。只命中后者必须是蓝色；同时命中才由 `!important` 得到红色。若两条写入同等强度且无法证明胜负，则沿用 `GSS1205`，而非当成等价组剪枝。此步不改命名身份或选择器准入。
 
 **互斥必须落在同一个实际元素上。** 从共同目标反向比较绑定：同为 `>` 或同为 `+` 时可以继续到唯一父元素或紧邻前项；遇到后代、`~` 或不同的边就停。`.a[data-mode=on] .b` 和 `.a[data-mode=off] .b` 可能各自命中不同层的祖先；同一来源路径不是互斥证明。即使确定是同一元素，`[type=button]` 和 `[type=BUTTON]` 也可同时匹配 HTML 按钮。未加标志的等值测试中，`data-*` 的值区分大小写；其他属性在仅有 ASCII 大小写差异时不假定互斥。带标志的原生测试不参与该推断。相反，两个规则若在目标上分别要求 `[data-mode=A]` 与 `[data-mode=a]`，就不必再证明其父条件互斥。
+
+**显式结构链的简单条件。** 从首条 `>`、`+` 或 `~` 的来源开始，每一个实际节点都可分别带多个已支持的无命名空间属性和无参数状态；编译器累计各节点的强度，用包含绑定位置的条件区分规则。`.layout .p[x] > .m[z] + .b:focus` 不需要真实 `layout` 祖先，但将 `[z]` 移到 `.p` 上不再命中。两个写相同值的规则也不能因为省略第二个来源属性或中间条件而合并。首条结构边之前仍只能有纯 ownership 前缀；没有显式结构边的双端后代条件、函数条件不随此扩展。无法证明排序的冲突仍拒绝。
 
 **可重跑的设计实验**（维护者已安装 Playwright Chromium）：`corepack pnpm --filter @gss-l/compiler build && node tests/browser/witness-binding-audit.mjs`。脚本对照三者：手写原生参考 CSS、按上述绑定且不优化的测试输出、现有 Compiler 能编译时的真实输出，否则断言诊断。每个 DOM 有独立字面颜色；原生参考显式标记目标资格，不把 `.p .b` 的原生后代含义当作 GSS 预期。测试包括四种边、移错属性、重复名字、插入节点、浅 scope、两兄弟分担条件、规则反序，以及相邻优先于一般兄弟的**预期差异**。它只核验简单本地条件和 `color`；既不是排序 oracle，也不是生产 fallback。
 

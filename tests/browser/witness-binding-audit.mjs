@@ -99,7 +99,7 @@ try {
       `[data-s=p][x][y] ${edge} [data-s="p.b"]:focus{color:blue}`, [
         [tree('x y', target), true, 'blue'], [tree('x', target.replace('button ', 'button y ')), true, 'red'],
         [tree('x y', target), false, 'red'], [tree('x y', shallow), true, 'red'], [tree('x y', target, true), true, withGap]
-      ]);
+      ], edge === ' ' ? 'GSS1101' : 'atomic');
   }
   await run('existing child endpoints', '.p[x] > .b[y]:focus{color:blue}',
     '[data-s=p][x] > [data-s="p.b"][y]:focus{color:blue}', [
@@ -114,9 +114,13 @@ try {
   await run('ownership prefix + middle witness', '.layout .p[x] > .m[z] + .b:focus{color:blue}',
     '[data-s="layout.p"][x] > [data-s="layout.p.m"][z] + [data-s="layout.p.m.b"]:focus{color:blue}',
     [['<div s="layout.p" x><i s="layout.p.m" z></i><button s="layout.p.m.b"></button></div>', true, 'blue'],
-      ['<div s="layout.p" x z><i s="layout.p.m"></i><button s="layout.p.m.b"></button></div>', true, 'red']]);
+      ['<div s="layout.p" x z><i s="layout.p.m"></i><button s="layout.p.m.b"></button></div>', true, 'red']], 'atomic');
   await run('split siblings', '.p[x][y] ~ .b:focus{color:blue}', '[data-s=p][x][y] ~ [data-s="p.b"]:focus{color:blue}',
-    [[`<i s="p" x></i><i s="p" y></i>${target}`, true, 'red'], [p + target, true, 'blue']]);
+    [[`<i s="p" x></i><i s="p" y></i>${target}`, true, 'red'], [p + target, true, 'blue']], 'atomic');
+  const chain = (pAttrs, mAttrs) => `<div s="p" ${pAttrs}><div s="p.m" ${mAttrs}><button s="p.m.b"></button></div></div>`;
+  await run('same value, tests on different witnesses', '.p[x][y] > .m > .b{color:blue}.p[x] > .m[y] > .b{color:blue}',
+    '[data-s=p][x][y] > [data-s="p.m"] > [data-s="p.m.b"], [data-s=p][x] > [data-s="p.m"][y] > [data-s="p.m.b"]{color:blue}',
+    [[chain('x y', ''), false, 'blue'], [chain('x', 'y'), false, 'blue'], [chain('x', ''), false, 'red']], 'atomic');
   await run('repeated ownership name', '.p .p .b{color:green}.p[x] .b{color:blue}',
     '[data-s="p.p.b"][data-s="p.p.b"][data-s="p.p.b"]{color:green}:is([data-s=p],[data-s="p.p"])[x] [data-s="p.p.b"]{color:blue}',
     [['<button s="p.p.b"></button>', false, 'green'],
@@ -126,7 +130,12 @@ try {
     const rules = ['.p[x] ~ .b:focus{color:green}', '.p[y] ~ .b:focus{color:blue}'];
     const ref = ['[data-s=p][x] ~ [data-s="p.b"]:focus{color:green}', '[data-s=p][y] ~ [data-s="p.b"]:focus{color:blue}'];
     await run(`two independent witnesses reverse=${reverse}`, (reverse ? rules.reverse() : rules).join(''),
-      (reverse ? ref.reverse() : ref).join(''), [[`<i s="p" x></i><i s="p" y></i>${target}`, true, reverse ? 'green' : 'blue']]);
+      (reverse ? ref.reverse() : ref).join(''), [[`<i s="p" x></i><i s="p" y></i>${target}`, true, reverse ? 'green' : 'blue']], 'GSS1205');
+    const middle = ['.p > .m[y] > .b{color:green}', '.p[x] > .m > .b{color:blue}'];
+    const middleRef = ['[data-s=p] > [data-s="p.m"][y] > [data-s="p.m.b"]{color:green}',
+      '[data-s=p][x] > [data-s="p.m"] > [data-s="p.m.b"]{color:blue}'];
+    await run(`middle contributes equal strength reverse=${reverse}`, (reverse ? middle.reverse() : middle).join(''),
+      (reverse ? middleRef.reverse() : middleRef).join(''), [[chain('x', 'y'), false, reverse ? 'green' : 'blue']], 'GSS1205');
     const pairs = ['.p + .b{color:green}', '.p ~ .b{color:blue}'];
     const native = ['[data-s=p] + [data-s="p.b"]{color:green}', '[data-s=p] ~ [data-s="p.b"]{color:blue}'];
     await run(`ADR-0013 order control reverse=${reverse}`, (reverse ? pairs.reverse() : pairs).join(''),
