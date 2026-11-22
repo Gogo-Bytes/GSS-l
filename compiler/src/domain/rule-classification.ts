@@ -34,7 +34,7 @@ export function hasBoundNodeTests(rule: ParsedStyleRule): boolean {
   let start = rule.relations.findIndex(edge => edge !== 'descendant');
   if (start < 0) {
     const ancestors = rule.nodes.slice(0, -1).flatMap((n, i) => n.states.length || n.attributes.length ? [i] : []);
-    if (ancestors.length !== 1) return false;
+    if (!ancestors.length) return false;
     start = ancestors[0]!;
   }
   const source = rule.nodes[start]!;

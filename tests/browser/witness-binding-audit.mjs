@@ -126,6 +126,16 @@ try {
     [['<button s="p.p.b"></button>', false, 'green'],
       ['<div s="p" x><button s="p.p.b"></button></div>', false, 'blue'],
       ['<div s="p.p" x><button s="p.p.b"></button></div>', false, 'blue']], 'atomic');
+  const nesting = (outer, inner, focusTarget = 'p.p.p.b') =>
+    `<div s="${outer}" x><div><div s="${inner}" y><button s="${focusTarget}"></button></div></div></div>`;
+  const deep = '[data-s="p.p.p.b"]';
+  await run('multiple conditioned ancestors, repeated local name',
+    '.p .p .p .b{color:green}.p[x] .p[y] .b:focus{color:blue}',
+    `${deep}{color:green}[data-s=p][x] [data-s="p.p"][y] ${deep}:focus,` +
+    `[data-s=p][x] [data-s="p.p.p"][y] ${deep}:focus,[data-s="p.p"][x] [data-s="p.p.p"][y] ${deep}:focus{color:blue}`, [
+      [nesting('p', 'p.p'), true, 'blue'], [nesting('p', 'p.p.p'), true, 'blue'], [nesting('p.p', 'p.p.p'), true, 'blue'],
+      [nesting('p.p', 'p.p'), true, 'green'], [nesting('p.p.p', 'p.p'), true, 'green'], [nesting('p', 'p.p'), false, 'green']
+    ], 'atomic');
   for (const reverse of [false, true]) {
     const rules = ['.p[x] ~ .b:focus{color:green}', '.p[y] ~ .b:focus{color:blue}'];
     const ref = ['[data-s=p][x] ~ [data-s="p.b"]:focus{color:green}', '[data-s=p][y] ~ [data-s="p.b"]:focus{color:blue}'];

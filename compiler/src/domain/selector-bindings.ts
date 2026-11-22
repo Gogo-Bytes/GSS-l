@@ -65,14 +65,9 @@ export function bindDescendantConditions<R extends DescendantRule>(
   return [...paths.values()].map(targetPath => ({ targetPath,
     bindings: rules.flatMap(rule => {
       const sourceIndex = rule.nodes.findIndex(({ states, attributes }) => states.length > 0 || attributes.length > 0);
-      return conditionSourcePositions(getOwnershipPath(rule.nodes), targetPath, sourceIndex).map(position => {
-        const last = rule.nodes.length - 1;
-        const sourcePath = position < 0 ? undefined : targetPath.slice(0, position + 1);
-        const ancestor = sourcePath && sourceIndex !== last;
-        const witnesses: DomWitness[] = ancestor ? [
-          { nodeIndex: sourceIndex, path: sourcePath, incoming: null, classWeight: 1 },
-          { nodeIndex: last, path: targetPath, incoming: 'descendant', classWeight: last }
-        ] : [{ nodeIndex: last, path: targetPath, incoming: null, classWeight: rule.nodes.length }];
+      const ancestors = rule.nodes.slice(0, -1).flatMap((n, i) => n.states.length || n.attributes.length ? [i] : []);
+      return descendantWitnesses(getOwnershipPath(rule.nodes), targetPath, ancestors).map(witnesses => {
+        const sourcePath = sourceIndex < 0 ? undefined : witnesses[0]!.path;
         return { rule, targetPath, sourceIndex, witnesses, ...(sourcePath ? { sourcePath } : {}),
           specificity: witnesses.reduce((sum, w) => sum + nodeStrength(rule, w.nodeIndex), rule.nodes.length) };
       });
@@ -104,13 +99,24 @@ function nodeStrength(rule: DescendantRule, index: number): number {
 }
 
 /** Bind condition witnesses, not every embedding of unconditional ownership nodes. */
-function conditionSourcePositions(path: readonly string[], target: readonly string[], sourceIndex: number): number[] {
+function descendantWitnesses(path: readonly string[], target: readonly string[], ancestors: readonly number[]): DomWitness[][] {
   if (!matchesOwnedTarget(path, target)) return [];
-  if (sourceIndex < 0) return [-1];
-  if (sourceIndex === path.length - 1) return [target.length - 1];
-  return target.flatMap((name, position) =>
-    name === path[sourceIndex] &&
-    isSubsequence(path.slice(0, sourceIndex), target.slice(0, position)) &&
-    matchesOwnedTarget(path.slice(sourceIndex + 1), target.slice(position + 1)) ? [position] : []
-  );
+  const result: DomWitness[][] = [], prefix: DomWitness[] = [];
+  function visit(depth: number, authoredStart: number, targetStart: number) {
+    const index = ancestors[depth];
+    if (index === undefined) {
+      result.push([...prefix, { nodeIndex: path.length - 1, path: target, incoming: depth ? 'descendant' : null,
+        classWeight: path.length - depth }]);
+      return;
+    }
+    for (let pos = targetStart; pos < target.length - 1; pos++) {
+      if (target[pos] !== path[index] || !isSubsequence(path.slice(authoredStart, index), target.slice(targetStart, pos)) ||
+        !matchesOwnedTarget(path.slice(index + 1), target.slice(pos + 1))) continue;
+      prefix.push({ nodeIndex: index, path: target.slice(0, pos + 1), incoming: depth ? 'descendant' : null, classWeight: 1 });
+      visit(depth + 1, index + 1, pos + 1);
+      prefix.pop();
+    }
+  }
+  visit(0, 0, 0);
+  return result;
 }

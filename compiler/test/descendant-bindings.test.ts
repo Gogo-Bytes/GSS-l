@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { bindDescendantConditions } from '../src/domain/selector-bindings.js';
+import { collectOrderOccurrences } from '../src/domain/order-occurrences.js';
 import { planDescendantConditions } from '../src/domain/plan-descendant-conditions.js';
 import { groupAdjacentDeclarations } from '../src/domain/validate-declarations.js';
 import { parseStylesheet } from '../src/infrastructure/postcss-stylesheet-parser.js';
@@ -29,6 +30,13 @@ describe('descendant binding before optimization', () => {
     expect(bind('.root:hover .item { color:red }', paths)[0]!.bindings.map(binding => binding.witnesses[0]!.path))
       .toEqual([['root'], ['root', 'root']]);
     expect(bind('.root .item { color:red }', paths)[0]!.bindings).toHaveLength(1);
+  });
+
+  it('retains each ordered conditioned tuple as a different order occurrence', () => {
+    const targets = bind('.p[x] .p[y] .b { color:blue }', [['p', 'p', 'p', 'b']]);
+    const { candidates } = planDescendantConditions(targets);
+    expect(candidates.map(b => b.witnesses.map(w => w.path.length))).toEqual([[1, 2, 4], [1, 3, 4], [2, 3, 4]]);
+    expect(collectOrderOccurrences([candidates[0]!.rule], candidates).occurrences).toHaveLength(3);
   });
 
   it('keeps full declarations when planning removes a partially shadowed declaration', () => {

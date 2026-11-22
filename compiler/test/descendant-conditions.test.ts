@@ -53,7 +53,7 @@ describe('Compiler descendant condition ownership', () => {
   });
 
   it.each(['.button[disabled]::before', '.button[ns|disabled]', '.button[disabled i]', '.button[data-x=v Z]',
-    '.a[data-on] .mid > .button:focus', '.a[x] .mid[y] .button:focus'])('keeps unsupported attribute combinations transactional: %s', (selector) => {
+    '.a[data-on] .mid > .button:focus', '.a[x] .mid[y] .button:is(.active)'])('keeps unsupported attribute combinations transactional: %s', (selector) => {
     const { session } = compile('.button[disabled] { color: red; }');
     const before = session.finalize();
     const schema = session.getScopeSchema('/project/Tree.gss');

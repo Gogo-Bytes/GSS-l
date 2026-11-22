@@ -35,23 +35,25 @@ export function emitOwnershipRules(input: AtomicEmissionContext & {
       if (witnesses.length > 1) {
         const sourcePath = first.path;
         const authoredPath = getOwnershipPath(rule.nodes);
-        const sourceMarker = nameAllocator.createSourceMarker(moduleId, sourcePath, condition, layer);
-        const targetNode = rule.nodes[witnesses[1]!.nodeIndex]!;
-        const targetSuffix = targetNode.attributes.map(renderAttributeCondition).join('') +
-          renderStateSuffix(targetNode.states, moduleId, nameAllocator, roots);
+        const suffixes = witnesses.map(({ nodeIndex }, i) => {
+          if (i === 0) return suffix;
+          const node = rule.nodes[nodeIndex]!;
+          return node.attributes.map(renderAttributeCondition).join('') + renderStateSuffix(node.states, moduleId, nameAllocator, roots);
+        });
         const relationIdentity: ContextualRelationIdentity = {
           moduleId, layer, condition, sourcePath, targetPath,
           relations: rule.relations.slice(sourceIndex),
-          ...(targetSuffix || attributes.length > 1 || (attribute && states.length)
+          ...(witnesses.length > 2 || suffixes.at(-1) || attributes.length > 1 || (attribute && states.length)
             ? { witnessKey: JSON.stringify(boundPredicates(instance)) }
             : attribute ? { sourceAttribute: canonicalAttributeCondition(attribute) } : { sourceState: states.join(':') }),
           ...(JSON.stringify(authoredPath) !== JSON.stringify(targetPath) ? { authoredPath } : {})
         };
         const targetMarker = nameAllocator.createTargetMarker(relationIdentity);
-        ensureScopePath(roots, sourcePath).classNames.add(sourceMarker);
-        scope.classNames.add(targetMarker);
-        const selector = renderWitnessSelector(witnesses, (_, i) => i === 0
-          ? { marker: sourceMarker, suffix } : { marker: targetMarker, suffix: targetSuffix });
+        const selector = renderWitnessSelector(witnesses, ({ path }, i) => {
+          const marker = i === witnesses.length - 1 ? targetMarker : nameAllocator.createSourceMarker(moduleId, path, condition, layer);
+          ensureScopePath(roots, path).classNames.add(marker);
+          return { marker, suffix: suffixes[i]! };
+        });
         for (const declaration of instance.declarations) rules.push({
           kind: 'contextual-atom', className: targetMarker, selector, wrappers, layer, relationRank,
           source: declaration.source, identity: { ...relationIdentity, ...(moduleOrder.get(declaration, instance) ?? {}), property: declaration.property,
