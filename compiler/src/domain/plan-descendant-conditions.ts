@@ -1,5 +1,5 @@
 import { effectsOfProperty } from './property-effects.js';
-import { exclusiveWitnesses, type BoundDescendantTarget, type ConditionBinding, type DescendantRule } from './selector-bindings.js';
+import { boundPredicates as predicate, exclusiveWitnesses, type BoundDescendantTarget, type ConditionBinding, type DescendantRule } from './selector-bindings.js';
 import { isStructuralPseudoState } from './pseudo-state-capabilities.js';
 
 export type DescendantInstance<R extends DescendantRule> = ConditionBinding<R> & {
@@ -7,14 +7,6 @@ export type DescendantInstance<R extends DescendantRule> = ConditionBinding<R> &
   declarations: R['declarations'];
 };
 
-function predicate<R extends DescendantRule>(instance: ConditionBinding<R>): string[] {
-  if (instance.sourceIndex < 0) return [];
-  const { states, attributes } = instance.rule.nodes[instance.sourceIndex]!;
-  return [
-    ...states!,
-    ...attributes!.map((attribute) => JSON.stringify(attribute))
-  ];
-}
 function sameNode<R extends DescendantRule>(a: DescendantInstance<R>, b: DescendantInstance<R>) {
   return JSON.stringify(a.sourcePath) === JSON.stringify(b.sourcePath);
 }

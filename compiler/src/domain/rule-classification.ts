@@ -29,9 +29,14 @@ export function isStructuralRuntimeRule(rule: ParsedStyleRule): boolean {
 }
 
 /** Compound conditions require actual bound witnesses, not nodes in the ownership-only prefix. */
-export function hasBoundStructuralTests(rule: ParsedStyleRule): boolean {
-  const start = rule.relations.findIndex(edge => edge !== 'descendant');
-  if (start < 0 || rule.externalTarget || rule.externalCondition) return false;
+export function hasBoundNodeTests(rule: ParsedStyleRule): boolean {
+  if (rule.externalTarget || rule.externalCondition) return false;
+  let start = rule.relations.findIndex(edge => edge !== 'descendant');
+  if (start < 0) {
+    const ancestors = rule.nodes.slice(0, -1).flatMap((n, i) => n.states.length || n.attributes.length ? [i] : []);
+    if (ancestors.length !== 1) return false;
+    start = ancestors[0]!;
+  }
   const source = rule.nodes[start]!;
   return rule.nodes.every((n, i) => !n.pseudoElement && !n.hasConditions.length && n.states.every(s => !s.includes('(')) &&
     (i >= start || (!n.states.length && !n.attributes.length))) &&

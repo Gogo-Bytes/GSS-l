@@ -28,6 +28,13 @@ export type ConditionBinding<R extends DescendantRule> = {
 
 type WitnessBinding = Pick<ConditionBinding<DescendantRule>, 'witnesses' | 'rule'>;
 
+export function boundPredicates({ witnesses, rule }: WitnessBinding): string[] {
+  return witnesses.flatMap(w => {
+    const { states, attributes } = rule.nodes[w.nodeIndex]!;
+    return [...states, ...attributes].map(test => JSON.stringify([w.path, test]));
+  });
+}
+
 /** For coactive selectors, start at the same target. Only a matching child/adjacent
  * step backwards guarantees both tests are still on one and the same DOM element. */
 export function exclusiveWitnesses(a: WitnessBinding, b: WitnessBinding): boolean {
@@ -67,7 +74,7 @@ export function bindDescendantConditions<R extends DescendantRule>(
           { nodeIndex: last, path: targetPath, incoming: 'descendant', classWeight: last }
         ] : [{ nodeIndex: last, path: targetPath, incoming: null, classWeight: rule.nodes.length }];
         return { rule, targetPath, sourceIndex, witnesses, ...(sourcePath ? { sourcePath } : {}),
-          specificity: conditionSpecificity(rule, sourceIndex) };
+          specificity: witnesses.reduce((sum, w) => sum + nodeStrength(rule, w.nodeIndex), rule.nodes.length) };
       });
     })
   }));
@@ -89,10 +96,6 @@ export function bindStructuralRelations(rules: readonly ParsedStyleRule[]): read
     return { rule, targetPath, sourceIndex, witnesses, sourcePath: witnesses[0]!.path,
       specificity: witnesses.reduce((sum, w) => sum + nodeStrength(rule, w.nodeIndex), rule.nodes.length) };
   });
-}
-
-function conditionSpecificity(rule: DescendantRule, sourceIndex: number): number {
-  return rule.nodes.length + (sourceIndex < 0 ? 0 : nodeStrength(rule, sourceIndex));
 }
 
 function nodeStrength(rule: DescendantRule, index: number): number {

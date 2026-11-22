@@ -1,3 +1,4 @@
+import { boundPredicates } from '../domain/selector-bindings.js';
 import { getOwnershipPath } from '../domain/ownership-path.js';
 import type { AtomicEmissionContext } from './atomic-emission-context.js';
 import type { ParsedStyleRule } from '../domain/parsed-stylesheet.js';
@@ -35,17 +36,22 @@ export function emitOwnershipRules(input: AtomicEmissionContext & {
         const sourcePath = first.path;
         const authoredPath = getOwnershipPath(rule.nodes);
         const sourceMarker = nameAllocator.createSourceMarker(moduleId, sourcePath, condition, layer);
+        const targetNode = rule.nodes[witnesses[1]!.nodeIndex]!;
+        const targetSuffix = targetNode.attributes.map(renderAttributeCondition).join('') +
+          renderStateSuffix(targetNode.states, moduleId, nameAllocator, roots);
         const relationIdentity: ContextualRelationIdentity = {
           moduleId, layer, condition, sourcePath, targetPath,
           relations: rule.relations.slice(sourceIndex),
-          ...(attribute ? { sourceAttribute: canonicalAttributeCondition(attribute) } : { sourceState: states.join(':') }),
+          ...(targetSuffix || attributes.length > 1 || (attribute && states.length)
+            ? { witnessKey: JSON.stringify(boundPredicates(instance)) }
+            : attribute ? { sourceAttribute: canonicalAttributeCondition(attribute) } : { sourceState: states.join(':') }),
           ...(JSON.stringify(authoredPath) !== JSON.stringify(targetPath) ? { authoredPath } : {})
         };
         const targetMarker = nameAllocator.createTargetMarker(relationIdentity);
         ensureScopePath(roots, sourcePath).classNames.add(sourceMarker);
         scope.classNames.add(targetMarker);
         const selector = renderWitnessSelector(witnesses, (_, i) => i === 0
-          ? { marker: sourceMarker, suffix } : { marker: targetMarker, suffix: '' });
+          ? { marker: sourceMarker, suffix } : { marker: targetMarker, suffix: targetSuffix });
         for (const declaration of instance.declarations) rules.push({
           kind: 'contextual-atom', className: targetMarker, selector, wrappers, layer, relationRank,
           source: declaration.source, identity: { ...relationIdentity, ...(moduleOrder.get(declaration, instance) ?? {}), property: declaration.property,

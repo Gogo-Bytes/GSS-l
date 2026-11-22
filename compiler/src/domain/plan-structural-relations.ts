@@ -1,5 +1,5 @@
 import type { OrderInstance } from './order-occurrences.js';
-import { exclusiveWitnesses, type StructuralBinding } from './selector-bindings.js';
+import { boundPredicates, exclusiveWitnesses, type StructuralBinding } from './selector-bindings.js';
 import { getOwnershipPath } from './ownership-path.js';
 import { effectsOfProperty } from './property-effects.js';
 import type { DescendantInstance } from './plan-descendant-conditions.js';
@@ -27,14 +27,6 @@ type Candidate<I extends ComparisonInstance = ComparisonInstance> = {
 function samePath(a: readonly string[] | undefined, b: readonly string[] | undefined) {
   return JSON.stringify(a) === JSON.stringify(b);
 }
-function predicates(rule: ParsedStyleRule, index: number): string[] {
-  if (index < 0) return [];
-  const { states, attributes } = rule.nodes[index]!;
-  return [
-    ...states!.map((state) => `:${state}`),
-    ...attributes!.map((attribute) => JSON.stringify(attribute))
-  ];
-}
 function implies(a: Constraint, b: Constraint): boolean {
   if (!samePath(a.targetPath, b.targetPath)) return false;
   if (b.observation && JSON.stringify(a.observation) !== JSON.stringify(b.observation)) return false;
@@ -56,7 +48,7 @@ function constraintForInstance(instance: ComparisonInstance): Constraint {
   const edges = witnesses.flatMap(w => w.incoming === null ? [] : [w.incoming]);
   return { targetPath: instance.targetPath,
     ...(instance.sourcePath ? { sourcePath: instance.sourcePath } : {}),
-    predicates: witnesses.flatMap(w => predicates(instance.rule, w.nodeIndex).map(test => JSON.stringify([w.path, test]))),
+    predicates: boundPredicates({ rule: instance.rule, witnesses }),
     // Once a structural edge is present, every edge to the target constrains the match.
     ...(edges.some(edge => edge !== 'descendant') ? { runtime: { edges } } : {}) };
 }

@@ -99,7 +99,7 @@ try {
       `[data-s=p][x][y] ${edge} [data-s="p.b"]:focus{color:blue}`, [
         [tree('x y', target), true, 'blue'], [tree('x', target.replace('button ', 'button y ')), true, 'red'],
         [tree('x y', target), false, 'red'], [tree('x y', shallow), true, 'red'], [tree('x y', target, true), true, withGap]
-      ], edge === ' ' ? 'GSS1101' : 'atomic');
+      ], 'atomic');
   }
   await run('existing child endpoints', '.p[x] > .b[y]:focus{color:blue}',
     '[data-s=p][x] > [data-s="p.b"][y]:focus{color:blue}', [
@@ -131,6 +131,12 @@ try {
     const ref = ['[data-s=p][x] ~ [data-s="p.b"]:focus{color:green}', '[data-s=p][y] ~ [data-s="p.b"]:focus{color:blue}'];
     await run(`two independent witnesses reverse=${reverse}`, (reverse ? rules.reverse() : rules).join(''),
       (reverse ? ref.reverse() : ref).join(''), [[`<i s="p" x></i><i s="p" y></i>${target}`, true, reverse ? 'green' : 'blue']], 'GSS1205');
+    const descendant = ['.p[x] .b[data-mode=a]{color:green}', '.p[x] .b[data-mode=b]{color:blue}'];
+    const descRef = ['[data-s=p][x] [data-s="p.b"][data-mode=a]{color:green}', '[data-s=p][x] [data-s="p.b"][data-mode=b]{color:blue}'];
+    await run(`distinct descendant target conditions reverse=${reverse}`, (reverse ? descendant.reverse() : descendant).join(''),
+      (reverse ? descRef.reverse() : descRef).join(''), [['<div s="p" x><button s="p.b" data-mode=a></button></div>', false, 'green'],
+        ['<div s="p" x><button s="p.b" data-mode=b></button></div>', false, 'blue'],
+        ['<div s="p" x><button s="p.b"></button></div>', false, 'red']], 'atomic');
     const middle = ['.p > .m[y] > .b{color:green}', '.p[x] > .m > .b{color:blue}'];
     const middleRef = ['[data-s=p] > [data-s="p.m"][y] > [data-s="p.m.b"]{color:green}',
       '[data-s=p][x] > [data-s="p.m"] > [data-s="p.m.b"]{color:blue}'];
