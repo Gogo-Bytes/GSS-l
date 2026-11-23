@@ -10,7 +10,7 @@ type DeclarationOrder = { atomRank: number; orderSlot: number };
 /** Project semantic height, fixed property priority and authored occurrence into
  * output slots, then number versions independently per property. Source order is
  * never a semantic edge. Reuse must preserve both version and output position. */
-export function planFixedModuleOrder(rules: readonly ParsedStyleRule[], instances: readonly OrderInstance[]) {
+export function planFixedModuleOrder(rules: readonly ParsedStyleRule[], instances: readonly OrderInstance[], preservesWitnessStrength = false) {
   const { occurrences, key } = collectOrderOccurrences(rules, instances);
   const pending = new Set(occurrences);
   const orders = new Map<string, DeclarationOrder>();
@@ -31,9 +31,7 @@ export function planFixedModuleOrder(rules: readonly ParsedStyleRule[], instance
       }
     }
     if (new Set(family.map(({ declaration }) => declaration)).size < 2) continue;
-    const nativeFunctionFamily = family.some(o => o.instance.rule.functionalStrength) &&
-      family.every(o => o.declaration.property === first.declaration.property);
-    const heights = new Map(semanticOrderHeights(family, nativeFunctionFamily));
+    const heights = new Map(semanticOrderHeights(family, preservesWitnessStrength));
     // Use the same ownership boundary as admission: an unrelated DOM witness must not disable tie ordering.
     const eligible = new Map<string, boolean>();
     const current = family.every(o => isOwnedCurrentSubject(o.instance.rule) && o.declaration.property === first.declaration.property)

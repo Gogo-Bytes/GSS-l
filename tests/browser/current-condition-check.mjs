@@ -5,6 +5,7 @@ export async function checkCurrentConditions(browser) {
   await checkExclusiveWitnesses(browser);
   await checkStructuralEdgePositions(browser);
   await checkChildConditions(browser);
+  await checkStructuralShorthandTie(browser);
   await checkStructuralFunctionComposition(browser);
   await checkEquivalentStructuralFunctions(browser);
   await checkFunctionalCompositionOrder(browser);
@@ -130,6 +131,32 @@ async function checkChildConditions(browser) {
         }, shallow);
         const red = 'rgb(255, 0, 0)', winner = blueLast ? 'rgb(0, 0, 255)' : 'rgb(0, 128, 0)';
         assert.deepEqual(readings, [red, winner, red, red, winner, red, winner, red]);
+      }
+    }
+  } finally { await page.close(); }
+}
+
+async function checkStructuralShorthandTie(browser) {
+  const page = await browser.newPage();
+  try {
+    for (const withFunction of [false, true]) for (const redLast of [false, true]) {
+      const red = `.p${withFunction ? ':is([x],[y][z])' : '[x]'} > .b{background-color:red}`;
+      const blue = `.q[v][w]${withFunction ? '[u]' : ''}{background:var(--paint)}`;
+      const source = '.b{background-color:green}' + (redLast ? blue + red : red + blue);
+      const session = createGssCompilerSession({ projectRoot: '/p' });
+      const update = session.replaceStylesheet({ id: '/p/B.gss', source });
+      assert.deepEqual(update.diagnostics, []);
+      const { p, q } = update.module.scopeSchema.exports;
+      for (const [css, parent, target] of [[source, 'p', 'b q'],
+        [session.finalize().css, p.selfClassName, `${p.targets.b.selfClassName} ${q.selfClassName}`]]) {
+        await page.setContent(`<style>${css}</style><section class="${parent}" x style="--paint:blue no-repeat"><span class="${target}" v w u>B</span></section>`);
+        const readings = await page.locator('span').evaluate(el => {
+          const read = () => { const s = el.ownerDocument.defaultView.getComputedStyle(el); return [s.backgroundColor, s.backgroundRepeat]; };
+          const values = [read()]; el.removeAttribute('v'); values.push(read());
+          el.parentElement.removeAttribute('x'); values.push(read()); el.setAttribute('v', ''); values.push(read()); return values;
+        });
+        assert.deepEqual(readings, [[redLast ? 'rgb(255, 0, 0)' : 'rgb(0, 0, 255)', 'no-repeat'],
+          ['rgb(255, 0, 0)', 'repeat'], ['rgb(0, 128, 0)', 'repeat'], ['rgb(0, 0, 255)', 'no-repeat']]);
       }
     }
   } finally { await page.close(); }

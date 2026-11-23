@@ -14,11 +14,19 @@ export function semanticOrderHeights(family: readonly OrderOccurrence[], withinN
   const strength = ({ instance }: OrderOccurrence) => instance.rule.functionalStrength ??
     (instance.witnesses && !opaque(instance.rule) && instance.rule.nodes.every(n => !n.pseudoElement && !n.states.some(s => s.includes('(')))
       ? `0,${instance.specificity},0` : undefined);
+  // A weaker rule may not lift one member of a native tie over a composable scope.
+  const tiedStrengths = new Set<string>();
+  if (withinNativeStrength) for (const a of family) {
+    const band = strength(a);
+    if (band !== undefined && !tiedStrengths.has(band) && family.some(b => b.declaration !== a.declaration &&
+      propertiesMayOverlapForModuleOrder(a.declaration.property, b.declaration.property) &&
+      strength(b) === band && context(a.instance.targetPath) !== context(b.instance.targetPath))) tiedStrengths.add(band);
+  }
   const precedes = (a: OrderOccurrence, b: OrderOccurrence) => {
     // The browser already resolves unequal strengths. Do not carry that edge into an unrelated native tie.
     if (withinNativeStrength) {
       const left = strength(a), right = strength(b);
-      if (left !== undefined && right !== undefined && left !== right) return false;
+      if (left !== undefined && right !== undefined && left !== right && tiedStrengths.has(right)) return false;
     }
     if (opaque(a.instance.rule) || opaque(b.instance.rule) ||
       !propertiesMayOverlapForModuleOrder(a.declaration.property, b.declaration.property) ||
