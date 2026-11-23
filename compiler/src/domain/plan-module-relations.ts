@@ -1,12 +1,12 @@
-import { getOwnershipPath } from './ownership-path.js';
+import { getOwnershipPath, matchesOwnedTarget } from './ownership-path.js';
 import type { ParsedStyleRule } from './parsed-stylesheet.js';
 import type { OwnedTargetBinding, OrderInstance } from './order-occurrences.js';
 import { bindDescendantConditions, bindStructuralRelations } from './selector-bindings.js';
 import { planDescendantConditions } from './plan-descendant-conditions.js';
 import { planStructuralRelations } from './plan-structural-relations.js';
 import { planPseudoElementConditions } from './plan-pseudo-element-conditions.js';
-import { supportsCurrentSubjectRanks } from './module-local-atom-ranks.js';
-import { isPureOwnershipRule, isCurrentStateRule, isCurrentAttributeRule, isAncestorStateRule, isAncestorAttributeRule } from './rule-classification.js';
+import { propertiesMayOverlapForModuleOrder } from './module-order-policy.js';
+import { isLocalElementRule, isPureOwnershipRule, isCurrentStateRule, isCurrentAttributeRule, isAncestorStateRule, isAncestorAttributeRule } from './rule-classification.js';
 
 /** Coordinate existing proofs in their established diagnostic order. The
  * individual planners still own their relation and specificity semantics. */
@@ -23,8 +23,11 @@ export function planModuleRelations(localRules: readonly ParsedStyleRule[], sema
     const path = getOwnershipPath(nodes);
     return path.map((_, index) => path.slice(0, index + 1));
   });
+  // These other emitters do not share the local element's bound-selector ordering proof.
+  const otherSubjects = semanticRules.filter(r => !isLocalElementRule(r));
   const plannedDescendants = hasDescendantConditions ? planDescendantConditions(bindDescendantConditions(descendantRules, declaredPaths),
-    (target, effect) => supportsCurrentSubjectRanks(semanticRules, target, effect)) : undefined;
+    !otherSubjects.length ? undefined : (target, effect) => !otherSubjects.some(r => (r.externalTarget || matchesOwnedTarget(getOwnershipPath(r.nodes), target)) &&
+      r.declarations.some(d => propertiesMayOverlapForModuleOrder(effect, d.property)))) : undefined;
   if (plannedDescendants?.ambiguity) return { ambiguity: plannedDescendants.ambiguity };
   const plannedStructural = planStructuralRelations(bindStructuralRelations(contextualRules), plannedDescendants?.instances ?? [], hasRules);
   if (plannedStructural.ambiguity) return { ambiguity: plannedStructural.ambiguity };

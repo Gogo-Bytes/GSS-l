@@ -57,8 +57,6 @@ describe('Compiler structural relation implication', () => {
     '.input[data-mode] + .label { color: red; } .input[data-mode=ready] + .label { color: blue; }',
     '.input[data-mode] > .label { color: red; } .input[data-mode=""] > .label { color: blue; }',
     '.input:checked + .label { color: red; } .input:disabled ~ .label { color: blue; }',
-    '.input:checked + .label { color: red; } .input .label:has(:checked) { color: blue; }',
-    '.root .input:checked ~ .label { color: red; } .root .input .label:has(.observed) { color: blue; }',
     '.input[data-mode=on] ~ .label { color: red; } .input[data-mode=off] ~ .label { color: blue; }',
     '.input[type=button] + .label { color:red } .input[type=BUTTON] + .label { color:blue }',
     '.input:checked ~ .label { color: red; } .input:not(:checked) ~ .label { color: blue; }',
@@ -67,7 +65,20 @@ describe('Compiler structural relation implication', () => {
     '.input:checked .label { color: red; } .input:disabled + .label { color: blue; }',
     '.input:checked > .middle ~ .label { color: red; } .input:not(:checked) > .middle ~ .label { color: blue; }',
     '.input:checked + .label { margin: 1px; } .input:disabled ~ .label { margin-left: 2px; }'
-  ])('rejects incomparable coactive effects transactionally: %s', (source) => {
+  ])('keeps both local rules; unsupported deep fallback remains transactional: %s', (source) => {
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    expect(session.replaceStylesheet({ id, source })).toMatchObject({ committed: true, diagnostics: [] });
+    expect(session.finalize().manifest.rules).toHaveLength(2);
+    const before = session.finalize();
+    expect(session.replaceStylesheet({ id, source: source + ' .unrelated { unknown-effect: 1; }' }))
+      .toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1101' }] });
+    expect(session.finalize()).toEqual(before);
+  });
+
+  it.each([
+    '.input:checked + .label { color: red; } .input .label:has(:checked) { color: blue; }',
+    '.root .input:checked ~ .label { color: red; } .root .input .label:has(.observed) { color: blue; }'
+  ])('preserves the structural/observation conflict diagnostic: %s', (source) => {
     const session = createGssCompilerSession({ projectRoot: '/project' });
     expect(session.replaceStylesheet({ id, source: '.input + .label { color: green; }' }).committed).toBe(true);
     const before = session.finalize();
@@ -138,9 +149,8 @@ describe('Compiler structural relation implication', () => {
     '.input:checked + .label { color: red; } .input:disabled + .label { color: blue; } .input:checked:disabled:hover + .label { color: green; }'
   ])('does not confuse a possible common witness with full coactivity coverage: %s', (source) => {
     const session = createGssCompilerSession({ projectRoot: '/project' });
-    expect(session.replaceStylesheet({ id, source }).committed).toBe(false);
-    expect(session.finalize().css).toBe('');
-    expect(session.getScopeSchema(id)).toBeUndefined();
+    expect(session.replaceStylesheet({ id, source })).toMatchObject({ committed: true, diagnostics: [] });
+    expect(colorRules(session.finalize().css).map(r => r.value)).toEqual(expect.arrayContaining(['red', 'blue']));
   });
 
   it.each([

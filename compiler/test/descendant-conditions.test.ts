@@ -32,7 +32,7 @@ describe('Compiler descendant condition ownership', () => {
 
   it('binds ancestor presence to the declared source prefix', () => {
     const { session, scope } = compile('.group .panel .leaf { color: black; } .panel[data-ready] .leaf { color: red; }');
-    const source = scope('group.panel').selfClassName.split(' ').find((name) => name.startsWith('gss-s'));
+    const source = scope('group.panel').selfClassName;
     const target = scope('group.panel.leaf').selfClassName.split(' ').find((name) => name.startsWith('gss-t'));
     expect(source).toBeDefined();
     expect(target).toBeDefined();
@@ -52,8 +52,7 @@ describe('Compiler descendant condition ownership', () => {
     expect(rules('button')[0]!.selector.endsWith(suffix)).toBe(true);
   });
 
-  it.each(['.button[disabled]::before', '.button[ns|disabled]', '.button[disabled i]', '.button[data-x=v Z]',
-    '.a[data-on] .mid > .button:focus', '.a[x] .mid[y] .button:is(.active)'])('keeps unsupported attribute combinations transactional: %s', (selector) => {
+  it.each(['.button[disabled]::before', '.button[ns|disabled]', '.button[disabled i]', '.button[data-x=v Z]'])('keeps unsupported attribute combinations transactional: %s', (selector) => {
     const { session } = compile('.button[disabled] { color: red; }');
     const before = session.finalize();
     const schema = session.getScopeSchema('/project/Tree.gss');
@@ -105,7 +104,7 @@ describe('Compiler descendant condition ownership', () => {
     const panel = compiler.getScopeSchema('/project/Tree.gss')!.exports.group!.targets.panel!;
     const target = panel.targets.leaf!.selfClassName.split(' ').find((name) => name.startsWith('gss-t'));
     expect(target).toBeDefined();
-    const source = panel.selfClassName.split(' ').find((name) => name.startsWith('gss-s'));
+    const source = panel.selfClassName;
     expect(source).toBeDefined();
     expect(compiler.finalize().css).toContain(`.${source}[data-mode="ready"] .${target}`);
   });
@@ -290,21 +289,17 @@ describe('Compiler descendant condition cascade', () => {
     '.a:checked .c { color:red } .a:disabled .c { color:blue } .a:checked:disabled .c { color:green }',
     '.a[data-mode=ready] .c { color: red; } .a .c:checked { color: blue; }',
     '.a:disabled .b .c { color: red; } .b:disabled .a .c { color: blue; } .a .b .a .b .c {}'
-  ])('rejects incomparable equal-specificity runtime conflicts transactionally: %s', (source) => {
-    const { session } = compile('.safe { color: green; }');
-    const before = session.finalize();
-    const replacement = session.replaceStylesheet({ id: '/project/Tree.gss', source });
-    expect(replacement.committed).toBe(false);
-    expect(replacement.diagnostics[0]?.reason).toBe('ambiguous-coactive-state-conflict');
-    expect(session.finalize()).toEqual(before);
+  ])('retains incomparable equal-specificity declarations: %s', (source) => {
+    const { session } = compile(source);
+    expect(session.finalize().manifest.rules.map(r => r.value)).toEqual(expect.arrayContaining(['red', 'blue']));
   });
 
-  it('does not route a fatal condition ambiguity through preserved-property fallback', () => {
+  it('preserves shallow unknown writes under independent conditions', () => {
     const session = createGssCompilerSession({ projectRoot: '/project' });
     const result = session.replaceStylesheet({ id: '/project/Tree.gss', source:
       '.c:checked { future-paint: red; } .c:disabled { future-paint: blue; }' });
-    expect(result.committed).toBe(false);
-    expect(result.diagnostics[0]?.reason).toBe('ambiguous-coactive-state-conflict');
+    expect(result).toMatchObject({ committed: true, module: { compilationMode: 'preserved' } });
+    expect(session.finalize().css).toMatch(/:checked[^}]*future-paint: red;[^}]*\}[^{]*:disabled[^}]*future-paint: blue;/);
   });
 
   it('allows unequal specificity, importance, mutually exclusive attributes and explicit current intersections', () => {

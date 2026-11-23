@@ -14,13 +14,16 @@ export function semanticOrderHeights(family: readonly OrderOccurrence[], withinN
   const strength = ({ instance }: OrderOccurrence) => instance.rule.functionalStrength ??
     (instance.witnesses && !opaque(instance.rule) && instance.rule.nodes.every(n => !n.pseudoElement && !n.states.some(s => s.includes('(')))
       ? `0,${instance.specificity},0` : undefined);
-  // A weaker rule may not lift one member of a native tie over a composable scope.
+  // Weak refinements must not lift just one competitor, within one target or across composable scopes.
+  const independent = (a: OrderOccurrence, b: OrderOccurrence) => context(a.instance.targetPath) !== context(b.instance.targetPath) ||
+    (!strictlyRefines(a.instance, b.instance) && !strictlyRefines(b.instance, a.instance) &&
+      (JSON.stringify(tests(a)) !== JSON.stringify(tests(b)) || JSON.stringify(a.instance.rule.relations) !== JSON.stringify(b.instance.rule.relations)));
   const tiedStrengths = new Set<string>();
   if (withinNativeStrength) for (const a of family) {
     const band = strength(a);
     if (band !== undefined && !tiedStrengths.has(band) && family.some(b => b.declaration !== a.declaration &&
       propertiesMayOverlapForModuleOrder(a.declaration.property, b.declaration.property) &&
-      strength(b) === band && context(a.instance.targetPath) !== context(b.instance.targetPath))) tiedStrengths.add(band);
+      strength(b) === band && independent(a, b))) tiedStrengths.add(band);
   }
   const precedes = (a: OrderOccurrence, b: OrderOccurrence) => {
     // The browser already resolves unequal strengths. Do not carry that edge into an unrelated native tie.

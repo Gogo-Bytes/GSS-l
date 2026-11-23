@@ -81,13 +81,13 @@ export type StructuralBinding = ConditionBinding<ParsedStyleRule> & { readonly s
 export function bindStructuralRelations(rules: readonly ParsedStyleRule[]): readonly StructuralBinding[] {
   return rules.map(rule => {
     const targetPath = getOwnershipPath(rule.nodes);
-    const sourceIndex = rule.relations.findIndex(relation => relation !== 'descendant');
-    if (sourceIndex < 0) throw new Error('Structural binding requires a runtime relation.');
-    const witnesses = rule.nodes.slice(sourceIndex).map((_, i) => {
-      const nodeIndex = sourceIndex + i;
-      return { nodeIndex, path: targetPath.slice(0, nodeIndex + 1),
-        incoming: i === 0 ? null : rule.relations[nodeIndex - 1]!, classWeight: i === 0 ? sourceIndex + 1 : 1 };
-    });
+    const firstEdge = rule.relations.findIndex(relation => relation !== 'descendant');
+    if (firstEdge < 0) throw new Error('Structural binding requires a runtime relation.');
+    // Before the structural suffix only tested nodes need actual ancestors; folded names still carry strength.
+    const indices = rule.nodes.flatMap((node, i) => i >= firstEdge || node.states.length || node.attributes.length ? [i] : []);
+    const sourceIndex = indices[0]!;
+    const witnesses = indices.map((nodeIndex, i) => ({ nodeIndex, path: targetPath.slice(0, nodeIndex + 1),
+      incoming: i === 0 ? null : rule.relations[nodeIndex - 1]!, classWeight: nodeIndex - (indices[i - 1] ?? -1) }));
     return { rule, targetPath, sourceIndex, witnesses, sourcePath: witnesses[0]!.path,
       specificity: witnesses.reduce((sum, w) => sum + nodeStrength(rule, w.nodeIndex), rule.nodes.length) };
   });

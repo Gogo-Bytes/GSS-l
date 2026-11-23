@@ -110,7 +110,7 @@ try {
     '[data-s=p][x] > [data-s="p.b"][y]{color:blue}[data-s=p][y] > [data-s="p.b"][x]{color:green}', [
       ['<div s="p" x><button s="p.b" y></button></div>', false, 'blue'],
       ['<div s="p" x y><button s="p.b" x y></button></div>', false, 'green']
-    ], 'GSS1205');
+    ], 'atomic');
   await run('ownership prefix + middle witness', '.layout .p[x] > .m[z] + .b:focus{color:blue}',
     '[data-s="layout.p"][x] > [data-s="layout.p.m"][z] + [data-s="layout.p.m.b"]:focus{color:blue}',
     [['<div s="layout.p" x><i s="layout.p.m" z></i><button s="layout.p.m.b"></button></div>', true, 'blue'],
@@ -140,7 +140,7 @@ try {
     const rules = ['.p[x] ~ .b:focus{color:green}', '.p[y] ~ .b:focus{color:blue}'];
     const ref = ['[data-s=p][x] ~ [data-s="p.b"]:focus{color:green}', '[data-s=p][y] ~ [data-s="p.b"]:focus{color:blue}'];
     await run(`two independent witnesses reverse=${reverse}`, (reverse ? rules.reverse() : rules).join(''),
-      (reverse ? ref.reverse() : ref).join(''), [[`<i s="p" x></i><i s="p" y></i>${target}`, true, reverse ? 'green' : 'blue']], 'GSS1205');
+      (reverse ? ref.reverse() : ref).join(''), [[`<i s="p" x></i><i s="p" y></i>${target}`, true, reverse ? 'green' : 'blue']], 'atomic');
     const descendant = ['.p[x] .b[data-mode=a]{color:green}', '.p[x] .b[data-mode=b]{color:blue}'];
     const descRef = ['[data-s=p][x] [data-s="p.b"][data-mode=a]{color:green}', '[data-s=p][x] [data-s="p.b"][data-mode=b]{color:blue}'];
     await run(`distinct descendant target conditions reverse=${reverse}`, (reverse ? descendant.reverse() : descendant).join(''),
@@ -151,7 +151,7 @@ try {
     const middleRef = ['[data-s=p] > [data-s="p.m"][y] > [data-s="p.m.b"]{color:green}',
       '[data-s=p][x] > [data-s="p.m"] > [data-s="p.m.b"]{color:blue}'];
     await run(`middle contributes equal strength reverse=${reverse}`, (reverse ? middle.reverse() : middle).join(''),
-      (reverse ? middleRef.reverse() : middleRef).join(''), [[chain('x', 'y'), false, reverse ? 'green' : 'blue']], 'GSS1205');
+      (reverse ? middleRef.reverse() : middleRef).join(''), [[chain('x', 'y'), false, reverse ? 'green' : 'blue']], 'atomic');
     const pairs = ['.p + .b{color:green}', '.p ~ .b{color:blue}'];
     const native = ['[data-s=p] + [data-s="p.b"]{color:green}', '[data-s=p] ~ [data-s="p.b"]{color:blue}'];
     await run(`ADR-0013 order control reverse=${reverse}`, (reverse ? pairs.reverse() : pairs).join(''),

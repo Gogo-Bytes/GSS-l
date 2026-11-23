@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createGssCompilerSession } from '@gss-l/compiler';
 
 export async function checkCurrentConditions(browser) {
+  await checkConditionedPrefix(browser);
   await checkExclusiveWitnesses(browser);
   await checkStructuralEdgePositions(browser);
   await checkChildConditions(browser);
@@ -39,6 +40,29 @@ export async function checkCurrentConditions(browser) {
   }
 }
 
+async function checkConditionedPrefix(browser) {
+  const page = await browser.newPage();
+  try {
+    for (const edge of ['>', ' ']) {
+      const source = `.a:is([x]) .gap .mid[y] ${edge} .b:is(.active){color:blue}`;
+      const session = createGssCompilerSession({ projectRoot: '/p' });
+      const update = session.replaceStylesheet({ id: '/p/Chain.gss', source });
+      assert.deepEqual(update.diagnostics, []);
+      const { a, active } = update.module.scopeSchema.exports, mid = a.targets.gap.targets.mid;
+      const native = `.a:is([x]) .m[y] ${edge} .b:is(.active){color:blue}`;
+      for (const [css, parent, middle, target, flag] of [[native, 'a', 'm', 'b', 'active'],
+        [session.finalize().css, a.selfClassName, mid.selfClassName, mid.targets.b.selfClassName, active.selfClassName]]) {
+        for (const [x, y, enabled, gap, hit] of [[true, true, true, false, true], [false, true, true, false, false],
+          [true, false, true, false, false], [true, true, false, false, false], [true, true, true, true, edge === ' ']]) {
+          const leaf = `<i class="${target} ${enabled ? flag : ''}"></i>`;
+          await page.setContent(`<style>i{color:red}${css}</style><div class="${parent}" ${x ? 'x' : ''}><div class="${middle}" ${y ? 'y' : ''}>${gap ? `<div>${leaf}</div>` : leaf}</div></div>`);
+          assert.equal(await page.locator('i').evaluate(el => el.ownerDocument.defaultView.getComputedStyle(el).color), hit ? 'rgb(0, 0, 255)' : 'rgb(255, 0, 0)');
+        }
+      }
+    }
+  } finally { await page.close(); }
+}
+
 async function checkExclusiveWitnesses(browser) {
   const page = await browser.newPage();
   const red = 'rgb(255, 0, 0)', blue = 'rgb(0, 0, 255)';
@@ -54,7 +78,29 @@ async function checkExclusiveWitnesses(browser) {
         ...selectors.map(s => el.matches(s)), el.ownerDocument.defaultView.getComputedStyle(el).color
       ], [left, right]), [true, true, reverse ? red : blue]);
       const session = createGssCompilerSession({ projectRoot: '/p' });
-      assert.equal(session.replaceStylesheet({ id: '/p/S.gss', source }).diagnostics[0]?.code, 'GSS1205');
+      const update = session.replaceStylesheet({ id: '/p/S.gss', source });
+      assert.deepEqual(update.diagnostics, []);
+      const a = update.module.scopeSchema.exports.a;
+      assert.equal(new Set(a.selfClassName.split(' ')).size, 2);
+      assert.equal(new Set(a.targets.b.selfClassName.split(' ')).size, 2);
+      const marked = html.replaceAll('class=a', `class="${a.selfClassName}"`).replace('class=b', `class="${a.targets.b.selfClassName}"`);
+      await page.setContent(`<style>${session.finalize().css}</style>${marked}`);
+      assert.equal(await page.locator('i').evaluate(el => el.ownerDocument.defaultView.getComputedStyle(el).color), reverse ? red : blue);
+    }
+    // A weaker rule refining only one side of the tie must not lift its equal-strength competitor.
+    for (const reverse of [false, true]) {
+      const on = '.a[data-mode=on][x] .b{color:red}', off = '.a[data-mode=off][y] .b{color:blue}';
+      const source = '.a[x] .b{color:orange}' + (reverse ? off + on : on + off);
+      const session = createGssCompilerSession({ projectRoot: '/p' });
+      const update = session.replaceStylesheet({ id: '/p/Nested.gss', source });
+      assert.deepEqual(update.diagnostics, []);
+      const a = update.module.scopeSchema.exports.a;
+      for (const [css, parent, target] of [[source, 'a', 'b'], [session.finalize().css, a.selfClassName, a.targets.b.selfClassName]]) {
+        for (const [outer, inner, expected] of [[true, true, reverse ? red : blue], [true, false, red], [false, true, blue], [false, false, 'rgb(0, 128, 0)']]) {
+          await page.setContent(`<style>i{color:green}${css}</style><div class="${parent}" ${outer ? 'data-mode=on x' : ''}><div class="${parent}" ${inner ? 'data-mode=off y' : ''}><i class="${target}"></i></div></div>`);
+          assert.equal(await page.locator('i').evaluate(el => el.ownerDocument.defaultView.getComputedStyle(el).color), expected);
+        }
+      }
     }
     const source = '.a[x] > .b[data-mode=A]{color:red}.a[y] > .b[data-mode=a]{color:blue}';
     const session = createGssCompilerSession({ projectRoot: '/p' });

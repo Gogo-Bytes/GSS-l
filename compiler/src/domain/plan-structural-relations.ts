@@ -1,5 +1,6 @@
 import type { OrderInstance } from './order-occurrences.js';
 import { boundPredicates, exclusiveWitnesses, type StructuralBinding } from './selector-bindings.js';
+import { isLocalElementRule } from './rule-classification.js';
 import { getOwnershipPath } from './ownership-path.js';
 import { effectsOfProperty } from './property-effects.js';
 import type { DescendantInstance } from './plan-descendant-conditions.js';
@@ -11,7 +12,7 @@ type Constraint = {
   targetPath: readonly string[];
   sourcePath?: readonly string[];
   predicates: readonly string[];
-  runtime?: { edges: readonly SelectorRelation[] };
+  runtime?: { edges: readonly SelectorRelation[]; paths: readonly (readonly string[])[] };
   observation?: ParsedHasCondition | readonly ParsedHasGroup[];
 };
 export type StructuralInstance = DescendantInstance<ParsedStyleRule>;
@@ -34,6 +35,7 @@ function implies(a: Constraint, b: Constraint): boolean {
     if (!a.runtime || a.runtime.edges.length < b.runtime.edges.length) return false;
     // Both are suffixes of the same owned path. Extra earlier runtime edges may
     // be forgotten; an ownership prefix never supplies a missing runtime edge.
+    if (JSON.stringify(a.runtime.paths.slice(-b.runtime.paths.length)) !== JSON.stringify(b.runtime.paths)) return false;
     const aligned = a.runtime.edges.slice(a.runtime.edges.length - b.runtime.edges.length);
     if (!aligned.every((edge, index) => edge === b.runtime!.edges[index] ||
       (edge === 'adjacent' && b.runtime!.edges[index] === 'general-sibling'))) return false;
@@ -50,7 +52,7 @@ function constraintForInstance(instance: ComparisonInstance): Constraint {
     ...(instance.sourcePath ? { sourcePath: instance.sourcePath } : {}),
     predicates: boundPredicates({ rule: instance.rule, witnesses }),
     // Once a structural edge is present, every edge to the target constrains the match.
-    ...(edges.some(edge => edge !== 'descendant') ? { runtime: { edges } } : {}) };
+    ...(edges.some(edge => edge !== 'descendant') ? { runtime: { edges, paths: witnesses.map(w => w.path) } } : {}) };
 }
 
 /** Strict implication at one emission context. Numeric relationRank is deliberately
@@ -112,6 +114,8 @@ function ambiguity(candidates: readonly Candidate[]): string | undefined {
   for (let index = 0; index < candidates.length; index++) {
     const left = candidates[index]!;
     for (const right of candidates.slice(index + 1)) {
+      // Local bound selectors compete in CSS; keep diagnostics for other subject kinds.
+      if (isLocalElementRule(left.instance.rule) && isLocalElementRule(right.instance.rule)) continue;
       if ((!left.constraint.runtime && !right.constraint.runtime) || !sameContext(left.instance, right.instance) ||
         compareSpecificity(left, right) !== 0 || implies(left.constraint, right.constraint) ||
         implies(right.constraint, left.constraint) || exclusive(left, right)) continue;

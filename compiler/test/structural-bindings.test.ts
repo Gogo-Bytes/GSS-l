@@ -30,7 +30,7 @@ describe('structural binding before optimization', () => {
   it('counts both endpoint tests without identifying a parent test with a child test', () => {
     const bindings = bindStructuralRelations(rules('.a[x] > .b:focus { color:red } .a:focus > .b[x] { color:blue }'));
     expect(bindings.map(binding => binding.specificity)).toEqual([4, 4]);
-    expect(planStructuralRelations(bindings, [], []).ambiguity).toContain('ambiguous color');
+    expect(planStructuralRelations(bindings, [], []).instances.map(i => i.declarations[0]!.value)).toEqual(['red', 'blue']);
   });
 
   it('cannot reinterpret a pure ownership path as a runtime relation', () => {
@@ -70,11 +70,11 @@ describe('structural binding before optimization', () => {
     expect(JSON.stringify(bindings)).toBe(before);
   });
 
-  it('does not confuse successful binding with a permitted coactive conflict', () => {
+  it('retains both conditioned structural bindings', () => {
     const bindings = bindStructuralRelations(rules('.root:hover > .item { color:red } .root:focus > .item { color:blue }'));
     const before = JSON.stringify(bindings);
     expect(bindings).toHaveLength(2);
-    expect(planStructuralRelations(bindings, [], []).ambiguity).toContain('ambiguous color');
+    expect(planStructuralRelations(bindings, [], []).instances.map(i => i.rule)).toEqual(bindings.map(b => b.rule));
     expect(JSON.stringify(bindings)).toBe(before);
   });
 

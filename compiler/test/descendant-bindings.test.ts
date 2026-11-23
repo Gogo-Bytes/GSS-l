@@ -59,13 +59,12 @@ describe('descendant binding before optimization', () => {
     expect(JSON.stringify(targets)).toBe(before);
   });
 
-  it('separates successful binding from a rejected coactive-color policy', () => {
+  it('keeps both native coactive colors', () => {
     const targets = bind('.item:hover { color:red } .item:focus { color:blue }', [['item']]);
     const before = JSON.stringify(targets);
     expect(targets[0]!.bindings).toHaveLength(2);
     const planned = planDescendantConditions(targets);
-    expect(planned.ambiguity).toContain('ambiguous color');
-    expect(planned.instances).toEqual([]);
+    expect(planned.instances.map(i => i.declarations[0]!.value)).toEqual(['red', 'blue']);
     expect(JSON.stringify(targets)).toBe(before);
   });
 

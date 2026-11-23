@@ -1917,10 +1917,8 @@ describe('GssCompilerSession', () => {
         '.control:focus { color: blue; }'
       ].join('\n')
     });
-    expect(replacement).toMatchObject({
-      committed: false,
-      diagnostics: [{ code: 'GSS1205', reason: 'ambiguous-coactive-state-conflict' }]
-    });
+    expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
+    expect(compiler.finalize().manifest.rules.map(r => r.value)).toEqual(['red', 'blue']);
   });
 
   it('accepts mutually exclusive positive and negative state conditions', () => {
@@ -1994,7 +1992,7 @@ describe('GssCompilerSession', () => {
     expect(compiler.finalize().css).toContain('--state_focus_3a_hover--property_color--value_purple');
   });
 
-  it('rejects a coactive conflict between different DOM witnesses transactionally', () => {
+  it('retains colors bound to different DOM witnesses', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
     const id = '/project/src/button.gss';
     compiler.replaceStylesheet({ id, source: '.button { display: block; }' });
@@ -2008,18 +2006,9 @@ describe('GssCompilerSession', () => {
     });
 
     expect(replacement).toMatchObject({
-      committed: false,
-      generation: 1,
-      diagnostics: [{
-        code: 'GSS1205',
-        severity: 'error',
-        phase: 'resolve',
-        reason: 'ambiguous-coactive-state-conflict'
-      }]
+      committed: true, generation: 2, diagnostics: []
     });
-    expect(compiler.finalize().css).toBe(
-      `.${displayBlockClass} {\n  display: block;\n}`
-    );
+    expect(compiler.finalize().manifest.rules.map(r => r.value)).toEqual(['red', 'blue']);
   });
 
   it('combines an ARIA condition with a sibling runtime relation', () => {
@@ -2030,7 +2019,7 @@ describe('GssCompilerSession', () => {
       source: '.input[aria-invalid="true"] + .hint { color: red; }'
     });
 
-    const sourceMarker = 'gss-s--module_src_2f_field_2e_gss--path_input';
+    const sourceMarker = 'gss-c--module_src_2f_field_2e_gss--relation_adjacent--condition_attribute_3a_aria_2d_invalid_3d_true--position_0--path_input--target_input_2f_hint';
     const targetMarker =
       'gss-t--module_src_2f_field_2e_gss--relation_adjacent--condition_attribute_3a_aria_2d_invalid_3d_true--source_input--target_input_2f_hint';
     expect(replacement.diagnostics).toEqual([]);
@@ -2047,7 +2036,7 @@ describe('GssCompilerSession', () => {
       source: '.group[aria-expanded="true"] .item { color: red; }'
     });
 
-    const sourceMarker = 'gss-s--module_src_2f_disclosure_2e_gss--path_group';
+    const sourceMarker = 'gss-c--module_src_2f_disclosure_2e_gss--relation_descendant--condition_attribute_3a_aria_2d_expanded_3d_true--position_0--path_group--target_group_2f_item';
     const targetMarker =
       'gss-t--module_src_2f_disclosure_2e_gss--relation_descendant--condition_attribute_3a_aria_2d_expanded_3d_true--source_group--target_group_2f_item';
     expect(replacement.diagnostics).toEqual([]);
@@ -2087,7 +2076,7 @@ describe('GssCompilerSession', () => {
       source: '.field:focus-within > .hint { color: red; }'
     });
 
-    const sourceMarker = 'gss-s--module_src_2f_field_2e_gss--path_field';
+    const sourceMarker = 'gss-c--module_src_2f_field_2e_gss--relation_child--state_focus_2d_within--position_0--path_field--target_field_2f_hint';
     const targetMarker =
       'gss-t--module_src_2f_field_2e_gss--relation_child--state_focus_2d_within--source_field--target_field_2f_hint';
     expect(replacement.diagnostics).toEqual([]);
@@ -2147,7 +2136,7 @@ describe('GssCompilerSession', () => {
       source: '.father:hover .son { color: red; }'
     });
 
-    const sourceMarker = 'gss-s--module_src_2f_family_2e_gss--path_father';
+    const sourceMarker = 'gss-c--module_src_2f_family_2e_gss--relation_descendant--state_hover--position_0--path_father--target_father_2f_son';
     const targetMarker =
       'gss-t--module_src_2f_family_2e_gss--relation_descendant--state_hover--source_father--target_father_2f_son';
     expect(replacement.diagnostics).toEqual([]);

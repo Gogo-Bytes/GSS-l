@@ -97,13 +97,15 @@ it.each([forward.replaceAll('background-color', 'color'), `@media (min-width: 1p
   expect(rules.map(rule => rule.value)).toEqual(source.includes('green') ? ['red', 'blue', 'green'] : ['red', 'blue']);
 });
 
-const unsupported = [
+const localCompetitors = [
   { name: 'functional refinement', source: forward + ' .button:where(:focus) { background-color: green; }' },
   { name: 'is refinement', source: forward + ' .button:is(:focus) { background-color: green; }' },
   { name: 'ancestor', source: forward + ' .root:hover .button { background-color: green; }', target: 'root.button' },
   { name: 'runtime relation', source: forward + ' .root > .button { background-color: green; }', target: 'root.button' },
+  { name: 'shorthand', source: forward + ' .button { background: green; }' }
+];
+const unsupported = [
   { name: 'observation', source: forward + ' .button:has(.child) { background-color: green; }' },
-  { name: 'shorthand', source: forward + ' .button { background: green; }' },
   { name: 'pseudo competitor', source: forward + ' .button::before { background-color: green; }' },
   { name: 'different-anchor external background', source: forward + ' .root :global([aria-pressed="true"]) { background-color: green; }' },
   { name: 'different-anchor external shorthand', source: forward + ' .root :global([aria-pressed="true"]) { background: green; }' }
@@ -141,7 +143,13 @@ describe.each(['error', 'preserve-module'] as const)('bounded rank rejection und
     expect(session.finalize()).toEqual(before);
   });
 
-  it.each(unsupported)('preserves exact GSS1205 and last-good state: $name', ({ source, target }) => {
+  it.each(localCompetitors)('keeps both local conditional colors with $name', ({ source }) => {
+    const session = createGssCompilerSession({ projectRoot: '/project', atomizationFallback });
+    expect(session.replaceStylesheet({ id: '/project/A.gss', source })).toMatchObject({ committed: true, diagnostics: [] });
+    expect(values(session)).toEqual(expect.arrayContaining(['red', 'blue']));
+  });
+
+  it.each(unsupported)('preserves exact GSS1205 and last-good state: $name', ({ source }) => {
     const session = createGssCompilerSession({ projectRoot: '/project', atomizationFallback });
     expect(session.replaceStylesheet({ id: '/project/A.gss', source: forward }).committed).toBe(true);
     const before = session.finalize();
@@ -150,7 +158,7 @@ describe.each(['error', 'preserve-module'] as const)('bounded rank rejection und
     expect(result.committed).toBe(false);
     expect(result.diagnostics).toEqual([{
       code: 'GSS1205', severity: 'error', phase: 'resolve', id: '/project/A.gss', reason: 'ambiguous-coactive-state-conflict',
-      message: `Coactive descendant conditions assign ambiguous background-color on ${target ?? 'button'}.`
+      message: 'Coactive descendant conditions assign ambiguous background-color on button.'
     }]);
     expect(session.finalize()).toEqual(before);
     expect(session.getScopeSchema('/project/A.gss')).toEqual(schema);

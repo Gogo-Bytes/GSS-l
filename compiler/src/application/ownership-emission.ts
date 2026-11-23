@@ -50,7 +50,7 @@ export function emitOwnershipRules(input: AtomicEmissionContext & {
         };
         const targetMarker = nameAllocator.createTargetMarker(relationIdentity);
         const selector = renderWitnessSelector(witnesses, ({ path }, i) => {
-          const marker = i === witnesses.length - 1 ? targetMarker : nameAllocator.createSourceMarker(moduleId, path, condition, layer);
+          const marker = i === witnesses.length - 1 ? targetMarker : nameAllocator.createContextMarker(relationIdentity, i, path);
           ensureScopePath(roots, path).classNames.add(marker);
           return { marker, suffix: suffixes[i]! };
         });

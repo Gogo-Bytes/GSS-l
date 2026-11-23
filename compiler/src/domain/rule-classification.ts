@@ -28,20 +28,10 @@ export function isStructuralRuntimeRule(rule: ParsedStyleRule): boolean {
     rule.nodes.every((node) => node.pseudoElement === null);
 }
 
-/** Compound conditions require actual bound witnesses, not nodes in the ownership-only prefix. */
-export function hasBoundNodeTests(rule: ParsedStyleRule): boolean {
-  if (rule.externalTarget || rule.externalCondition) return false;
-  let start = rule.relations.findIndex(edge => edge !== 'descendant');
-  if (start < 0) {
-    const ancestors = rule.nodes.slice(0, -1).flatMap((n, i) => n.states.length || n.attributes.length ? [i] : []);
-    if (!ancestors.length) return false;
-    start = ancestors[0]!;
-  }
-  const source = rule.nodes[start]!;
-  return rule.nodes.every((n, i) => !n.pseudoElement && !n.hasConditions.length && n.states.every(s => !s.includes('(')) &&
-    (i >= start || (!n.states.length && !n.attributes.length))) &&
-    (rule.nodes.slice(start + 1).some(n => n.states.length || n.attributes.length) || source.attributes.length > 1 ||
-      source.attributes.some(a => a.operator === 'native') || (source.attributes.length > 0 && source.states.length > 0));
+/** Linear local selectors have no observation, external subject or pseudo-element emitter. */
+export function isLocalElementRule(rule: ParsedStyleRule): boolean {
+  return !rule.externalTarget && !rule.externalCondition && rule.nodes.every(n =>
+    !n.pseudoElement && !n.hasConditions.length && n.states.every(s => !s.includes(':global(')));
 }
 
 /** An ownership prefix selects a scope; it is not a second DOM witness. */

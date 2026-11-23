@@ -15,10 +15,10 @@ function implies<R extends DescendantRule>(a: DescendantInstance<R>, b: Descenda
   return required.length === 0 || (sameNode(a, b) && required.every((part) => predicate(a).includes(part)));
 }
 
-/** Closed predicates retain their winner proof; current-subject ties need an eligible order projection. */
+/** Distinct local conditions survive; only other subject kinds require the legacy conflict guard. */
 export function planDescendantConditions<R extends DescendantRule>(
   targets: readonly BoundDescendantTarget<R>[],
-  canRankTarget: (target: readonly string[], effect: string) => boolean = () => false
+  canUseNativeCascade?: (target: readonly string[], effect: string) => boolean
 ): { instances: DescendantInstance<R>[]; candidates: DescendantInstance<R>[]; ambiguity?: string } {
   const allCandidates: DescendantInstance<R>[] = [];
   const instances: DescendantInstance<R>[] = [];
@@ -47,6 +47,8 @@ export function planDescendantConditions<R extends DescendantRule>(
         if (declarations.length) retained.push({ ...instance, declarations });
       }
     }
+    instances.push(...retained);
+    if (!canUseNativeCascade) continue;
     for (let i = 0; i < retained.length; i++) {
       const left = retained[i]!;
       for (const right of retained.slice(i + 1)) {
@@ -57,6 +59,7 @@ export function planDescendantConditions<R extends DescendantRule>(
         for (const a of left.declarations) for (const b of right.declarations) {
           if (a.important !== b.important || (a.property === b.property && a.value === b.value)) continue;
           for (const effect of effectsOfProperty(a.property).filter((effect) => effectsOfProperty(b.property).includes(effect))) {
+            if (canUseNativeCascade(targetPath, effect)) continue;
             const intersection = retained.some((candidate) => candidate.rule.layer === left.rule.layer &&
               JSON.stringify(candidate.rule.conditions) === JSON.stringify(left.rule.conditions) &&
               implies(candidate, left) && implies(candidate, right) &&
@@ -66,14 +69,11 @@ export function planDescendantConditions<R extends DescendantRule>(
                 effectsOfProperty(declaration.property).includes(effect) &&
                 (Number(declaration.important) > Number(a.important) ||
                   (declaration.important === a.important && candidate.specificity > left.specificity))));
-            if (!intersection) {
-              if (!canRankTarget(targetPath, effect)) return { instances: [], candidates: [], ambiguity: `Coactive descendant conditions assign ambiguous ${effect} on ${targetPath.join('.')}.` };
-            }
+            if (!intersection) return { instances: [], candidates: [], ambiguity: `Coactive descendant conditions assign ambiguous ${effect} on ${targetPath.join('.')}.` };
           }
         }
       }
     }
-    instances.push(...retained);
   }
   return { instances, candidates: allCandidates };
 }
