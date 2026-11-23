@@ -80,10 +80,14 @@ function exclusive(a: Candidate, b: Candidate): boolean {
   return !!left && !!right && exclusiveWitnesses({ rule: a.instance.rule, witnesses: left }, { rule: b.instance.rule, witnesses: right });
 }
 function resolveEquivalentGroups(candidates: readonly Candidate[]): void {
+  // Equal match sets ignore repetition. Only compare scalar strengths when identical
+  // functional contributions cancel; otherwise keep both selectors for native cascade.
+  const functions = new Map(candidates.map(c => [c, JSON.stringify(c.instance.rule.nodes.flatMap(n =>
+    n.states.filter(s => s.includes('('))).sort())]));
   const pending = new Set(candidates);
   for (const first of candidates) {
     if (!pending.has(first)) continue;
-    const group = [...pending].filter((candidate) => sameContext(first.instance, candidate.instance) &&
+    const group = [...pending].filter((candidate) => functions.get(first) === functions.get(candidate) && sameContext(first.instance, candidate.instance) &&
       implies(first.constraint, candidate.constraint) && implies(candidate.constraint, first.constraint));
     const winners = new Map<string, { candidate: Candidate; index: number }>();
     for (const candidate of group) {

@@ -5,6 +5,7 @@ export async function checkCurrentConditions(browser) {
   await checkExclusiveWitnesses(browser);
   await checkStructuralEdgePositions(browser);
   await checkChildConditions(browser);
+  await checkEquivalentStructuralFunctions(browser);
   await checkFunctionalCompositionOrder(browser);
   await checkFunctionalAttributes(browser);
   await checkOwnedCurrentConditions(browser);
@@ -128,6 +129,31 @@ async function checkChildConditions(browser) {
         }, shallow);
         const red = 'rgb(255, 0, 0)', winner = blueLast ? 'rgb(0, 0, 255)' : 'rgb(0, 128, 0)';
         assert.deepEqual(readings, [red, winner, red, red, winner, red, winner, red]);
+      }
+    }
+  } finally { await page.close(); }
+}
+
+async function checkEquivalentStructuralFunctions(browser) {
+  const page = await browser.newPage();
+  try {
+    const red = 'rgb(255, 0, 0)', blue = 'rgb(0, 0, 255)', green = 'rgb(0, 128, 0)';
+    for (const fn of [':is([x],[y][z])', ':not([q],[y][z])', ':where([x],[y][z])', ':is([x])']) {
+      for (const reverse of [false, true]) {
+        const rules = [`.p${fn}${fn}:focus > .b{color:red}`, `.p${fn}:focus:focus > .b{color:blue}`];
+        const source = (reverse ? rules.reverse() : rules).join('');
+        const session = createGssCompilerSession({ projectRoot: '/p' });
+        const result = session.replaceStylesheet({ id: '/p/F.gss', source });
+        assert.deepEqual(result.diagnostics, []);
+        const { p } = result.module.scopeSchema.exports;
+        const expected = fn.startsWith(':where') ? blue : fn === ':is([x])' ? (reverse ? red : blue) : red;
+        for (const [css, parent, child] of [[source, 'p', 'b'], [session.finalize().css, p.selfClassName, p.targets.b.selfClassName]]) {
+          await page.setContent(`<style>span{color:green}${css}</style><div tabindex="0" x class="${parent}"><span class="${child}">B</span></div>`);
+          const color = () => page.locator('span').evaluate(el => el.ownerDocument.defaultView.getComputedStyle(el).color);
+          assert.equal(await color(), green);
+          await page.locator('[tabindex]').focus();
+          assert.equal(await color(), expected, `${fn}, reverse=${reverse}`);
+        }
       }
     }
   } finally { await page.close(); }
