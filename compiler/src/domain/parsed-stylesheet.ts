@@ -66,7 +66,7 @@ export type ParsedSelectorNode = {
 /** One normalized selector branch, shared by parser and planning rules. */
 export type ParsedSelector = {
   selector: string;
-  /** Native specificity key for a target-only functional selector, not an admission proof. */
+  /** Native specificity key for a local functional selector whose binding preserves strength, not an admission proof. */
   readonly functionalStrength?: string;
   /** A browser-matched external descendant; nodes remain the GSS-owned anchor. */
   externalTarget?: string;

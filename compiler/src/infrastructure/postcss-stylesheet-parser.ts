@@ -374,16 +374,15 @@ function parseDescendantClassPaths(
   for (const branch of root.nodes) {
     const path = parseClassPath(branch.nodes);
     if (!path) return undefined;
-    const functionalStrength = currentFunctionalStrength(branch, path);
+    const functionalStrength = localFunctionalStrength(branch, path);
     paths.push({ ...path, selector: branch.toString(), ...(functionalStrength && { functionalStrength }) });
   }
   return paths.length > 0 ? paths : undefined;
 }
 
-function currentFunctionalStrength(branch: selectorParser.Selector, path: ParsedSelectorPath): string | undefined {
-  if (!path.nodes.at(-1)!.states.some(s => s.includes('(')) || path.externalTarget || path.externalCondition ||
-      path.relations.some(r => r !== 'descendant') || path.nodes.some((n, i) => n.pseudoElement || n.hasConditions.length ||
-        (i < path.nodes.length - 1 && (n.states.length || n.attributes.length)))) return undefined;
+function localFunctionalStrength(branch: selectorParser.Selector, path: ParsedSelectorPath): string | undefined {
+  if (path.externalTarget || path.externalCondition || path.nodes.some(n => n.pseudoElement || n.hasConditions.length) ||
+    !path.nodes.some(n => n.states.some(s => s.includes('(')))) return undefined;
   let hasGlobal = false;
   branch.walkPseudos(pseudo => { if (pseudo.value === ':global') hasGlobal = true; });
   if (hasGlobal) return undefined;
