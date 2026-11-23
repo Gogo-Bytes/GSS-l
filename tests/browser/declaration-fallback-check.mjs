@@ -50,6 +50,20 @@ export async function checkDeclarationFallback(browser) {
       }));
       if (JSON.stringify(actual) !== JSON.stringify([['rgb(255, 0, 0)', '7px', '4', reverse ? 'size' : 'inline-size'], ['rgb(0, 0, 255)', '7px', '1', 'normal']])) throw new Error(JSON.stringify(actual));
     }
+    // A compatibility expansion can also force fallback without any unknown authored property.
+    for (const deepLast of [false, true]) {
+      const session = createGssCompilerSession({ projectRoot: '/project', compatibilityTargetStages: [{ safari: '6.0' }] });
+      const shallow = '.button{flex-direction:row;padding-top:7px}', deep = '.panel .button{flex-direction:column}';
+      const update = session.replaceStylesheet({ id: '/project/Legacy.gss', source: deepLast ? shallow + deep : deep + shallow });
+      if (!update.committed) throw new Error(JSON.stringify(update.diagnostics));
+      const { panel, button } = update.module.scopeSchema.exports;
+      await page.setContent(`<style>button{padding:0}${session.finalize().css}</style>
+        <button class="${panel.targets.button.selfClassName}"></button><div class="${panel.selfClassName}"><button class="${button.selfClassName}"></button></div>`);
+      const actual = await page.locator('button').evaluateAll(nodes => nodes.map(n => {
+        const s = getComputedStyle(n); return [s.flexDirection, s.paddingTop];
+      }));
+      if (JSON.stringify(actual) !== JSON.stringify([['column', '7px'], ['row', '7px']])) throw new Error(`Compatibility scope binding: ${JSON.stringify(actual)}`);
+    }
     // Corrupt the actual output; the independently written expected values must detect both faults.
     const lost = results.find(result => result.name === 'unsupported-last');
     const ordered = results.find(result => result.name === 'last-supported');

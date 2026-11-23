@@ -29,6 +29,21 @@ describe('host-resolved compatibility targets', () => {
     expect(session.finalize().css).toBe(snapshot.css);
   });
 
+  it('keeps generated physical declarations together on the selected deep scope', () => {
+    const session = createGssCompilerSession({ projectRoot: '/project', compatibilityTargetStages: oldSafari });
+    const source = '.panel .card{flex-direction:column!important}';
+    expect(session.replaceStylesheet({ id, source })).toMatchObject({ committed: true,
+      module: { compilationMode: 'atomic', fallbackReasons: [] } });
+    const css = session.finalize().css;
+    expect(css).toContain('-webkit-box-orient: vertical !important;\n  -webkit-box-direction: normal !important;\n  -webkit-flex-direction: column !important;\n  flex-direction: column !important;');
+    const last = session.finalize();
+    expect(session.replaceStylesheet({ id, source: '.panel:hover .card{flex-direction:column}' }))
+      .toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1101' }] });
+    expect(session.finalize()).toEqual(last);
+    const strict = createGssCompilerSession({ projectRoot: '/project', compatibilityTargetStages: oldSafari, atomizationFallback: 'error' });
+    expect(strict.replaceStylesheet({ id, source })).toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1101' }] });
+  });
+
   it('uses the supplied modern target for the bounded result', () => {
     const session = createGssCompilerSession({ projectRoot: '/project',
       compatibilityTargetStages: [{ safari: '17.0' }] });

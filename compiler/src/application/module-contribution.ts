@@ -17,7 +17,7 @@ import { isRegisteredPropertyEffect } from '../domain/property-effects.js';
 import { propertiesMayOverlapForModuleOrder, propertyOrderPriority } from '../domain/module-order-policy.js';
 import { planModuleRelations } from '../domain/plan-module-relations.js';
 import { discardInvalidStaticPadding, expandSafeBoxRules } from '../domain/expand-safe-box.js';
-import { hasBoundNodeTests, isPureOwnershipRule } from '../domain/rule-classification.js';
+import { isPureOwnershipRule } from '../domain/rule-classification.js';
 import { disjointKeyframeWidthBounds } from '../domain/keyframe-condition-exclusivity.js';
 import { groupAdjacentDeclarations, validateDeclarationSequences } from '../domain/validate-declarations.js';
 import { validateLogicalPhysicalConflicts } from '../domain/validate-logical-physical-conflicts.js';
@@ -182,35 +182,34 @@ export function prepareContribution(
   const { getPhysicalDeclarations, getDeclarationOffsets, compatibilityFallback } = compatibilityAnalysis;
   const unsupportedProperties = [...new Set(semanticRules.flatMap(rule => rule.declarations.map(d => d.property))
     .filter(property => !isRegisteredPropertyEffect(property)))].sort();
-  const needsOwnershipBinding = unsupportedProperties.length > 0 && semanticRules.some(rule => rule.nodes.length > 1);
+  const requiresFallback = unsupportedProperties.length > 0 || compatibilityFallback.length > 0;
+  const needsOwnershipBinding = requiresFallback && semanticRules.some(rule => rule.nodes.length > 1);
   if (needsOwnershipBinding) {
     // Any two exported scopes can be explicitly composed, even if neither path contains the other.
     const properties = [...new Set(semanticRules.flatMap(r => r.declarations.map(d => d.property)))];
     if (properties.some(left => properties.some(right => propertyOrderPriority(left) !== propertyOrderPriority(right) &&
       propertiesMayOverlapForModuleOrder(left, right)))) return { diagnostics: [{ code: 'GSS1206', severity: 'error', phase: 'resolve',
-      id: input.id, reason: 'logical-physical-property-conflict', message: 'Unknown effects cannot preserve both authored order and logical/physical priority for composable scopes.' }] };
+      id: input.id, reason: 'logical-physical-property-conflict', message: 'Ordered fallback cannot preserve both authored order and logical/physical priority for composable scopes.' }] };
   }
   if (needsOwnershipBinding && (hasExplicitGlobal || !semanticRules.every(rule => isPureOwnershipRule(rule) && !rule.layer && !rule.conditions.length))) {
     return { diagnostics: [{ code: 'GSS1101', severity: 'error', phase: 'validate', id: input.id,
-      reason: 'capability-not-registered', message: 'Cannot preserve scope binding for unknown property effects with these selectors or contexts.' }] };
+      reason: 'capability-not-registered', message: 'Cannot preserve scope binding during fallback with these selectors or contexts.' }] };
   }
-  if (compatibilityFallback.length > 0 && !needsOwnershipBinding) {
-    // Preserved CSS keeps authored order, so it cannot implement the new fixed
-    // logical/physical order. Retain the old conflict guard for this path.
+  if (requiresFallback) {
     const preservedConflicts = validateLogicalPhysicalConflicts(input.id, parsed.rules, false);
     if (preservedConflicts.length) return { diagnostics: preservedConflicts };
-    if (hasExplicitGlobal || config.atomizationFallback === 'error' || semanticRules.some(hasBoundNodeTests)) {
+  }
+  if (compatibilityFallback.length > 0) {
+    if (hasExplicitGlobal || config.atomizationFallback === 'error') {
       return { diagnostics: [{ code: 'GSS1101', severity: 'error', phase: 'validate', id: input.id,
         reason: 'capability-not-registered', message: 'Compatibility sequence cannot be safely atomized.' }] };
     }
-    return preparePreservedContribution({ input, moduleId, parsed, rules: semanticRules,
+    if (!needsOwnershipBinding) return preparePreservedContribution({ input, moduleId, parsed, rules: semanticRules,
       conditionDiagnostics, fallbackProperties: [], fallbackCompatibilityProperties: compatibilityFallback,
       nameAllocator, compatibility, resources });
   }
 
   if (unsupportedProperties.length > 0) {
-    const preservedConflicts = validateLogicalPhysicalConflicts(input.id, parsed.rules, false);
-    if (preservedConflicts.length) return { diagnostics: preservedConflicts };
     // Preserved-mode selector rewriting cannot safely lower :global() yet.
     if (hasExplicitGlobal || config.atomizationFallback === 'error') {
       return {

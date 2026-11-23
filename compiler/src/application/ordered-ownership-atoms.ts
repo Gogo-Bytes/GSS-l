@@ -6,7 +6,7 @@ import type { NameAllocatorPort } from './name-allocator.js';
 import type { PlannedDeclaration } from './planned-declaration.js';
 import { ensureScopePath, type MutableScopeNode } from './scope-exports.js';
 
-/** Unknown effects forbid winner pruning and value-based movement across competing declarations. */
+/** Fallback groups stay in authored order; neither unknown writes nor generated physical sequences license pruning. */
 export function orderedOwnershipAtoms(rules: readonly ParsedStyleRule[], paths: readonly (readonly string[])[],
   moduleId: string, bindings: AssetBindings, allocator: NameAllocatorPort, roots: Map<string, MutableScopeNode>): PlannedDeclaration[] {
   const targets = new Map(paths.map(path => [JSON.stringify(path), { path, scope: ensureScopePath(roots, path) }]));
