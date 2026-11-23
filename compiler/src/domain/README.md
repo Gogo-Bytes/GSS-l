@@ -2,6 +2,8 @@
 
 本目录实现框架无关的 CSS 语义与排序。修改属性效果、声明覆盖、排序或 atom 复用之前，先读 [属性展开、原子排序与复用](../../../docs/PROPERTY-ORDER-DESIGN.md)，其中记录已确认的语义、示例、验证要求与未完成的目标。修改整体阶段或边界时另读 [核心工作流与架构方向](../../../docs/ARCHITECTURE-DIRECTION.md)。两篇文档区分当前实现和目标，不应把目标当成已交付能力。
 
+修改本地选择器准入、marker 或剪枝前，先核对[本地条件的产品契约](../../../docs/ARCHITECTURE-DIRECTION.md#local-condition-contract)：无法证明互斥或胜者时保留各自的 atom 和来源 marker，不把优化失败当成输入错误。
+
 | 工作 | 现有入口 | 必须区分的语义 |
 | --- | --- | --- |
 | 解析后的 selector 分支 | [parsed-stylesheet.ts](parsed-stylesheet.ts) | `ParsedSelectorNode` 绑定名称和条件；ownership 名称路径通过 `getOwnershipPath(nodes)` 按需派生，不存入规则、不缓存。分支与声明来源、ownership 与 DOM 关系不能混同。 |

@@ -19,6 +19,30 @@ GSS 以 CSS 为输入，生成可组合的 scope 引用、原子 CSS 与必要�
 
 现状入口：[compiler-session](../compiler/src/application/compiler-session.ts)、[module-contribution](../compiler/src/application/module-contribution.ts)、[finalize-snapshot](../compiler/src/application/finalize-snapshot.ts)、[CSS parser](../compiler/src/infrastructure/postcss-stylesheet-parser.ts)、[React Adapter](../adapters/react/src/index.ts)、[Vite](../integrations/vite/src/index.ts)。
 
+<a id="local-condition-contract"></a>
+
+### 负责人决定：GSS 分配路径上的类，浏览器匹配条件
+
+同一模块的本地规则，先按 [ownership 路径](#scope-path-selection)确定哪些 scope 携带目标 atom，哪些 scope 携带条件来源 marker。属性和状态写在哪个节点就保留在哪个节点；显式组合符及其约束的真实 DOM 关系也保留。**不为条件数量、分布或可能同时命中另设准入门槛。** 例如 `.p[x] > .b[y]:focus`、`.p[x][y] > .b:focus`、`.p[x] + .b:focus` 都应接受，都属于 `styles.p.b`；前两条检查父子，第三条检查紧邻兄弟，不能把三条改写成同一个 DOM 条件。
+
+以 `.a[data-mode=on] .b { color:red }`、`.a[data-mode=off] .b { color:blue }` 为例，完整输出如下（类名示意，并非命名 API）：
+
+```text
+styles.a   = "onMarker offMarker"
+styles.a.b = "redAtom blueAtom"
+```
+
+```css
+.onMarker[data-mode=on] .redAtom { color: red }
+.offMarker[data-mode=off] .blueAtom { color: blue }
+```
+
+两个导出字符串都不随当前 DOM 二选一。只有 `on` 祖先时为红，只有 `off` 时为蓝，都没有时两条都不生效。若外层 `on`、内层 `off`，同一目标可同时命中两条：此例同强度，蓝色后写即蓝，交换规则顺序即红；交换 class 字符串顺序不改变结果。
+
+同理，`.p > .m .b { color:red!important }` 和 `.p .m > .b { color:blue }` 都给 `styles.p.m.b` 提供 atom。仅渲染 `styles.p.m` 直接包含 `styles.p.m.b` 时，第二条的 `.p` 是 ownership 前缀，不需要真实 `.p`；第一条缺少真实 `p > m`，因此只有蓝色生效。再把这对元素直接包在 `styles.p` 中，两条才都命中，此时为红。`!important` 只影响命中后的层叠，不授权提前删掉蓝色。
+
+**验收以保留全部候选时的行为为准。** 不能证明删除或复用不改变结果，就保留各条规则，不因无法预判互斥或胜者而报 `GSS1205`。回归要覆盖单独命中、同时命中、均不命中及源码正反序。下文早期阶段中把此类拒绝作为保护的记录描述的是当时实现，不是产品要求；仍因这个理由拒绝的本地条件是实现差距。本决定不取消既定 GSS 结构优先级，也不把所有语法或其他诊断一并放开。
+
 ### 正确性基线与优化分离
 
 负责人在 #45 的后续讨论中同意：暂停逐项扩选择器白名单，先确立保留 GSS 语义的正确性基线，再逐步分离语义解释与优化。**获准的是该方向及设计核查，不是以下候选模型已定稿，也不是放开现有拒绝行为。** 本节为设计探索；当前实现仍以上述工作流及既有契约为准。[当前讨论与证据](https://github.com/Gogo-Bytes/GSS-l/issues/45)。
