@@ -7,6 +7,7 @@ export async function checkCurrentConditions(browser) {
   await checkStructuralEdgePositions(browser);
   await checkChildConditions(browser);
   await checkStructuralShorthandTie(browser);
+  await checkWrapAlias(browser);
   await checkStructuralFunctionComposition(browser);
   await checkEquivalentStructuralFunctions(browser);
   await checkFunctionalCompositionOrder(browser);
@@ -204,6 +205,32 @@ async function checkStructuralShorthandTie(browser) {
         });
         assert.deepEqual(readings, [[redLast ? 'rgb(255, 0, 0)' : 'rgb(0, 0, 255)', 'no-repeat'],
           ['rgb(255, 0, 0)', 'repeat'], ['rgb(0, 128, 0)', 'repeat'], ['rgb(0, 0, 255)', 'no-repeat']]);
+      }
+    }
+  } finally { await page.close(); }
+}
+
+async function checkWrapAlias(browser) {
+  const page = await browser.newPage();
+  try {
+    for (const aliasLast of [false, true]) {
+      const alias = '.card[data-note] > .text{word-wrap:anywhere}';
+      const authored = '.card .text:focus{overflow-wrap:break-word}';
+      const native = '.text.text:focus{overflow-wrap:break-word}'; // ownership prefix adds strength, not a required parent
+      const session = createGssCompilerSession({ projectRoot: '/p', atomizationFallback: 'error' });
+      const update = session.replaceStylesheet({ id: '/p/Wrap.gss', source: aliasLast ? authored + alias : alias + authored });
+      assert.deepEqual(update.diagnostics, []);
+      assert.equal(update.module.compilationMode, 'atomic');
+      const { card } = update.module.scopeSchema.exports;
+      for (const [css, parent, text] of [[aliasLast ? native + alias : alias + native, 'card', 'text'],
+        [session.finalize().css, card.selfClassName, card.targets.text.selfClassName]]) {
+        await page.setContent(`<style>${css}</style><section class="${parent}"><span tabindex="0" class="${text}">longword</span></section>`);
+        const readings = await page.locator('span').evaluate(el => {
+          const read = () => el.ownerDocument.defaultView.getComputedStyle(el).overflowWrap;
+          const values = [read()]; el.parentElement.setAttribute('data-note', ''); values.push(read());
+          el.focus(); values.push(read()); el.parentElement.removeAttribute('data-note'); values.push(read()); return values;
+        });
+        assert.deepEqual(readings, ['normal', 'anywhere', aliasLast ? 'anywhere' : 'break-word', 'break-word']);
       }
     }
   } finally { await page.close(); }

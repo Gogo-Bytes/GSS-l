@@ -184,6 +184,7 @@ const families: readonly PropertyFamily[] = [
   ['text-box', ['text-box-trim', 'text-box-edge']],
   ['white-space', ['white-space-collapse', 'text-wrap-mode', 'white-space-trim']],
   ['text-wrap', ['text-wrap-mode', 'text-wrap-style']],
+  ['word-wrap', ['overflow-wrap']],
   ['animation', [
     'animation-name',
     'animation-duration',

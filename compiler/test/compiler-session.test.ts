@@ -54,8 +54,11 @@ describe('GssCompilerSession', () => {
     ['.box { grid-gap: 2px; gap: 1px; }', 'gap: 1px;', 'grid-gap: 2px;'],
     ['.box { gap: 1px; grid-gap: 2px; }', 'grid-gap: 2px;', 'gap: 1px;'],
     ['.box { row-gap: 1px; grid-row-gap: 2px; }', 'grid-row-gap: 2px;', 'row-gap: 1px;'],
-    ['.box { grid-column-gap: 2px; column-gap: 1px; }', 'column-gap: 1px;', 'grid-column-gap: 2px;']
-  ])('resolves registered legacy gap aliases before emission: %s', (source, winner, loser) => {
+    ['.box { grid-column-gap: 2px; column-gap: 1px; }', 'column-gap: 1px;', 'grid-column-gap: 2px;'],
+    ['.box { word-wrap: anywhere; overflow-wrap: break-word; }', 'overflow-wrap: break-word;', 'word-wrap: anywhere;'],
+    ['.box { overflow-wrap: break-word; word-wrap: anywhere; }', 'word-wrap: anywhere;', 'overflow-wrap: break-word;'],
+    ['.box { word-wrap: anywhere !important; overflow-wrap: break-word; }', 'word-wrap: anywhere !important;', 'overflow-wrap: break-word;']
+  ])('resolves registered legacy aliases before emission: %s', (source, winner, loser) => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
     const result = compiler.replaceStylesheet({ id: '/project/gap.gss', source });
     expect(result.committed).toBe(true);

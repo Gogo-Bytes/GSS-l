@@ -147,6 +147,8 @@ Node 22.22.3、zlib 1.3.1-e00f703、Brotli 1.1.0；gzip level 9、Brotli quality
 
 如果 shorthand 和 longhand 来自不同 scope，则安全展开后可能产生同名属性的竞争。例如 `.a { margin: 1px }` 与 `.b { margin-left: 2px }` 被组合时，两个 scope 都会涉及 `margin-left`；它们按同属性的组合规则处理。
 
+[CSS Text 的 `word-wrap`](https://www.w3.org/TR/css-text-3/#overflow-wrap-property) 是 `overflow-wrap` 的旧名。两者写入同一 effect；编译器保留胜出声明的原拼写，不因使用旧名而触发整模块回退。不同选择器分别命中时仍各自生效。
+
 ### 对其他复合属性应用同一决策
 
 先查明 shorthand 实际写入或重置的所有 longhand，再判断每个 effect 的胜出声明。同一规则、同一 effect 且原生强度相同时，按声明位置决定覆盖；属性名更长、longhand 更具体或固定属性键靠后，都不构成额外优先级。较强的 `!important` 先于声明位置；涉及其他规则时还要保留原生强度、可比较上下文和已证明的 GSS 所有权／结构语义。展开后同名 effect 在不同 scope 中竞争时，排序必须保留它们之间需要的相对顺序：rank 是表达这一顺序的机制，不是让 longhand 总胜出的规则。对尚不能安全展开的 shorthand，也必须保留其与竞争声明的必要顺序和实际效果。

@@ -81,6 +81,7 @@ const registeredShorthandEffects = {
   'text-box': ['text-box-trim', 'text-box-edge'],
   'white-space': ['white-space-collapse', 'text-wrap-mode', 'white-space-trim'],
   'text-wrap': ['text-wrap-mode', 'text-wrap-style'],
+  'word-wrap': ['overflow-wrap'],
   'font-synthesis': ['font-synthesis-weight', 'font-synthesis-style', 'font-synthesis-small-caps', 'font-synthesis-position'],
   'font-variant': ['font-variant-ligatures', 'font-variant-caps', 'font-variant-numeric', 'font-variant-east-asian', 'font-variant-alternates', 'font-variant-position', 'font-variant-emoji'],
   transition: ['transition-property', 'transition-duration', 'transition-timing-function', 'transition-delay', 'transition-behavior'],
