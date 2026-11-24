@@ -342,7 +342,7 @@ function parsePropertyRegistration(
   return { kind: 'property', name, declarations, source: spanOf(node) };
 }
 
-type ParsedSelectorPath = Pick<ParsedStyleRule, 'nodes' | 'relations' | 'externalTarget' | 'externalCondition' | 'functionalStrength'>;
+type ParsedSelectorPath = Pick<ParsedStyleRule, 'nodes' | 'relations' | 'externalTarget' | 'externalCondition' | 'functionalStrength' | 'hasExplicitGlobal'>;
 
 function isNamedLayer(value: string): boolean {
   return /^[-_A-Za-z][-_A-Za-z0-9]*(?:\.[-_A-Za-z][-_A-Za-z0-9]*)*$/.test(value);
@@ -374,8 +374,11 @@ function parseDescendantClassPaths(
   for (const branch of root.nodes) {
     const path = parseClassPath(branch.nodes);
     if (!path) return undefined;
-    const functionalStrength = localFunctionalStrength(branch, path);
-    paths.push({ ...path, selector: branch.toString(), ...(functionalStrength && { functionalStrength }) });
+    let hasExplicitGlobal = false;
+    branch.walkPseudos(pseudo => { if (pseudo.value === ':global') hasExplicitGlobal = true; });
+    const functionalStrength = hasExplicitGlobal ? undefined : localFunctionalStrength(branch, path);
+    paths.push({ ...path, selector: branch.toString(), ...(hasExplicitGlobal ? { hasExplicitGlobal: true } : {}),
+      ...(functionalStrength && { functionalStrength }) });
   }
   return paths.length > 0 ? paths : undefined;
 }
@@ -383,9 +386,6 @@ function parseDescendantClassPaths(
 function localFunctionalStrength(branch: selectorParser.Selector, path: ParsedSelectorPath): string | undefined {
   if (path.externalTarget || path.externalCondition || path.nodes.some(n => n.pseudoElement || n.hasConditions.length) ||
     !path.nodes.some(n => n.states.some(s => s.includes('(')))) return undefined;
-  let hasGlobal = false;
-  branch.walkPseudos(pseudo => { if (pseudo.value === ':global') hasGlobal = true; });
-  if (hasGlobal) return undefined;
   const { a, b, c } = selectorSpecificity(branch);
   return `${a},${b},${c}`;
 }

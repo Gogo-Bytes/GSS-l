@@ -1,5 +1,4 @@
 import { scopeClassField } from './scope-exports.js';
-import selectorParser from 'postcss-selector-parser';
 import type { ParsedStyleRule } from '../domain/parsed-stylesheet.js';
 import type { GssDiagnostic } from '../public-types.js';
 import { classifyPropertyEffect } from '../domain/property-effects.js';
@@ -24,13 +23,7 @@ export function prepareSelectorContexts(id: string, semanticRules: readonly Pars
   }
   const externalRules = semanticRules.filter((rule) => rule.externalTarget !== undefined);
   const sameNodeRules = semanticRules.filter((rule) => rule.externalCondition !== undefined);
-  const hasExplicitGlobal = semanticRules.some((rule) => {
-    let found = false;
-    selectorParser((root) => root.walkPseudos((pseudo) => {
-      if (pseudo.value === ':global') found = true;
-    })).processSync(rule.selector);
-    return found;
-  });
+  const hasExplicitGlobal = semanticRules.some(rule => rule.hasExplicitGlobal);
   const localRules = semanticRules.filter((rule) =>
     rule.externalTarget === undefined && rule.externalCondition === undefined
   );

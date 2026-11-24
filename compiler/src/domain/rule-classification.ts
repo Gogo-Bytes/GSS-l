@@ -30,8 +30,8 @@ export function isStructuralRuntimeRule(rule: ParsedStyleRule): boolean {
 
 /** Linear local selectors have no observation, external subject or pseudo-element emitter. */
 export function isLocalElementRule(rule: ParsedStyleRule): boolean {
-  return !rule.externalTarget && !rule.externalCondition && rule.nodes.every(n =>
-    !n.pseudoElement && !n.hasConditions.length && n.states.every(s => !s.includes(':global(')));
+  return !rule.hasExplicitGlobal && !rule.externalTarget && !rule.externalCondition &&
+    rule.nodes.every(n => !n.pseudoElement && !n.hasConditions.length);
 }
 
 /** An ownership prefix selects a scope; it is not a second DOM witness. */

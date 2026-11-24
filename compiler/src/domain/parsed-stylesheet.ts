@@ -66,6 +66,8 @@ export type ParsedSelectorNode = {
 /** One normalized selector branch, shared by parser and planning rules. */
 export type ParsedSelector = {
   selector: string;
+  /** This branch contains a :global pseudo node, not merely text spelling its name. */
+  readonly hasExplicitGlobal?: true;
   /** Native specificity key for a local functional selector whose binding preserves strength, not an admission proof. */
   readonly functionalStrength?: string;
   /** A browser-matched external descendant; nodes remain the GSS-owned anchor. */

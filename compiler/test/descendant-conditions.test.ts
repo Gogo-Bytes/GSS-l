@@ -63,6 +63,18 @@ describe('Compiler descendant condition ownership', () => {
     expect(session.finalize().css).toContain('color: blue;');
   });
 
+  it.each([
+    ['.b:is([data-label=":global("]){color:red}.b:focus{color:blue}', 'GSS1205'],
+    ['.p:is([data-label=":global("]) > .b:focus{color:red}', 'GSS1101']
+  ])('keeps quoted global text local but preserves real global diagnostics: %s', (source, code) => {
+    const { session } = compile(source);
+    const last = session.finalize();
+    expect(last.css).toContain('[data-label=":global("]');
+    expect(session.replaceStylesheet({ id: '/project/Tree.gss', source: source.replace('[data-label=":global("]', ':global(.tag)') }))
+      .toMatchObject({ committed: false, diagnostics: [{ code }] });
+    expect(session.finalize()).toEqual(last);
+  });
+
   it('rewrites the local class in an admitted functional test, not the same name in an attribute value', () => {
     const { rules, scope } = compile('.button[data-mode="ready"]:not(.ready) { color: red }');
     const marker = scope('ready').selfClassName;

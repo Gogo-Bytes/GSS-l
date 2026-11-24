@@ -11,6 +11,12 @@ function withoutSourceIds(parsed: ParsedStylesheet): string {
 }
 
 describe('PostCSS adapter original-source provenance', () => {
+  it('records explicit global syntax per selector-list branch, including nested pseudos', () => {
+    const parsed = parseStylesheet(id, '.a:is([data-s=":global("]), .b:where(:not(:global(.tag))) { color:red }');
+    expect(parsed.diagnostics).toEqual([]);
+    expect(parsed.rules.map(r => [!!r.hasExplicitGlobal, r.functionalStrength])).toEqual([[false, '0,2,0'], [true, undefined]]);
+  });
+
   it('accepts CSS percentage tokens in keyframe lists and keeps the original frame range', () => {
     const frame = 'from, -0%, .5%, +25%, 5e1%, 1E+2% { opacity: .25 }';
     const source = `@keyframes pulse { ${frame} }`;

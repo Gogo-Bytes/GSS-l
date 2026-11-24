@@ -11,6 +11,7 @@ export async function checkCurrentConditions(browser) {
   await checkEquivalentStructuralFunctions(browser);
   await checkFunctionalCompositionOrder(browser);
   await checkFunctionalAttributes(browser);
+  await checkQuotedGlobal(browser);
   await checkOwnedCurrentConditions(browser);
   const base = '.a,.other {color:black}';
   const focus = '.a:hover:focus {color:blue}';
@@ -278,6 +279,28 @@ async function checkFunctionalCompositionOrder(browser) {
       for (const [css, classes] of [[source, 'a b'], [session.finalize().css, `${a.selfClassName} ${b.selfClassName}`]]) {
         await page.setContent(`<style>${css}</style><button x y class="${classes}">both</button>`);
         assert.equal(await page.locator('button').evaluate(node => node.ownerDocument.defaultView.getComputedStyle(node).color), expected, `${fn}, red last: ${redLast}`);
+      }
+    }
+  } finally { await page.close(); }
+}
+
+async function checkQuotedGlobal(browser) {
+  const page = await browser.newPage();
+  try {
+    const red = '.b:is([data-label=":global("]){color:red}', blue = '.b:focus{color:blue}';
+    for (const redLast of [false, true]) {
+      const source = redLast ? blue + red : red + blue;
+      const session = createGssCompilerSession({ projectRoot: '/p' });
+      const update = session.replaceStylesheet({ id: '/p/Literal.gss', source });
+      assert.deepEqual(update.diagnostics, []);
+      for (const [css, classes] of [[source, 'b'], [session.finalize().css, update.module.scopeSchema.exports.b.selfClassName]]) {
+        await page.setContent(`<style>button{color:green}${css}</style><button class="${classes}"></button>`);
+        const readings = await page.locator('button').evaluate(el => {
+          const color = () => el.ownerDocument.defaultView.getComputedStyle(el).color;
+          const values = [color()]; el.dataset.label = ':global('; values.push(color());
+          el.focus(); values.push(color()); el.removeAttribute('data-label'); values.push(color()); return values;
+        });
+        assert.deepEqual(readings, ['rgb(0, 128, 0)', 'rgb(255, 0, 0)', redLast ? 'rgb(255, 0, 0)' : 'rgb(0, 0, 255)', 'rgb(0, 0, 255)']);
       }
     }
   } finally { await page.close(); }
