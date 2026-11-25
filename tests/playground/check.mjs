@@ -216,7 +216,7 @@ try {
   await writeFile(sourcePath, changed);
   await color('live-title', 'rgb(255, 165, 0)');
   expectedError = true;
-  await writeFile(sourcePath, changed + '\n.invalid { color: red; display: block; color: blue; }\n');
+  await writeFile(sourcePath, changed + '\n.invalid { color: red; all: unset; color: blue; }\n');
   await page.locator('vite-error-overlay').waitFor({ state: 'attached' });
   await color('live-title', 'rgb(255, 165, 0)');
   await writeFile(sourcePath, original);

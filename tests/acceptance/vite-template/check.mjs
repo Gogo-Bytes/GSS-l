@@ -216,7 +216,7 @@ try {
   await page.getByRole('button', { name: 'Count 2', exact: true }).waitFor();
   await page.evaluate(() => { window.__consumerDocument = 'invalid-lkg'; });
   expectedError = true;
-  await writeFile(sheet, changed + '\n.invalid { color: red; display: block; color: blue; }\n');
+  await writeFile(sheet, changed + '\n.invalid { color: red; all: unset; color: blue; }\n');
   await page.locator('vite-error-overlay').waitFor({ state: 'attached' });
   await color('rgb(30, 60, 180)');
   assert.equal(await page.evaluate(() => window.__consumerDocument), 'invalid-lkg');
@@ -268,7 +268,7 @@ try {
   assert.notEqual(scopeAdded.className, initial.className);
   report.addedScope = addedScope;
   expectedError = true;
-  await writeFile(sheet, reshaped + '\n.invalid { color: red; display: block; color: blue; }\n');
+  await writeFile(sheet, reshaped + '\n.invalid { color: red; all: unset; color: blue; }\n');
   await page.locator('vite-error-overlay').waitFor({ state: 'attached' });
   await color('rgb(180, 20, 30)');
   assert.equal(await page.evaluate((className) => {

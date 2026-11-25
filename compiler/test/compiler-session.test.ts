@@ -163,7 +163,7 @@ describe('GssCompilerSession', () => {
     expect(compiler.replaceStylesheet({ id, source: '.button { color: red; }' }).generation).toBe(1);
     expect(compiler.replaceStylesheet({
       id,
-      source: '.button { color: red; display: block; color: blue; }'
+      source: '.button { color: red; all: unset; color: blue; }'
     })).toMatchObject({ committed: false, generation: 1 });
     expect(compiler.finalize().css).toContain(`.${colorRedClass}`);
 
@@ -200,12 +200,12 @@ describe('GssCompilerSession', () => {
     });
   });
 
-  it('rejects an authored non-adjacent duplicate sequence transactionally', () => {
+  it('rejects a non-adjacent sequence crossing an unknown reset transactionally', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
 
     const replacement = compiler.replaceStylesheet({
       id: '/project/src/button.gss',
-      source: '.button { color: red; display: block; color: blue; }'
+      source: '.button { color: red; all: unset; color: blue; }'
     });
 
     expect(replacement).toMatchObject({

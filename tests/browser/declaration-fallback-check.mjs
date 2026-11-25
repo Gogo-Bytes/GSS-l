@@ -7,6 +7,13 @@ export async function checkDeclarationFallback(browser) {
   const cases = [
     ['last-supported', 'display:block;display:flex', { display: 'flex' }],
     ['reverse-order', 'display:flex;display:block', { display: 'block' }],
+    ['interleaved', 'display:block;color:red;display:flex', { display: 'flex', color: 'rgb(255, 0, 0)' }],
+    ['interleaved-reverse', 'display:flex;color:red;display:block', { display: 'block', color: 'rgb(255, 0, 0)' }],
+    ['interleaved-shorthand', 'margin:1px;margin-left:9px;margin:2px', { marginTop: '2px', marginLeft: '2px' }],
+    ['interleaved-unsupported', 'margin:1px;margin-left:9px;margin:gss-unsupported', { marginTop: '1px', marginLeft: '9px' }],
+    ['interleaved-computed', 'margin:1px;margin-left:9px;margin:var(--missing)', { marginTop: '0px', marginLeft: '0px' }],
+    ['interleaved-important', 'margin:1px!important;margin-left:9px;margin:gss-unsupported!important', { marginTop: '1px', marginLeft: '1px' }],
+    ['interleaved-middle-important', 'margin:1px;margin-left:9px!important;margin:2px', { marginTop: '2px', marginLeft: '9px' }],
     ['unsupported-last', 'color:rgb(12,34,56);color:gss-unsupported', { color: 'rgb(12, 34, 56)' }],
     ['computed-invalid', 'color:red;color:var(--missing)', { color: 'rgb(0, 0, 0)' }],
     ['importance', 'color:red!important;color:blue!important;color:green', { color: 'rgb(0, 0, 255)' }],
@@ -32,6 +39,22 @@ export async function checkDeclarationFallback(browser) {
       results.push({ name, source, css, classes, expected, ...readings, pixelsEqual,
         passed: pixelsEqual && JSON.stringify(readings.native) === JSON.stringify(expected) &&
           JSON.stringify(readings.atomic) === JSON.stringify(expected) });
+    }
+    // Both rules may match. Check the interleaved shorthand's unopposed top as well as the contested left.
+    for (const reverse of [false, true]) {
+      const a = '.box[a]{margin:1px;margin-left:9px;margin:gss-unsupported}', b = '.box[b]{margin-left:3px}';
+      const source = reverse ? b + a : a + b;
+      const session = createGssCompilerSession({ projectRoot: '/project' });
+      const update = session.replaceStylesheet({ id: '/project/Conditional.gss', source });
+      if (!update.committed) throw new Error(JSON.stringify(update.diagnostics));
+      const classes = update.module.scopeSchema.exports.box.selfClassName;
+      await page.setContent(`<style>${source}${session.finalize().css}</style>` + ['box', classes].map(c =>
+        ['', 'a', 'b', 'a b'].map(attrs => `<div class="${c}" ${attrs}></div>`).join('')).join(''));
+      const actual = await page.locator('div').evaluateAll(nodes => nodes.map(n => {
+        const s = getComputedStyle(n); return [s.marginTop, s.marginLeft];
+      }));
+      const expected = [['0px', '0px'], ['1px', '9px'], ['0px', '3px'], ['1px', reverse ? '9px' : '3px']];
+      if (JSON.stringify(actual) !== JSON.stringify([...expected, ...expected])) throw new Error(`${source}: ${JSON.stringify(actual)}`);
     }
     // An unregistered name is not evidence that a declaration is inert: order works in this browser.
     for (const reverse of [false, true]) {

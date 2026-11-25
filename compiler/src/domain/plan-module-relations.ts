@@ -10,7 +10,7 @@ import { isLocalElementRule, isPureOwnershipRule, isCurrentStateRule, isCurrentA
 
 /** Coordinate existing proofs in their established diagnostic order. The
  * individual planners still own their relation and specificity semantics. */
-export function planModuleRelations(localRules: readonly ParsedStyleRule[], semanticRules: readonly ParsedStyleRule[]) {
+export function planModuleRelations(localRules: readonly ParsedStyleRule[], semanticRules: readonly ParsedStyleRule[], orderedSequence = false) {
   const ownershipRules = localRules.filter(isPureOwnershipRule);
   const hasRules = localRules.filter(({ nodes }) => nodes.at(-1)?.hasConditions.length);
   const contextualRules = localRules.filter(({ relations }) => relations.some((relation) => relation !== 'descendant'));
@@ -18,7 +18,7 @@ export function planModuleRelations(localRules: readonly ParsedStyleRule[], sema
     isPureOwnershipRule(rule) || isCurrentStateRule(rule) || isCurrentAttributeRule(rule) ||
     isAncestorStateRule(rule) || isAncestorAttributeRule(rule)
   );
-  const hasDescendantConditions = contextualRules.length > 0 || descendantRules.some((rule) => !isPureOwnershipRule(rule));
+  const hasDescendantConditions = orderedSequence || contextualRules.length > 0 || descendantRules.some((rule) => !isPureOwnershipRule(rule));
   const declaredPaths = semanticRules.flatMap(({ nodes }) => {
     const path = getOwnershipPath(nodes);
     return path.map((_, index) => path.slice(0, index + 1));
@@ -27,16 +27,16 @@ export function planModuleRelations(localRules: readonly ParsedStyleRule[], sema
   const otherSubjects = semanticRules.filter(r => !isLocalElementRule(r));
   const plannedDescendants = hasDescendantConditions ? planDescendantConditions(bindDescendantConditions(descendantRules, declaredPaths),
     !otherSubjects.length ? undefined : (target, effect) => !otherSubjects.some(r => (r.externalTarget || matchesOwnedTarget(getOwnershipPath(r.nodes), target)) &&
-      r.declarations.some(d => propertiesMayOverlapForModuleOrder(effect, d.property)))) : undefined;
+      r.declarations.some(d => propertiesMayOverlapForModuleOrder(effect, d.property))), orderedSequence) : undefined;
   if (plannedDescendants?.ambiguity) return { ambiguity: plannedDescendants.ambiguity };
-  const plannedStructural = planStructuralRelations(bindStructuralRelations(contextualRules), plannedDescendants?.instances ?? [], hasRules);
+  const plannedStructural = planStructuralRelations(bindStructuralRelations(contextualRules), plannedDescendants?.instances ?? [], hasRules, orderedSequence);
   if (plannedStructural.ambiguity) return { ambiguity: plannedStructural.ambiguity };
   const plannedPseudos = planPseudoElementConditions(localRules);
   if (plannedPseudos.ambiguity) return { ambiguity: plannedPseudos.ambiguity };
   const observedSubjects: OwnedTargetBinding[] = hasRules.map((rule) => ({
     rule, targetPath: getOwnershipPath(rule.nodes)
   }));
-  return { plan: { ownershipRules, observedSubjects, descendantRules, declaredPaths,
+  return { plan: { orderedSequence, ownershipRules, observedSubjects, descendantRules, declaredPaths,
     plannedDescendants, plannedStructural, plannedPseudos } };
 }
 

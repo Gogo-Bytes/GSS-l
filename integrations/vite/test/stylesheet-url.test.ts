@@ -143,7 +143,7 @@ it('keeps framework-owned hrefs stable at initial/reconnected sockets, then publ
     await connect();
     expect(await css()).toContain('color: blue;');
     send.mockClear();
-    await writeFile(join(root, 'Main.gss'), '.main { color: red; display: block; color: blue; }');
+    await writeFile(join(root, 'Main.gss'), '.main { color: red; all: unset; color: blue; }');
     server.watcher.emit('change', join(root, 'Main.gss'));
     await vi.waitFor(() => expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: 'error' })));
     expect(await css()).toContain('color: blue;');

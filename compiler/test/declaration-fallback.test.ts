@@ -29,9 +29,19 @@ it('distinguishes the full ordered group from its last value and reuses identica
   expect(first).not.toBe(reversed);
 });
 
-it('keeps interleaved duplicate groups rejected and retains the previous contribution', () => {
-  const { session, snapshot } = compile('.a { color: red; color: blue; }');
-  expect(session.replaceStylesheet({ id: '/project/a.gss', source: '.a { color: red; display: block; color: blue; }' }))
+it.each(['.a', '.a:focus', '.panel[x] > .a', '.panel[x] .a'])('keeps interleaved writes, locations and atomic mode for %s', selector => {
+  const source = `${selector}{margin:1px;margin-left:9px;margin:var(--size)}`;
+  const { snapshot, result } = compile(source, { atomizationFallback: 'error' });
+  expect(result.module?.compilationMode).toBe('atomic');
+  expect(snapshot.manifest.rules.map(r => [r.property, r.value, r.origins[0]!.range.start])).toEqual([
+    ['margin', '1px', source.indexOf('margin:1px')], ['margin-left', '9px', source.indexOf('margin-left')],
+    ['margin', 'var(--size)', source.indexOf('margin:var')]
+  ]);
+});
+
+it('keeps opaque interleaved writes rejected and retains the previous contribution', () => {
+  const { session, snapshot } = compile('.a { color: red; display: block; color: blue; }');
+  expect(session.replaceStylesheet({ id: '/project/a.gss', source: '.a { color: red; all: unset; color: blue; }' }))
     .toMatchObject({ committed: false, diagnostics: [expect.objectContaining({ code: 'GSS1204' })] });
   expect(session.finalize()).toEqual(snapshot);
 });

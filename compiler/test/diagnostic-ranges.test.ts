@@ -61,7 +61,7 @@ it.each(['\n', '\r\n'].flatMap((newline) => ['', '\uFEFF', '\uFFFE'].map((bom) =
     const repeated = 'color: /*😀*/ blue !important;';
     const width = 'width: 2px;';
     const source = `${bom}.outer { content: "😀";${newline}& .one, & .two {${newline}` +
-      `color: red !important; width: 1px; ${repeated} ${width}${newline}}}`;
+      `color: red !important; width: 1px; all:unset; ${repeated} ${width}${newline}}}`;
     const result = compiler.replaceStylesheet({ id, source });
     expect(result).toMatchObject({ id, committed: false, generation: 1 });
     expect(result.module).toBeUndefined();
@@ -193,7 +193,7 @@ it('retains successful output, names, manifest and resource identity when origin
 });
 
 it('selects the repeated occurrence even when declaration text is identical', () => {
-  const source = '.one { color:red; width:1px; color:red; } .two { color:red; width:1px; color:red; }';
+  const source = '.one { color:red; all:unset; color:red; } .two { color:red; all:unset; color:red; }';
   const result = session().replaceStylesheet({ id, source });
   expect(result.diagnostics.map(({ range }) => range)).toEqual([
     { start: 29, end: 39 }, { start: 71, end: 81 }

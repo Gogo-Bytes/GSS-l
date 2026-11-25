@@ -131,7 +131,7 @@ try {
     report.titleRedPixels.push(redPixels);
   }
   assert.ok(captures.length >= 2 && report.titleRedPixels.every(n => n > 0), 'No captured title may lose its color');
-  await writeFile(sheet, extended + '\n.invalid {color:red;display:block;color:blue}');
+  await writeFile(sheet, extended + '\n.invalid {color:red;all:unset;color:blue}');
   await page.locator('vite-error-overlay').waitFor({state:'attached'});
   assert.equal(await color(preview), red);
   await writeFile(sheet, extended);
