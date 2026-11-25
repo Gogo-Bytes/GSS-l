@@ -76,6 +76,26 @@ export async function checkDeclarationFallback(browser) {
       const expected = ['0px', '7px', '0px', '7px'].map(padding => [...common, padding]);
       if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error(`${source}: ${JSON.stringify(actual)}`);
     }
+    // Compose two scopes on one host. Only ::before competes; the host and ::after keep their own margins.
+    for (const [last, top, left] of [['2px', '2px', '2px'], ['gss-unsupported', '1px', '9px'], ['var(--missing)', '0px', '0px']]) {
+      for (const reverse of [false, true]) {
+        const a = `.a::before{margin:1px;margin-left:9px;margin:${last}}`, b = '.b::before{margin-left:3px}';
+        const source = '.host{margin-left:11px}.host::before{content:"b"}.host::after{content:"a";margin-left:17px}' + (reverse ? b + a : a + b);
+        const session = createGssCompilerSession({ projectRoot: '/project', namingMode: 'production' });
+        const update = session.replaceStylesheet({ id: '/project/Pseudo.gss', source });
+        if (!update.committed) throw new Error(JSON.stringify(update.diagnostics));
+        const scopes = update.module.scopeSchema.exports;
+        const combinations = [['host'], ['host', 'a'], ['host', 'b'], ['host', 'a', 'b']];
+        await page.setContent(`<style>${source}${session.finalize().css}</style>` + [false, true].map(compiled =>
+          combinations.map(names => `<div class="${names.map(n => compiled ? scopes[n].selfClassName : n).join(' ')}"></div>`).join('')).join(''));
+        const actual = await page.locator('div').evaluateAll(nodes => nodes.map(n => {
+          const before = getComputedStyle(n, '::before');
+          return [before.marginTop, before.marginLeft, getComputedStyle(n).marginLeft, getComputedStyle(n, '::after').marginLeft];
+        }));
+        const expected = [['0px', '0px'], [top, left], ['0px', '3px'], [top, reverse ? left : '3px']].map(pair => [...pair, '11px', '17px']);
+        if (JSON.stringify(actual) !== JSON.stringify([...expected, ...expected])) throw new Error(`${source}: ${JSON.stringify(actual)}`);
+      }
+    }
     // An unregistered name is not evidence that a declaration is inert: order works in this browser.
     for (const reverse of [false, true]) {
       const session = createGssCompilerSession({ projectRoot: '/project' });

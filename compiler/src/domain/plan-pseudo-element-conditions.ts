@@ -9,7 +9,7 @@ type PseudoRule = DescendantRule & {
 /** Pseudo subjects share descendant predicate resolution, but never each other's candidates.
  * A declared runtime path supplies a terminal name, not proof of descendant ancestry. */
 export function planPseudoElementConditions<R extends PseudoRule>(
-  semanticRules: readonly R[]
+  semanticRules: readonly R[], orderedRules: ReadonlySet<R>
 ): { instances: DescendantInstance<R>[]; candidates: DescendantInstance<R>[]; ambiguity?: string } {
   const groups = new Map<string, R[]>();
   for (const rule of semanticRules) {
@@ -37,7 +37,9 @@ export function planPseudoElementConditions<R extends PseudoRule>(
       const applicable = ownership ? groupedRules : groupedRules.filter((rule) => rule.nodes.length === 1);
       const planned = planDescendantConditions(bindDescendantConditions(applicable, [path]), () => false);
       if (planned.ambiguity) return { instances: [], candidates: [], ambiguity: `${planned.ambiguity} Subject ::${first.nodes.at(-1)?.pseudoElement}.` };
-      instances.push(...planned.instances);
+      // Keep the existing coactive-state guard above, but not its winner pruning for ordered sequences.
+      instances.push(...planned.instances.filter(i => !orderedRules.has(i.rule)),
+        ...planned.candidates.filter(i => orderedRules.has(i.rule)));
       candidates.push(...planned.candidates);
     }
   }

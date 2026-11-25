@@ -59,8 +59,25 @@ it.each(['.a:has(> .child){margin-left:3px}', '.a :global(.tag){margin-inline-st
   expect(session.finalize()).toEqual(snapshot);
 });
 
+it.each(['.a::before', '.a::after', '.panel .a:focus::before', '.a::placeholder'])('retains interleaved writes on %s', selector => {
+  const source = `${selector}{color:red;display:block;color:gss-unsupported}`;
+  const { snapshot } = compile(source, { atomizationFallback: 'error' });
+  expect(snapshot.manifest.rules.map(r => [r.value, r.origins[0]!.range.start])).toEqual([
+    ['red', source.indexOf('color:red')], ['block', source.indexOf('display:block')],
+    ['gss-unsupported', source.indexOf('color:gss-unsupported')]
+  ]);
+});
+
+it('keeps the previous pseudo-element sequence when an update introduces an unsupported state tie', () => {
+  const source = '.a:focus::before{color:red;display:block;color:gss-unsupported}';
+  const { session, snapshot } = compile(source);
+  expect(session.replaceStylesheet({ id: '/project/a.gss', source: source + '.a:hover::before{color:blue}' }))
+    .toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1205' }] });
+  expect(session.finalize()).toEqual(snapshot);
+});
+
 it('reports only unsupported repetitions in a mixed module', () => {
-  const source = '.a{display:block;color:red;display:flex}.a::before{margin:1px;color:red;margin:2px}';
+  const source = '.a{display:block;color:red;display:flex}.a::before{margin:1px;all:unset;margin:2px}';
   const session = createGssCompilerSession({ projectRoot: '/project' });
   expect(session.replaceStylesheet({ id: '/project/a.gss', source }).diagnostics).toMatchObject([
     { code: 'GSS1204', range: { start: source.indexOf('margin:2px') } }

@@ -18,7 +18,7 @@ export function planModuleRelations(localRules: readonly ParsedStyleRule[], sema
     isPureOwnershipRule(rule) || isCurrentStateRule(rule) || isCurrentAttributeRule(rule) ||
     isAncestorStateRule(rule) || isAncestorAttributeRule(rule)
   );
-  const hasDescendantConditions = orderedRules.size > 0 || contextualRules.length > 0 || descendantRules.some((rule) => !isPureOwnershipRule(rule));
+  const hasDescendantConditions = descendantRules.some(rule => orderedRules.has(rule)) || contextualRules.length > 0 || descendantRules.some((rule) => !isPureOwnershipRule(rule));
   const declaredPaths = semanticRules.flatMap(({ nodes }) => {
     const path = getOwnershipPath(nodes);
     return path.map((_, index) => path.slice(0, index + 1));
@@ -31,7 +31,7 @@ export function planModuleRelations(localRules: readonly ParsedStyleRule[], sema
   if (plannedDescendants?.ambiguity) return { ambiguity: plannedDescendants.ambiguity };
   const plannedStructural = planStructuralRelations(bindStructuralRelations(contextualRules), plannedDescendants?.instances ?? [], hasRules, orderedRules);
   if (plannedStructural.ambiguity) return { ambiguity: plannedStructural.ambiguity };
-  const plannedPseudos = planPseudoElementConditions(localRules);
+  const plannedPseudos = planPseudoElementConditions(localRules, orderedRules);
   if (plannedPseudos.ambiguity) return { ambiguity: plannedPseudos.ambiguity };
   const observedSubjects: OwnedTargetBinding[] = hasRules.map((rule) => ({
     rule, targetPath: getOwnershipPath(rule.nodes)

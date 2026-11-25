@@ -3,7 +3,7 @@ import type { GssDiagnostic } from '../public-types.js';
 import type { ParsedDeclaration, ParsedStyleRule } from './parsed-stylesheet.js';
 import { isRegisteredPropertyEffect } from './property-effects.js';
 import { propertiesMayOverlapForModuleOrder } from './module-order-policy.js';
-import { isLocalElementRule } from './rule-classification.js';
+import { isLocalElementRule, isPseudoElementRule } from './rule-classification.js';
 
 export function declarationSequence(declaration: ParsedDeclaration): readonly ParsedDeclaration[] {
   const { fallbacks, ...last } = declaration;
@@ -47,14 +47,18 @@ export function planDeclarationSequences(id: string, rules: readonly ParsedStyle
   const diagnostics: GssDiagnostic[] = [];
   if (!repeated.size) return { orderedRules, diagnostics };
   // A pseudo-element has its own cascade. Different scope names, however, can be composed on a single element.
+  const subject = (rule: ParsedStyleRule) => rule.nodes.at(-1)?.pseudoElement;
+  const repeatedSubjects = new Set([...repeated.keys()].map(subject));
   const outside: ParsedStyleRule[] = [];
   for (const rule of rules) {
-    if (rule.nodes.at(-1)?.pseudoElement) continue;
-    if (isLocalElementRule(rule) && rule.declarations.every(d => isRegisteredPropertyEffect(d.property))) orderedRules.add(rule);
+    if (!repeatedSubjects.has(subject(rule))) continue;
+    const supported = isLocalElementRule(rule) || (isPseudoElementRule(rule) && !rule.hasExplicitGlobal);
+    if (supported && rule.declarations.every(d => isRegisteredPropertyEffect(d.property))) orderedRules.add(rule);
     else outside.push(rule);
   }
   // Keep connected writers together: pruning an intermediate shorthand can affect more than the repeated property.
   for (const rule of outside) for (const local of orderedRules) {
+    if (subject(rule) !== subject(local)) continue;
     if (!rule.declarations.some(a => !isRegisteredPropertyEffect(a.property) ||
       local.declarations.some(b => propertiesMayOverlapForModuleOrder(a.property, b.property)))) continue;
     orderedRules.delete(local);
