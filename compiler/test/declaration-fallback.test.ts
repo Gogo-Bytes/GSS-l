@@ -39,6 +39,34 @@ it.each(['.a', '.a:focus', '.panel[x] > .a', '.panel[x] .a'])('keeps interleaved
   ]);
 });
 
+it.each(['.icon::before{content:"•";margin-left:17px}', '.a:has(> .child){width:7px}', '.a :global(.tag){width:7px}'])('keeps local alternatives alongside %s', other => {
+  for (const reverse of [false, true]) {
+    const local = '.a{margin:1px;margin-left:9px;margin:gss-unsupported}';
+    const { snapshot } = compile(reverse ? other + local : local + other, { atomizationFallback: 'error' });
+    expect(snapshot.manifest.rules.filter(r => ['1px', '9px', 'gss-unsupported'].includes(r.value)).map(r => r.value))
+      .toEqual(['1px', '9px', 'gss-unsupported']);
+    expect(snapshot.css).toContain(other.includes('before') ? '17px' : '7px');
+  }
+});
+
+it.each(['.a:has(> .child){margin-left:3px}', '.a :global(.tag){margin-inline-start:3px}',
+  '.a:has(> .child){width:7px}.bridge{width:9px;margin-bottom:3px}'])('keeps connected element conflicts transactional: %s', other => {
+  const base = '.a{margin:1px;color:red;margin:2px}';
+  const { session, snapshot } = compile(base + '.a::before{content:"•"}');
+  const source = base + other;
+  expect(session.replaceStylesheet({ id: '/project/a.gss', source })).toMatchObject({ committed: false,
+    diagnostics: [{ code: 'GSS1204', range: { start: source.indexOf('margin:2px'), end: source.indexOf('margin:2px') + 10 } }] });
+  expect(session.finalize()).toEqual(snapshot);
+});
+
+it('reports only unsupported repetitions in a mixed module', () => {
+  const source = '.a{display:block;color:red;display:flex}.a::before{margin:1px;color:red;margin:2px}';
+  const session = createGssCompilerSession({ projectRoot: '/project' });
+  expect(session.replaceStylesheet({ id: '/project/a.gss', source }).diagnostics).toMatchObject([
+    { code: 'GSS1204', range: { start: source.indexOf('margin:2px') } }
+  ]);
+});
+
 it('keeps opaque interleaved writes rejected and retains the previous contribution', () => {
   const { session, snapshot } = compile('.a { color: red; display: block; color: blue; }');
   expect(session.replaceStylesheet({ id: '/project/a.gss', source: '.a { color: red; all: unset; color: blue; }' }))

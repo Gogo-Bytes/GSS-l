@@ -38,7 +38,7 @@ export function emitAtomicRules(input: {
   const { plannedDescendants, ownershipRules } = input.relationPlan;
   // Pure ownership groups can emit one class regardless of authored depth; do not assume native strength there.
   const moduleOrder = planFixedModuleOrder(semanticRules,
-    collectModuleOrderCandidates(input.relationPlan, sameNodeAnchors, externalAnchors), plannedDescendants !== undefined, input.relationPlan.orderedSequence);
+    collectModuleOrderCandidates(input.relationPlan, sameNodeAnchors, externalAnchors), plannedDescendants !== undefined, input.relationPlan.orderedRules);
   const context = { rules, moduleId, bindings, nameAllocator, roots, moduleOrder };
 
   const ownershipGroups = planOwnershipTargets(plannedDescendants ? [] : ownershipRules, localRules);

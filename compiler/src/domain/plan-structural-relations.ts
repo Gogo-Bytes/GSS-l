@@ -147,7 +147,7 @@ function ambiguity(candidates: readonly Candidate[]): string | undefined {
 /** A rank is only a topological projection of proved implication, not its proof.
  * Keep all original rules/declarations (including source spans) as provenance. */
 export function planStructuralRelations(
-  bindings: readonly StructuralBinding[], descendants: readonly StructuralInstance[], observed: readonly ParsedStyleRule[], orderedSequence = false
+  bindings: readonly StructuralBinding[], descendants: readonly StructuralInstance[], observed: readonly ParsedStyleRule[], orderedRules?: ReadonlySet<ParsedStyleRule>
 ): { instances: RuntimeStructuralInstance[]; descendants: StructuralInstance[]; ambiguity?: string } {
   if (!bindings.length) return { instances: [], descendants: [...descendants] };
   const structural: Candidate<RuntimeStructuralInstance>[] = bindings.map(binding => {
@@ -160,7 +160,7 @@ export function planStructuralRelations(
   });
   const inherited: Candidate<StructuralInstance>[] = descendants.map(instance => ({ instance: { ...instance },
     constraint: constraintForInstance(instance) }));
-  if (!orderedSequence) resolveEquivalentGroups(structural);
+  resolveEquivalentGroups(structural.filter(c => !orderedRules?.has(c.instance.rule)));
   const candidates = [...inherited, ...structural];
   // Complex residuals retain native list specificity, not an estimated class/type count.
   // They cannot license implication/pruning or scalar equal-strength ambiguity diagnostics.

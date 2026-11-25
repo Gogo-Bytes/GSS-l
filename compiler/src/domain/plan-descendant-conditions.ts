@@ -19,7 +19,7 @@ function implies<R extends DescendantRule>(a: DescendantInstance<R>, b: Descenda
 export function planDescendantConditions<R extends DescendantRule>(
   targets: readonly BoundDescendantTarget<R>[],
   canUseNativeCascade?: (target: readonly string[], effect: string) => boolean,
-  orderedSequence = false
+  orderedRules?: ReadonlySet<R>
 ): { instances: DescendantInstance<R>[]; candidates: DescendantInstance<R>[]; ambiguity?: string } {
   const allCandidates: DescendantInstance<R>[] = [];
   const instances: DescendantInstance<R>[] = [];
@@ -27,9 +27,9 @@ export function planDescendantConditions<R extends DescendantRule>(
     const candidates: DescendantInstance<R>[] = bindings.map(binding => ({ ...binding,
       relationRank: predicate(binding).length, declarations: binding.rule.declarations }));
     allCandidates.push(...candidates);
-    if (orderedSequence) { instances.push(...candidates); continue; }
     const groups = new Map<string, DescendantInstance<R>[]>();
     for (const candidate of candidates) {
+      if (orderedRules?.has(candidate.rule)) { instances.push(candidate); continue; }
       const key = JSON.stringify([candidate.rule.layer, candidate.rule.conditions, candidate.sourcePath, predicate(candidate)]);
       groups.set(key, [...groups.get(key) ?? [], candidate]);
     }

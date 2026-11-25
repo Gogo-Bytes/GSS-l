@@ -56,6 +56,26 @@ export async function checkDeclarationFallback(browser) {
       const expected = [['0px', '0px'], ['1px', '9px'], ['0px', '3px'], ['1px', reverse ? '9px' : '3px']];
       if (JSON.stringify(actual) !== JSON.stringify([...expected, ...expected])) throw new Error(`${source}: ${JSON.stringify(actual)}`);
     }
+    // Same originating element, independent pseudo-element cascade. Observe both with and without a matching child.
+    for (const reverse of [false, true]) {
+      const local = '.box{display:block;color:red;display:flex;margin:1px;margin-left:9px;margin:gss-unsupported}';
+      const other = '.box::before{content:"•";margin-left:17px}.box:has(> .child){padding-left:7px}';
+      const source = reverse ? other + local : local + other;
+      const session = createGssCompilerSession({ projectRoot: '/project' });
+      const update = session.replaceStylesheet({ id: '/project/Mixed.gss', source });
+      if (!update.committed) throw new Error(JSON.stringify(update.diagnostics));
+      const { box, child } = update.module.scopeSchema.exports;
+      await page.setContent(`<style>${source}${session.finalize().css}</style>` +
+        [['box', 'child'], [box.selfClassName, child.selfClassName]].map(([b, c]) =>
+          `<div class="${b}"></div><div class="${b}"><span class="${c}"></span></div>`).join(''));
+      const actual = await page.locator('div').evaluateAll(nodes => nodes.map(n => {
+        const s = getComputedStyle(n), p = getComputedStyle(n, '::before');
+        return [s.display, s.color, s.marginTop, s.marginLeft, p.marginLeft, p.content, s.paddingLeft];
+      }));
+      const common = ['flex', 'rgb(255, 0, 0)', '1px', '9px', '17px', '"•"'];
+      const expected = ['0px', '7px', '0px', '7px'].map(padding => [...common, padding]);
+      if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error(`${source}: ${JSON.stringify(actual)}`);
+    }
     // An unregistered name is not evidence that a declaration is inert: order works in this browser.
     for (const reverse of [false, true]) {
       const session = createGssCompilerSession({ projectRoot: '/project' });

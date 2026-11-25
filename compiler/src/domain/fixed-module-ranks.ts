@@ -10,11 +10,11 @@ type DeclarationOrder = { atomRank: number; orderSlot: number };
 /** Project semantic height, fixed property priority and authored occurrence into
  * output slots, then number versions independently per property. Source order is
  * never a semantic edge. Reuse must preserve both version and output position. */
-export function planFixedModuleOrder(rules: readonly ParsedStyleRule[], instances: readonly OrderInstance[], preservesWitnessStrength = false, orderedSequence = false) {
+export function planFixedModuleOrder(rules: readonly ParsedStyleRule[], instances: readonly OrderInstance[], preservesWitnessStrength = false, orderedRules?: ReadonlySet<ParsedStyleRule>) {
   const { occurrences, key } = collectOrderOccurrences(rules, instances);
   const authored = (a: Occurrence, b: Occurrence) => a.instance.rule.sourceOrdinal - b.instance.rule.sourceOrdinal || a.index - b.index;
   // Disjoint families must not all restart at slot one inside an authored fallback stream.
-  const sourceSlots = orderedSequence ? new Map([...occurrences].sort(authored).map((o, i) => [o, i + 1])) : undefined;
+  const sourceSlots = orderedRules?.size ? new Map(occurrences.filter(o => orderedRules.has(o.instance.rule)).sort(authored).map((o, i) => [o, i + 1])) : undefined;
   const pending = new Set(occurrences);
   const orders = new Map<string, DeclarationOrder>();
   const overlap = (a: Occurrence, b: Occurrence) =>
@@ -33,6 +33,7 @@ export function planFixedModuleOrder(rules: readonly ParsedStyleRule[], instance
         family.push(other);
       }
     }
+    const orderedSequence = orderedRules?.has(first.instance.rule);
     if (!orderedSequence && new Set(family.map(({ declaration }) => declaration)).size < 2) continue;
     const heights = new Map(semanticOrderHeights(family, preservesWitnessStrength));
     // Use the same ownership boundary as admission: an unrelated DOM witness must not disable tie ordering.
@@ -56,7 +57,7 @@ export function planFixedModuleOrder(rules: readonly ParsedStyleRule[], instance
     const compare = (a: Occurrence, b: Occurrence) => heights.get(a)! - heights.get(b)! ||
       propertyOrderPriority(a.declaration.property) - propertyOrderPriority(b.declaration.property) ||
       authored(a, b);
-    const slots = sourceSlots && family.map(o => sourceSlots.get(o)!).sort((a, b) => a - b);
+    const slots = orderedSequence && sourceSlots ? family.map(o => sourceSlots.get(o)!).sort((a, b) => a - b) : undefined;
     family.sort(compare);
     // Keep the established cross-property projection, including unresolved
     // shorthand source order. A property-local version is never a global sort key.

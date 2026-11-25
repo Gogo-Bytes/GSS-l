@@ -17,9 +17,9 @@ import { isRegisteredPropertyEffect } from '../domain/property-effects.js';
 import { propertiesMayOverlapForModuleOrder, propertyOrderPriority } from '../domain/module-order-policy.js';
 import { planModuleRelations } from '../domain/plan-module-relations.js';
 import { discardInvalidStaticPadding, expandSafeBoxRules } from '../domain/expand-safe-box.js';
-import { isLocalElementRule, isPureOwnershipRule } from '../domain/rule-classification.js';
+import { isPureOwnershipRule } from '../domain/rule-classification.js';
 import { disjointKeyframeWidthBounds } from '../domain/keyframe-condition-exclusivity.js';
-import { groupAdjacentDeclarations, validateDeclarationSequences } from '../domain/validate-declarations.js';
+import { groupAdjacentDeclarations, planDeclarationSequences } from '../domain/validate-declarations.js';
 import { validateLogicalPhysicalConflicts } from '../domain/validate-logical-physical-conflicts.js';
 import type {
   ParsedKeyframesRegistration,
@@ -115,11 +115,8 @@ export function prepareContribution(
     rule.externalTarget === undefined && rule.externalCondition === undefined &&
     rule.declarations.every(({ property }) => isRegisteredPropertyEffect(property)))
     ? discardInvalidStaticPadding(rewrittenRules) : rewrittenRules;
-  const declarationDiagnostics = validateDeclarationSequences(input.id, atomicRules);
-  // The linear local emitters preserve authored specificity. Keep every write when a later value may be ignored.
-  const orderedSequence = declarationDiagnostics.length > 0 && atomicRules.every(rule => isLocalElementRule(rule) &&
-    rule.declarations.every(d => isRegisteredPropertyEffect(d.property)));
-  const semanticRules = !orderedSequence && atomicRules !== rewrittenRules && atomicRules.every(isPureOwnershipRule)
+  const { diagnostics: declarationDiagnostics, orderedRules } = planDeclarationSequences(input.id, atomicRules);
+  const semanticRules = !orderedRules.size && atomicRules !== rewrittenRules && atomicRules.every(isPureOwnershipRule)
     ? expandSafeBoxRules(atomicRules) : atomicRules;
   const plannedResources = parsed.resources.map((resource) =>
     planResource(resource, moduleId, bindings, nameAllocator, compatibility));
@@ -155,7 +152,7 @@ export function prepareContribution(
   );
   const conditionalSelectorError = validateConditionalSelectorShapes(input.id, parsed.rules);
   if (conditionalSelectorError) return conditionalSelectorError;
-  if (!orderedSequence && declarationDiagnostics.length) {
+  if (declarationDiagnostics.length) {
     return { diagnostics: declarationDiagnostics };
   }
   const logicalPhysicalDiagnostics = validateLogicalPhysicalConflicts(input.id, atomicRules);
@@ -167,7 +164,7 @@ export function prepareContribution(
   if (selectorShapeError) return selectorShapeError;
 
   const roots = new Map<string, MutableScopeNode>();
-  const relationPlanning = planModuleRelations(localRules, semanticRules, orderedSequence);
+  const relationPlanning = planModuleRelations(localRules, semanticRules, orderedRules);
   if ('ambiguity' in relationPlanning) return { diagnostics: [{
     code: 'GSS1205', severity: 'error', phase: 'resolve', id: input.id,
     reason: 'ambiguous-coactive-state-conflict', message: relationPlanning.ambiguity
