@@ -117,6 +117,11 @@ function parseAndNormalizeStylesheet(id: string, source: string): ParsedStyleshe
   const authored = parseAuthoredStylesheet(id, source);
   const originalSpans = new WeakMap<postcss.Source, SourceSpan>();
   authored.walk((node) => {
+    // Discard standalone notes before nesting can split rules around them. Keep marked notices fail-closed.
+    if (node.type === 'comment' && !/^!|@(?:license|preserve)\b/i.test(node.text)) {
+      node.remove();
+      return;
+    }
     // Normalize admitted at-keywords before both selector validation and nesting.
     // The prelude can contain case-sensitive author names (layers, keyframes, etc.).
     if (node.type === 'atrule') {

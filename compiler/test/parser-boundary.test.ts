@@ -27,8 +27,9 @@ describe('parser seam output compatibility', () => {
   it.each([
     '.good, div { color: blue; }',
     '.good { color: blue; } .outer { & .good, & .bad) { width: 1px; } }',
-    '.good { color: blue; /* comment */ }',
-    '/* 😀 */ .good { color: blue; }',
+    '.good { color: blue; /* unclosed',
+    '/* 😀 */ .good { color: blue; } @unsupported {}',
+    '/*! keep this notice */ .good { color: blue; }',
     '.good { color: blue;'
   ])('does not commit a partial contribution for %s', (source) => {
     const id = '/private/project/card.gss';
@@ -42,9 +43,31 @@ describe('parser seam output compatibility', () => {
     expect(compiler.finalize()).toEqual(previous);
   });
 
+  it('ignores standalone notes without changing scopes, nesting, fallbacks or original locations', () => {
+    const id = '/project/card.gss';
+    const source = '/* 😀 */\r\n.card { display:block; /* fallback */ display:flex; /* nested */ & .icon { content:"/* literal */" } }\n' +
+      '/* between */ @media print { /* inside */ .card { color:blue } }';
+    const compiler = createGssCompilerSession({ projectRoot: '/project', conditions: { media: ['print'] } });
+    const plain = source.replace(/\/\* (?:😀|fallback|nested|between|inside) \*\//gu, '');
+    const baseline = compiler.replaceStylesheet({ id, source: plain });
+    expect(baseline.diagnostics).toEqual([]);
+    const css = compiler.finalize().css;
+    expect(css).toContain('display: block;\n  display: flex;');
+    expect(css).toContain('content: "/* literal */";');
+    expect(css).toContain('@media print');
+    const result = compiler.replaceStylesheet({ id, source });
+    expect(result.diagnostics).toEqual([]);
+    expect(result.module?.scopeSchema).toEqual(baseline.module?.scopeSchema);
+    const snapshot = compiler.finalize();
+    expect(snapshot.css).toBe(css);
+    expect(snapshot.sourceMap.sourcesContent).toEqual([source]);
+    const color = snapshot.manifest.rules.find(rule => rule.property === 'color')!.origins[0]!.range;
+    expect(source.slice(color.start, color.end)).toBe('color:blue');
+  });
+
   it('keeps keyframes identity independent of frame/declaration source locations', () => {
     const keyframes = '@keyframes pulse { from { width: 1px; } to { width: 2px; } }';
-    const shifted = '@keyframes pulse {\r\n from { width: /*😀*/ 1px; }\r\n to { width: 2px; }\r\n }';
+    const shifted = '@keyframes pulse { /* frames */\r\n from { /* start */ width: /*😀*/ 1px; }\r\n to { width: 2px; }\r\n }';
     const compile = (root: string, source: string) => {
       const compiler = createGssCompilerSession({ projectRoot: root });
       const result = compiler.replaceStylesheet({ id: `${root}/card.gss`, source });
