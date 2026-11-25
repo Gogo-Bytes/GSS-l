@@ -120,6 +120,25 @@ export async function checkDeclarationFallback(browser) {
         if (JSON.stringify(actual) !== JSON.stringify([...expected, ...expected])) throw new Error(`${source}: ${JSON.stringify(actual)}`);
       }
     }
+    // A weaker base cannot lift just the attribute side of a specificity tie with :has().
+    for (const [writes, top, left] of [['margin-left:9px', '0px', '9px'], ['margin:1px;margin-left:9px;margin:gss-unsupported', '1px', '9px'],
+      ['margin:1px;margin-left:9px;margin:var(--missing)', '0px', '0px'], ['margin:1px;margin-left:9px;margin:2px', '2px', '2px']]) {
+      for (const reverse of [false, true]) {
+        const local = '.box[x]{margin-left:4px}', observed = `.box:has(> .child){${writes}}`;
+        const source = '.box{margin-left:5px}' + (reverse ? observed + local : local + observed);
+        const session = createGssCompilerSession({ projectRoot: '/project', namingMode: 'production' });
+        const update = session.replaceStylesheet({ id: '/project/Tie.gss', source });
+        if (!update.committed) throw new Error(JSON.stringify(update.diagnostics));
+        const { box, child } = update.module.scopeSchema.exports;
+        await page.setContent(`<style>${source}${session.finalize().css}</style>` + [['box', 'child'], [box.selfClassName, child.selfClassName]].map(([b, c]) =>
+          ['', 'x'].flatMap(attr => ['', `<i class="${c}"></i>`].map(inner => `<div class="${b}" ${attr}>${inner}</div>`)).join('')).join(''));
+        const actual = await page.locator('div').evaluateAll(nodes => nodes.map(n => {
+          const s = getComputedStyle(n); return [s.marginTop, s.marginLeft];
+        }));
+        const expected = [['0px', '5px'], [top, left], ['0px', '4px'], [top, reverse ? '4px' : left]];
+        if (JSON.stringify(actual) !== JSON.stringify([...expected, ...expected])) throw new Error(`${source}: ${JSON.stringify(actual)}`);
+      }
+    }
     // An unregistered name is not evidence that a declaration is inert: order works in this browser.
     for (const reverse of [false, true]) {
       const session = createGssCompilerSession({ projectRoot: '/project' });

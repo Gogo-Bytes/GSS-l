@@ -49,8 +49,8 @@ it.each(['.icon::before{content:"•";margin-left:17px}', '.a:has(> .child){widt
   }
 });
 
-it.each(['.a:has(> .child){margin-left:3px}', '.a :global(.tag){margin-inline-start:3px}',
-  '.a:has(> .child){width:7px}.bridge{width:9px;margin-bottom:3px}'])('keeps connected element conflicts transactional: %s', other => {
+it.each(['.a :global(.tag){margin-inline-start:3px}',
+  '.a :global(.tag){width:7px}.bridge{width:9px;margin-bottom:3px}'])('keeps connected element conflicts transactional: %s', other => {
   const base = '.a{margin:1px;color:red;margin:2px}';
   const { session, snapshot } = compile(base + '.a::before{content:"•"}');
   const source = base + other;
@@ -80,11 +80,14 @@ it.each(['.box:has(> .child)', '.box:has(> .child, > .alt)', '.box:has(> .child)
   expect(snapshot.css).toContain(':has(');
 });
 
-it('retains the observed last-good contribution on a connected non-observed update', () => {
-  const source = '.a:has(> .b){margin:1px;margin-left:9px;margin:2px}';
+it.each(['.a{margin-left:4px}', '.a{margin:3px;color:red;margin:gss-unsupported}'])('retains mixed local/observed writes and last-good on an opaque update: %s', local => {
+  const source = '.a:has(> .b){margin:1px;margin-left:9px;margin:2px}' + local;
   const { session, snapshot } = compile(source);
-  expect(session.replaceStylesheet({ id: '/project/a.gss', source: source + '.a{margin-left:4px}' }))
-    .toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1204' }] });
+  const failed = session.replaceStylesheet({ id: '/project/a.gss', source: source + '.a{all:unset}' });
+  expect(failed.committed).toBe(false);
+  expect(failed.diagnostics.map(d => [d.code, d.range?.start])).toEqual(
+    ['margin:2px', 'margin:gss-unsupported'].filter(text => source.includes(text)).map(text => ['GSS1204', source.indexOf(text)])
+  );
   expect(session.finalize()).toEqual(snapshot);
 });
 

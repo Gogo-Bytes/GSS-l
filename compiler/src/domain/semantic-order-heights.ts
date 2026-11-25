@@ -15,7 +15,8 @@ export function semanticOrderHeights(family: readonly OrderOccurrence[], withinN
     (instance.witnesses && !opaque(instance.rule) && instance.rule.nodes.every(n => !n.pseudoElement && !n.states.some(s => s.includes('(')))
       ? `0,${instance.specificity},0` : undefined);
   // Weak refinements must not lift just one competitor, within one target or across composable scopes.
-  const independent = (a: OrderOccurrence, b: OrderOccurrence) => context(a.instance.targetPath) !== context(b.instance.targetPath) ||
+  const independent = (a: OrderOccurrence, b: OrderOccurrence) => opaque(a.instance.rule) !== opaque(b.instance.rule) ||
+    context(a.instance.targetPath) !== context(b.instance.targetPath) ||
     (!strictlyRefines(a.instance, b.instance) && !strictlyRefines(b.instance, a.instance) &&
       (JSON.stringify(tests(a)) !== JSON.stringify(tests(b)) || JSON.stringify(a.instance.rule.relations) !== JSON.stringify(b.instance.rule.relations)));
   const tiedStrengths = new Set<string>();

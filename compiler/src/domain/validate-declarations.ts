@@ -48,15 +48,13 @@ export function planDeclarationSequences(id: string, rules: readonly ParsedStyle
   if (!repeated.size) return { orderedRules, diagnostics };
   // A pseudo-element has its own cascade. Different scope names, however, can be composed on a single element.
   const subject = (rule: ParsedStyleRule) => rule.nodes.at(-1)?.pseudoElement;
-  // :has() writes to the element being tested, not the observed node. Its native branches do not use local witness heights.
-  const domains = new Map([...repeated.keys()].map(r => [JSON.stringify([subject(r), isObservedRule(r)]), r]));
-  for (const root of domains.values()) {
+  // :has() tests the element receiving the writes; its observed node is not a separate cascade subject.
+  for (const repeatedSubject of new Set([...repeated.keys()].map(subject))) {
     const candidates = new Set<ParsedStyleRule>();
     const outside: ParsedStyleRule[] = [];
     for (const rule of rules) {
-      if (subject(rule) !== subject(root)) continue;
-      const supported = isObservedRule(root) ? isObservedRule(rule) && !rule.hasExplicitGlobal :
-        isLocalElementRule(rule) || (isPseudoElementRule(rule) && !rule.hasExplicitGlobal);
+      if (subject(rule) !== repeatedSubject) continue;
+      const supported = !rule.hasExplicitGlobal && (isLocalElementRule(rule) || isObservedRule(rule) || isPseudoElementRule(rule));
       if (supported && rule.declarations.every(d => isRegisteredPropertyEffect(d.property))) candidates.add(rule);
       else outside.push(rule);
     }
