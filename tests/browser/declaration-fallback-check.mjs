@@ -96,6 +96,30 @@ export async function checkDeclarationFallback(browser) {
         if (JSON.stringify(actual) !== JSON.stringify([...expected, ...expected])) throw new Error(`${source}: ${JSON.stringify(actual)}`);
       }
     }
+    // The children supply witnesses; only their host receives the writes. Check a list, a conjunction, and their native tie.
+    for (const [last, top, left] of [['2px', '2px', '2px'], ['gss-unsupported', '1px', '9px'], ['var(--missing)', '0px', '0px']]) {
+      for (const reverse of [false, true]) {
+        const a = `.box:has(> .a, > .b){margin:1px;margin-left:9px;margin:${last}}`;
+        const b = '.box:has(> .c){margin-left:3px}';
+        const source = (reverse ? b + a : a + b) + '.box:has(> .a):has(> .b){padding-top:7px}';
+        const session = createGssCompilerSession({ projectRoot: '/project', namingMode: 'production' });
+        const update = session.replaceStylesheet({ id: '/project/Observed.gss', source });
+        if (!update.committed) throw new Error(JSON.stringify(update.diagnostics));
+        const sets = ['', 'a', 'b', 'c', 'ab', 'abc'];
+        const scopes = update.module.scopeSchema.exports;
+        await page.setContent(`<style>${source}${session.finalize().css}</style>` + [false, true].map(compiled => {
+          const cls = n => compiled ? scopes[n].selfClassName : n;
+          return sets.map(set => `<div class="${cls('box')}">${[...set].map(n => `<i class="${cls(n)}"></i>`).join('')}</div>`).join('');
+        }).join(''));
+        const actual = await page.locator('div').evaluateAll(nodes => nodes.map(n => {
+          const s = getComputedStyle(n); return [s.marginTop, s.marginLeft, s.paddingTop,
+            [...n.children].every(child => getComputedStyle(child).marginLeft === '0px')];
+        }));
+        const expected = [['0px','0px','0px'], [top,left,'0px'], [top,left,'0px'], ['0px','3px','0px'],
+          [top,left,'7px'], [top,reverse ? left : '3px','7px']].map(row => [...row, true]);
+        if (JSON.stringify(actual) !== JSON.stringify([...expected, ...expected])) throw new Error(`${source}: ${JSON.stringify(actual)}`);
+      }
+    }
     // An unregistered name is not evidence that a declaration is inert: order works in this browser.
     for (const reverse of [false, true]) {
       const session = createGssCompilerSession({ projectRoot: '/project' });

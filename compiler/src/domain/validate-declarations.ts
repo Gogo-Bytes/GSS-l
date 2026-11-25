@@ -3,7 +3,7 @@ import type { GssDiagnostic } from '../public-types.js';
 import type { ParsedDeclaration, ParsedStyleRule } from './parsed-stylesheet.js';
 import { isRegisteredPropertyEffect } from './property-effects.js';
 import { propertiesMayOverlapForModuleOrder } from './module-order-policy.js';
-import { isLocalElementRule, isPseudoElementRule } from './rule-classification.js';
+import { isLocalElementRule, isObservedRule, isPseudoElementRule } from './rule-classification.js';
 
 export function declarationSequence(declaration: ParsedDeclaration): readonly ParsedDeclaration[] {
   const { fallbacks, ...last } = declaration;
@@ -48,21 +48,26 @@ export function planDeclarationSequences(id: string, rules: readonly ParsedStyle
   if (!repeated.size) return { orderedRules, diagnostics };
   // A pseudo-element has its own cascade. Different scope names, however, can be composed on a single element.
   const subject = (rule: ParsedStyleRule) => rule.nodes.at(-1)?.pseudoElement;
-  const repeatedSubjects = new Set([...repeated.keys()].map(subject));
-  const outside: ParsedStyleRule[] = [];
-  for (const rule of rules) {
-    if (!repeatedSubjects.has(subject(rule))) continue;
-    const supported = isLocalElementRule(rule) || (isPseudoElementRule(rule) && !rule.hasExplicitGlobal);
-    if (supported && rule.declarations.every(d => isRegisteredPropertyEffect(d.property))) orderedRules.add(rule);
-    else outside.push(rule);
-  }
-  // Keep connected writers together: pruning an intermediate shorthand can affect more than the repeated property.
-  for (const rule of outside) for (const local of orderedRules) {
-    if (subject(rule) !== subject(local)) continue;
-    if (!rule.declarations.some(a => !isRegisteredPropertyEffect(a.property) ||
-      local.declarations.some(b => propertiesMayOverlapForModuleOrder(a.property, b.property)))) continue;
-    orderedRules.delete(local);
-    outside.push(local);
+  // :has() writes to the element being tested, not the observed node. Its native branches do not use local witness heights.
+  const domains = new Map([...repeated.keys()].map(r => [JSON.stringify([subject(r), isObservedRule(r)]), r]));
+  for (const root of domains.values()) {
+    const candidates = new Set<ParsedStyleRule>();
+    const outside: ParsedStyleRule[] = [];
+    for (const rule of rules) {
+      if (subject(rule) !== subject(root)) continue;
+      const supported = isObservedRule(root) ? isObservedRule(rule) && !rule.hasExplicitGlobal :
+        isLocalElementRule(rule) || (isPseudoElementRule(rule) && !rule.hasExplicitGlobal);
+      if (supported && rule.declarations.every(d => isRegisteredPropertyEffect(d.property))) candidates.add(rule);
+      else outside.push(rule);
+    }
+    // Keep connected writers together: pruning an intermediate shorthand can affect more than the repeated property.
+    for (const rule of outside) for (const local of candidates) {
+      if (!rule.declarations.some(a => !isRegisteredPropertyEffect(a.property) ||
+        local.declarations.some(b => propertiesMayOverlapForModuleOrder(a.property, b.property)))) continue;
+      candidates.delete(local);
+      outside.push(local);
+    }
+    for (const rule of candidates) orderedRules.add(rule);
   }
   for (const [rule, duplicates] of repeated) {
     if (orderedRules.has(rule)) continue;

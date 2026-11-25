@@ -68,6 +68,26 @@ it.each(['.a::before', '.a::after', '.panel .a:focus::before', '.a::placeholder'
   ]);
 });
 
+it.each(['.box:has(> .child)', '.box:has(> .child, > .alt)', '.box:has(> .child):has(+ .alt)'])('retains all observed writes and their source offsets on %s', selector => {
+  const source = `${selector}{margin:1px;margin-left:9px;margin:gss-unsupported}`;
+  const { snapshot } = compile(source, { atomizationFallback: 'error' });
+  for (const branch of new Set(snapshot.manifest.rules.map(r => r.selector))) {
+    expect(snapshot.manifest.rules.filter(r => r.selector === branch).map(r => [r.value, r.origins[0]!.range.start])).toEqual([
+      ['1px', source.indexOf('margin:1px')], ['9px', source.indexOf('margin-left')],
+      ['gss-unsupported', source.indexOf('margin:gss-unsupported')]
+    ]);
+  }
+  expect(snapshot.css).toContain(':has(');
+});
+
+it('retains the observed last-good contribution on a connected non-observed update', () => {
+  const source = '.a:has(> .b){margin:1px;margin-left:9px;margin:2px}';
+  const { session, snapshot } = compile(source);
+  expect(session.replaceStylesheet({ id: '/project/a.gss', source: source + '.a{margin-left:4px}' }))
+    .toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1204' }] });
+  expect(session.finalize()).toEqual(snapshot);
+});
+
 it('keeps the previous pseudo-element sequence when an update introduces an unsupported state tie', () => {
   const source = '.a:focus::before{color:red;display:block;color:gss-unsupported}';
   const { session, snapshot } = compile(source);
