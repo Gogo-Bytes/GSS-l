@@ -795,7 +795,7 @@ describe('GssCompilerSession', () => {
 
   it('keeps the GSS global directive and unregistered pseudos outside CSS keyword folding', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
-    for (const selector of ['.Card:GlObAl(.Item)', '.Card:ChecKed', '.Card:LaNg(en)']) {
+    for (const selector of ['.Card:GlObAl(.Item)', '.Card:ChecKed', '.Card:UnReGiStErEd(en)']) {
       expect(compiler.replaceStylesheet({ id: '/project/Card.gss', source: `${selector} { color: red }` }))
         .toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1101' }] });
     }

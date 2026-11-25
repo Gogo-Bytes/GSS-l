@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createGssCompilerSession } from '@gss-l/compiler';
 
 export async function checkCurrentConditions(browser) {
+  await checkLanguageDirection(browser);
   await checkConditionedPrefix(browser);
   await checkExclusiveWitnesses(browser);
   await checkStructuralEdgePositions(browser);
@@ -40,6 +41,30 @@ export async function checkCurrentConditions(browser) {
       } finally { await page.close(); }
     }
   }
+}
+
+async function checkLanguageDirection(browser) {
+  const page = await browser.newPage();
+  try {
+    const lang = '.panel:LANG(zh) > .text{color:red}', dir = '.panel > .text:DIR(rtl){color:blue}';
+    for (const langLast of [false, true]) {
+      const source = langLast ? dir + lang : lang + dir;
+      const session = createGssCompilerSession({ projectRoot: '/p' });
+      const result = session.replaceStylesheet({ id: '/p/D.gss', source });
+      assert.deepEqual(result.diagnostics, []);
+      const { panel } = result.module.scopeSchema.exports;
+      for (const [css, parent, child] of [[source, 'panel', 'text'], [session.finalize().css, panel.selfClassName, panel.targets.text.selfClassName]]) {
+        await page.setContent(`<style>span{color:green}${css}</style><article><div class="${parent}"><span class="${child}">text</span></div></article>`);
+        const actual = await page.locator('span').evaluate(el => {
+          const read = () => el.ownerDocument.defaultView.getComputedStyle(el).color;
+          const outer = el.closest('article'); outer.lang = 'en'; outer.dir = 'ltr';
+          const values = [read()]; outer.lang = 'zh-Hant'; values.push(read()); outer.dir = 'rtl'; values.push(read());
+          outer.lang = 'en'; values.push(read()); el.lang = 'zh'; el.dir = 'ltr'; values.push(read()); return values;
+        });
+        assert.deepEqual(actual, ['rgb(0, 128, 0)', 'rgb(255, 0, 0)', langLast ? 'rgb(255, 0, 0)' : 'rgb(0, 0, 255)', 'rgb(0, 0, 255)', 'rgb(0, 128, 0)']);
+      }
+    }
+  } finally { await page.close(); }
 }
 
 async function checkConditionedPrefix(browser) {

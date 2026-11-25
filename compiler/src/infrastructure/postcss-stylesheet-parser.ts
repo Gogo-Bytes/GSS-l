@@ -360,6 +360,7 @@ function isSupportedConditionKind(
 }
 
 const nthStates = new Set(['nth-child', 'nth-last-child', 'nth-of-type', 'nth-last-of-type']);
+const literalArgumentStates = new Set(['lang', 'dir']);
 const selectorListStates = new Set(['not', 'is', 'where']);
 
 function parseDescendantClassPaths(
@@ -370,7 +371,7 @@ function parseDescendantClassPaths(
     const keyword = asciiLowercase(pseudo.value);
     if (keyword === pseudo.value) return;
     const name = keyword.slice(1);
-    if (isSupportedPseudoState(name) || selectorListStates.has(name) || nthStates.has(name) ||
+    if (isSupportedPseudoState(name) || selectorListStates.has(name) || literalArgumentStates.has(name) || nthStates.has(name) ||
         keyword === ':has' || (keyword.startsWith('::') && isSupportedPseudoElement(keyword.slice(2)))) {
       pseudo.value = keyword;
     }
@@ -587,8 +588,21 @@ function parseRuntimeRelation(
   return undefined;
 }
 
+// :lang takes a list of identifiers/strings; :dir takes one identifier. Neither takes selectors.
+function validLiteralArguments(pseudo: Pseudo): boolean {
+  const language = pseudo.value === ':lang';
+  return pseudo.nodes.length > 0 && (language || pseudo.nodes.length === 1) && pseudo.nodes.every(argument => {
+    const tokens: number[] = [];
+    tokenize(argument.toString(), type => {
+      if (type !== tokenTypes.WhiteSpace && type !== tokenTypes.Comment) tokens.push(type);
+    });
+    return tokens.length === 1 && (tokens[0] === tokenTypes.Ident || (language && tokens[0] === tokenTypes.String));
+  });
+}
+
 function parseFunctionalState(pseudo: Pseudo): string | undefined {
   const name = pseudo.value.slice(1);
+  if (literalArgumentStates.has(name)) return validLiteralArguments(pseudo) ? pseudo.toString().slice(1) : undefined;
   if (nthStates.has(name)) {
     return pseudo.toString().slice(1);
   }
@@ -612,6 +626,7 @@ function isNativeFunctionalBranch(nodes: readonly Node[]): boolean {
   return nodes.every((node) => {
     if (node.type === 'class' || node.type === 'tag' || node.type === 'universal' || node.type === 'combinator') return true;
     if (node.type === 'attribute') return parseLocalAttribute(node as Attribute) !== undefined;
+    if (node.type === 'pseudo' && literalArgumentStates.has(node.value.slice(1)) && validLiteralArguments(node)) return true;
     return node.type === 'pseudo' && (!node.nodes || isNativeFunctionalBranch(node.nodes.flatMap((selector) => selector.nodes)));
   });
 }

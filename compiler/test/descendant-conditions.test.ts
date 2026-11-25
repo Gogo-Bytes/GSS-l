@@ -75,6 +75,22 @@ describe('Compiler descendant condition ownership', () => {
     expect(session.finalize()).toEqual(last);
   });
 
+  it.each([':lang(zh)', ':dir(rtl)', ':dir(future)', ':lang(".label", zh-Hant)', ':is(:lang("en-US"))',
+    String.raw`:lang(\*-Latn)`, ':dir( RTL )'])('retains literal function arguments without exporting a scope: %s', suffix => {
+    const { session } = compile(`.button${suffix}{color:red}`);
+    expect(Object.keys(session.getScopeSchema('/project/Tree.gss')!.exports)).toEqual(['button']);
+    expect(session.finalize().css).toContain(suffix);
+  });
+
+  it.each([':lang()', ':lang(en,)', ':lang(.label)', ':lang(3)', ':dir("rtl")', ':dir(ltr,rtl)', ':dir(rtl ltr)'])(
+    'rejects malformed direct literal arguments transactionally: %s', suffix => {
+      const { session } = compile('.button{color:blue}');
+      const before = session.finalize();
+      expect(session.replaceStylesheet({ id: '/project/Tree.gss', source: `.button${suffix}{color:red}` }))
+        .toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1101' }] });
+      expect(session.finalize()).toEqual(before);
+    });
+
   it('rewrites the local class in an admitted functional test, not the same name in an attribute value', () => {
     const { rules, scope } = compile('.button[data-mode="ready"]:not(.ready) { color: red }');
     const marker = scope('ready').selfClassName;

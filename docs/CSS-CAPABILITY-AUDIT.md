@@ -12,6 +12,7 @@
 | --- | --- | --- |
 | Ownership | local class path、selector-list 分支身份、嵌套 normalization | 不是任意 compound/tag/ID/namespace selector 都准入；现有 path/schema 契约保留 |
 | Native relations | 已准入的 descendant、`>`、`+`、`~` 关系及多关系组合 | GSS 不分析实际 DOM/sibling；仍有 predicate 位置与组合准入限制 |
+| 语言与方向 | 本地节点的 `:lang()`（标识符或字符串列表）与 `:dir()`（单个标识符）保留原生参数，不导出参数名；继承、语言范围与方向由浏览器匹配 | 不降为 `[lang]`／`[dir]`；编译器保留标准语法，不为不支持语言列表的浏览器提供 polyfill。参见 [Selectors 4](https://www.w3.org/TR/selectors-4/#linguistic-pseudos)。 |
 | Functional selectors | 有界 `:has()`、`:is()`、`:not()`、`:where()` 嵌套 local marker rewrite；显式 global 保持外部身份 | 不是通用 selector implication engine；不要把扩展 parser 等同于所有组合均正确 |
 | Structural pseudos | 无参数结构状态、`nth-child`／`nth-last-child`／`nth-of-type`／`nth-last-of-type` native passthrough | 公式与运行时匹配交给浏览器；不进行 sibling-index 推理 |
 | nth-of | local class identity marker、嵌套 filter、后续 list branch 与 explicit global 区分 | Browser fixture 是有限证据，不是所有公式／filter 的证明 |
