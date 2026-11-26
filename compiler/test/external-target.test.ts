@@ -324,6 +324,20 @@ describe('anchored external declaration target', () => {
     expect(session.finalize().css).toContain('@media (min-width: 400px) {');
   });
 
+  it.each(['', ' '])('keeps competing external writes in their registered layers (separator %j)', space => {
+    const session = createGssCompilerSession({ projectRoot: '/project', layers: ['base', 'theme'] });
+    const a = `@layer base{.editor${space}:global(.a){margin:1px;margin-left:9px;margin:gss-unsupported}}`;
+    const b = `@layer theme{.editor${space}:global(.b){margin-left:3px}}`;
+    expect(session.replaceStylesheet({ id, source: b + a })).toMatchObject({ committed: true, diagnostics: [] });
+    const snapshot = session.finalize();
+    expect(snapshot.css).toContain('@layer base, theme;');
+    expect(snapshot.manifest.rules.map(r => r.value)).toEqual(['1px', '9px', 'gss-unsupported', '3px']);
+    for (const source of [b.replace('theme', 'unknown') + a, a + b.replace('theme', 'unknown')]) {
+      expect(session.replaceStylesheet({ id, source }).committed).toBe(false);
+      expect(session.finalize()).toEqual(snapshot);
+    }
+  });
+
   it('keeps competing external effects across conditions fail-closed', () => {
     const session = createGssCompilerSession({
       projectRoot: '/project', conditions: { media: ['(min-width: 400px)', '(min-width: 600px)'] }

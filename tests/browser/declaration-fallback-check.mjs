@@ -180,6 +180,25 @@ export async function checkDeclarationFallback(browser) {
         if (JSON.stringify(actual) !== JSON.stringify([...expected, ...expected])) throw new Error(`${source}: ${JSON.stringify(actual)}`);
       }
     }
+    // Separate stylesheets: the native control must not establish layer order for the compiler output.
+    for (const bLayer of ['theme', '']) for (const reverse of [false, true]) for (const important of ['', '!important']) {
+      const a = `@layer base{.editor:global(.a){margin:1px${important};margin-left:9px${important};margin:gss-unsupported${important}}}`;
+      const bRule = `.editor :global(.b){margin-left:3px${important}}`;
+      const b = bLayer ? `@layer ${bLayer}{${bRule}}` : bRule;
+      const source = reverse ? b + a : a + b;
+      const session = createGssCompilerSession({ projectRoot: '/project', namingMode: 'production', layers: ['base', 'theme'] });
+      const update = session.replaceStylesheet({ id: '/project/ExternalLayers.gss', source });
+      if (!update.committed) throw new Error(JSON.stringify(update.diagnostics));
+      const expected = [['0px','0px'], ['1px','9px'], ['0px','3px'], ['1px', important ? '9px' : '3px']];
+      for (const [css, anchor] of [['@layer base, theme;' + source.replaceAll(/:global\(([^)]+)\)/g, '$1'), 'editor'],
+        [session.finalize().css, update.module.scopeSchema.exports.editor.selfClassName]]) {
+        await page.setContent(`<style>${css}</style><section class="${anchor}">${['', 'a', 'b', 'a b'].map(state => `<i class="${anchor} ${state}"></i>`).join('')}</section>`);
+        const actual = await page.locator('i').evaluateAll(nodes => nodes.map(n => {
+          const s = getComputedStyle(n); return [s.marginTop, s.marginLeft];
+        }));
+        if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error(`${source}: ${JSON.stringify(actual)}`);
+      }
+    }
     // An unregistered name is not evidence that a declaration is inert: order works in this browser.
     for (const reverse of [false, true]) {
       const session = createGssCompilerSession({ projectRoot: '/project' });

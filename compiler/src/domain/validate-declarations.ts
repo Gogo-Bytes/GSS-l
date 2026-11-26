@@ -28,7 +28,7 @@ export function groupAdjacentDeclarations(rules: readonly ParsedStyleRule[]): re
   });
 }
 
-export function planDeclarationSequences(id: string, rules: readonly ParsedStyleRule[]) {
+export function planDeclarationSequences(id: string, rules: readonly ParsedStyleRule[], registeredLayers: readonly string[] = []) {
   const repeated = new Map<ParsedStyleRule, ParsedDeclaration[]>();
 
   for (const rule of rules) {
@@ -80,7 +80,10 @@ export function planDeclarationSequences(id: string, rules: readonly ParsedStyle
       component.push(other);
     }
     if (component.length === 1 && !repeated.has(first)) continue;
-    if (!component.every(rule => rule.layer === first.layer && JSON.stringify(rule.conditions) === JSON.stringify(first.conditions) &&
+    // Across registered layers the emitted @layer prelude decides precedence, including its reversal for !important.
+    const orderedLayers = component.every(rule => rule.layer === first.layer) ||
+      component.every(rule => rule.layer === null || registeredLayers.includes(rule.layer));
+    if (!orderedLayers || !component.every(rule => JSON.stringify(rule.conditions) === JSON.stringify(first.conditions) &&
       rule.declarations.every(d => isRegisteredPropertyEffect(d.property)) && !rules.some(other => !other.externalTarget &&
         !other.externalCondition && subject(other) === subject(rule) && overlaps(other, rule)))) continue;
     for (const rule of component) orderedRules.add(rule);
