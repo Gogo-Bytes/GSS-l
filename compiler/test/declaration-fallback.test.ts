@@ -107,6 +107,26 @@ it('reports only unsupported repetitions in a mixed module', () => {
   ]);
 });
 
+it.each(['.editor:global(.active)', '.editor :global(.active)', '.editor :global([data-active])'])('keeps interleaved external writes on the authored subject: %s', selector => {
+  const source = `${selector}{margin:1px;margin-left:9px;margin:gss-unsupported}`;
+  const { result, snapshot } = compile(source, { atomizationFallback: 'error' });
+  expect(result.module?.compilationMode).toBe('atomic');
+  expect(Object.keys(result.module!.scopeSchema.exports)).toEqual(['editor']);
+  expect(result.module!.scopeSchema.exports.editor!.targets).toEqual({});
+  expect(snapshot.manifest.rules.map(r => [r.value, r.origins[0]!.range.start])).toEqual([
+    ['1px', source.indexOf('margin:1px')], ['9px', source.indexOf('margin-left')],
+    ['gss-unsupported', source.indexOf('margin:gss-unsupported')]
+  ]);
+});
+
+it('admits an independent external fallback but rolls back a competing external update', () => {
+  const base = '.editor :global(.active){margin:1px;margin-left:9px;margin:2px}';
+  const { session, snapshot } = compile(base + '.editor :global(.tag){width:7px}');
+  expect(session.replaceStylesheet({ id: '/project/a.gss', source: base + '.editor :global(.tag){margin-inline-start:4px}' }))
+    .toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1204', range: { start: base.indexOf('margin:2px') } }] });
+  expect(session.finalize()).toEqual(snapshot);
+});
+
 it('keeps opaque interleaved writes rejected and retains the previous contribution', () => {
   const { session, snapshot } = compile('.a { color: red; display: block; color: blue; }');
   expect(session.replaceStylesheet({ id: '/project/a.gss', source: '.a { color: red; all: unset; color: blue; }' }))

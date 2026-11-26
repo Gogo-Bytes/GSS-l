@@ -1,4 +1,5 @@
 import type { AtomicEmissionContext } from './atomic-emission-context.js';
+import type { ParsedStyleRule } from '../domain/parsed-stylesheet.js';
 import type { OwnedTargetBinding } from '../domain/order-occurrences.js';
 import type { PureDeclarationIdentity } from '../domain/readable-name.js';
 import type { GssDiagnostic } from '../public-types.js';
@@ -11,6 +12,7 @@ import { ensureScopePath } from './scope-exports.js';
  * scopes; overlap remains fail-closed until relation semantics are proved. */
 export function emitExternalRules(input: AtomicEmissionContext & {
   id: string;
+  orderedRules: ReadonlySet<ParsedStyleRule>;
   sameNodeAnchors: readonly OwnedTargetBinding[];
   externalAnchors: readonly OwnedTargetBinding[];
 }): { diagnostics: readonly GssDiagnostic[] } | undefined {
@@ -26,7 +28,7 @@ export function emitExternalRules(input: AtomicEmissionContext & {
     const effects = new Set<string>();
     for (const declaration of rule.declarations) {
       const declarationEffects = classifyPropertyEffect(declaration.property).effects;
-      if (declarationEffects.some((effect) => effects.has(effect))) {
+      if (!input.orderedRules.has(rule) && declarationEffects.some((effect) => effects.has(effect))) {
         return { diagnostics: [{
           code: 'GSS1205', severity: 'error', phase: 'resolve', id: input.id,
           reason: 'ambiguous-coactive-state-conflict',
@@ -68,7 +70,7 @@ export function emitExternalRules(input: AtomicEmissionContext & {
     });
     for (const declaration of rule.declarations) {
       const effects = classifyPropertyEffect(declaration.property).effects;
-      if (effects.some((effect) => externalEffects.has(effect))) {
+      if (!input.orderedRules.has(rule) && effects.some((effect) => externalEffects.has(effect))) {
         return { diagnostics: [{
           code: 'GSS1205', severity: 'error', phase: 'resolve', id: input.id,
           reason: 'ambiguous-coactive-state-conflict',

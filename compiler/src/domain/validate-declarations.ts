@@ -48,6 +48,8 @@ export function planDeclarationSequences(id: string, rules: readonly ParsedStyle
   if (!repeated.size) return { orderedRules, diagnostics };
   // A pseudo-element has its own cascade. Different scope names, however, can be composed on a single element.
   const subject = (rule: ParsedStyleRule) => rule.nodes.at(-1)?.pseudoElement;
+  const overlaps = (a: ParsedStyleRule, b: ParsedStyleRule) => a.declarations.some(d => !isRegisteredPropertyEffect(d.property) ||
+    b.declarations.some(other => propertiesMayOverlapForModuleOrder(d.property, other.property)));
   // :has() tests the element receiving the writes; its observed node is not a separate cascade subject.
   for (const repeatedSubject of new Set([...repeated.keys()].map(subject))) {
     const candidates = new Set<ParsedStyleRule>();
@@ -60,14 +62,16 @@ export function planDeclarationSequences(id: string, rules: readonly ParsedStyle
     }
     // Keep connected writers together: pruning an intermediate shorthand can affect more than the repeated property.
     for (const rule of outside) for (const local of candidates) {
-      if (!rule.declarations.some(a => !isRegisteredPropertyEffect(a.property) ||
-        local.declarations.some(b => propertiesMayOverlapForModuleOrder(a.property, b.property)))) continue;
+      if (!overlaps(rule, local)) continue;
       candidates.delete(local);
       outside.push(local);
     }
     for (const rule of candidates) orderedRules.add(rule);
   }
   for (const [rule, duplicates] of repeated) {
+    // All declarations of one external branch share a native target; no cross-branch cascade proof is implied.
+    if ((rule.externalTarget || rule.externalCondition) && rule.declarations.every(d => isRegisteredPropertyEffect(d.property)) &&
+      !rules.some(other => other !== rule && subject(other) === subject(rule) && overlaps(other, rule))) orderedRules.add(rule);
     if (orderedRules.has(rule)) continue;
     for (const declaration of duplicates) {
       diagnostics.push({

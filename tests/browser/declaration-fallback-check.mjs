@@ -139,6 +139,26 @@ export async function checkDeclarationFallback(browser) {
         if (JSON.stringify(actual) !== JSON.stringify([...expected, ...expected])) throw new Error(`${source}: ${JSON.stringify(actual)}`);
       }
     }
+    // The space before :global changes which node receives every declaration, not the fallback order.
+    for (const space of ['', ' ']) {
+      for (const [writes, top, left] of [['margin:1px;margin-left:9px;margin:2px', '2px', '2px'],
+        ['margin:2px;margin-left:9px;margin:1px', '1px', '1px'], ['margin:1px;margin-left:9px;margin:gss-unsupported', '1px', '9px'],
+        ['margin:1px;margin-left:9px;margin:var(--missing)', '0px', '0px'], ['margin:1px;margin-left:9px!important;margin:2px', '2px', '9px']]) {
+        const source = `.editor${space}:global(.active){${writes}}`;
+        const session = createGssCompilerSession({ projectRoot: '/project', namingMode: 'production' });
+        const update = session.replaceStylesheet({ id: '/project/External.gss', source });
+        if (!update.committed) throw new Error(JSON.stringify(update.diagnostics));
+        const anchor = update.module.scopeSchema.exports.editor.selfClassName;
+        await page.setContent(`<style>.editor${space}.active{${writes}}${session.finalize().css}</style>` + ['editor', anchor].map(c =>
+          `<div class="${c} active"><i class="active"></i></div><div class="${c}"><i></i></div><div class="active"><i class="active"></i></div>`).join(''));
+        const actual = await page.locator('div, i').evaluateAll(nodes => nodes.map(n => {
+          const s = getComputedStyle(n); return [s.marginTop, s.marginLeft];
+        }));
+        const zero = ['0px', '0px'], hit = [top, left];
+        const expected = [space ? zero : hit, space ? hit : zero, zero, zero, zero, zero];
+        if (JSON.stringify(actual) !== JSON.stringify([...expected, ...expected])) throw new Error(`${source}: ${JSON.stringify(actual)}`);
+      }
+    }
     // An unregistered name is not evidence that a declaration is inert: order works in this browser.
     for (const reverse of [false, true]) {
       const session = createGssCompilerSession({ projectRoot: '/project' });

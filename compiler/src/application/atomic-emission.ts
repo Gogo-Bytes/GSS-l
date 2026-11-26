@@ -51,7 +51,7 @@ export function emitAtomicRules(input: {
 
   emitStructuralRules({ ...context, instances: plannedStructural.instances });
 
-  const externalEmission = emitExternalRules({ ...context, id: input.id, sameNodeAnchors, externalAnchors });
+  const externalEmission = emitExternalRules({ ...context, id: input.id, orderedRules: input.relationPlan.orderedRules, sameNodeAnchors, externalAnchors });
   if (externalEmission) return externalEmission;
 
   return { rules };
