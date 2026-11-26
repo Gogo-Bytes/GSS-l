@@ -45,7 +45,8 @@ export function planDeclarationSequences(id: string, rules: readonly ParsedStyle
   }
   const orderedRules = new Set<ParsedStyleRule>();
   const diagnostics: GssDiagnostic[] = [];
-  if (!repeated.size) return { orderedRules, diagnostics };
+  const external = rules.filter(r => r.externalTarget || r.externalCondition);
+  if (!repeated.size && external.length < 2) return { orderedRules, diagnostics };
   // A pseudo-element has its own cascade. Different scope names, however, can be composed on a single element.
   const subject = (rule: ParsedStyleRule) => rule.nodes.at(-1)?.pseudoElement;
   const overlaps = (a: ParsedStyleRule, b: ParsedStyleRule) => a.declarations.some(d => !isRegisteredPropertyEffect(d.property) ||
@@ -68,10 +69,23 @@ export function planDeclarationSequences(id: string, rules: readonly ParsedStyle
     }
     for (const rule of candidates) orderedRules.add(rule);
   }
+  // Native external selectors carry their own specificity. Only their ties need authored slots, within one wrapper context.
+  const pending = new Set(external);
+  for (const first of external) {
+    if (!pending.delete(first)) continue;
+    const component = [first];
+    for (const rule of component) for (const other of pending) {
+      if (!overlaps(rule, other) && !overlaps(other, rule)) continue;
+      pending.delete(other);
+      component.push(other);
+    }
+    if (component.length === 1 && !repeated.has(first)) continue;
+    if (!component.every(rule => rule.layer === first.layer && JSON.stringify(rule.conditions) === JSON.stringify(first.conditions) &&
+      rule.declarations.every(d => isRegisteredPropertyEffect(d.property)) && !rules.some(other => !other.externalTarget &&
+        !other.externalCondition && subject(other) === subject(rule) && overlaps(other, rule)))) continue;
+    for (const rule of component) orderedRules.add(rule);
+  }
   for (const [rule, duplicates] of repeated) {
-    // All declarations of one external branch share a native target; no cross-branch cascade proof is implied.
-    if ((rule.externalTarget || rule.externalCondition) && rule.declarations.every(d => isRegisteredPropertyEffect(d.property)) &&
-      !rules.some(other => other !== rule && subject(other) === subject(rule) && overlaps(other, rule))) orderedRules.add(rule);
     if (orderedRules.has(rule)) continue;
     for (const declaration of duplicates) {
       diagnostics.push({

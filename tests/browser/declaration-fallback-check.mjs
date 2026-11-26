@@ -159,6 +159,27 @@ export async function checkDeclarationFallback(browser) {
         if (JSON.stringify(actual) !== JSON.stringify([...expected, ...expected])) throw new Error(`${source}: ${JSON.stringify(actual)}`);
       }
     }
+    // External classes may co-occur; neither the anchor nor its DOM distance breaks a native tie.
+    for (const [aSpace, bSpace] of [[' ', ' '], ['', ''], ['', ' ']]) for (const reverse of [false, true]) {
+      for (const [last, top, left, qualifier] of [['gss-unsupported', '1px', '9px', ''], ['2px', '2px', '2px', ''],
+        ['var(--missing)', '0px', '0px', ''], ['2px', '2px', '2px', '.strong']]) {
+        const a = `.editor${aSpace}:global(.a){margin:1px;margin-left:9px;margin:${last}}`;
+        const b = `.editor${bSpace}:global(.b${qualifier}){margin-left:3px}`;
+        const source = reverse ? b + a : a + b;
+        const session = createGssCompilerSession({ projectRoot: '/project', namingMode: 'production' });
+        const update = session.replaceStylesheet({ id: '/project/Competing.gss', source });
+        if (!update.committed) throw new Error(JSON.stringify(update.diagnostics));
+        const anchor = update.module.scopeSchema.exports.editor.selfClassName;
+        const native = source.replaceAll(/:global\(([^)]+)\)/g, '$1');
+        await page.setContent(`<style>${native}${session.finalize().css}</style>` + ['editor', anchor].map(c =>
+          `<section class="${c}">${['', 'a', 'b strong', 'a b strong'].map(state => `<i class="${c} ${state}"></i>`).join('')}</section>`).join(''));
+        const actual = await page.locator('i').evaluateAll(nodes => nodes.map(n => {
+          const s = getComputedStyle(n); return [s.marginTop, s.marginLeft];
+        }));
+        const expected = [['0px', '0px'], [top, left], ['0px', '3px'], [top, !reverse || qualifier ? '3px' : left]];
+        if (JSON.stringify(actual) !== JSON.stringify([...expected, ...expected])) throw new Error(`${source}: ${JSON.stringify(actual)}`);
+      }
+    }
     // An unregistered name is not evidence that a declaration is inert: order works in this browser.
     for (const reverse of [false, true]) {
       const session = createGssCompilerSession({ projectRoot: '/project' });

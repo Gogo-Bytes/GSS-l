@@ -83,16 +83,14 @@ describe('anchored external declaration target', () => {
     }
   });
 
-  it('rejects competing external tag and attribute effects without a coactivity proof', () => {
+  it('retains both competing external tag and attribute writes', () => {
     const session = createGssCompilerSession({ projectRoot: '/project' });
     expect(session.replaceStylesheet({ id, source }).committed).toBe(true);
-    const before = session.finalize();
     expect(session.replaceStylesheet({ id, source: [
       '.editor :global(button) { color: red; }',
       '.editor :global([data-mode="ready"]) { color: blue; }'
-    ].join(' ') })).toMatchObject({ committed: false, generation: 1,
-      diagnostics: [{ code: 'GSS1205', reason: 'ambiguous-coactive-state-conflict' }] });
-    expect(session.finalize()).toEqual(before);
+    ].join(' ') })).toMatchObject({ committed: true, generation: 2, diagnostics: [] });
+    expect(session.finalize().manifest.rules.map(r => r.value)).toEqual(['red', 'blue']);
   });
 
   it('keeps an externally supplied compound class as one native target without exporting either class', () => {
@@ -338,14 +336,13 @@ describe('anchored external declaration target', () => {
       diagnostics: [{ code: 'GSS1205', reason: 'ambiguous-coactive-state-conflict' }] });
   });
 
-  it('rejects overlapping external effects without a proved winner', () => {
+  it('keeps the stronger native external selector when effects overlap', () => {
     const session = createGssCompilerSession({ projectRoot: '/project' });
     const result = session.replaceStylesheet({ id, source: source +
       ' .editor :global(.ProseMirror-focused.active) { color: blue; }'
     });
-    expect(result).toMatchObject({ committed: false, generation: 0,
-      diagnostics: [{ code: 'GSS1205', reason: 'ambiguous-coactive-state-conflict' }] });
-    expect(session.finalize().css).toBe('');
+    expect(result).toMatchObject({ committed: true, generation: 1, diagnostics: [] });
+    expect(session.finalize().css).toContain(' .ProseMirror-focused.active {');
   });
 
   it('rejects unanchored or unsupported external placements transactionally', () => {

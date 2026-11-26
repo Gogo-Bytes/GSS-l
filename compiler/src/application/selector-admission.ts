@@ -53,18 +53,13 @@ export function prepareSelectorContexts(id: string, semanticRules: readonly Pars
     base.declarations[0]!.property === sameNode.declarations[0]!.property &&
     classifyPropertyEffect(base.declarations[0]!.property).kind === 'longhand' &&
     !base.declarations[0]!.important && !sameNode.declarations[0]!.important;
-  if (sameNodeRules.length > 0 && (sameNodeRules.length !== 1 ||
-    (semanticRules.length !== 1 && !simpleBaseRefinement) ||
-    sameNode!.conditions.length > 0 || sameNode!.layer !== null ||
-    sameNode!.relations.some((relation) => relation !== 'descendant') ||
-    sameNode!.nodes.some((node) => node.states.length > 0) ||
-    sameNode!.nodes.some((node) => node.attributes.length > 0) ||
-    sameNode!.nodes.some((node) => node.hasConditions.length > 0) ||
-    sameNode!.nodes.some((node) => node.pseudoElement !== null))) {
+  const nativeExternalGroup = !localRules.length && semanticRules.every(rule => !rule.conditions.length && rule.layer === null);
+  if (sameNodeRules.length > 0 && ((!nativeExternalGroup && !simpleBaseRefinement) ||
+    sameNodeRules.some(rule => rule.conditions.length > 0 || rule.layer !== null || !isPureOwnershipRule(rule)))) {
     return { diagnostics: [{
       code: 'GSS1101', severity: 'error', phase: 'validate', id,
       reason: 'capability-not-registered',
-      message: 'A same-node external condition requires one pure owned rule or a proven single-property base refinement.'
+      message: 'A same-node external condition requires pure external branches without wrappers, or a proven single-property base refinement.'
     }] };
   }
   return { context: { externalRules, sameNodeRules, localRules, hasExplicitGlobal } };

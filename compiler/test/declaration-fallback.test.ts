@@ -119,10 +119,20 @@ it.each(['.editor:global(.active)', '.editor :global(.active)', '.editor :global
   ]);
 });
 
-it('admits an independent external fallback but rolls back a competing external update', () => {
+it.each(['', ' '])('orders competing external branches, including non-adjacent alternatives (separator %j)', space => {
+  const a = `.editor${space}:global(.a){margin:1px;margin-left:9px;margin:gss-unsupported}`;
+  const b = `.editor${space}:global(.b){margin-left:3px}`;
+  for (const reverse of [false, true]) {
+    const { result, snapshot } = compile(reverse ? b + a : a + b, { atomizationFallback: 'error' });
+    expect(Object.keys(result.module!.scopeSchema.exports)).toEqual(['editor']);
+    expect(snapshot.manifest.rules.map(r => r.value)).toEqual(reverse ? ['3px','1px','9px','gss-unsupported'] : ['1px','9px','gss-unsupported','3px']);
+  }
+});
+
+it('admits an independent external fallback but rolls back a competing local update', () => {
   const base = '.editor :global(.active){margin:1px;margin-left:9px;margin:2px}';
   const { session, snapshot } = compile(base + '.editor :global(.tag){width:7px}');
-  expect(session.replaceStylesheet({ id: '/project/a.gss', source: base + '.editor :global(.tag){margin-inline-start:4px}' }))
+  expect(session.replaceStylesheet({ id: '/project/a.gss', source: base + '.other{margin-inline-start:4px}' }))
     .toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1204', range: { start: base.indexOf('margin:2px') } }] });
   expect(session.finalize()).toEqual(snapshot);
 });
