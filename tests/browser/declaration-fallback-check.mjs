@@ -238,6 +238,24 @@ export async function checkDeclarationFallback(browser) {
         if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error(`${source}: ${JSON.stringify(actual)}`);
       }
     }
+    // Drive real focus; a weak base must not lift the focus rule past an equally strong external class.
+    for (const reverse of [false, true]) for (const extra of ['', '.strong']) {
+      const local = '.editor:focus{margin-left:4px}', ext = `.editor:global(.active${extra}){margin:1px;margin-left:9px;margin:gss-unsupported}`;
+      const source = '.editor{margin-left:5px}' + (reverse ? ext + local : local + ext);
+      const session = createGssCompilerSession({ projectRoot: '/project', namingMode: 'production' });
+      const update = session.replaceStylesheet({ id: '/project/FocusExternal.gss', source });
+      if (!update.committed) throw new Error(JSON.stringify(update.diagnostics));
+      for (const [css, c] of [[source.replace(`:global(.active${extra})`, `.active${extra}`), 'editor'],
+        [session.finalize().css, update.module.scopeSchema.exports.editor.selfClassName]]) {
+        await page.setContent(`<style>${css}</style><div tabindex="0" class="${c}"></div><div tabindex="0" class="${c} active strong"></div>`);
+        for (const index of [0, 1]) {
+          await page.locator('div').nth(index).focus();
+          const actual = await page.locator('div').evaluateAll(nodes => nodes.map(n => [getComputedStyle(n).marginTop, getComputedStyle(n).marginLeft]));
+          const expected = index === 0 ? [['0px','4px'], ['1px','9px']] : [['0px','5px'], ['1px',reverse && !extra ? '4px' : '9px']];
+          if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error(`${source}: ${JSON.stringify(actual)}`);
+        }
+      }
+    }
     // An unregistered name is not evidence that a declaration is inert: order works in this browser.
     for (const reverse of [false, true]) {
       const session = createGssCompilerSession({ projectRoot: '/project' });

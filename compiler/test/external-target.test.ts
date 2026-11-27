@@ -168,6 +168,20 @@ describe('anchored external declaration target', () => {
     expect(session.finalize()).toEqual(snapshot);
   });
 
+  it.each([':focus', '[data-mode="ready"]', ':is(:focus)'])('keeps a native tie between %s and a same-node external class', condition => {
+    const session = createGssCompilerSession({ projectRoot: '/project' });
+    const base = '.editor{margin-left:5px}', local = `.editor${condition}{margin-left:4px}`;
+    const external = '.editor:global(.active){margin:1px;margin-left:9px;margin:gss-unsupported}';
+    for (const reverse of [false, true]) {
+      expect(session.replaceStylesheet({ id, source: base + (reverse ? external + local : local + external) })).toMatchObject({ committed: true, diagnostics: [] });
+      expect(session.finalize().manifest.rules.filter(r => r.property === 'margin-left').map(r => r.value))
+        .toEqual(reverse ? ['5px', '9px', '4px'] : ['5px', '4px', '9px']);
+    }
+    const snapshot = session.finalize();
+    expect(session.replaceStylesheet({ id, source: base + local + external + '.editor{all:unset}' }).committed).toBe(false);
+    expect(session.finalize()).toEqual(snapshot);
+  });
+
   it('rejects unproved mixed same-node external conditions transactionally', () => {
     const session = createGssCompilerSession({ projectRoot: '/project' });
     expect(session.replaceStylesheet({ id, source }).committed).toBe(true);

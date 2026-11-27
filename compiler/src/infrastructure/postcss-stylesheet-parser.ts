@@ -12,6 +12,7 @@ import selectorParser, {
   type Node,
   type Pseudo
 } from 'postcss-selector-parser';
+import { isPureOwnershipRule } from '../domain/rule-classification.js';
 import { isSupportedPseudoElement } from '../domain/pseudo-element-capabilities.js';
 import { isSupportedPseudoState } from '../domain/pseudo-state-capabilities.js';
 import type { GssDiagnostic, GssSourceRange } from '../public-types.js';
@@ -418,8 +419,11 @@ function parseClassPath(nodes: readonly Node[]): ParsedSelectorPath | undefined 
     if (!expectClass && index === nodes.length - 1 && node.type === 'pseudo' && node.value === ':global' &&
       node.nodes.length === 1 && node.nodes[0]!.nodes.length > 0 &&
       node.nodes[0]!.nodes.every((part) => part.type === 'class')) {
+      const path = result(false), qualifier = node.nodes[0]!;
       return {
-        ...result(false), externalCondition: node.nodes[0]!.toString()
+        ...path, externalCondition: qualifier.toString(),
+        // The emitted selector contains the owned classes and every qualifier class, but not the :global wrapper.
+        ...(isPureOwnershipRule(path) && { functionalStrength: `0,${path.nodes.length + qualifier.nodes.length},0` })
       };
     }
     if (expectClass && node.type === 'class') {

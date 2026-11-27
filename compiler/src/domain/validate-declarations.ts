@@ -49,7 +49,7 @@ export function planDeclarationSequences(id: string, rules: readonly ParsedStyle
   const external = rules.filter(r => r.externalTarget || r.externalCondition);
   // Every write has a single originating element; an external class only qualifies that element.
   const flatMixed = external.length > 0 && external.length < rules.length && rules.every(rule =>
-    rule.nodes.length === 1 && isPureOwnershipRule(rule) && !rule.externalTarget && (!rule.hasExplicitGlobal || !!rule.externalCondition) &&
+    rule.nodes.length === 1 && (isLocalElementRule(rule) || (!!rule.externalCondition && isPureOwnershipRule(rule))) &&
     hasRegisteredConditions(rule.conditions, order) && (rule.layer === null || order.layers?.includes(rule.layer)) &&
     rule.declarations.every(d => isRegisteredPropertyEffect(d.property)));
   if (flatMixed) return { orderedRules: new Set(rules), diagnostics, flatMixed };
