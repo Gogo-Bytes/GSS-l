@@ -69,8 +69,8 @@ describe('anchored external declaration target', () => {
       ':global(button) { color: blue; }',
       '.editor:global(button) { color: blue; }',
       '.editor :global(button[data-mode="ready"]) { color: blue; }',
-      '.editor :global([data-mode^="ready"]) { color: blue; }',
-      '.editor :global([data-mode="ready" i]) { color: blue; }',
+      '.editor :global([ns|data-mode^="ready"]) { color: blue; }',
+      '.editor :global([data-mode="ready" q]) { color: blue; }',
       '.editor :global(button):hover { color: blue; }',
       '.editor :global(button) .child { color: blue; }'
     ]) {

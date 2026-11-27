@@ -457,7 +457,7 @@ function parseClassPath(nodes: readonly Node[]): ParsedSelectorPath | undefined 
       continue;
     }
     if (!expectClass && node.type === 'attribute') {
-      const condition = parseLocalAttribute(node as Attribute);
+      const condition = parseAttributeCondition(node as Attribute);
       if (!condition) return undefined;
       segments.at(-1)?.attributes.push(condition);
       continue;
@@ -629,14 +629,14 @@ function parseFunctionalState(pseudo: Pseudo): string | undefined {
 function isNativeFunctionalBranch(nodes: readonly Node[]): boolean {
   return nodes.every((node) => {
     if (node.type === 'class' || node.type === 'tag' || node.type === 'universal' || node.type === 'combinator') return true;
-    if (node.type === 'attribute') return parseLocalAttribute(node as Attribute) !== undefined;
+    if (node.type === 'attribute') return parseAttributeCondition(node as Attribute) !== undefined;
     if (node.type === 'pseudo' && literalArgumentStates.has(node.value.slice(1)) && validLiteralArguments(node)) return true;
     return node.type === 'pseudo' && (!node.nodes || isNativeFunctionalBranch(node.nodes.flatMap((selector) => selector.nodes)));
   });
 }
 
-function parseLocalAttribute(node: Attribute): ParsedAttributeCondition | undefined {
-  const simple = parseAttributeCondition(node);
+function parseAttributeCondition(node: Attribute): ParsedAttributeCondition | undefined {
+  const simple = parseSimpleAttribute(node);
   if (simple) return simple;
   if (node.namespace !== undefined || !node.operator || !['=', '~=', '|=', '^=', '$=', '*='].includes(node.operator) ||
       typeof node.value !== 'string') return undefined;
@@ -645,7 +645,7 @@ function parseLocalAttribute(node: Attribute): ParsedAttributeCondition | undefi
   return { operator: 'native', selector: node.toString() };
 }
 
-function parseAttributeCondition(attribute: Attribute): ParsedAttributeCondition | undefined {
+function parseSimpleAttribute(attribute: Attribute): ParsedAttributeCondition | undefined {
   if (attribute.insensitive !== undefined || attribute.namespace !== undefined) return undefined;
   if (attribute.operator === undefined && attribute.value === undefined) {
     return { attribute: attribute.attribute, operator: null };

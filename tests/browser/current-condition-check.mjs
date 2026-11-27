@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { createGssCompilerSession } from '@gss-l/compiler';
 
 export async function checkCurrentConditions(browser) {
+  await checkNativeAttributeSubjects(browser);
+  await checkTextEmphasis(browser);
   await checkLanguageDirection(browser);
   await checkConditionedPrefix(browser);
   await checkExclusiveWitnesses(browser);
@@ -41,6 +43,49 @@ export async function checkCurrentConditions(browser) {
       } finally { await page.close(); }
     }
   }
+}
+
+async function checkNativeAttributeSubjects(browser) {
+  const source = '.box:has(> [data-kind^="warn" i]){opacity:.5}.box :global([data-kind~="ready" i]){outline-style:solid}';
+  const session = createGssCompilerSession({ projectRoot: '/p' });
+  const result = session.replaceStylesheet({ id: '/p/A.gss', source });
+  assert.deepEqual(result.diagnostics, []);
+  assert.deepEqual(Object.keys(result.module.scopeSchema.exports), ['box']);
+  const page = await browser.newPage();
+  try {
+    for (const [css, box] of [[source.replace(':global([data-kind~="ready" i])', '[data-kind~="ready" i]'), 'box'],
+      [session.finalize().css, result.module.scopeSchema.exports.box.selfClassName]]) {
+      await page.setContent(`<style>${css}</style><div class="${box}"><i></i></div><i data-kind="ready"></i>`);
+      for (const [kind, opacity, outline] of [['WARN READY', '0.5', 'solid'], ['warn', '0.5', 'none'],
+        ['Ready', '1', 'solid'], ['already', '1', 'none']]) {
+        await page.locator('div > i').evaluate((el, value) => el.setAttribute('data-kind', value), kind);
+        assert.deepEqual(await page.locator('div, i').evaluateAll(nodes => nodes.map(el => {
+          const style = el.ownerDocument.defaultView.getComputedStyle(el);
+          return [style.opacity, style.outlineStyle];
+        })), [[opacity, 'none'], ['1', outline], ['1', 'none']]);
+      }
+    }
+  } finally { await page.close(); }
+}
+
+async function checkTextEmphasis(browser) {
+  const page = await browser.newPage();
+  try {
+    const shorthand = 'text-emphasis:var(--mark)', longhand = 'text-emphasis-color:blue';
+    for (const [declarations, expectedColor] of [[`${shorthand};${longhand}`, 'rgb(0, 0, 255)'],
+      [`${longhand};${shorthand}`, 'rgb(255, 0, 0)'], [`${longhand}!important;${shorthand}`, 'rgb(0, 0, 255)']]) {
+      const source = `.text{text-emphasis-position:under left;${declarations}}`;
+      const session = createGssCompilerSession({ projectRoot: '/p' });
+      const result = session.replaceStylesheet({ id: '/p/E.gss', source });
+      assert.deepEqual(result.diagnostics, []);
+      assert.equal(result.module.compilationMode, 'atomic');
+      for (const [css, scope] of [[source, 'text'], [session.finalize().css, result.module.scopeSchema.exports.text.selfClassName]]) {
+        await page.setContent(`<style>${css}</style><p class="${scope}" style="--mark:dot red">text</p>`);
+        assert.deepEqual(await page.locator('p').evaluate(el => { const s = el.ownerDocument.defaultView.getComputedStyle(el);
+          return [s.textEmphasisColor, s.textEmphasisStyle, s.textEmphasisPosition]; }), [expectedColor, 'dot', 'under left']);
+      }
+    }
+  } finally { await page.close(); }
 }
 
 async function checkLanguageDirection(browser) {

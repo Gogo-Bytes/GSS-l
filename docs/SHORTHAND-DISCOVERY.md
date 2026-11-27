@@ -33,7 +33,9 @@ function declaredLonghands(property, value) {
 
 从仓库根目录执行 `corepack pnpm --filter @gss-l/testing property-effects:audit`。前提是按 lockfile 安装 workspace 依赖，并已安装该版 Playwright 的 Chromium。命令先构建当前 Compiler，再对 MDN 目录的每个属性单独设置 `initial`，把枚举结果和登记分类逐项写入 `artifacts/property-effects-audit/report.json`。两个故障对照只修改比较时传入的登记：把 `white-space` 退回独立属性、从 `border` 删除五个 `border-image-*`。任一漏项未检出或当前登记丢失对应写入，命令失败。其他差异生成报告供复核，不自动失败或改表。工具只在私有测试工作区运行。
 
-本次基线（mdn-data 2.27.1、Playwright 1.58.2、Chromium 145.0.7632.6）：484 项中 83 项枚举到多个名字，其中 21 项有浏览器列出而 Compiler 未登记的名字：
+基线后已按 [CSS Text Decoration 的 text-emphasis 定义](https://www.w3.org/TR/css-text-decor-3/#text-emphasis-property) 登记 `text-emphasis-style` 和 `text-emphasis-color`。`text-emphasis-position` 独立，不被简写重置；登记写入不代表展开具体值。
+
+历史基线（mdn-data 2.27.1、Playwright 1.58.2、Chromium 145.0.7632.6）：484 项中 83 项枚举到多个名字，其中 21 项有浏览器列出而 Compiler 未登记的名字：
 
 | 属性数 | 复核结果 |
 | ---: | --- |
