@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createGssCompilerSession } from '@gss-l/compiler';
 
 export async function checkCurrentConditions(browser) {
+  await checkHasListAgainstSibling(browser);
   await checkHasListValidity(browser);
   await checkNativeAttributeSubjects(browser);
   await checkTextEmphasis(browser);
@@ -44,6 +45,28 @@ export async function checkCurrentConditions(browser) {
       } finally { await page.close(); }
     }
   }
+}
+
+async function checkHasListAgainstSibling(browser) {
+  const page = await browser.newPage();
+  try {
+    const observed = '.root .card:has(.a,.b:checked){opacity:.5}', sibling = '.root[ready] + .card{opacity:.75}';
+    for (const source of [observed + sibling, sibling + observed]) {
+      const session = createGssCompilerSession({ projectRoot: '/p' });
+      const result = session.replaceStylesheet({ id: '/p/A.gss', source });
+      assert.deepEqual(result.diagnostics, []);
+      const { root, a } = result.module.scopeSchema.exports;
+      for (const [css, anchor, card, child] of [[source, 'root', 'card', 'a'],
+        [session.finalize().css, root.selfClassName, root.targets.card.selfClassName, a.selfClassName]]) {
+        // Only the weaker list branch (.a) ever matches. The unchecked branch still sets specificity.
+        await page.setContent(`<style>${css}</style>` + [[true, true], [false, true], [true, false], [false, false]]
+          .map(([ready, hasChild]) => `<section class="${anchor}"><i class="${anchor}" ${ready ? 'ready' : ''}></i>` +
+            `<article class="${card}">${hasChild ? `<b class="${child}"></b>` : ''}</article></section>`).join(''));
+        assert.deepEqual(await page.locator('article').evaluateAll(nodes => nodes.map(el =>
+          el.ownerDocument.defaultView.getComputedStyle(el).opacity)), ['0.5', '0.5', '0.75', '1']);
+      }
+    }
+  } finally { await page.close(); }
 }
 
 async function checkHasListValidity(browser) {

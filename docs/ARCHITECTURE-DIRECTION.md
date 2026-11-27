@@ -677,7 +677,7 @@ import { react } from '@gss-l/react';
 
 [observed-emission.ts](../compiler/src/application/observed-emission.ts) 从主体绑定的末尾节点读取 `hasConditions`。每个具名组代表一次源码中的 `:has()` 调用，`alternatives` 保留该次调用的相对选择器列表。例如 `.a:has(.b,.c):has(.d)` 要求后代中有 b 或 c，同时还要有 d；只有 b 时不匹配。单次调用保留逐分支排序绑定与 subject／observed marker，但每个分支输出都含有完整的原生 `:has(列表)`。浏览器由此决定整个列表是否有效及其最大强度；分支自己的 `:where(:has(分支))` 只限制命中，不增加强度。例如在不支持 `[x="v" s]` 的浏览器里，`:has([x="v" s],[ready])` 整体无效，即使后代有 `ready` 也不生效。
 
-连续多次调用在同一个 rule／targetPath 上形成一个排序候选，主体使用其 scope marker。输出把每组渲染成一次原生 `:has()` 并连接到同一主体上，浏览器负责各组的实际匹配。每组取参数列表的最大 specificity，各组相加。相同 marker 可以多次引用，例如 `:has(.b):has(.b)` 依然贡献两次参数强度。结构歧义检查对可计算的多组条件同样取各组最大值之和；复杂 residual 继续沿用原生强度边界。
+连续多次调用在同一个 rule／targetPath 上形成一个排序候选，主体使用其 scope marker。输出把每组渲染成一次原生 `:has()` 并连接到同一主体上，浏览器负责各组的实际匹配。每组取参数列表的最大 specificity，各组相加。相同 marker 可以多次引用，例如 `:has(.b):has(.b)` 依然贡献两次参数强度。结构歧义检查对可计算的条件取各组最大值之和，即使只有一个 `:has()` 也按完整列表比较。例如 `.root .card:has(.a,.b:checked)` 的强度高于 `.root[ready] + .card`，不会因为只有 `.a` 命中就被诊断为平局；复杂 residual 继续沿用原生强度边界。
 
 观察 class 按所属 scope 登记。收集 membership 可以遍历所有备选项；匹配、权重和多组声明身份必须保留组间边界与重复次数。复用还受模块、目标、条件、layer、属性、值、importance、排序位置及最终 selector 约束。此模型用于既有 atomic 路径，fallback 准入沿用原约定。对应编译回归见 [has-specificity.test.ts](../compiler/test/has-specificity.test.ts)，原生浏览器对照见 [has-specificity-fixtures.ts](../tests/browser/has-specificity-fixtures.ts)。
 

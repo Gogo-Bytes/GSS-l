@@ -20,6 +20,17 @@ describe('observed selector-list specificity', () => {
     ].sort());
   });
 
+  it.each(['.a,.b:checked', '.b:checked,.a'])('compares the full observation %s with a structural competitor', (list) => {
+    const compiler = createGssCompilerSession({ projectRoot: '/project' });
+    const observed = `.root .card:has(${list}) { opacity:.5 }`;
+    const replace = (attrs: string) => compiler.replaceStylesheet({ id: moduleId,
+      source: observed + `.root${attrs} + .card { opacity:.75 }` });
+    expect(replace('[ready]')).toMatchObject({ committed: true, diagnostics: [] });
+    const before = compiler.finalize();
+    expect(replace('[ready][open]')).toMatchObject({ committed: false, diagnostics: [{ code: 'GSS1205' }] });
+    expect(compiler.finalize()).toEqual(before);
+  });
+
   it('uses the sum of group maxima to check structural ambiguity', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
     const observed = '.root .card:has(button,.a):has(.a) { color: red }';

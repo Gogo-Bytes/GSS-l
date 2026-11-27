@@ -13,7 +13,7 @@ type Constraint = {
   sourcePath?: readonly string[];
   predicates: readonly string[];
   runtime?: { edges: readonly SelectorRelation[]; paths: readonly (readonly string[])[] };
-  observation?: ParsedHasCondition | readonly ParsedHasGroup[];
+  observation?: readonly ParsedHasGroup[];
 };
 export type StructuralInstance = DescendantInstance<ParsedStyleRule>;
 /** Runtime structural outputs always bind a source; inherited descendant
@@ -168,16 +168,6 @@ export function planStructuralRelations(
     const groups = rule.nodes.at(-1)!.hasConditions;
     if (groups.some(group => group.alternatives.some(branch => branch.nativeSpecificity))) return [];
     const targetPath = getOwnershipPath(rule.nodes);
-    const candidate = (observation: NonNullable<Constraint['observation']>, classes: number, types: number) => ({
-      instance: { rule, targetPath, sourceIndex: -1, specificity: rule.nodes.length + classes,
-        relationRank: 0, declarations: rule.declarations },
-      constraint: { targetPath, predicates: [], observation },
-      typeSpecificity: types
-    });
-    if (groups.length === 1) return groups[0]!.alternatives.map(branch => {
-      const { classes, types } = observedSpecificity(branch);
-      return candidate(branch, classes, types);
-    });
     let classes = 0;
     let types = 0;
     for (const group of groups) {
@@ -186,7 +176,12 @@ export function planStructuralRelations(
       classes += strongest.classes;
       types += strongest.types;
     }
-    return [candidate(groups, classes, types)];
+    return [{
+      instance: { rule, targetPath, sourceIndex: -1, specificity: rule.nodes.length + classes,
+        relationRank: 0, declarations: rule.declarations },
+      constraint: { targetPath, predicates: [], observation: groups },
+      typeSpecificity: types
+    }];
   });
   const conflict = ambiguity([...candidates, ...observedCandidates]);
   if (conflict) return { instances: [], descendants: [], ambiguity: conflict };
