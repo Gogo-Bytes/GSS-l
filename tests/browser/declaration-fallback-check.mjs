@@ -199,6 +199,27 @@ export async function checkDeclarationFallback(browser) {
         if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error(`${source}: ${JSON.stringify(actual)}`);
       }
     }
+    // The reference follows project query order, not GSS source order. Width and height can match independently.
+    for (const reverseQueryOrder of [false, true]) for (const reverseSource of [false, true]) {
+      const width = '(min-width: 600px)', height = '(min-height: 500px)', supports = '(display: grid)';
+      const a = `@media ${width}{.editor:global(.active){margin:1px;margin-left:9px;margin:gss-unsupported}}`;
+      const b = `@media ${height}{@supports ${supports}{.editor :global(.tag){margin-left:3px}}}`;
+      const nativeA = a.replace(':global(.active)', '.active'), nativeB = b.replace(':global(.tag)', '.tag');
+      const session = createGssCompilerSession({ projectRoot: '/project', namingMode: 'production',
+        conditions: { media: reverseQueryOrder ? [height, width] : [width, height], supports: [supports] } });
+      const update = session.replaceStylesheet({ id: '/project/ExternalQueries.gss', source: reverseSource ? b + a : a + b });
+      if (!update.committed) throw new Error(JSON.stringify(update.diagnostics));
+      for (const [css, anchor] of [[reverseQueryOrder ? nativeB + nativeA : nativeA + nativeB, 'editor'],
+        [session.finalize().css, update.module.scopeSchema.exports.editor.selfClassName]]) {
+        await page.setContent(`<style>${css}</style><section class="${anchor}"><i class="${anchor} active tag"></i></section>`);
+        for (const [w, h, top, left] of [[400,400,'0px','0px'], [700,400,'1px','9px'], [400,600,'0px','3px'],
+          [700,600,'1px',reverseQueryOrder ? '9px' : '3px']]) {
+          await page.setViewportSize({ width: w, height: h });
+          const actual = await page.locator('i').evaluate(n => [getComputedStyle(n).marginTop, getComputedStyle(n).marginLeft]);
+          if (actual[0] !== top || actual[1] !== left) throw new Error(`External queries at ${w}x${h}: ${actual} vs ${top},${left}`);
+        }
+      }
+    }
     // An unregistered name is not evidence that a declaration is inert: order works in this browser.
     for (const reverse of [false, true]) {
       const session = createGssCompilerSession({ projectRoot: '/project' });

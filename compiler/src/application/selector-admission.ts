@@ -1,3 +1,4 @@
+import { hasRegisteredConditions, type RuleOrderConfig } from '../domain/rule-order-planner.js';
 import { scopeClassField } from './scope-exports.js';
 import type { ParsedStyleRule } from '../domain/parsed-stylesheet.js';
 import type { GssDiagnostic } from '../public-types.js';
@@ -6,7 +7,7 @@ import { isLocalElementRule, isOwnedCurrentSubject, isAncestorStateRule, isAnces
 
 /** Preserve the existing external admission checks before later condition,
  * declaration, relation and fallback validation. */
-export function prepareSelectorContexts(id: string, semanticRules: readonly ParsedStyleRule[], registeredLayers: readonly string[] = []):
+export function prepareSelectorContexts(id: string, semanticRules: readonly ParsedStyleRule[], order: RuleOrderConfig):
   { context: { externalRules: ParsedStyleRule[]; sameNodeRules: ParsedStyleRule[]; localRules: ParsedStyleRule[]; hasExplicitGlobal: boolean } } |
   { diagnostics: readonly GssDiagnostic[] } {
   const collision = semanticRules.find(rule =>
@@ -48,19 +49,19 @@ export function prepareSelectorContexts(id: string, semanticRules: readonly Pars
   const simpleBaseRefinement = sameNode !== undefined && base !== undefined &&
     semanticRules.length === 2 && localRules.length === 1 && externalRules.length === 0 &&
     sameNode.nodes.length === 1 && base.nodes.length === 1 && base.nodes[0]!.name === sameNode.nodes[0]!.name &&
-    isPureOwnershipRule(base) && base.conditions.length === 0 && base.layer === null && sameNode.layer === null &&
+    isPureOwnershipRule(base) && base.conditions.length === 0 && sameNode.conditions.length === 0 && base.layer === null && sameNode.layer === null &&
     base.declarations.length === 1 && sameNode.declarations.length === 1 &&
     base.declarations[0]!.property === sameNode.declarations[0]!.property &&
     classifyPropertyEffect(base.declarations[0]!.property).kind === 'longhand' &&
     !base.declarations[0]!.important && !sameNode.declarations[0]!.important;
-  const nativeExternalGroup = !localRules.length && semanticRules.every(rule => !rule.conditions.length &&
-    (rule.layer === null || registeredLayers.includes(rule.layer)));
+  const nativeExternalGroup = !localRules.length && semanticRules.every(rule => hasRegisteredConditions(rule.conditions, order) &&
+    (rule.layer === null || order.layers?.includes(rule.layer)));
   if (sameNodeRules.length > 0 && ((!nativeExternalGroup && !simpleBaseRefinement) ||
-    sameNodeRules.some(rule => rule.conditions.length > 0 || !isPureOwnershipRule(rule)))) {
+    sameNodeRules.some(rule => !isPureOwnershipRule(rule)))) {
     return { diagnostics: [{
       code: 'GSS1101', severity: 'error', phase: 'validate', id,
       reason: 'capability-not-registered',
-      message: 'A same-node external condition requires pure external branches without conditions in registered layers or outside layers, or a proven single-property base refinement.'
+      message: 'A same-node external condition requires pure external branches with registered conditions and layers, or a proven single-property base refinement.'
     }] };
   }
   return { context: { externalRules, sameNodeRules, localRules, hasExplicitGlobal } };

@@ -338,9 +338,25 @@ describe('anchored external declaration target', () => {
     }
   });
 
-  it('keeps competing external effects across conditions fail-closed', () => {
+  it.each(['', ' '])('uses registered condition order for competing external writes (separator %j)', space => {
+    const session = createGssCompilerSession({ projectRoot: '/project', conditions: {
+      media: ['(min-width: 600px)', '(min-width: 400px)'], supports: ['(display: grid)']
+    } });
+    const target = `.editor${space}:global(.active)`;
+    const a = `@media (min-width: 400px){${target}{margin:1px;margin-left:9px;margin:gss-unsupported}}`;
+    const b = `@media (min-width: 600px){@supports (display: grid){${target}{margin-left:3px}}}`;
+    for (const source of [a + b, b + a]) {
+      expect(session.replaceStylesheet({ id, source })).toMatchObject({ committed: true, diagnostics: [] });
+      expect(session.finalize().manifest.rules.map(r => r.value)).toEqual(['3px', '1px', '9px', 'gss-unsupported']);
+    }
+    const snapshot = session.finalize();
+    expect(session.replaceStylesheet({ id, source: a + b.replace('display: grid', 'display: flex') }).committed).toBe(false);
+    expect(session.finalize()).toEqual(snapshot);
+  });
+
+  it('keeps competing external effects across unregistered conditions fail-closed', () => {
     const session = createGssCompilerSession({
-      projectRoot: '/project', conditions: { media: ['(min-width: 400px)', '(min-width: 600px)'] }
+      projectRoot: '/project', conditions: { media: ['(min-width: 400px)'] }
     });
     const result = session.replaceStylesheet({ id, source: [
       '@media (min-width: 400px) { .editor :global(.ProseMirror-focused) { color: red; } }',

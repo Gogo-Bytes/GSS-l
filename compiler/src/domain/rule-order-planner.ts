@@ -24,6 +24,10 @@ export type RuleOrderConfig = {
   };
 };
 
+export function hasRegisteredConditions(chain: readonly OrderableCondition[], config: RuleOrderConfig): boolean {
+  return chain.every(({ kind, query }) => config.conditions?.[kind]?.includes(query));
+}
+
 export function compareRuleOrder(
   left: OrderableRule,
   right: OrderableRule,
