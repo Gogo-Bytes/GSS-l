@@ -22,13 +22,15 @@ let server, browser, serverMode;
 let serverOutput = '';
 async function run(command, args, cwd = repo) {
   const child = spawn(command, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
-  let output = '';
-  for (const stream of [child.stdout, child.stderr]) stream.on('data', (data) => { output += data; });
+  let stdout = '', stderr = '';
+  child.stdout.setEncoding('utf8').on('data', data => { stdout += data; });
+  child.stderr.setEncoding('utf8').on('data', data => { stderr += data; });
   const code = await new Promise((resolve, reject) => { child.once('error', reject); child.once('close', resolve); });
+  const output = stdout + stderr;
   await writeFile(join(evidence, `command-${report.commands.length}.log`), output);
   report.commands.push({ command: [command, ...args].join(' '), cwd, code });
   assert.equal(code, 0, output);
-  return output;
+  return stdout;
 }
 async function stop() {
   if (!server) return;
@@ -63,8 +65,8 @@ async function styles(page, path, mode) {
   const expected = path === '/' ? 'rgb(180, 20, 30)' : 'rgb(20, 100, 40)';
   const state = await page.getByTestId(testId).evaluate((node) => ({ color: getComputedStyle(node).color, className: node.className }));
   assert.equal(state.color, expected);
-  assert.match(state.className, /gss-/);
-  assert.notEqual(state.className, '[object Object]');
+  // The fixture exports one color atom; its spelling differs in development and production.
+  assert.match(state.className, /^\S+$/);
   const art = await page.getByTestId('art').evaluate(async (node) => {
     const css = getComputedStyle(node);
     const image = new Image(); image.src = css.backgroundImage.slice(5, -2); await image.decode();
@@ -74,6 +76,9 @@ async function styles(page, path, mode) {
   const links = await page.locator('link[rel="stylesheet"]').evaluateAll((nodes) => nodes.map((node) => node.getAttribute('href')).filter((href) => /gss-|@gss-l\/stylesheet/.test(href)));
   assert.equal(links.length, 1, JSON.stringify(links));
   if (mode === 'production') assert.equal(links[0], report.productionHref);
+  const sheet = await page.request.get(new URL(links[0], origin).href, { headers: { accept: 'text/css' } });
+  assert.equal(sheet.status(), 200);
+  assert.ok((await sheet.text()).includes(`.${state.className}`), 'DOM class must occur in the delivered GSS stylesheet');
   return { ...state, art, href: links[0] };
 }
 async function requests(mode) {
@@ -84,14 +89,17 @@ async function requests(mode) {
     await writeFile(join(evidence, `${mode}-${token}.html`), html);
     assert.ok(html.includes(token));
     assert.ok(!html.includes(token === 'first-request' ? 'second-request' : 'first-request'));
-    assert.match(html, /gss-/);
+    const subject = path === '/' ? 'title' : 'detail';
+    const tag = html.match(new RegExp(`<[^>]+data-testid="${subject}"[^>]*>`))?.[0];
+    const className = tag?.match(/\bclass="([^"\s]+)"/)?.[1];
+    assert.ok(className, `SSR must supply a class on ${subject}`);
     const links = [...html.matchAll(/<link\b[^>]*href="([^"]+)"[^>]*>/g)].map((match) => match[1]).filter((href) => /gss-|@gss-l\/stylesheet/.test(href));
     assert.equal(links.length, 1);
     if (mode === 'production') assert.equal(links[0], report.productionHref);
     const css = await fetch(new URL(links[0], origin), { headers: { accept: 'text/css' } });
     assert.equal(css.status, 200);
     assert.match(css.headers.get('content-type'), /css/);
-    assert.match(await css.text(), /180/);
+    assert.ok((await css.text()).includes(`.${className}`), `Linked CSS must style the SSR ${subject}`);
     report.requests.push({ mode, path, token, href: links[0], status: 200, requestDataInHTML: true });
   }
 }

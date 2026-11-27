@@ -23,13 +23,15 @@ let expectedError = false;
 async function run(command, args, cwd = repo) {
   const index = report.commands.length;
   const child = spawn(command, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
-  let output = '';
-  for (const stream of [child.stdout, child.stderr]) stream.on('data', (data) => { output += data; });
+  let stdout = '', stderr = '';
+  child.stdout.setEncoding('utf8').on('data', data => { stdout += data; });
+  child.stderr.setEncoding('utf8').on('data', data => { stderr += data; });
   const code = await new Promise((resolve, reject) => { child.on('error', reject); child.on('close', resolve); });
+  const output = stdout + stderr;
   await writeFile(join(evidence, `command-${index}.log`), output);
   report.commands.push({ command: [command, ...args].join(' '), cwd, code });
   assert.equal(code, 0, output);
-  return output;
+  return stdout;
 }
 async function stop() {
   if (!server) return;
