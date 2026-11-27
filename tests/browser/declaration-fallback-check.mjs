@@ -220,6 +220,24 @@ export async function checkDeclarationFallback(browser) {
         }
       }
     }
+    // Only the owned node with the external class gets the refinement, even when its child also has the class.
+    for (const reverse of [false, true]) for (const important of ['', '!important']) {
+      const base = `.editor{margin:1px;margin-left:7px${important};margin:gss-unsupported}`;
+      const active = '.editor:global(.active){margin:3px;margin-left:9px;margin:gss-unsupported}';
+      const source = reverse ? active + base : base + active;
+      const session = createGssCompilerSession({ projectRoot: '/project', namingMode: 'production' });
+      const update = session.replaceStylesheet({ id: '/project/MixedExternal.gss', source });
+      if (!update.committed) throw new Error(JSON.stringify(update.diagnostics));
+      const expected = [['1px','7px'], ['0px','0px'], ['3px',important ? '7px' : '9px'], ['0px','0px']];
+      for (const [css, c] of [[source.replace(':global(.active)', '.active'), 'editor'],
+        [session.finalize().css, update.module.scopeSchema.exports.editor.selfClassName]]) {
+        await page.setContent(`<style>${css}</style><div class="${c}"><i class="active"></i></div><div class="${c} active"></div><div class="active"></div>`);
+        const actual = await page.locator('div, i').evaluateAll(nodes => nodes.map(n => {
+          const s = getComputedStyle(n); return [s.marginTop, s.marginLeft];
+        }));
+        if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error(`${source}: ${JSON.stringify(actual)}`);
+      }
+    }
     // An unregistered name is not evidence that a declaration is inert: order works in this browser.
     for (const reverse of [false, true]) {
       const session = createGssCompilerSession({ projectRoot: '/project' });

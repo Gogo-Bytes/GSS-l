@@ -4,7 +4,7 @@ import type { GssDiagnostic } from '../public-types.js';
 import type { ParsedDeclaration, ParsedStyleRule } from './parsed-stylesheet.js';
 import { isRegisteredPropertyEffect } from './property-effects.js';
 import { propertiesMayOverlapForModuleOrder } from './module-order-policy.js';
-import { isLocalElementRule, isObservedRule, isPseudoElementRule } from './rule-classification.js';
+import { isLocalElementRule, isObservedRule, isPseudoElementRule, isPureOwnershipRule } from './rule-classification.js';
 
 export function declarationSequence(declaration: ParsedDeclaration): readonly ParsedDeclaration[] {
   const { fallbacks, ...last } = declaration;
@@ -47,7 +47,13 @@ export function planDeclarationSequences(id: string, rules: readonly ParsedStyle
   const orderedRules = new Set<ParsedStyleRule>();
   const diagnostics: GssDiagnostic[] = [];
   const external = rules.filter(r => r.externalTarget || r.externalCondition);
-  if (!repeated.size && external.length < 2) return { orderedRules, diagnostics };
+  // Every write has a single originating element; an external class only qualifies that element.
+  const flatMixed = external.length > 0 && external.length < rules.length && rules.every(rule =>
+    rule.nodes.length === 1 && isPureOwnershipRule(rule) && !rule.externalTarget && (!rule.hasExplicitGlobal || !!rule.externalCondition) &&
+    hasRegisteredConditions(rule.conditions, order) && (rule.layer === null || order.layers?.includes(rule.layer)) &&
+    rule.declarations.every(d => isRegisteredPropertyEffect(d.property)));
+  if (flatMixed) return { orderedRules: new Set(rules), diagnostics, flatMixed };
+  if (!repeated.size && external.length < 2) return { orderedRules, diagnostics, flatMixed };
   // A pseudo-element has its own cascade. Different scope names, however, can be composed on a single element.
   const subject = (rule: ParsedStyleRule) => rule.nodes.at(-1)?.pseudoElement;
   const overlaps = (a: ParsedStyleRule, b: ParsedStyleRule) => a.declarations.some(d => !isRegisteredPropertyEffect(d.property) ||
@@ -104,5 +110,5 @@ export function planDeclarationSequences(id: string, rules: readonly ParsedStyle
       });
     }
   }
-  return { orderedRules, diagnostics };
+  return { orderedRules, diagnostics, flatMixed };
 }

@@ -115,7 +115,7 @@ export function prepareContribution(
     rule.externalTarget === undefined && rule.externalCondition === undefined &&
     rule.declarations.every(({ property }) => isRegisteredPropertyEffect(property)))
     ? discardInvalidStaticPadding(rewrittenRules) : rewrittenRules;
-  const { diagnostics: declarationDiagnostics, orderedRules } = planDeclarationSequences(input.id, atomicRules, config);
+  const { diagnostics: declarationDiagnostics, orderedRules, flatMixed } = planDeclarationSequences(input.id, atomicRules, config);
   const semanticRules = !orderedRules.size && atomicRules !== rewrittenRules && atomicRules.every(isPureOwnershipRule)
     ? expandSafeBoxRules(atomicRules) : atomicRules;
   const plannedResources = parsed.resources.map((resource) =>
@@ -141,7 +141,7 @@ export function prepareContribution(
     previous.push({ identity, resource });
     keyframeRegistrations.set(resource.name, previous);
   }
-  const selectorContexts = prepareSelectorContexts(input.id, semanticRules, config);
+  const selectorContexts = prepareSelectorContexts(input.id, semanticRules, config, flatMixed);
   if ('diagnostics' in selectorContexts) return selectorContexts;
   const { externalRules, sameNodeRules, localRules, hasExplicitGlobal } = selectorContexts.context;
   const conditionDiagnostics = validateRegisteredConditions(

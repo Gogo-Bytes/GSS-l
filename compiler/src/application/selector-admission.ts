@@ -2,12 +2,11 @@ import { hasRegisteredConditions, type RuleOrderConfig } from '../domain/rule-or
 import { scopeClassField } from './scope-exports.js';
 import type { ParsedStyleRule } from '../domain/parsed-stylesheet.js';
 import type { GssDiagnostic } from '../public-types.js';
-import { classifyPropertyEffect } from '../domain/property-effects.js';
 import { isLocalElementRule, isOwnedCurrentSubject, isAncestorStateRule, isAncestorAttributeRule, isObservedRule, isStructuralRuntimeRule, isCurrentAttributeRule, isPseudoElementRule, isCurrentStateRule, isPureOwnershipRule } from '../domain/rule-classification.js';
 
 /** Preserve the existing external admission checks before later condition,
  * declaration, relation and fallback validation. */
-export function prepareSelectorContexts(id: string, semanticRules: readonly ParsedStyleRule[], order: RuleOrderConfig):
+export function prepareSelectorContexts(id: string, semanticRules: readonly ParsedStyleRule[], order: RuleOrderConfig, flatMixed: boolean):
   { context: { externalRules: ParsedStyleRule[]; sameNodeRules: ParsedStyleRule[]; localRules: ParsedStyleRule[]; hasExplicitGlobal: boolean } } |
   { diagnostics: readonly GssDiagnostic[] } {
   const collision = semanticRules.find(rule =>
@@ -44,24 +43,14 @@ export function prepareSelectorContexts(id: string, semanticRules: readonly Pars
   // A same-node external class is a condition on the owned target, not a
   // separate ownership path. Mixed declarations need a proof of precedence
   // against that target before admission; reject the whole replacement on failure.
-  const sameNode = sameNodeRules[0];
-  const base = localRules[0];
-  const simpleBaseRefinement = sameNode !== undefined && base !== undefined &&
-    semanticRules.length === 2 && localRules.length === 1 && externalRules.length === 0 &&
-    sameNode.nodes.length === 1 && base.nodes.length === 1 && base.nodes[0]!.name === sameNode.nodes[0]!.name &&
-    isPureOwnershipRule(base) && base.conditions.length === 0 && sameNode.conditions.length === 0 && base.layer === null && sameNode.layer === null &&
-    base.declarations.length === 1 && sameNode.declarations.length === 1 &&
-    base.declarations[0]!.property === sameNode.declarations[0]!.property &&
-    classifyPropertyEffect(base.declarations[0]!.property).kind === 'longhand' &&
-    !base.declarations[0]!.important && !sameNode.declarations[0]!.important;
   const nativeExternalGroup = !localRules.length && semanticRules.every(rule => hasRegisteredConditions(rule.conditions, order) &&
     (rule.layer === null || order.layers?.includes(rule.layer)));
-  if (sameNodeRules.length > 0 && ((!nativeExternalGroup && !simpleBaseRefinement) ||
+  if (sameNodeRules.length > 0 && ((!nativeExternalGroup && !flatMixed) ||
     sameNodeRules.some(rule => !isPureOwnershipRule(rule)))) {
     return { diagnostics: [{
       code: 'GSS1101', severity: 'error', phase: 'validate', id,
       reason: 'capability-not-registered',
-      message: 'A same-node external condition requires pure external branches with registered conditions and layers, or a proven single-property base refinement.'
+      message: 'A same-node external condition requires pure external branches with registered conditions and layers, or registered writes on flat local and externally qualified elements.'
     }] };
   }
   return { context: { externalRules, sameNodeRules, localRules, hasExplicitGlobal } };
