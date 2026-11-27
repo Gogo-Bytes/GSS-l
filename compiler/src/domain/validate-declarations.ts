@@ -2,7 +2,7 @@ import { hasRegisteredConditions, type RuleOrderConfig } from './rule-order-plan
 import { getOwnershipPath } from './ownership-path.js';
 import type { GssDiagnostic } from '../public-types.js';
 import type { ParsedDeclaration, ParsedStyleRule } from './parsed-stylesheet.js';
-import { isRegisteredPropertyEffect } from './property-effects.js';
+import { effectsOfProperty, isRegisteredPropertyEffect } from './property-effects.js';
 import { propertiesMayOverlapForModuleOrder } from './module-order-policy.js';
 import { isLocalElementRule, isObservedRule, isPseudoElementRule, isPureOwnershipRule } from './rule-classification.js';
 
@@ -53,7 +53,7 @@ export function planDeclarationSequences(id: string, rules: readonly ParsedStyle
     hasRegisteredConditions(rule.conditions, order) && (rule.layer === null || order.layers?.includes(rule.layer)) &&
     rule.declarations.every(d => isRegisteredPropertyEffect(d.property)));
   if (flatMixed) return { orderedRules: new Set(rules), diagnostics, flatMixed };
-  if (!repeated.size && external.length < 2) return { orderedRules, diagnostics, flatMixed };
+  if (!repeated.size && !external.length) return { orderedRules, diagnostics, flatMixed };
   // A pseudo-element has its own cascade. Different scope names, however, can be composed on a single element.
   const subject = (rule: ParsedStyleRule) => rule.nodes.at(-1)?.pseudoElement;
   const overlaps = (a: ParsedStyleRule, b: ParsedStyleRule) => a.declarations.some(d => !isRegisteredPropertyEffect(d.property) ||
@@ -86,7 +86,10 @@ export function planDeclarationSequences(id: string, rules: readonly ParsedStyle
       pending.delete(other);
       component.push(other);
     }
-    if (component.length === 1 && !repeated.has(first)) continue;
+    if (component.length === 1 && !repeated.has(first)) {
+      const writes = first.declarations.flatMap(d => effectsOfProperty(d.property));
+      if (new Set(writes).size === writes.length) continue;
+    }
     // Across registered layers the emitted @layer prelude decides precedence, including its reversal for !important.
     const orderedLayers = component.every(rule => rule.layer === first.layer) ||
       component.every(rule => rule.layer === null || order.layers?.includes(rule.layer));

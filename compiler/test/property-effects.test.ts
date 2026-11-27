@@ -54,6 +54,8 @@ const registeredShorthandEffects = {
   overflow: ['overflow-x', 'overflow-y'],
   'overscroll-behavior': ['overscroll-behavior-x', 'overscroll-behavior-y'],
   container: ['container-name', 'container-type'],
+  offset: ['offset-position', 'offset-path', 'offset-distance', 'offset-rotate', 'offset-anchor'],
+  marker: ['marker-start', 'marker-mid', 'marker-end'],
   'contain-intrinsic-size': ['contain-intrinsic-width', 'contain-intrinsic-height'],
   gap: ['row-gap', 'column-gap'],
   'grid-gap': ['row-gap', 'column-gap'],

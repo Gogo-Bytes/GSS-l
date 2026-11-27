@@ -14,6 +14,8 @@ export async function checkDeclarationFallback(browser) {
     ['interleaved-computed', 'margin:1px;margin-left:9px;margin:var(--missing)', { marginTop: '0px', marginLeft: '0px' }],
     ['interleaved-important', 'margin:1px!important;margin-left:9px;margin:gss-unsupported!important', { marginTop: '1px', marginLeft: '1px' }],
     ['interleaved-middle-important', 'margin:1px;margin-left:9px!important;margin:2px', { marginTop: '2px', marginLeft: '9px' }],
+    ['offset-invalid-syntax', 'offset:none;offset-distance:30px;offset:bogus', { offsetDistance: '30px', offsetPath: 'none' }],
+    ['offset-invalid-variable', 'offset:none;offset-distance:30px;offset:var(--missing)', { offsetDistance: '0px', offsetPath: 'none' }],
     ['container-invalid-syntax', 'container:card / size;container-type:inline-size;container:card / bogus', { containerName: 'card', containerType: 'inline-size' }],
     ['container-invalid-variable', 'container:card / size;container-type:inline-size;container:var(--missing)', { containerName: 'none', containerType: 'normal' }],
     ['unsupported-last', 'color:rgb(12,34,56);color:gss-unsupported', { color: 'rgb(12, 34, 56)' }],
@@ -41,6 +43,33 @@ export async function checkDeclarationFallback(browser) {
       results.push({ name, source, css, classes, expected, ...readings, pixelsEqual,
         passed: pixelsEqual && JSON.stringify(readings.native) === JSON.stringify(expected) &&
           JSON.stringify(readings.atomic) === JSON.stringify(expected) });
+    }
+    const transform = 'translate:10px;rotate:90deg;scale:2;transform-box:fill-box;transform:translateX(3px)';
+    for (const reverse of [false, true]) {
+      const offset = 'offset:var(--motion)', distance = 'offset-distance:30px';
+      const marker = 'marker:url(#arrow)', end = 'marker-end:none';
+      const source = `.shape:global(.active){${transform};${reverse ? distance + ';' + offset : offset + ';' + distance}}` +
+        `.edge:global(.active){${reverse ? end + ';' + marker : marker + ';' + end}}`;
+      const session = createGssCompilerSession({ projectRoot: '/project', namingMode: 'production' });
+      const update = session.replaceStylesheet({ id: '/project/Geometry.gss', source });
+      if (!update.committed || update.module.compilationMode !== 'atomic') throw new Error(JSON.stringify(update.diagnostics));
+      const { shape, edge } = update.module.scopeSchema.exports;
+      for (const [css, box, line] of [[source.replaceAll(':global(.active)', '.active'), 'shape', 'edge'],
+        [session.finalize().css, shape.selfClassName, edge.selfClassName]]) {
+        await page.setContent(`<style>${css}</style><div class="${box} active" style='width:20px;height:10px;--motion:path("M0 0 L100 0")'></div>
+          <svg width="100" height="20" style="background:white"><defs><marker id="arrow" viewBox="0 0 6 6" markerWidth="6" markerHeight="6" refX="3" refY="3"><rect width="6" height="6" fill="red"/></marker></defs>
+          <polyline class="${line} active" points="10,10 50,10 90,10" fill="none" stroke="black"/></svg>`);
+        const actual = await page.locator('div').evaluate(el => { const s = getComputedStyle(el), rect = el.getBoundingClientRect();
+          return [s.translate, s.rotate, s.scale, s.transformBox, s.transform, s.offsetDistance, Number(rect.width.toFixed(3)), Number(rect.height.toFixed(3))]; });
+        const expected = ['10px', '90deg', '2', 'fill-box', 'matrix(1, 0, 0, 1, 3, 0)', reverse ? '0px' : '30px', 20, 40];
+        if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error(`${source}: ${JSON.stringify(actual)}`);
+        const svg = PNG.sync.read(await page.locator('svg').screenshot());
+        for (const x of [10, 50, 90]) {
+          const index = 4 * (8 * svg.width + x);
+          const expectedRgb = x === 90 && !reverse ? '255,255,255' : '255,0,0';
+          if (svg.data.subarray(index, index + 3).join(',') !== expectedRgb) throw new Error(`Wrong marker at ${x}: ${source}`);
+        }
+      }
     }
     // Both rules may match. Check the interleaved shorthand's unopposed top as well as the contested left.
     for (const reverse of [false, true]) {

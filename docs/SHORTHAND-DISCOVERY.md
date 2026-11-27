@@ -37,6 +37,8 @@ function declaredLonghands(property, value) {
 
 [`container`](https://www.w3.org/TR/css-contain-3/#container-shorthand) 同时写入 `container-name` 和 `container-type`。例如 `container:card` 会把之前的 `container-type:inline-size` 重置为 `normal`，后代的 `@container card (min-width: …)` 不再按这个容器的宽度匹配。编译器保留简写，由浏览器解析变量值和匹配查询；这项登记不改变 `@container` 条件的配置规则。
 
+[Motion Path 的 `offset`](https://www.w3.org/TR/motion-1/#offset-shorthand) 写入 position、path、distance、rotate 和 anchor；它不重置独立的 `translate`、`rotate`、`scale`、`transform-box` 或 `transform`。这些属性即使共同影响几何位置，也不能按同一写入互相删除。 [SVG 的 `marker`](https://www.w3.org/TR/SVG2/painting.html#MarkerProperty) 写入 start、mid 和 end；`url(#arrow)` 仍由浏览器引用文档内的标记，不拆简写值。
+
 历史基线（mdn-data 2.27.1、Playwright 1.58.2、Chromium 145.0.7632.6）：484 项中 83 项枚举到多个名字，其中 21 项有浏览器列出而 Compiler 未登记的名字：
 
 | 属性数 | 复核结果 |
