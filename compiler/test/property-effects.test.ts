@@ -53,6 +53,7 @@ const registeredShorthandEffects = {
   'background-position': ['background-position-x', 'background-position-y'],
   overflow: ['overflow-x', 'overflow-y'],
   'overscroll-behavior': ['overscroll-behavior-x', 'overscroll-behavior-y'],
+  container: ['container-name', 'container-type'],
   'contain-intrinsic-size': ['contain-intrinsic-width', 'contain-intrinsic-height'],
   gap: ['row-gap', 'column-gap'],
   'grid-gap': ['row-gap', 'column-gap'],

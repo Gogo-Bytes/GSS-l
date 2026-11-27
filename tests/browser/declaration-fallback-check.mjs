@@ -14,6 +14,8 @@ export async function checkDeclarationFallback(browser) {
     ['interleaved-computed', 'margin:1px;margin-left:9px;margin:var(--missing)', { marginTop: '0px', marginLeft: '0px' }],
     ['interleaved-important', 'margin:1px!important;margin-left:9px;margin:gss-unsupported!important', { marginTop: '1px', marginLeft: '1px' }],
     ['interleaved-middle-important', 'margin:1px;margin-left:9px!important;margin:2px', { marginTop: '2px', marginLeft: '9px' }],
+    ['container-invalid-syntax', 'container:card / size;container-type:inline-size;container:card / bogus', { containerName: 'card', containerType: 'inline-size' }],
+    ['container-invalid-variable', 'container:card / size;container-type:inline-size;container:var(--missing)', { containerName: 'none', containerType: 'normal' }],
     ['unsupported-last', 'color:rgb(12,34,56);color:gss-unsupported', { color: 'rgb(12, 34, 56)' }],
     ['computed-invalid', 'color:red;color:var(--missing)', { color: 'rgb(0, 0, 0)' }],
     ['importance', 'color:red!important;color:blue!important;color:green', { color: 'rgb(0, 0, 255)' }],
@@ -254,6 +256,24 @@ export async function checkDeclarationFallback(browser) {
           const expected = index === 0 ? [['0px','4px'], ['1px','9px']] : [['0px','5px'], ['1px',reverse && !extra ? '4px' : '9px']];
           if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error(`${source}: ${JSON.stringify(actual)}`);
         }
+      }
+    }
+    // A name-only shorthand resets type, so its position can switch a descendant query on or off.
+    for (const [declarations, type] of [['container:card;container-type:inline-size', 'inline-size'],
+      ['container-type:inline-size;container:card', 'normal'], ['container-type:inline-size!important;container:card', 'inline-size']]) {
+      const query = 'card (min-width: 200px)';
+      const source = `.box{${declarations}}@container ${query}{.leaf{opacity:.5}}`;
+      const session = createGssCompilerSession({ projectRoot: '/project', namingMode: 'production', conditions: { container: [query] } });
+      const update = session.replaceStylesheet({ id: '/project/Container.gss', source });
+      if (!update.committed || update.module.compilationMode !== 'atomic') throw new Error(JSON.stringify(update.diagnostics));
+      const { box, leaf } = update.module.scopeSchema.exports;
+      for (const [css, parent, child] of [[source, 'box', 'leaf'], [session.finalize().css, box.selfClassName, leaf.selfClassName]]) {
+        await page.setContent(`<style>${css}</style>` + [160, 240].map(width =>
+          `<div class="${parent}" style="width:${width}px"><i class="${child}"></i></div>`).join(''));
+        const values = await page.locator('div').evaluateAll(nodes => nodes.map(el =>
+          [getComputedStyle(el).containerName, getComputedStyle(el).containerType, getComputedStyle(el.firstElementChild).opacity]));
+        const expected = [['card', type, '1'], ['card', type, type === 'normal' ? '1' : '0.5']];
+        if (JSON.stringify(values) !== JSON.stringify(expected)) throw new Error(`${source}: ${JSON.stringify(values)}`);
       }
     }
     // An unregistered name is not evidence that a declaration is inert: order works in this browser.

@@ -35,6 +35,8 @@ function declaredLonghands(property, value) {
 
 基线后已按 [CSS Text Decoration 的 text-emphasis 定义](https://www.w3.org/TR/css-text-decor-3/#text-emphasis-property) 登记 `text-emphasis-style` 和 `text-emphasis-color`。`text-emphasis-position` 独立，不被简写重置；登记写入不代表展开具体值。
 
+[`container`](https://www.w3.org/TR/css-contain-3/#container-shorthand) 同时写入 `container-name` 和 `container-type`。例如 `container:card` 会把之前的 `container-type:inline-size` 重置为 `normal`，后代的 `@container card (min-width: …)` 不再按这个容器的宽度匹配。编译器保留简写，由浏览器解析变量值和匹配查询；这项登记不改变 `@container` 条件的配置规则。
+
 历史基线（mdn-data 2.27.1、Playwright 1.58.2、Chromium 145.0.7632.6）：484 项中 83 项枚举到多个名字，其中 21 项有浏览器列出而 Compiler 未登记的名字：
 
 | 属性数 | 复核结果 |
