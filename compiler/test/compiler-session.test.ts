@@ -1834,10 +1834,10 @@ describe('GssCompilerSession', () => {
     expect(subjectMarkers).toHaveLength(2);
     expect(compiler.finalize()).toMatchObject({ report: { modules: 1, rules: 2 } });
     expect(compiler.finalize().css).toContain(
-      `.${errorSubject}.${errorSubject}:has(:where(.${errorObserved})) {\n  color: red;\n}`
+      `.${errorSubject}:has(.${errorObserved},> .${warningObserved}):where(:has(.${errorObserved})) {\n  color: red;\n}`
     );
     expect(compiler.finalize().css).toContain(
-      `.${warningSubject}.${warningSubject}:has(> :where(.${warningObserved})) {\n  color: red;\n}`
+      `.${warningSubject}:has(.${errorObserved},> .${warningObserved}):where(:has(> .${warningObserved})) {\n  color: red;\n}`
     );
   });
 

@@ -169,45 +169,19 @@ export async function readDocument(fixture: Fixture, side: 'reference' | 'atomic
       (item as CSSStyleRule).selectorText.includes(':has(button)'));
     const rule = sheet.cssRules[index] as CSSStyleRule | undefined;
     if (index < 0 || !rule) throw new Error('Type-only control requires one emitted button branch');
-    const weakened = rule.selectorText.replace(':has(button)', ':has(:where(button))');
+    const weakened = rule.selectorText.replace(/:has\((button,\s*span|span,\s*button)\)/, ':where(:has($1))');
     const declarations = rule.style.cssText;
     sheet.deleteRule(index);
     sheet.insertRule(`${weakened} { ${declarations} }`, index);
   }
-  if (corrupt === 'has-specificity-dedup') {
-    const sheet = style.sheet!;
-    const rule = [...sheet.cssRules].map((item, index) => ({ item, index })).find(({ item }) =>
-      item instanceof (frame.contentWindow as Window & typeof globalThis).CSSStyleRule &&
-      (item as CSSStyleRule).selectorText.includes('.g-observed-') &&
-      (item as CSSStyleRule).style.color === 'red' &&
-      (item as CSSStyleRule).selectorText.slice(0, (item as CSSStyleRule).selectorText.indexOf(':has(')).split('.').filter(Boolean).length === 3
-    );
-    if (!rule) throw new Error('Dedup specificity control requires the stronger shared .error selector');
-    const cssRule = rule.item as CSSStyleRule;
-    const separator = cssRule.selectorText.indexOf(':has(');
-    const subject = cssRule.selectorText.slice(0, separator);
-    const markers = subject.split('.').filter(Boolean);
-    if (markers.length !== 3 || !markers.every((marker) => marker === markers[0])) {
-      throw new Error('Dedup specificity control requires three repeated target-qualified markers');
-    }
-    const weakenedSelector = `.${markers[0]}.${markers[0]}${cssRule.selectorText.slice(separator)}`;
-    const cssText = cssRule.cssText.slice(cssRule.cssText.indexOf('{'));
-    sheet.deleteRule(rule.index);
-    sheet.insertRule(`${weakenedSelector} ${cssText}`, rule.index);
-  }
-  if (corrupt === 'has-specificity') {
+  if (corrupt === 'has-specificity' || corrupt === 'has-specificity-dedup') {
     const sheet = style.sheet!;
     const index = [...sheet.cssRules].findIndex((rule) => rule instanceof (frame.contentWindow as Window & typeof globalThis).CSSStyleRule &&
-      (rule as CSSStyleRule).selectorText.includes('.g-observed-') && (rule as CSSStyleRule).selectorText.includes(':has(:where('));
+      (rule as CSSStyleRule).selectorText.includes(':checked') && /:where\(:has\(\.g-observed-[^:)]+\)\)$/.test((rule as CSSStyleRule).selectorText));
     const rule = sheet.cssRules[index] as CSSStyleRule | undefined;
     if (index < 0 || !rule) throw new Error('Specificity control requires the lower :has() list branch');
-    const separator = rule.selectorText.indexOf(':has(');
-    const subject = rule.selectorText.slice(0, separator);
-    const markers = subject.split('.').filter(Boolean);
-    if (markers.length < 2 || !markers.every((marker) => marker === markers[0])) {
-      throw new Error('Specificity control requires repeated target-qualified markers');
-    }
-    const weakenedSelector = `.${markers[0]}${rule.selectorText.slice(separator)}`;
+    // Remove the unmatched stronger alternative; the .error witness still matches.
+    const weakenedSelector = rule.selectorText.replace(/:has\([^)]*\):where\((:has\([^)]*\))\)$/, '$1');
     const cssText = rule.cssText.slice(rule.cssText.indexOf('{'));
     sheet.deleteRule(index);
     sheet.insertRule(`${weakenedSelector} ${cssText}`, index);

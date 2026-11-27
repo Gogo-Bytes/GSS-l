@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createGssCompilerSession } from '@gss-l/compiler';
 
 export async function checkCurrentConditions(browser) {
+  await checkHasListValidity(browser);
   await checkNativeAttributeSubjects(browser);
   await checkTextEmphasis(browser);
   await checkLanguageDirection(browser);
@@ -43,6 +44,26 @@ export async function checkCurrentConditions(browser) {
       } finally { await page.close(); }
     }
   }
+}
+
+async function checkHasListValidity(browser) {
+  const page = await browser.newPage();
+  try {
+    const supportsCaseSensitive = await page.evaluate(() => globalThis.CSS.supports('selector([data-kind="yes" s])'));
+    for (const flag of ['i', 's']) {
+      const source = `.box:has(> [data-kind="yes" ${flag}], > [ready]){opacity:.5}`;
+      const session = createGssCompilerSession({ projectRoot: '/p' });
+      const result = session.replaceStylesheet({ id: '/p/A.gss', source });
+      assert.deepEqual(result.diagnostics, []);
+      const valid = flag === 'i' || supportsCaseSensitive;
+      for (const [css, box] of [[source, 'box'], [session.finalize().css, result.module.scopeSchema.exports.box.selfClassName]]) {
+        await page.setContent(`<style>${css}</style>` + ['data-kind="yes"', 'ready', 'ready data-kind="yes"', ''].map(attrs =>
+          `<div class="${box}"><i ${attrs}></i></div>`).join(''));
+        const values = await page.locator('div').evaluateAll(nodes => nodes.map(el => el.ownerDocument.defaultView.getComputedStyle(el).opacity));
+        assert.deepEqual(values, valid ? ['0.5', '0.5', '0.5', '1'] : ['1', '1', '1', '1']);
+      }
+    }
+  } finally { await page.close(); }
 }
 
 async function checkNativeAttributeSubjects(browser) {

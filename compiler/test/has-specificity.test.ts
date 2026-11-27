@@ -102,10 +102,10 @@ describe('observed selector-list specificity', () => {
     expect(warningSubject).toBeDefined();
     expect(warningObserved).toBeDefined();
     expect(css).toContain(
-      `.${subject}.${subject}.${subject}:has(:where(.${observed})) {\n  color: red;\n}`
+      `.${subject}:has(.${observed},.${warningObserved}:hover):where(:has(.${observed})) {\n  color: red;\n}`
     );
     expect(css).toContain(
-      `.${warningSubject}.${warningSubject}.${warningSubject}:has(:where(.${warningObserved}:hover)) {\n  color: red;\n}`
+      `.${warningSubject}:has(.${observed},.${warningObserved}:hover):where(:has(.${warningObserved}:hover)) {\n  color: red;\n}`
     );
     const blueRule = css.split('\n\n').find((rule) => rule.includes('color: blue;'));
     expect(blueRule).toContain('[data-active="yes"]');
@@ -128,10 +128,10 @@ describe('observed selector-list specificity', () => {
     expect(replacement).toMatchObject({ committed: true, diagnostics: [] });
     expect(subject).toBeDefined();
     expect(observed).toBeDefined();
-    const errorRules = redRules.filter((rule) => rule.includes(`:has(:where(.${observed}))`));
+    const errorRules = redRules.filter((rule) => rule.includes(`:where(:has(.${observed}))`));
     expect(errorRules).toHaveLength(3);
-    expect(errorRules.some((rule) => rule.includes(`${`.${subject}`.repeat(2)}:has`))).toBe(true);
-    expect(errorRules.some((rule) => rule.includes(`${`.${subject}`.repeat(3)}:has`))).toBe(true);
+    expect(errorRules.every((rule) => rule.startsWith(`.${subject}:has(`))).toBe(true);
+    expect(errorRules.filter((rule) => rule.includes(':hover)'))).toHaveLength(1);
     expect(redRules).toHaveLength(6);
     expect(css).toContain('color: blue;');
   });
@@ -171,7 +171,7 @@ describe('observed selector-list specificity', () => {
     expect(css).toContain('background-color: blue;');
   });
 
-  it('pads residual tag branches without adding their lower type specificity', () => {
+  it('keeps the mixed list maximum without adding witness specificity', () => {
     const compiler = createGssCompilerSession({ projectRoot: '/project' });
     const replacement = compiler.replaceStylesheet({
       id: moduleId,
@@ -188,7 +188,7 @@ describe('observed selector-list specificity', () => {
     expect(subject).toBeDefined();
     expect(errorSubject).toBeDefined();
     expect(observed).toBeDefined();
-    expect(css).toContain(`.${subject}.${subject}:has(:where(button)) {\n  color: red;\n}`);
-    expect(css).toContain(`.${errorSubject}.${errorSubject}:has(:where(.${observed})) {\n  color: red;\n}`);
+    expect(css).toContain(`.${subject}:has(button,.${observed}):where(:has(button)) {\n  color: red;\n}`);
+    expect(css).toContain(`.${errorSubject}:has(button,.${observed}):where(:has(.${observed})) {\n  color: red;\n}`);
   });
 });
