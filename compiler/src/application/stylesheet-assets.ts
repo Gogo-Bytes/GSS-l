@@ -44,7 +44,7 @@ export function assetOccurrences(value: string): { url: string; start: number; e
         const raw = valueParser.stringify(node.nodes).trim().replace(/^(['"])([\s\S]*)\1$/, '$2');
         record(node, raw);
       } else {
-        visit(node.nodes, name === 'image-set');
+        visit(node.nodes, name === 'image-set' || name === '-webkit-image-set');
       }
     }
   }

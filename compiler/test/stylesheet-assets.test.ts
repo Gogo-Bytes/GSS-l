@@ -303,10 +303,10 @@ describe('stylesheet Asset references', () => {
     expect(result.diagnostics).toEqual(expect.arrayContaining([expect.objectContaining({ id: '/project/broken.gss', severity: 'error' })]));
   });
 
-  it('binds image-set candidate strings and URLs in source order, preserving descriptors and ordinary strings', () => {
+  it.each(['IMAGE-SET', '-WEBKIT-IMAGE-SET'])('binds %s candidates in source order, preserving descriptors and ordinary strings', imageSet => {
     const id = '/project/Card.gss';
     const source = `.card {
-      background-image: IMAGE-SET('./a.svg' type("image/svg+xml"), url(./b.svg) 2x, /* hi */ "./c\\20 d.svg" 3x);
+      background-image: ${imageSet}('./a.svg' type("image/svg+xml"), url(./b.svg) 2x, /* hi */ "./c\\20 d.svg" 3x);
       content: "./a.svg";
     }`;
     const urls = ['./a.svg', './b.svg', './c d.svg'];

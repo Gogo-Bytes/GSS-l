@@ -60,11 +60,11 @@ it('emits distinct local resources for same-spelling URLs in different source di
   expect(css).not.toContain('data:');
 });
 
-it('ships a quoted image-set candidate from the stylesheet directory at its deployment URL', async () => {
+it.each(['image-set', '-webkit-image-set'])('ships a quoted %s candidate from the stylesheet directory at its deployment URL', async imageSet => {
   const icon = '<svg xmlns="http://www.w3.org/2000/svg"><circle r="4"/></svg>';
   const root = await fixture({
     'main.ts': `import styles from './styles/Card.gss'; document.body.className = styles.card;`,
-    'styles/Card.gss': '.card { background-image: image-set("./icon.svg?v=1#shape" 1x type("image/svg+xml")); }',
+    'styles/Card.gss': `.card { background-image: ${imageSet}("./icon.svg?v=1#shape" 1x type("image/svg+xml")); }`,
     'styles/icon.svg': icon
   });
   const output = await bundle(root, { base: '/app/' });
