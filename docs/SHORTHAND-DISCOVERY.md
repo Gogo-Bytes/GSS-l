@@ -23,6 +23,38 @@ function declaredLonghands(property, value) {
 - [Lightning CSS Rust PropertyId](https://docs.rs/lightningcss/latest/lightningcss/properties/enum.PropertyId.html) 提供 `is_shorthand`、`longhands`；[Property](https://docs.rs/lightningcss/latest/lightningcss/properties/enum.Property.html) 提供 `longhand`。当前仓库安装的 Node 1.33.0 公开 transform/visitor，而非上述通用 Rust 查询接口。实测 visitor 能分解 margin 的四侧，但 `white-space:pre` 只给 `pre`，`text-wrap:pretty` 是 `custom`，含变量的 margin 是 `unparsed`。可用于它认识的值，不能单独兜住 #65。
 - [W3C Webref](https://github.com/w3c/webref) 从规范提取属性数据；[上游讨论 #1851](https://github.com/w3c/webref/issues/1851) 记录了子简写与 reset-only 遗漏问题。使用时应锁版本、展平子简写并独立验证隐式重置。[Blink 源表](https://chromium.googlesource.com/chromium/src/+/main/third_party/blink/renderer/core/css/css_properties.json5) 与 [WebKit 源表](https://github.com/WebKit/WebKit/blob/main/Source/WebCore/css/CSSProperties.json) 可作引擎实现对照，不直接等同于跨引擎规范。
 
+## Rust 拆值与规范写入集合：两个不同的接口
+
+对维护者工具固定 `lightningcss = { version = "=1.0.0-alpha.72", default-features = false }`（crates.io 的 Rust crate，不是 Node 包版本）。以下代码可放在临时 Cargo 项目的 `src/main.rs`，用 `cargo run` 复查。它不需要进入 Compiler 的 npm 依赖：
+
+```rust
+use lightningcss::properties::{Property, PropertyId};
+
+fn main() {
+    for (name, value) in [("margin", "1px 2px"), ("margin", "var(--space)"),
+                          ("border", "1px solid red"), ("white-space", "pre"), ("all", "unset")] {
+        let id = PropertyId::from(name);
+        let decl = Property::parse_string(id.clone(), value, Default::default()).unwrap();
+        println!("{name}: {value} shorthand={}", id.is_shorthand());
+        for child in id.longhands().unwrap_or_default() {
+            let v = decl.longhand(&child).map(|p| p.value_to_css_string(Default::default()).unwrap());
+            println!("  {}: {:?}", child.name(), v);
+        }
+    }
+}
+```
+
+| 输入 | Rust 实测 | 对生产编译的含义 |
+| --- | --- | --- |
+| `margin:1px 2px` | 返回四侧及值 `1px/2px/1px/2px` | 库能拆这个具体值，不代表所有值可拆。 |
+| `margin:var(--space)` | 仍列出四侧，但值为 `Unparsed`，四次 `longhand` 均为 `None` | 保留简写与顺序；不填空值。 |
+| `border:1px solid red` | 仅 12 个宽度／样式／颜色，不含五个 `border-image-*` | `longhands()` 不是供剪枝使用的完整写入集合。 |
+| `white-space:pre`、`all:unset` | `is_shorthand()` 均为 `false`，无长手列表 | 不能从空列表推出独立属性，更不能据此删声明。 |
+
+规范数据可以补另一部分：`@webref/css@8.8.0` 的 `css.json` 中，`border.longhands` 给出三个子简写，`border.resetLonghands` 另列 `border-image`。递归展开两类边才得到 12 个常规写入和 5 个仅重置写入。`word-wrap.legacyAliasOf` 给出 `overflow-wrap`。但该快照的 `white-space.longhands` 没有 GSS 已登记的 `white-space-trim`，`columns.longhands` 也未列 Chromium 观测到的 `column-wrap` 重置。因此规范数据也应生成**候选**而非无条件覆盖生产表。维护者可用 `npm pack @webref/css@8.8.0` 查看原始记录；实测 `package/css.json` 的 SHA-256 为 `cf198a6fe97c168c30226c9c55732e013d8b39997b7df764f50d6af4c3038cb7`。
+
+复查整个目录：先运行下文的 `property-effects:audit`，再将上述 tarball 解包到临时目录，执行 `node tests/browser/webref-effects-audit.mjs <临时目录>/package/css.json`。脚本校验数据摘要，仅对有显式长手、重置或别名元数据的条目展开关系，在 `artifacts/property-effects-audit/webref-candidates.json` 中分别列出与浏览器、与当前生产登记的差异。没有元数据不推断为单长手；数据一致也不证明任意具体值可拆。
+
 ## 可行性抽查与实施建议
 
 沿用项目已有 mdn-data 2.27.1 的 484 个 standard 非前缀名称，每项在新 style 对象上设置 `initial`。Chromium 实测 83 项枚举到多个名称；其中 21 项有至少一个名称不在当前 `effectsOfProperty` 集合中。分母包括未登记属性，浏览器还可能暴露实现名，因此这是差异候选，不是 21 个 Bug，更不是 CSS 支持率。
