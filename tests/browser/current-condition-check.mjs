@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createGssCompilerSession } from '@gss-l/compiler';
 
 export async function checkCurrentConditions(browser) {
+  await checkCompoundMarkers(browser);
   await checkHasListAgainstSibling(browser);
   await checkHasListValidity(browser);
   await checkNativeAttributeSubjects(browser);
@@ -45,6 +46,34 @@ export async function checkCurrentConditions(browser) {
       } finally { await page.close(); }
     }
   }
+}
+
+async function checkCompoundMarkers(browser) {
+  const page = await browser.newPage();
+  try {
+    for (const selector of ['.button.active', '.button:is(.active)']) {
+      const session = createGssCompilerSession({ projectRoot: '/p', namingMode: 'production' });
+      const source = `${selector}{opacity:.5}`;
+      const compile = source => {
+        const update = session.replaceStylesheet({ id: '/p/A.gss', source });
+        assert.deepEqual(update.diagnostics, []);
+        return update.module.scopeSchema.exports;
+      };
+      const simple = compile(source);
+      assert.deepEqual(simple.button.targets, {});
+      assert.deepEqual(Object.keys(simple).sort(), ['active', 'button']);
+      assert.equal(session.finalize().manifest.rules[0].selector, `.${simple.button.selfClassName}:is(.${simple.active.selfClassName})`);
+      const { button, active } = compile(source + '.button .active{padding:8px}');
+      const b = button.selfClassName, a = active.selfClassName, deep = button.targets.active.selfClassName;
+      const native = `${selector}{opacity:.5}.deep{padding:8px}`; // JSX explicitly selects the ownership path.
+      for (const [css, subject, flag, path] of [[native, 'button', 'active', 'deep'], [session.finalize().css, b, a, deep]]) {
+        await page.setContent(`<style>${css}</style>` + [subject, flag, `${subject} ${flag}`, path].map(c => `<i class="${c}"></i>`).join('') +
+          `<span class="${subject}"><i class="${flag}"></i></span>`);
+        assert.deepEqual(await page.locator('i').evaluateAll(nodes => nodes.map(el => { const s = el.ownerDocument.defaultView.getComputedStyle(el);
+          return [s.opacity, s.paddingTop]; })), [['1','0px'], ['1','0px'], ['0.5','0px'], ['1','8px'], ['1','0px']]);
+      }
+    }
+  } finally { await page.close(); }
 }
 
 async function checkHasListAgainstSibling(browser) {

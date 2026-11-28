@@ -431,6 +431,11 @@ function parseClassPath(nodes: readonly Node[]): ParsedSelectorPath | undefined 
       expectClass = false;
       continue;
     }
+    if (!expectClass && node.type === 'class' && !segments.at(-1)!.pseudoElement) {
+      // A compound tests another marker on this element; only a combinator starts a new ownership segment.
+      segments.at(-1)!.states.push(`is(.${ident.encode(node.value)})`);
+      continue;
+    }
     if (!expectClass && node.type === 'pseudo' && node.nodes.length === 0) {
       if (node.value.startsWith('::')) {
         const pseudoElement = node.value.slice(2);

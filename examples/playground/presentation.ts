@@ -119,7 +119,7 @@ const compilerNames: Record<string, string> = {
   compatibility: '目标驱动的兼容声明序列', 'property-fallback': '整 Module 保留回退',
   'strict-property': '严格模式拒绝未知属性效果', 'duplicate-property': '重复属性跨未登记重置：拒绝并保留旧快照',
   'declaration-fallback': '相邻声明组成有序回退原子',
-  'local-compound': '拒绝未支持的本地复合类名', 'external-existence': '带锚点的外部属性存在目标',
+  'local-compound': '同节点的两个本地 marker 同时命中', 'external-existence': '带锚点的外部属性存在目标',
   'logical-physical-overlap': '同一规则的逻辑与物理长属性按固定顺序输出',
   'multiple-runtime-witnesses': '多个 native runtime relation 与 marker', 'keyword-shorthand': '拒绝有歧义的动画简写'
 };

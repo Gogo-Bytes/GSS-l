@@ -187,7 +187,7 @@ Chromium 145 中，页面始终没有 `.layout` 节点。同一目标在属性�
 | 同一目标的原生状态或参数 | `:hover`、`:focus-visible` 没有局部名字；`:lang(en)` 的参数是语言范围，不是 selector。匹配交给浏览器，不把函数参数一律当选择器遍历。连续条件是 AND，保留每个条件的强度。 |
 | 包含选择器的参数 | `:is()` 是分支 OR，`:not()` 排除，`:where()` 整体零强度；按原分支递归改写本地类，`:global()` 内保持原名。`:is/:not/:has` 用参数列表最大 specificity，不是命中哪支就算哪支，也不是条件数。顶层逗号分支则各自参与层叠。`:nth-child(An+B of S)` 保留公式、重写过滤列表，计入伪类本身及列表最大强度。 |
 | 相对关系、作用对象 | `:has(> .x)` 在锚点生效，`.x` 是被观察元素；不能把声明落到 `.x` 或把 `>` 当 ownership。`.panel[data-open] > .button:focus` 要分别把属性放在来源 marker、焦点放在目标 marker。`::before` 等伪元素改变绘制对象，单列，不能拼成布尔条件。 |
-| 同一节点第二个本地类 | `.a.active` 不等于 `.a .active`。前者若解释为同时具有 `styles.a` 和 `styles.active`，与直接使用 `styles.a.active` 的可观察行为不同。没有本地复合类的产品决定则继续拒绝；外部状态已有有界的 `.a:global(.active)`。不为此改变 `styles` 字符串契约。 |
+| 同一节点第二个本地类 | `.button.active` 与 `.button:is(.active)` 都匹配同一元素上的两个本地 marker；JSX 拼 `styles.button` 和 `styles.active`，生成 `.markerButton:is(.markerActive)`。两者都不声明 `styles.button.active`。只有联级写法 `.button .active` 才声明这个深路径，即使两种写法在同文件出现，深路径也不代替两个同节点 marker。字面外部类仍用 `.button:global(.active)`。 |
 
 **两条路线。** A：继续扩充属性／状态分类、绑定和 emission 的交叉分支。单个已知形态改动小、旧诊断易保留；每增加一种组合却要在多个阶段重复证明，单源模型仍无法表达双节点。B（推荐）：复用现有绑定，先在一个已确定的目标上保留完整的原生条件片段，只改写必须改名的本地引用。条件身份必须包括操作符、值、标志、分支结构及绑定位置；宁可不共享，也不能将不同条件折叠。先以测试专用保守输出验证；未证明等价前不剪枝、不跨条件共享。按切片替换重复分支，不同时重写全部 planner，不先造通用选择器解释器。**仅仅不能证明互斥，不代表允许改变胜负**：若现有排序与渲染无法保留 ownership、重要性、强度和必要先后，继续拒绝，不以整模块原样 CSS 或测试基线作为新生产 fallback。
 

@@ -52,7 +52,8 @@ it.each([':is(.flag)', ':where(.flag)', ':not(.flag)', ':nth-child(1 of .flag)',
     const a = add('A.gss');
     const b = add('B.gss');
     const snapshot = session.finalize();
-    expect(a.a!.selfClassName).toBe(a.b!.selfClassName);
+    if (state === ':is(.flag)') expect(a.a!.selfClassName).not.toBe(a.b!.selfClassName);
+    else expect(a.a!.selfClassName).toBe(a.b!.selfClassName);
     expect(a.a!.selfClassName).not.toBe(b.a!.selfClassName);
     for (const [id, roots] of [['A.gss', a], ['B.gss', b]] as const) {
       const cls = roots.a!.selfClassName;
@@ -60,7 +61,8 @@ it.each([':is(.flag)', ':where(.flag)', ':not(.flag)', ':nth-child(1 of .flag)',
       expect(rule.sources).toEqual([id]);
       expect(rule.origins.map(origin => origin.moduleId)).toEqual([id]);
       const marker = createReadableScopeMarker(id, ['flag']);
-      expect(decodeReadableAtomicName(cls)?.stateMarkers).toEqual([marker]);
+      if (state === ':is(.flag)') expect(cls).toBe(createReadableScopeMarker(id, ['a']));
+      else expect(decodeReadableAtomicName(cls)?.stateMarkers).toEqual([marker]);
       expect(rule.selector).toContain(marker);
       expect(roots.flag!.selfClassName.split(' ')).toContain(marker);
     }

@@ -61,6 +61,8 @@ export function emitOwnershipRules(input: AtomicEmissionContext & {
         });
       } else {
         const stateMarkers = [...localMarkers];
+        const subjectMarker = stateMarkers.length && states.some(state => state.startsWith('is('))
+          ? nameAllocator.createScopeMarker(moduleId, targetPath) : undefined;
         for (const declaration of instance.declarations) {
           const identity: PureDeclarationIdentity = {
             layer, condition, state: attribute && (attributes.length > 1 || states.length > 0)
@@ -69,9 +71,9 @@ export function emitOwnershipRules(input: AtomicEmissionContext & {
             ...(moduleOrder.get(declaration, instance) ?? {}),
             ...(stateMarkers.length ? { stateMarkers } : {}),
             property: declaration.property, ...identifyDeclarationValue(declaration, bindings), important: declaration.important,
-            ...(rule.nodes.length > 1 ? { ownership: { moduleId, path: targetPath, specificity: rule.nodes.length } } : {})
+            ...(subjectMarker || rule.nodes.length > 1 ? { ownership: { moduleId, path: targetPath, specificity: rule.nodes.length } } : {})
           };
-          const className = nameAllocator.createAtomicName(identity);
+          const className = subjectMarker ?? nameAllocator.createAtomicName(identity);
           scope.classNames.add(className);
           rules.push({ kind: sourceIndex < 0 ? 'pure-atom' : 'contextual-atom', identity, className,
             selector: renderWitnessSelector(witnesses, () => ({ marker: className, suffix })), wrappers, layer, relationRank,
