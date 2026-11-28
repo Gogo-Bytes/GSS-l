@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createGssCompilerSession } from '@gss-l/compiler';
 
 export async function checkCurrentConditions(browser) {
+  await checkSvgGeometry(browser);
   await checkCompoundMarkers(browser);
   await checkHasListAgainstSibling(browser);
   await checkHasListValidity(browser);
@@ -46,6 +47,35 @@ export async function checkCurrentConditions(browser) {
       } finally { await page.close(); }
     }
   }
+}
+
+async function checkSvgGeometry(browser) {
+  const source = '.dot:global(.active){cx:12px;cy:10px;r:var(--radius)}' +
+    '.box:global(.active){x:4px;y:6px;rx:5px;ry:3px}.line:global(.active){d:path("M0 0 H18")}';
+  const session = createGssCompilerSession({ projectRoot: '/p', namingMode: 'production' });
+  const result = session.replaceStylesheet({ id: '/p/Svg.gss', source });
+  assert.deepEqual(result.diagnostics, []);
+  assert.equal(result.module.compilationMode, 'atomic');
+  const { dot, box, line } = result.module.scopeSchema.exports;
+  const page = await browser.newPage();
+  try {
+    for (const [css, circle, rect, path] of [[source.replaceAll(':global(.active)', '.active'), 'dot', 'box', 'line'],
+      [session.finalize().css, dot.selfClassName, box.selfClassName, line.selfClassName]]) {
+      await page.setContent(`<style>${css}</style><svg style="--radius:5px"><circle cx="2" cy="2" r="1" class="${circle}"/>
+        <rect x="0" y="0" width="20" height="12" class="${rect}"/><path d="M0 0 H4" class="${path}"/></svg>`);
+      for (const active of [true, false]) {
+        const actual = await page.locator('svg').evaluate((svg, active) => {
+          const [circle, rect, path] = svg.children;
+          for (const shape of svg.children) shape.classList.toggle('active', active);
+          const { x, y, width, height } = circle.getBBox(), bounds = rect.getBBox();
+          const point = svg.createSVGPoint(); point.x = bounds.x + 0.2; point.y = bounds.y + 0.2;
+          const style = svg.ownerDocument.defaultView.getComputedStyle(rect);
+          return [x, y, width, height, bounds.x, bounds.y, style.rx, style.ry, rect.isPointInFill(point), path.getTotalLength()];
+        }, active);
+        assert.deepEqual(actual, active ? [7, 5, 10, 10, 4, 6, '5px', '3px', false, 18] : [1, 1, 2, 2, 0, 0, 'auto', 'auto', true, 4]);
+      }
+    }
+  } finally { await page.close(); }
 }
 
 async function checkCompoundMarkers(browser) {

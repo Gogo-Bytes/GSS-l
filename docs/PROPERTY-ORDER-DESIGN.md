@@ -14,6 +14,8 @@ GSS 将样式编译为可复用的 atom class，并允许同一模块的多个 s
 
 这三类问题不应混成同一个跨属性 rank 规则。浏览器仍负责原生 `!important`、specificity、layer、条件及运行时方向映射；本文中的简化示例均假设其他原生强度和上下文相同。
 
+[SVG 几何属性](https://www.w3.org/TR/SVG2/geometry.html) `x/y`、`cx/cy`、`r`、`rx/ry` 以及[路径数据 `d`](https://www.w3.org/TR/SVG2/paths.html#TheDProperty) 各自只写自身。`rx` 或 `ry` 的 `auto` 可在绘制时取另一半径，但这不是简写重置；保留两条声明，不在编译时计算圆角或路径。
+
 自定义属性名区分大小写。解析器保留 `--Brand` 的拼写，effects、重复声明检查、atom 身份、资源声明及 preserved 输出据此区分 `--Brand` 和 `--brand`。普通属性继续规范化，例如 `COLOR` 与 `color` 对应同一属性。
 
 对于 `:is(.flag)`、`:not(.flag)` 等包含本地类的状态，atom 身份还包含渲染 selector 时实际引用的 scope marker，按首次引用顺序记录。两个模块各自声明的 `.flag` 绑定不同；即使函数源码和声明值相同，也必须分开生成。目标路径本身不额外参与这项判断。同一模块引用相同 marker 时仍按原有条件复用，纯全局条件和不引用本地 marker 的状态沿用原身份。
