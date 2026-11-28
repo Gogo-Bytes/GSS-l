@@ -276,6 +276,13 @@ describe('stylesheet Asset references', () => {
     expect(decoded.diagnostics).toEqual([]);
   });
 
+  it('excludes trailing comments from quoted URLs but retains comment-like path characters', () => {
+    const source = `.card { background-image: url("./icon.svg"/**/), url('./ic/*a*/on.svg'), url(./ic/*b*/on.svg); }`;
+    expect(discoverStylesheetAssets({ id: '/project/Card.gss', source })).toEqual({
+      urls: ['./icon.svg', './ic/*a*/on.svg', './ic/*b*/on.svg'], diagnostics: []
+    });
+  });
+
   it('preserves unbound data, remote and fragment URLs and ignores URL-like text', () => {
     const session = createGssCompilerSession({ projectRoot: '/project' });
     const source = `.card { background-image: url("data:image/png;base64,AAAA"), url(https://example.test/a.svg?q=1#x), url(#mask); content: "url(fake.svg)"; }`;

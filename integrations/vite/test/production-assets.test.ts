@@ -78,7 +78,7 @@ it.each(['image-set', '-webkit-image-set'])('ships a quoted %s candidate from th
 
 it('rebases publicDir and escaped local URLs while preserving query, fragment and external URLs', async () => {
   const root = await fixture({
-    'Card.gss': `.card { background-image: url("./a\\20 b.svg?x=1#shape"), url(/logo.svg?v=2#logo), url(https://example.test/remote.svg), url(#mask), url("data:image/png;base64,AAAA"); }`,
+    'Card.gss': `.card { background-image: url("./a\\20 b.svg?x=1#shape"/**/), url(/logo.svg?v=2#logo), url(https://example.test/remote.svg), url(#mask), url("data:image/png;base64,AAAA"); }`,
     'a b.svg': '<svg xmlns="http://www.w3.org/2000/svg"/>',
     'static/logo.svg': '<svg xmlns="http://www.w3.org/2000/svg"><circle/></svg>'
   });

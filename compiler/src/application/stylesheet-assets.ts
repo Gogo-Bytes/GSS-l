@@ -41,7 +41,9 @@ export function assetOccurrences(value: string): { url: string; start: number; e
       if (node.type !== 'function') continue;
       const name = node.value.toLowerCase();
       if (name === 'url') {
-        const raw = valueParser.stringify(node.nodes).trim().replace(/^(['"])([\s\S]*)\1$/, '$2');
+        const [first, ...rest] = node.nodes;
+        const raw = first?.type === 'string' && rest.every(part => part.type === 'space' || part.type === 'comment')
+          ? first.value : valueParser.stringify(node.nodes).trim();
         record(node, raw);
       } else {
         visit(node.nodes, name === 'image-set' || name === '-webkit-image-set');
